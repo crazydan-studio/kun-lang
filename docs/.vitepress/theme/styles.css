@@ -1,0 +1,28 @@
+/* ========== Kun 项目文档 — 自定义样式 ========== */
+
+/* 侧边栏宽度 */
+:root {
+  --vp-sidebar-width: 280px;
+}
+
+/* 代码块行号样式调整 */
+.vp-code .line-numbers {
+  opacity: 0.5;
+}
+
+/* 限制代码块高度并添加垂直滚动条 */
+.vp-doc div[class*='language-'] {
+  max-height: 40rem;
+  overflow-y: auto;
+}
+
+/* 确保代码内容不冲突 */
+.vp-doc div[class*='language-'] pre {
+  margin: 0;
+}
+
+.vp-doc div[class*='language-'] pre .line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  word-wrap: break-word;
+}

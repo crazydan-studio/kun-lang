@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# VitePress
+*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Zig build output
+code/.zig-cache/
+code/zig-out/
+code/zig-cache/
