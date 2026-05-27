@@ -7,7 +7,7 @@ DOCS_DIR="$PROJECT_ROOT/docs"
 
 echo "==> 安装文档依赖..."
 cd "$DOCS_DIR"
-pnpm install
+pnpm install || exit $?
 
 echo "==> 构建文档..."
 pnpm build
