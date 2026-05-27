@@ -4,6 +4,7 @@ node_modules/
 # Build output
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+docs/.pnpm-store/
 
 # VitePress
 *.local
