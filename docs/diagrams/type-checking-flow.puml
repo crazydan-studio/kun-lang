@@ -12,7 +12,6 @@ repeat
   :Generate type constraints\nτ_var = expected_type;
   :Add constraint to set;
 repeat while (More AST nodes?) is (yes)
-->no;
 
 :Phase 2: Unification;
 
@@ -27,7 +26,6 @@ repeat
     :Halt with error;
   endif
 repeat while (More constraints?) is (yes)
-->no;
 
 :Apply final substitution\nto all AST nodes;
 :Exhaustiveness check\nfor pattern matches;
