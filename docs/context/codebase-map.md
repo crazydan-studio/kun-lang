@@ -15,7 +15,7 @@
 |---|---|
 | `docs/context/` | 项目上下文与 AI 协作规范（最高优先级） |
 | `docs/architecture/` | 技术架构与系统设计 |
-| `docs/design/` | 应用层行为与功能设计 |
+| `docs/design/` | 应用层行为与功能设计（type-system / standard-library / syntax） |
 | `docs/requirements/` | 需求文档 |
 | `docs/backlog/` | 待办事项 |
 | `docs/plans/` | 执行计划 |
@@ -37,3 +37,4 @@
 | 依赖管理 | `pnpm`（在 `docs/` 下） |
 | 构建 | `cd docs && pnpm build` |
 | 预览 | `cd docs && pnpm dev` |
+| Markdown 检查 | `cd docs && pnpm lint:md` |

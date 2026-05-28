@@ -17,10 +17,10 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 语言核心设计与类型系统定义 |
-| Owner Doc | `docs/architecture/project-vision.md`、`docs/design/type-system.md` |
-| 活跃计划 | 类型系统核心设计定型 |
-| Backlog 项 | 类型系统核心设计 |
+| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型） |
+| Owner Doc | `docs/design/type-system.md`、`docs/design/syntax.md`、`docs/design/standard-library.md` |
+| 活跃计划 | 命令签名系统设计、运行时架构设计、安全模型设计 |
+| Backlog 项 | 命令签名系统设计、运行时架构设计 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -41,7 +41,7 @@
 | 安装依赖 | `cd docs && pnpm install` |
 | 构建文档 | `cd docs && pnpm build` |
 | 本地预览 | `cd docs && pnpm dev` |
-| 检查格式 | 待定 |
+| 检查 Markdown 语法 | `cd docs && pnpm lint:md` |
 | 单元测试 | 待定 |
 
 ## AI 阻塞条件
