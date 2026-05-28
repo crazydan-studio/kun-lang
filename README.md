@@ -1,6 +1,6 @@
 # Kun（鲲）
 
-<img src="./logo.svg" alt="Kun 项目标志" width="172px" />
+<img src="./logo.svg" alt="Kun Logo" width="172px" />
 
 > 北冥有鱼，其名为鲲。鲲之大，不知其几千里也。化而为鸟，其名为鹏。
 
