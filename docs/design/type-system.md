@@ -46,6 +46,10 @@ Type Universe
 └── Type Variables     (a, b, etc. — for generics)
 ```
 
+```plantuml
+@file:../diagrams/type-system-hierarchy.puml
+```
+
 ## 基础类型
 
 ### 概览
@@ -552,6 +556,10 @@ Kun 类型系统**不包含子类型关系**：
 
 阶段 2: 合一（Unification）
   约束等式 → 求解 → 类型替换 → 最终类型
+```
+
+```plantuml
+@file:../diagrams/type-checking-flow.puml
 ```
 
 ### 阶段 1: 约束生成
