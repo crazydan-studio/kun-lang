@@ -71,7 +71,7 @@ Kun 解释器
 | 类别 | 类型 |
 |---|---|
 | 基础类型 | `Int`、`Nat`、`Float`、`Bool`、`String`、`Bytes`、`Char`、`Regex`、`Duration`、`Unit`、`Path` |
-| 复合类型 | `List`、`Map`、`Array`、`Stream`、`Tuple` |
+| 复合类型 | `List`、`Map`、`Set`、`Stream`、`Tuple` |
 | 和类型 | `Maybe`、`Result`、自定义和类型 |
 | 函数类型 | 命令函数、高阶函数、Lambda |
 | Effect 类型 | `IO`（结构化 IO 操作管理） |

@@ -8,13 +8,31 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| 基础类型 | 📋 设计中 | Int、Nat、Float、Bool、String、Bytes、Char、Regex、Duration、Unit、Path |
-| 和类型 | 📋 设计中 | Maybe、Result、自定义和类型 |
-| 代数数据类型 | 📋 设计中 | 乘积类型与和类型的组合 |
-| 模式匹配 | 📋 设计中 | 和类型、列表、映射、守卫子句 |
-| 类型推断 | 📋 设计中 | 自动推断局部变量和函数返回类型 |
-| 泛型 | 📋 设计中 | 参数化多态 |
+| 基础类型 | ✅ 设计定型 | Int(i64)、Nat(独立非负)、Float(f64)、Bool、String(UTF-8)、Bytes、Char、Regex(matchAll+捕获组)、Duration、Unit、Path |
+| 复合类型 | ✅ 设计定型 | List(Rope 实现，支持索引)、Map、Set(内建 Eq)、Stream、Tuple |
+| 和类型 | ✅ 设计定型 | Maybe、Result、自定义和类型，穷举检查 |
+| 代数数据类型 | ✅ 设计定型 | 积类型(Record/Tuple) + 和类型的组合 |
+| 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
+| 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |
+| 泛型 | ✅ 设计定型 | 无约束参数化多态（简单泛型） |
+| 效应类型 | ✅ 设计定型 | IO 边界标记，纯函数 vs 副作用 |
+| 类型等价 | ✅ 设计定型 | 结构等价，无子类型 |
 | 参数验证器 | 📋 设计中 | range、length、regex、enum、custom，链式组合 |
+
+### 标准库类型
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Port | ✅ 设计定型 | 0-65535，独立类型，isPrivileged/isRegistered/isDynamic |
+| Pid | ✅ 设计定型 | 1..2^22-1，构造器 pid(n) |
+| Signal | ✅ 设计定型 | POSIX 信号枚举，fromInt/toInt |
+| Errno | ✅ 设计定型 | POSIX 错误码枚举，与 IOError 建立映射 |
+| FileType | ✅ 设计定型 | 运行时文件类型枚举，Path 不内嵌类型信息 |
+| IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
+| DateTime | ✅ 设计定型 | 绝对时间点，format/parse，与 Duration 互操作 |
+| ExitCode | ✅ 设计定型 | 0-255，isSuccess/isFailure，预定义常量 |
+| User / Group | ✅ 设计定型 | UserName/Uid/GroupName/Gid，运行时查询函数 |
+| IpAddress | ✅ 设计定型 | IPv4/IPv6 枚举，isLoopback/isPrivate，SocketAddr |
 
 ### 命令系统
 
@@ -65,10 +83,10 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| Stream 类型 | 📋 设计中 | 惰性流，mmap/分块/非阻塞 IO |
-| Maybe / Result | 📋 设计中 | 显式错误处理，? 操作符 |
-| ? 操作符 | 📋 设计中 | 自动解包 Ok，传播 Err |
-| Effect 类型 | 📋 设计中 | 结构化 IO 操作管理 |
+| Stream 类型 | ✅ 设计定型 | 惰性流，mmap/分块/非阻塞 IO |
+| Maybe / Result | ✅ 设计定型 | 显式错误处理，? 操作符 |
+| ? 操作符 | ✅ 设计定型 | 自动解包 Ok，传播 Err |
+| Effect 类型 | ✅ 设计定型 | 结构化 IO 操作管理 |
 
 ### 语法与工具
 
