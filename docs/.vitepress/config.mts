@@ -1,5 +1,10 @@
+import { writeFileSync } from 'node:fs'
 import { defineConfig } from 'vitepress'
 import { configureDiagramsPlugin, createBuildTimeDiagramsPlugin } from 'vitepress-plugin-diagrams'
+
+const remoteLogoUrl = 'https://raw.githubusercontent.com/crazydan-studio/kun-shell/refs/heads/master/logo.svg'
+let logo = remoteLogoUrl
+let fetchLogo = async (distDir: string) => {}
 
 const vitePlugins = []
 const diagramsPluginOpts = {
@@ -11,6 +16,16 @@ let configMarkdown = (md) => {
 }
 
 if (process.env.NODE_ENV == 'production') {
+  logo = '/logo.svg'
+  fetchLogo = async (distDir: string) => {
+    const distLogFile = distDir + logo
+
+    await fetch(remoteLogoUrl)
+            .then((resp) => resp.arrayBuffer())
+            .then((buf) => Buffer.from(buf))
+            .then((buf) => writeFileSync(distLogFile, buf))
+  }
+
   const { configureMarkdown, vitePlugin } = createBuildTimeDiagramsPlugin({
     diagramsDistDir: 'diagrams',
     ...diagramsPluginOpts,
@@ -24,7 +39,7 @@ export default defineConfig({
   lang: 'zh-CN',
   title: 'Kun（鲲）',
   description: 'Kun（鲲）—— 面向 Linux 的函数式脚本语言，项目文档',
-  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }]],
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: logo }]],
 
   markdown: {
     lineNumbers: true,
@@ -36,7 +51,7 @@ export default defineConfig({
   },
 
   themeConfig: {
-    logo: '/logo.svg',
+    logo,
 
     nav: [
       { text: '首页', link: '/' },
@@ -142,6 +157,10 @@ export default defineConfig({
   },
 
   cleanUrls: true,
+
+  async buildEnd(siteConfig) {
+    await fetchLogo(siteConfig.outDir)
+  }
 })
 
 /* ====== Sidebar helpers ====== */
