@@ -9,7 +9,7 @@
 | P0 | 运行时架构设计 | — | `docs/architecture/system-baseline.md` | — | `idea` | `plan-first` | 无 | — |
 | P1 | 命令签名系统设计 | — | `docs/design/app-overview.md` | — | `idea` | `plan-first` | 无 | — |
 | P1 | 安全模型设计 | — | `docs/design/roles-and-permissions.md` | — | `idea` | `plan-first` | 无 | — |
-| P2 | 语法设计 | — | — | — | `idea` | `plan-first` | 类型系统设计 | — |
+| P2 | 语法设计 | — | `docs/design/syntax.md` | — | `needs-design` | `plan-first` | 无 | 2026-05-28 |
 | P2 | REPL 设计 | — | — | — | `idea` | `plan-first` | 运行时设计 | — |
 
 ## 状态流转
