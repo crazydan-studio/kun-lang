@@ -46,10 +46,20 @@ Kun 解释器
 ├── 最小权限原则
 │   ├── 默认：工作目录及其子目录
 │   └── 扩展：显式权限声明
+│       ├── 脚本级声明
+│       ├── 作用域级声明（with capability）
+│       └── 单命令级注解（with capabilities）
 ├── 能力安全（Capability-Based Security）
 │   ├── 运行时在启动时根据权限声明授予
 │   ├── 父脚本显式传递
 │   └── 用户确认后动态授予
+├── 命令级安全
+│   ├── CDF 行为契约验证（输出类型、隐式 IO 检测）
+│   ├── 二进制完整性校验（SHA-256 哈希）
+│   ├── CDF 密码学签名（Ed25519）
+│   ├── Seccomp 系统调用过滤（基于 CDF 自动推导）
+│   ├── 单命令沙箱隔离（高风险命令独立 namespace）
+│   └── 信任分级策略（trusted / verified / sandboxed / denied）
 └── Linux Namespace 沙箱
     ├── Mount Namespace（文件系统隔离）
     ├── PID Namespace（进程隔离）

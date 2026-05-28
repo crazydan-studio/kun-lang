@@ -199,6 +199,7 @@ function sidebarDesign() {
         { text: '应用概览', link: '/design/app-overview' },
         { text: '功能清单', link: '/design/feature-inventory' },
         { text: '安全角色与权限', link: '/design/roles-and-permissions' },
+        { text: '供应链安全', link: '/design/supply-chain-security' },
       ],
     },
   ]
