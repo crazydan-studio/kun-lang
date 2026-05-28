@@ -9,6 +9,9 @@ docs/.vitepress/cache/
 # VitePress
 *.local
 
+# VitePress generated diagrams (from PlantUML sources)
+docs/public/diagrams/
+
 # Editor
 .vscode/
 .idea/
