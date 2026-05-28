@@ -103,7 +103,17 @@ export default defineConfig({
           { text: '经验教训', link: '/lessons/' },
           { text: '分析报告', link: '/analysis/' },
           { text: '回顾总结', link: '/retrospectives/' },
-          { text: '示例', link: '/examples/' },
+      {
+        text: '示例',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/examples/' },
+          { text: '日志文件处理器', link: '/examples/file-processor' },
+          { text: '类型系统聚焦', link: '/examples/type-showcase' },
+          { text: 'IO 与效应系统', link: '/examples/networking' },
+          { text: '模式匹配专题', link: '/examples/pattern-matching' },
+        ],
+      },
           { text: '文章', link: '/articles/' },
         ],
       },
