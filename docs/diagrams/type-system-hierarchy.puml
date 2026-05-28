@@ -1,0 +1,61 @@
+@startuml typesystem-hierarchy
+title Kun Type System Hierarchy
+
+package "Base Types" {
+  class Int
+  class Nat
+  class Float
+  class Bool
+  class String
+  class Bytes
+  class Char
+  class Regex
+  class Duration
+  class Unit
+  class Path
+}
+
+package "Compound Types" {
+  class List<T>
+  class Map<K,V>
+  class Array<T>
+  class Stream<T>
+  class Tuple
+}
+
+package "Sum Types / ADT" {
+  class Maybe<T>
+  class Result<T,E>
+  class "Custom ADT" as CustomADT
+}
+
+package "Function Types" {
+  class "Pure Function" as PureFn
+  class "Command Function" as CmdFn
+  class "Higher-Order Function" as HOFn
+}
+
+package "Effect Types" {
+  class IO<T>
+}
+
+package "Type System Infrastructure" {
+  class "Kind: Type" as KindType
+  class "Kind: Type -> Type" as KindConstructor
+  class "Type Variable" as TypeVar
+}
+
+KindConstructor --> KindType : "applied to type argument"
+List<T> --> KindConstructor : "List :: Type -> Type"
+Maybe<T> --> KindConstructor : "Maybe :: Type -> Type"
+IO<T> --> KindConstructor : "IO :: Type -> Type"
+
+note right of Int : i64, fixed-width
+note right of Nat : i64, non-negative only
+note right of String : UTF-8, immutable
+
+note bottom of List<T> : Singly-linked list\npattern-matchable
+note bottom of Maybe<T> : Just T | None
+note bottom of Result<T,E> : Ok T | Err E
+
+@enduml

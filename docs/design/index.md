@@ -7,6 +7,7 @@
 | 文件 | 用途 |
 |---|---|
 | [app-overview.md](app-overview.md) | Kun 语言功能概览 |
+| [type-system.md](type-system.md) | 类型系统核心设计 |
 | [feature-inventory.md](feature-inventory.md) | 功能清单与实现状态 |
 | [roles-and-permissions.md](roles-and-permissions.md) | 安全角色与权限模型（含单命令权限、容器化对比） |
 | [supply-chain-security.md](supply-chain-security.md) | 供应链安全防御方案 |
