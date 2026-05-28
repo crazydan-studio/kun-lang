@@ -54,6 +54,8 @@ export default defineConfig({
         text: '设计文档',
         items: [
           { text: '应用概览', link: '/design/app-overview' },
+          { text: '类型系统', link: '/design/type-system' },
+          { text: '标准库', link: '/design/standard-library' },
           { text: '功能清单', link: '/design/feature-inventory' },
           { text: '安全模型', link: '/design/roles-and-permissions' },
           { text: '项目愿景', link: '/architecture/project-vision' },
@@ -197,6 +199,8 @@ function sidebarDesign() {
       items: [
         { text: '索引', link: '/design/' },
         { text: '应用概览', link: '/design/app-overview' },
+        { text: '类型系统', link: '/design/type-system' },
+        { text: '标准库', link: '/design/standard-library' },
         { text: '功能清单', link: '/design/feature-inventory' },
         { text: '安全角色与权限', link: '/design/roles-and-permissions' },
         { text: '供应链安全', link: '/design/supply-chain-security' },

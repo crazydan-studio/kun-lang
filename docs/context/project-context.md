@@ -18,9 +18,9 @@
 | 维度 | 当前值 |
 |---|---|
 | 活跃需求 | 语言核心设计与类型系统定义 |
-| Owner Doc | `docs/architecture/project-vision.md`、`docs/design/app-overview.md` |
-| 活跃计划 | 初始化项目结构与文档体系 |
-| Backlog 项 | 项目初始化 |
+| Owner Doc | `docs/architecture/project-vision.md`、`docs/design/type-system.md` |
+| 活跃计划 | 类型系统核心设计定型 |
+| Backlog 项 | 类型系统核心设计 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 

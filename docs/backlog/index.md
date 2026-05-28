@@ -5,7 +5,7 @@
 | 优先级 | 事项 | 需求文档 | Owner Doc | 计划 | 状态 | AI 自治 | 阻塞项 | 最后检查 |
 |---|---|---|---|---|---|---|---|---|
 | P0 | 项目初始化与文档体系搭建 | — | `docs/context/project-context.md` | — | `done` | `implement` | 无 | 2026-05-27 |
-| P0 | 类型系统核心设计 | — | `docs/design/app-overview.md` | — | `idea` | `plan-first` | 无 | — |
+| P0 | 类型系统核心设计 | — | `docs/design/type-system.md` | — | `needs-design` | `plan-first` | 无 | 2026-05-28 |
 | P0 | 运行时架构设计 | — | `docs/architecture/system-baseline.md` | — | `idea` | `plan-first` | 无 | — |
 | P1 | 命令签名系统设计 | — | `docs/design/app-overview.md` | — | `idea` | `plan-first` | 无 | — |
 | P1 | 安全模型设计 | — | `docs/design/roles-and-permissions.md` | — | `idea` | `plan-first` | 无 | — |

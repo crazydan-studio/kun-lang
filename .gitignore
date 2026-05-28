@@ -1,10 +1,10 @@
 # Dependencies
 node_modules/
+.pnpm-store/
 
 # Build output
 docs/.vitepress/dist/
 docs/.vitepress/cache/
-docs/.pnpm-store/
 
 # VitePress
 *.local
