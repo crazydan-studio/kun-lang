@@ -66,6 +66,14 @@ export default defineConfig({
         ],
       },
       {
+        text: '技术架构',
+        items: [
+          { text: '项目愿景', link: '/architecture/project-vision' },
+          { text: '系统基线', link: '/architecture/system-baseline' },
+          { text: '模块边界', link: '/architecture/module-boundaries' },
+        ],
+      },
+      {
         text: '设计文档',
         items: [
           { text: '应用概览', link: '/design/app-overview' },
@@ -73,20 +81,30 @@ export default defineConfig({
           { text: '标准库', link: '/design/standard-library' },
           { text: '语法设计', link: '/design/syntax' },
           { text: '功能清单', link: '/design/feature-inventory' },
-          { text: '安全模型', link: '/design/roles-and-permissions' },
-          { text: '项目愿景', link: '/architecture/project-vision' },
-          { text: '系统基线', link: '/architecture/system-baseline' },
-          { text: '模块边界', link: '/architecture/module-boundaries' },
+          { text: '安全角色与权限', link: '/design/roles-and-permissions' },
+          { text: '供应链安全', link: '/design/supply-chain-security' },
         ],
       },
       {
         text: '工作管理',
         items: [
-          { text: '开发工作流', link: '/process/application-development-workflow' },
+          { text: '开发流程', link: '/process/application-development-workflow' },
           { text: '技能库', link: '/skills/' },
           { text: '待办事项', link: '/backlog/' },
           { text: '需求文档', link: '/requirements/' },
           { text: '开发计划', link: '/plans/' },
+          { text: '讨论记录', link: '/discussions/' },
+          { text: 'Bug 修复', link: '/bugs/' },
+          { text: '审计记录', link: '/audits/' },
+          { text: '开发日志', link: '/logs/' },
+          { text: '测试记录', link: '/testing/' },
+          { text: '参考文档', link: '/references/' },
+          { text: '输入处理', link: '/input/' },
+          { text: '经验教训', link: '/lessons/' },
+          { text: '分析报告', link: '/analysis/' },
+          { text: '回顾总结', link: '/retrospectives/' },
+          { text: '示例', link: '/examples/' },
+          { text: '文章', link: '/articles/' },
         ],
       },
       {
@@ -265,18 +283,97 @@ function sidebarWorking() {
     collapsed: true,
     items: [
       { text: '待办事项', link: '/backlog/' },
-      { text: '需求文档', link: '/requirements/' },
-      { text: '开发计划', link: '/plans/' },
-      { text: '讨论记录', link: '/discussions/' },
-      { text: 'Bug 修复', link: '/bugs/' },
-      { text: '审计记录', link: '/audits/' },
-      { text: '开发日志', link: '/logs/' },
-      { text: '测试记录', link: '/testing/' },
-      { text: '参考文档', link: '/references/' },
-      { text: '输入处理', link: '/input/' },
+      {
+        text: '需求文档',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/requirements/' },
+          { text: '需求综合指南', link: '/requirements/00-requirement-synthesis-guide' },
+          { text: 'MVP', link: '/requirements/mvp' },
+          { text: '产品范围', link: '/requirements/product-scope' },
+        ],
+      },
+      {
+        text: '开发计划',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/plans/' },
+          { text: '计划编写与执行指南', link: '/plans/00-plan-authoring-and-execution-guide' },
+          { text: '类型系统核心设计', link: '/plans/plan-type-system-core-design' },
+        ],
+      },
+      {
+        text: '讨论记录',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/discussions/' },
+          { text: '讨论编写指南', link: '/discussions/00-discussion-writing-guide' },
+          { text: '类型系统设计决策', link: '/discussions/discussion-type-system-design-decisions' },
+        ],
+      },
+      {
+        text: 'Bug 修复',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/bugs/' },
+          { text: 'Bug 修复记录编写指南', link: '/bugs/00-bug-fix-note-writing-guide' },
+        ],
+      },
+      {
+        text: '审计记录',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/audits/' },
+          { text: '审计执行指南', link: '/audits/00-audit-execution-guide' },
+          { text: '类型系统完备性审计', link: '/audits/audit-type-system-completeness' },
+        ],
+      },
+      {
+        text: '开发日志',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/logs/' },
+          { text: '日志编写指南', link: '/logs/00-log-writing-guide' },
+        ],
+      },
+      {
+        text: '测试记录',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/testing/' },
+          { text: '测试记录编写指南', link: '/testing/00-testing-note-guide' },
+          { text: '已知良好基线', link: '/testing/known-good-baselines' },
+        ],
+      },
+      {
+        text: '参考文档',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/references/' },
+          { text: '文档命名与时效性', link: '/references/document-naming-and-timeliness' },
+          { text: '实现指南', link: '/references/implementation-guide' },
+          { text: '维护检查清单', link: '/references/maintenance-checklist' },
+        ],
+      },
+      {
+        text: '输入处理',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/input/' },
+          { text: '输入处理指南', link: '/input/00-input-processing-guide' },
+          { text: '类型系统会话输入', link: '/input/input-maintainer-type-system-session' },
+        ],
+      },
       { text: '经验教训', link: '/lessons/' },
       { text: '分析报告', link: '/analysis/' },
-      { text: '回顾总结', link: '/retrospectives/' },
+      {
+        text: '回顾总结',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/retrospectives/' },
+          { text: '回顾编写指南', link: '/retrospectives/00-retrospective-writing-guide' },
+        ],
+      },
       { text: '示例', link: '/examples/' },
       { text: '文章', link: '/articles/' },
     ],
