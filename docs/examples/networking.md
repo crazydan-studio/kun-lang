@@ -46,7 +46,7 @@ printTimestamp : IO<Unit>
 printTimestamp =
   do
     now <- DT.now()
-    print("check at: " ++ now.format("%H:%M:%S"))
+    print(f"check at: {now:%H:%M:%S}")
 
 -- 多层 do：按顺序组合
 checkService : SocketAddr -> IO<HealthStatus>
@@ -68,7 +68,7 @@ checkService = \addr ->
             pure(Down { error = "unexpected response" })
       Err(err) ->
         do
-          print("request failed: " ++ toString(err))
+          print(f"request failed: {err}")
           pure(Down { error = toString(err) })
 
 -- ============================================================
@@ -120,8 +120,8 @@ reloadDaemon = \pid ->
   do
     result <- kill(pid, SIGHUP)
     case result of
-      Ok(_)       -> print("sent HUP to " ++ toString(pid))
-      Err(err)    -> print("failed: " ++ toString(err))
+      Ok(_)       -> print(f"sent HUP to {pid}")
+      Err(err)    -> print(f"failed: {err}")
     result
 
 -- 等待子进程
@@ -135,11 +135,11 @@ watchProcess = \pid, timeout ->
           if code.isSuccess() then
             print("process exited ok")
           else
-            print("process failed: " ++ toString(code))
+            print(f"process failed: {code}")
           pure(Ok(code))
       Err(err) ->
         do
-          print("wait failed: " ++ toString(err))
+          print(f"wait failed: {err}")
           pure(Err(err))
 
 -- ============================================================
@@ -213,8 +213,8 @@ scheduleCheck =
     let oneDay   = 1d
     let halfHour = 30m
 
-    print("checking every " ++ toString(interval))
-    print("timeout: " ++ toString(timeout))
+    print(f"checking every {interval}")
+    print(f"timeout: {timeout}")
 
 -- ============================================================
 -- 组合：完整监控检查
@@ -231,16 +231,16 @@ main =
 
     case status of
       Up(info) ->
-        print("service is up (" ++ toString(info.responseTime) ++ ")")
+        print(f"service is up ({info.responseTime})")
       Down(err) ->
         do
-          print("service is down: " ++ err.error)
+          print(f"service is down: {err.error}")
           -- 重启逻辑：发送 SIGTERM
           let pid = pid(1234)
           result <- kill(pid, SIGTERM)
           case result of
             Ok(_) -> print("sent SIGTERM")
-            Err(e) -> print("kill failed: " ++ toString(e))
+            Err(e) -> print(f"kill failed: {e}")
       Timeout ->
         print("request timed out")
 

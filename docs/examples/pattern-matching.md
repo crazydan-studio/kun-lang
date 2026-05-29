@@ -58,8 +58,8 @@ describeResult : Result<Int, String> -> String
 describeResult = \res ->
   case res of
     Ok 0    -> "zero"         -- 字面量 + 变体
-    Ok n    -> "got: " ++ toString(n)
-    Err msg -> "error: " ++ msg
+    Ok n    -> f"got: {n}"
+    Err msg -> f"error: {msg}"
 
 -- Maybe 模式
 head : List<a> -> Maybe<a>
@@ -168,16 +168,16 @@ describeCmd = \cmd ->
   case cmd of
     -- 嵌套匹配
     Run { program, args } ->
-      "run: " ++ toString(program)
+      f"run: {program}"
 
     -- 嵌套变体中的嵌套 Record
     Pipe (Run { program = p1, args = _ })
          (Run { program = p2 }) ->
-      "pipe: " ++ toString(p1) ++ " | " ++ toString(p2)
+      f"pipe: {p1} | {p2}"
 
     -- 多层嵌套
     Redirect { cmd = Pipe(_, _), file = f, mode = Append } ->
-      "append pipe output to " ++ toString(f)
+      f"append pipe output to {f}"
 
     -- 通配兜底
     _ -> "complex command"

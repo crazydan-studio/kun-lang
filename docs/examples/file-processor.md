@@ -200,6 +200,12 @@ main =
     -- 正则字面量
     let ipRegex = regex`[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+`
 
+    -- f-string 插值与格式化
+    let greeting   = f"app {appName} v{version}"               -- 变量插值
+    let formatted  = f"rate: {rate:.2f} / timeout: {timeout}"  -- Float 精度
+    let hexVal     = f"hex: {255:x} / {255:X}"                 -- 整数进制
+    let showCount  = f"count: {result}"                         -- Int 默认十进制
+
     -- 索引访问
     let first     = levels[0]     -- List 索引 → Maybe<LogLevel>
     let firstChar = "hello"[0]    -- String 索引 → Char
@@ -243,8 +249,7 @@ main =
     -- 生成报告
     let report =
       L.map(\e ->
-        e.timestamp.format("%Y-%m-%d %H:%M:%S") ++ " [" ++
-        toString(e.level) ++ "] " ++ e.message
+        f"{e.timestamp:%Y-%m-%d %H:%M:%S} [{e.level}] {e.message}"
       , errors)
         |> join("\n")
 
@@ -260,5 +265,5 @@ main =
     -- 单命令权限注解
     cleanTemp() with capabilities fs.write("/tmp")
 
-    print("done: processed " ++ toString(L.length(lines)) ++ " lines")
+    print(f"done: processed {L.length(lines)} lines")
 ```
