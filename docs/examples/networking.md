@@ -2,27 +2,27 @@
 
 覆盖：`do` 记法（深度）、`?` 操作符、权限声明三级粒度、`Signal`/`Port`/`Pid`/`SocketAddr`、`Stream`、`DateTime`/`Duration`、错误链、`capability` 作用域
 
-```kun
--- ============================================================
--- networking.ku  —  网络服务监控脚本
--- 涵盖：do 记法（深层嵌套）、? 操作符（错误传播）、
---       权限声明三级粒度、Signal/Port/Pid/SocketAddr、
---       Stream 惰性 IO、DateTime/Duration、IOError 处理
--- ============================================================
+```
+// ============================================================
+// networking.ku  —  网络服务监控脚本
+// 涵盖：do 记法（深层嵌套）、? 操作符（错误传播）、
+//       权限声明三级粒度、Signal/Port/Pid/SocketAddr、
+//       Stream 惰性 IO、DateTime/Duration、IOError 处理
+// ============================================================
 
--- 脚本级权限声明（全局基线）
+// 脚本级权限声明（全局基线）
 capability
-  net.http("api.example.com")
-  , fs.read("/var/log")
-  , fs.write("/tmp/reports")
+  net.http "api.example.com"
+  , fs.read "/var/log"
+  , fs.write "/tmp/reports"
   , process.signal
 
-import DateTime as DT
-import Duration as Dur
+from DateTime (now, fromUnixSecs)
+import Duration
 
--- ============================================================
--- ADT：监控结果
--- ============================================================
+// ============================================================
+// ADT：监控结果
+// ============================================================
 
 type HealthStatus
   = Up { responseTime : Duration }
@@ -37,216 +37,215 @@ type MonitorResult
     , checkedAt : DateTime
     }
 
--- ============================================================
--- do 记法：多层嵌套
--- ============================================================
+// ============================================================
+// do 记法：多层嵌套
+// ============================================================
 
--- 基础 do：单一 IO 操作
-printTimestamp : IO<Unit>
+// 基础 do：单一 IO 操作
+printTimestamp : IO Unit
 printTimestamp =
   do
-    now <- DT.now()
-    print(f"check at: {now:%H:%M:%S}")
+    now <- now ()
+    print f`check at: {now:%H:%M:%S}`
 
--- 多层 do：按顺序组合
-checkService : SocketAddr -> IO<HealthStatus>
+// 多层 do：按顺序组合
+checkService : SocketAddr -> IO HealthStatus
 checkService = \addr ->
   do
-    -- 第一层 IO
-    start <- DT.now()
-    result <- httpGet(addr, path"/health")
+    // 第一层 IO
+    start <- now ()
+    result <- httpGet addr p`/health`
 
-    -- case 分支内嵌套 IO
+    // case 分支内嵌套 IO
     case result of
-      Ok(body) ->
+      Ok body ->
         do
-          end <- DT.now()
-          let elapsed = end - start
-          if contains("\"status\":\"ok\"", body) then
-            pure(Up { responseTime = elapsed })
+          end <- now ()
+          elapsed = end - start
+          if contains "\"status\":\"ok\"" body then
+            pure (Up { responseTime = elapsed })
           else
-            pure(Down { error = "unexpected response" })
-      Err(err) ->
+            pure (Down { error = "unexpected response" })
+      Err err ->
         do
-          print(f"request failed: {err}")
-          pure(Down { error = toString(err) })
+          print f`request failed: {err}`
+          pure (Down { error = toString err })
 
--- ============================================================
--- ? 操作符：Error 自动传播
--- ============================================================
+// ============================================================
+// ? 操作符：Error 自动传播
+// ============================================================
 
--- 在返回 Result<T, E> 的函数中，? 解包 Ok 并传播 Err
+// 在返回 Result t e 的函数中，? 解包 Ok 并传播 Err
 type ConfigError
   = MissingField String
   | InvalidPort
   | ResolveFailed String
 
-loadConfig : Path -> IO<Result<{ host : String, port : Port }, ConfigError>>
+loadConfig : Path -> IO (Result { host : String, port : Port } ConfigError)
 loadConfig = \path ->
   do
-    content <- readFile(path)
-    -- ? 解包 Result，若为 Err 则提前返回
-    let host  = parseField("host", content)?
-    let portStr = parseField("port", content)?
-    let portInt = toInt(portStr)
-    let port  = Port.fromInt(portInt)?
+    content <- readFile path
+    // ? 解包 Result，若为 Err 则提前返回
+    host  = parseField? "host" content
+    portStr = parseField? "port" content
+    portInt = toInt portStr
+    port  = Port.fromInt? portInt
 
-    Ok({ host = host, port = port })
+    Ok { host = host, port = port }
 
--- ? 的链式使用
-fetchAndReport : SocketAddr -> IO<Result<MonitorResult, String>>
+// ? 的链式使用
+fetchAndReport : SocketAddr -> IO (Result MonitorResult String)
 fetchAndReport = \addr ->
   do
-    start <- DT.now()
-    body  <- httpGet(addr, path"/api/data")?
-    end   <- DT.now()
-    let parsed = parseJson(body)?
-    let data   = extractField("value", parsed)?
-    logResult(data)
-    Ok(Result
+    start <- now ()
+    body  <- httpGet? addr p`/api/data`
+    end   <- now ()
+    parsed = parseJson? body
+    data   = extractField? "value" parsed
+    logResult data
+    Ok (Result
       { service   = "api"
       , endpoint  = addr
       , status    = Up { responseTime = end - start }
       , checkedAt = start
       })
 
--- ============================================================
--- Signal / Pid 使用
--- ============================================================
+// ============================================================
+// Signal / Pid 使用
+// ============================================================
 
--- 发送信号
-reloadDaemon : Pid -> IO<Result<(), IOError>>
+// 发送信号
+reloadDaemon : Pid -> IO (Result Unit IOError)
 reloadDaemon = \pid ->
   do
-    result <- kill(pid, SIGHUP)
+    result <- kill pid SIGHUP
     case result of
-      Ok(_)       -> print(f"sent HUP to {pid}")
-      Err(err)    -> print(f"failed: {err}")
+      Ok _        -> print f`sent HUP to {pid}`
+      Err err     -> print f`failed: {err}`
     result
 
--- 等待子进程
-watchProcess : Pid -> Duration -> IO<Result<ExitCode, IOError>>
-watchProcess = \pid, timeout ->
+// 等待子进程
+watchProcess : Pid -> Duration -> IO (Result ExitCode IOError)
+watchProcess = \pid timeout ->
   do
-    result <- wait(pid, timeout)
+    result <- wait pid timeout
     case result of
-      Ok(code) ->
+      Ok code ->
         do
-          if code.isSuccess() then
-            print("process exited ok")
+          if code.isSuccess then
+            print "process exited ok"
           else
-            print(f"process failed: {code}")
-          pure(Ok(code))
-      Err(err) ->
+            print f`process failed: {code}`
+          pure (Ok code)
+      Err err ->
         do
-          print(f"wait failed: {err}")
-          pure(Err(err))
+          print f`wait failed: {err}`
+          pure (Err err)
 
--- ============================================================
--- Stream：惰性处理网络数据
--- ============================================================
+// ============================================================
+// Stream：惰性处理网络数据
+// ============================================================
 
--- 流式读取 HTTP 响应
-streamResponse : SocketAddr -> Stream<String>
+// 流式读取 HTTP 响应
+streamResponse : SocketAddr -> Stream String
 streamResponse = \addr ->
-  stream httpGetStream(addr, path"/events")
-    |> filter(\line -> contains("data:", line))
-    |> map(\line -> line.slice(5))
+  stream httpGetStream addr p`/events`
+    |> filter (\line -> contains "data:" line)
+    |> map (\line -> line.slice 5)
 
--- 消费流
-processEvents : SocketAddr -> IO<Unit>
+// 消费流
+processEvents : SocketAddr -> IO Unit
 processEvents = \addr ->
   do
-    streamResponse(addr)
-      |> take(100)
-      |> iter(\event -> processEvent(event))
+    streamResponse addr
+      |> take 100
+      |> iter (\event -> processEvent event)
 
--- ============================================================
--- 权限作用域（三级粒度）
--- ============================================================
+// ============================================================
+// 权限作用域（三级粒度）
+// ============================================================
 
--- 1. 脚本级（顶部声明）：全局可用
--- capability net.http(...), fs.read(...)
+// 1. 脚本级（顶部声明）：全局可用
 
--- 2. 作用域级：临时扩缩权限
-generateReport : Path -> IO<Unit>
+// 2. 作用域级：临时扩缩权限
+generateReport : Path -> IO Unit
 generateReport = \outputPath ->
   do
-    data <- collectData()
+    data <- collectData ()
 
-    -- 临时授予网络权限，块内有效
-    with capability net.http("api.example.com") {
-      enriched <- enrichWithApi(data)
-      writeFile(outputPath, enriched)
+    // 临时授予网络权限，块内有效
+    with capability net.http "api.example.com" {
+      enriched <- enrichWithApi data
+      writeFile outputPath enriched
     }
-    -- 离开块后 net.http 权限自动收回
+    // 离开块后 net.http 权限自动收回
 
-    print("report generated")
+    print "report generated"
 
--- 3. 单命令级：精确约束
-cleanArtifacts : Path -> IO<Unit>
+// 3. 单命令级：精确约束
+cleanArtifacts : Path -> IO Unit
 cleanArtifacts = \dir ->
   do
-    -- 仅此一条命令获得 fs.write 权限
-    rm(dir) with capabilities fs.write("/tmp")
-    print("cleaned")
+    // 仅此一条命令获得 fs.write 权限
+    rm dir with capabilities fs.write "/tmp"
+    print "cleaned"
 
--- ============================================================
--- DateTime / Duration 操作
--- ============================================================
+// ============================================================
+// DateTime / Duration 操作
+// ============================================================
 
-timeWindow : Duration -> IO<Bool>
+timeWindow : Duration -> IO Bool
 timeWindow = \window ->
   do
-    now   <- DT.now()
-    start <- DT.fromUnixSecs(1700000000)
-    let elapsed = now - start
-    pure(elapsed < window)
+    now   <- now ()
+    start <- fromUnixSecs 1700000000
+    elapsed = now - start
+    pure (elapsed < window)
 
--- Duration 字面量 + 运算
-scheduleCheck : IO<Unit>
+// Duration 字面量 + 运算
+scheduleCheck : IO Unit
 scheduleCheck =
   do
-    let interval = 30s
-    let timeout  = 5s
-    let delay    = 100ms
-    let oneDay   = 1d
-    let halfHour = 30m
+    interval = 30s
+    timeout  = 5s
+    delay    = 100ms
+    oneDay   = 1d
+    halfHour = 30m
 
-    print(f"checking every {interval}")
-    print(f"timeout: {timeout}")
+    print f`checking every {interval}`
+    print f`timeout: {timeout}`
 
--- ============================================================
--- 组合：完整监控检查
--- ============================================================
+// ============================================================
+// 组合：完整监控检查
+// ============================================================
 
-main : IO<Unit>
+main : IO Unit
 main =
   do
-    -- 构造 SocketAddr
-    let addr = Tcp(parse("10.0.1.5")?, port(8080))
+    // 构造 SocketAddr
+    addr = Tcp (parse "10.0.1.5")? (Port.fromInt 8080)
 
-    printTimestamp()
-    status <- checkService(addr)
+    printTimestamp ()
+    status <- checkService addr
 
     case status of
-      Up(info) ->
-        print(f"service is up ({info.responseTime})")
-      Down(err) ->
+      Up info ->
+        print f`service is up ({info.responseTime})`
+      Down err ->
         do
-          print(f"service is down: {err.error}")
-          -- 重启逻辑：发送 SIGTERM
-          let pid = pid(1234)
-          result <- kill(pid, SIGTERM)
+          print f`service is down: {err.error}`
+          // 重启逻辑：发送 SIGTERM
+          pid = Pid.pid 1234
+          result <- kill pid SIGTERM
           case result of
-            Ok(_) -> print("sent SIGTERM")
-            Err(e) -> print(f"kill failed: {e}")
+            Ok _  -> print "sent SIGTERM"
+            Err e -> print f`kill failed: {e}`
       Timeout ->
-        print("request timed out")
+        print "request timed out"
 
-    -- 流式处理事件
-    processEvents(addr)
+    // 流式处理事件
+    processEvents addr
 
-    -- 生成报告
-    generateReport(path"/tmp/reports/health.json")
+    // 生成报告
+    generateReport p`/tmp/reports/health.json`
 ```
