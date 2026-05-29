@@ -26,6 +26,7 @@
 - 所有持久化结论必须落盘到文件
 - **文档新增必更新导航**：新建文档文件后，必须同步更新 `docs/.vitepress/config.mts` 中的 nav 和对应 sidebar 项
 - **文档修改后必须校验 Markdown 语法**：每次新建或编辑 `.md` 文件后，必须运行 `markdownlint` 检查语法正确性，修复所有报错后再提交
+- **忽略 `.gitignore` 条目**：除非特别指定，不得读写和搜索 `.gitignore` 中已被忽略的文件和目录
 
 ## Git 规范
 
