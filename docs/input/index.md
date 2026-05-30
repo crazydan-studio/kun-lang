@@ -11,3 +11,4 @@
 | 文件 | 来源 | 日期 |
 |------|------|------|
 | [类型系统设计会话](input-maintainer-type-system-session.md) | 项目维护者 | 2026-05-28 |
+| [语法规范附件](input-syntax-specification.md) | 项目维护者 | 2026-05-30 |
