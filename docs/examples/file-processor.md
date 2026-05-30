@@ -14,8 +14,8 @@
 capability fs.read("/var/log"), fs.read("/etc")
 
 // 模块导入（新语法）
-from List as L
-from Map (get, insert)
+import List as L
+import Map with (get, insert)
 import Path
 
 // ============================================================
@@ -183,7 +183,7 @@ main =
     timeout  = 30s                 // Duration
     empty    = ()                  // Unit
 
-    // Path 字面量（新语法：反引号）
+    // Path 字面量（前缀 p + 双引号）
     logPath    = p"/var/log/myapp/access.log"
     configPath = p"./config.toml"
     backupDir  = p"/tmp/backup"

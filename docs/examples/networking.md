@@ -1,6 +1,6 @@
 # IO 与效应系统聚焦：网络服务监控
 
-覆盖：`do` 记法（深度）、`?` 操作符、权限声明三级粒度、`Signal`/`Port`/`Pid`/`SocketAddr"、"Stream`、`DateTime`/`Duration`、错误链、`capability` 作用域
+覆盖：`do` 记法（深度）、`?` 操作符、权限声明三级粒度、`Signal`/`Port`/`Pid`/`SocketAddr`/`Stream`/`DateTime`/`Duration`、错误链、`capability` 作用域
 
 ```
 // ============================================================
@@ -17,8 +17,9 @@ capability
   , fs.write "/tmp/reports"
   , process.signal
 
-from DateTime (now, fromUnixSecs)
+import DateTime with (now, fromUnixSecs)
 import Duration
+import ExitCode
 
 // ============================================================
 // ADT：监控结果
@@ -132,7 +133,7 @@ watchProcess = \pid timeout ->
     case result of
       Ok code ->
         do
-          if code.isSuccess then
+          if ExitCode.isSuccess code then
             print "process exited ok"
           else
             print f"process failed: {code}"
@@ -151,7 +152,7 @@ streamResponse : SocketAddr -> Stream String
 streamResponse = \addr ->
   stream httpGetStream addr p"/events"
     |> filter (\line -> contains "data:" line)
-    |> map (\line -> line.slice 5)
+    |> map (\line -> String.slice 5 line)
 
 // 消费流
 processEvents : SocketAddr -> IO Unit
@@ -223,7 +224,7 @@ main : IO Unit
 main =
   do
     // 构造 SocketAddr
-    addr = Tcp (parse "10.0.1.5")? (Port.fromInt 8080)
+    addr = Tcp (parse? "10.0.1.5") (Port.fromInt 8080)
 
     printTimestamp ()
     status <- checkService addr

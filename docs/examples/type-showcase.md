@@ -96,7 +96,7 @@ type JsonValue
 // 嵌套泛型
 type Command t
   = Shell String
-  | Function (() -> t)
+  | Function (Unit -> t)
   | Pipeline (Command Any, Command t)
 
 // ============================================================
@@ -123,11 +123,8 @@ greet = print "hello"
 map : (a -> b) -> List a -> List b
 map = \f list -> ...
 
-// Record 类型
-type User = { name : String, age : Int, email : String }
-
-// 函数返回 Record
-createUser' : String -> Int -> String -> User
+// 函数返回 Record（类型别名在导入时指定，非函数类型不支持 type 定义）
+createUser' : String -> Int -> String -> { name : String, age : Int, email : String }
 createUser' = \name age email ->
   { name  = name
   , age   = age
@@ -160,7 +157,7 @@ firstElem = identity (Just 42)
 // 6. 显式类型转换
 // ============================================================
 
-conversions : () -> (Int, Nat, Float, String, Bytes)
+conversions : Unit -> (Int, Nat, Float, String, Bytes)
 conversions = \() ->
   n  = 42           // Int
   u  = 42u          // Nat

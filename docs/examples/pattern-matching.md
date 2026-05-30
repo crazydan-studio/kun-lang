@@ -145,10 +145,8 @@ bothOrNothing = \pair ->
 // 6. Record 解构
 // ============================================================
 
-type Point = { x : Float, y : Float }
-
 // let 中的 Record 解构
-distance : Point -> Point -> Float
+distance : { x : Float, y : Float } -> { x : Float, y : Float } -> Float
 distance = \p1 p2 ->
   { x = x1, y = y1 } = p1
   { x = x2, y = y2 } = p2
@@ -157,14 +155,14 @@ distance = \p1 p2 ->
   sqrt (dx * dx + dy * dy)
 
 // Record 解构带别名
-midpoint : Point -> Point -> Point
+midpoint : { x : Float, y : Float } -> { x : Float, y : Float } -> { x : Float, y : Float }
 midpoint = \p1 p2 ->
   { x as x1, y as y1 } = p1
   { x as x2, y as y2 } = p2
   { x = (x1 + x2) / 2.0, y = (y1 + y2) / 2.0 }
 
 // case 匹配 Record 内容
-describePoint : Point -> String
+describePoint : { x : Float, y : Float } -> String
 describePoint = \p ->
   case p of
     { x = 0, y = 0 } -> "origin"
@@ -270,7 +268,7 @@ processNode = \tree ->
 // if 适合简单布尔判断
 checkFile : Path -> String
 checkFile = \p ->
-  if p.exists then "exists" else "not found"
+  if Path.exists p then "exists" else "not found"
 
 // case 适合多分支和结构解构（推荐）
 checkFile' : Path -> String
