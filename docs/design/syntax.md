@@ -416,13 +416,18 @@ Kun 的写法少一层包装，直击核心：传入一个 IO action，接收方
 ```
 // 其他语言：用 () -> Int 实现延迟计算
 lazyCompute : () -> Int
-lazyCompute = \() -> 1 + 2 + 3
+lazyCompute = \() -> ...   // 显式包装
 
-// Kun：名字绑定本身就延迟
-result = 1 + 2 + 3   // 只在被使用时求值
+// Kun：绑定即延迟，定义不触发求值
+factorial : Int -> Int
+factorial = \n ->
+  if n <= 1 then 1 else n * factorial (n - 1)
+
+result = factorial 100      // 绑定表达式，不计算
+print result                // 在此处才触发实际计算
 ```
 
-Kun 默认惰性求值，`result = 1 + 2 + 3` 不会立即计算 1+2+3，只在代码中引用 `result` 时才求值。不需要用 `() -> Int` 来包装"延迟"。
+Kun 默认惰性求值，`result = factorial 100` 不会立即计算，只在 `print result` 引用 `result` 时才求值。不需要用 `() -> Int` 来包装"延迟"。
 
 #### 避免无意义的 `()` 参数
 
