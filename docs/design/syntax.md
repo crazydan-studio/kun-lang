@@ -400,13 +400,18 @@ main = do
 对比写法：
 
 ```
-// 其他语言（如有无参函数）
-setCallback (fn : () -> IO Unit)
-fn ()
+// 其他语言：传入函数，接收方调用 fn()
+setCallback : (() -> IO Unit) -> IO Unit
+setCallback = \fn ->
+  fn ()         // 显式调用函数
 
-// Kun
-setCallback (fn : IO Unit)
-fn <- action    // 或直接 <-
+// Kun：传入 IO action，接收方解包即执行
+setCallback : IO Unit -> IO Unit
+setCallback = \fn ->
+  do
+    fn          // 执行 fn，丢弃 Unit 返回值
+    // 或
+    _ <- fn     // 显式解包并丢弃
 ```
 
 Kun 的写法少一层包装，直击核心：传入一个 IO action，接收方在需要的时刻 `<-` 解包即执行。
