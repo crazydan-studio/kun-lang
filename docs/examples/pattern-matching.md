@@ -271,8 +271,8 @@ checkFile = \p ->
   if Path.exists p then "exists" else "not found"
 
 // case 适合多分支和结构解构（推荐）
-checkFile' : Path -> String
-checkFile' = \p ->
+describeFileType : Path -> String
+describeFileType = \p ->
   case fileType p of
     Ok RegularFile   -> "regular file"
     Ok Directory     -> "directory"

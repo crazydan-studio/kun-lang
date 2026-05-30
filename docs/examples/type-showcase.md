@@ -124,8 +124,8 @@ map : (a -> b) -> List a -> List b
 map = \f list -> ...
 
 // 函数返回 Record（类型别名在导入时指定，非函数类型不支持 type 定义）
-createUser' : String -> Int -> String -> { name : String, age : Int, email : String }
-createUser' = \name age email ->
+createUserRecord : String -> Int -> String -> { name : String, age : Int, email : String }
+createUserRecord = \name age email ->
   { name  = name
   , age   = age
   , email = email
