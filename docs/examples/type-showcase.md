@@ -96,7 +96,7 @@ type JsonValue
 // 嵌套泛型
 type Command t
   = Shell String
-  | Function (Unit -> t)
+  | Function t
   | Pipeline (Command Any, Command t)
 
 // ============================================================
@@ -157,8 +157,8 @@ firstElem = identity (Just 42)
 // 6. 显式类型转换
 // ============================================================
 
-conversions : Unit -> (Int, Nat, Float, String, Bytes)
-conversions = \() ->
+conversions : (Int, Nat, Float, String, Bytes)
+conversions =
   n  = 42           // Int
   u  = 42u          // Nat
   f  = 3.14         // Float
