@@ -880,7 +880,56 @@ import Maybe with (Maybe(Just))     // 仅导入 Just 变体
 
 导入变体后，变体名称可直接在代码中使用（`Just`、`None`），无需模块限定。
 
-## 权限声明
+## 脚本入口
+
+Kun 脚本的执行入口按以下规则确定：
+
+| 条件 | 行为 |
+|------|------|
+| 定义 `main : IO Unit` | 从 `main` 启动 |
+| 未定义 `main`，但有顶层 IO 表达式 | 按源码顺序执行顶层 IO 表达式 |
+| 无 `main` 且无顶层 IO 表达式 | 编译告警：无可执行入口 |
+| `main` 签名非 `IO Unit` | 编译告警：入口函数需为 `IO Unit` |
+
+### 规则说明
+
+**`main` 优先**：文件定义了 `main : IO Unit` 时，编译器以此作为唯一入口，忽略其他顶层 IO 表达式：
+
+```
+main : IO Unit
+main = do
+  print "entry"       // 只执行此处
+```
+
+**无 `main` 按顺序执行**：适合简单脚本，无需 `main = do` 包装：
+
+```
+print "hello"
+print "world"
+```
+
+**库文件不执行顶层表达式**：有 `module export` 的文件即使存在 `main` 或顶层 IO 表达式，也仅作为定义提供，不自动执行：
+
+```
+module MyLib export (greet)
+
+greet : IO Unit
+greet = print "hi"
+
+// 此文件被导入时，greet 不会自动执行
+```
+
+### 告警示例
+
+```
+// 告警：main 签名不是 IO Unit
+main : Int
+main = 42
+// → warning: entry point 'main' must have type IO Unit, got Int
+
+// 告警：无可执行入口
+// → warning: no executable entry point found
+```
 
 ### 脚本级声明
 
