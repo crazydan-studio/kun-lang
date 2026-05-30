@@ -136,7 +136,7 @@ f"hex: {255:x} / {255:X}"         // 整数进制
 ```
 n = 42
 f"answer is {n}"          // → "answer is 42"
-"answer is " ++ toString(n)  // 等价
+"answer is " ++ toString n  // 等价
 ```
 
 对 `String` 类型，`toString` 直接返回自身。
