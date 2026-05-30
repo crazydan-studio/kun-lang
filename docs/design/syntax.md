@@ -882,18 +882,46 @@ import Maybe with (Maybe(Just))     // 仅导入 Just 变体
 
 ## 脚本入口
 
+### 入口规则
+
 Kun 脚本的执行入口按以下规则确定：
 
 | 条件 | 行为 |
 |------|------|
-| 定义 `main : IO Unit` | 从 `main` 启动 |
+| 定义 `main : IO Unit` | 从 `main` 启动，忽略命令行参数 |
+| 定义 `main : List String -> IO Unit` | 从 `main` 启动，传入命令行参数 |
 | 未定义 `main`，但有顶层 IO 表达式 | 按源码顺序执行顶层 IO 表达式 |
 | 无 `main` 且无顶层 IO 表达式 | 编译告警：无可执行入口 |
-| `main` 签名非 `IO Unit` | 编译告警：入口函数需为 `IO Unit` |
+| `main` 签名既非 `IO Unit` 也非 `List String -> IO Unit` | 编译告警：入口函数签名不合法 |
+
+### 命令行参数
+
+脚本通过 `main` 函数的参数接收命令行参数：
+
+```
+main : List String -> IO Unit
+main = \args ->
+  case args of
+    []           -> print "no arguments"
+    [name]       -> print f"hello, {name}"
+    [cmd, *rest] -> print f"{cmd} with {length rest} args"
+```
+
+参数规则：
+- 脚本名（`argv[0]`）不传入 `args` 列表，仅包含用户提供的参数
+- 参数类型为 `List String`，每个元素是单个参数字符串
+- 无参数时传入空列表 `[]`
+
+启动命令与参数映射：
+
+```
+kun script.ku foo bar       // args = ["foo", "bar"]
+kun script.ku               // args = []
+```
 
 ### 规则说明
 
-**`main` 优先**：文件定义了 `main : IO Unit` 时，编译器以此作为唯一入口，忽略其他顶层 IO 表达式：
+**`main` 优先**：文件定义了 `main` 时，编译器以此作为唯一入口，忽略其他顶层 IO 表达式：
 
 ```
 main : IO Unit
@@ -922,14 +950,16 @@ greet = print "hi"
 ### 告警示例
 
 ```
-// 告警：main 签名不是 IO Unit
+// 告警：main 签名不合法
 main : Int
 main = 42
-// → warning: entry point 'main' must have type IO Unit, got Int
+// → warning: entry point 'main' must have type IO Unit or List String -> IO Unit, got Int
 
 // 告警：无可执行入口
 // → warning: no executable entry point found
 ```
+
+## 权限声明
 
 ### 脚本级声明
 
