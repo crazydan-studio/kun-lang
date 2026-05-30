@@ -39,7 +39,9 @@ area = \shape ->
     Circle { radius }         -> 3.14159 * radius * radius
     Rect { width, height }    -> width * height
     Triangle { a, b, c }      -> // Heron's formula
-      s = (a + b + c) / 2.0
+      let
+        s = (a + b + c) / 2.0
+      in
       sqrt (s * (s - a) * (s - b) * (s - c))
 
 // 带通配：_ 覆盖未指定的变体
@@ -131,7 +133,9 @@ describeMaybe = \m ->
 // let 中的元组解构
 swap : (a, b) -> (b, a)
 swap = \pair ->
-  (x, y) = pair
+  let
+    (x, y) = pair
+  in
   (y, x)
 
 // case 匹配元组内容
@@ -148,17 +152,21 @@ bothOrNothing = \pair ->
 // let 中的 Record 解构
 distance : { x : Float, y : Float } -> { x : Float, y : Float } -> Float
 distance = \p1 p2 ->
-  { x = x1, y = y1 } = p1
-  { x = x2, y = y2 } = p2
-  dx = x2 - x1
-  dy = y2 - y1
+  let
+    { x = x1, y = y1 } = p1
+    { x = x2, y = y2 } = p2
+    dx = x2 - x1
+    dy = y2 - y1
+  in
   sqrt (dx * dx + dy * dy)
 
 // Record 解构带别名
 midpoint : { x : Float, y : Float } -> { x : Float, y : Float } -> { x : Float, y : Float }
 midpoint = \p1 p2 ->
-  { x as x1, y as y1 } = p1
-  { x as x2, y as y2 } = p2
+  let
+    { x as x1, y as y1 } = p1
+    { x as x2, y as y2 } = p2
+  in
   { x = (x1 + x2) / 2.0, y = (y1 + y2) / 2.0 }
 
 // case 匹配 Record 内容

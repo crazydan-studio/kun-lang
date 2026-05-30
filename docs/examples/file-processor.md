@@ -74,14 +74,18 @@ parseLevel = \s ->
 // 纯函数：解析单行日志
 parseLine : String -> Result LogEntry ProcessError
 parseLine = \line ->
-  parts = split "|" line
+  let
+    parts = split "|" line
+  in
   if length parts < 4 then
     Err UnknownFormat
   else
-    timestamp = parseTime parts[0]
-    level     = parts[1]
-    message   = parts[2]
-    pidStr    = parts[3]
+    let
+      timestamp = parseTime parts[0]
+      level     = parts[1]
+      message   = parts[2]
+      pidStr    = parts[3]
+    in
     case parseLevel level of
       Ok lvl ->
         Ok (Entry
@@ -95,16 +99,18 @@ parseLine = \line ->
 // 高阶函数：按级别过滤
 filterByLevel : LogLevel -> List LogEntry -> List LogEntry
 filterByLevel = \minLevel entries ->
-  shouldInclude = \entry ->
-    case (minLevel, entry.level) of
-      (Debug, _)     -> true
-      (Info, Info)   -> true
-      (Info, Warn)   -> true
-      (Info, Error)  -> true
-      (Warn, Warn)   -> true
-      (Warn, Error)  -> true
-      (Error, Error) -> true
-      _              -> false
+  let
+    shouldInclude = \entry ->
+      case (minLevel, entry.level) of
+        (Debug, _)     -> true
+        (Info, Info)   -> true
+        (Info, Warn)   -> true
+        (Info, Error)  -> true
+        (Warn, Warn)   -> true
+        (Warn, Error)  -> true
+        (Error, Error) -> true
+        _              -> false
+  in
   L.filter shouldInclude entries
 
 // ============================================================
@@ -116,8 +122,10 @@ countByLevel : List LogEntry -> Map LogLevel Int
 countByLevel = \entries ->
   entries
     |> L.fold (\acc entry ->
-      level = entry.level
-      n = get level acc |> maybe 0 identity
+      let
+        level = entry.level
+        n = get level acc |> maybe 0 identity
+      in
       insert level (n + 1) acc
     ) #{}
     |> identity
@@ -128,12 +136,13 @@ countByLevel = \entries ->
 
 createDefaultConfig : Path -> Config
 createDefaultConfig = \logDir ->
-  cfg =
-    { logDir   = logDir
-    , minLevel = Info
-    , output   = Path.join logDir "report.txt"
-    }
-  // Record 更新语法（不可变复制 + 修改）
+  let
+    cfg =
+      { logDir   = logDir
+      , minLevel = Info
+      , output   = Path.join logDir "report.txt"
+      }
+  in
   { cfg | minLevel = Warn }
 
 // ============================================================

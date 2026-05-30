@@ -12,9 +12,9 @@
 
 // 脚本级权限声明（全局基线）
 capability
-  net.http "api.example.com"
-  , fs.read "/var/log"
-  , fs.write "/tmp/reports"
+  net.http("api.example.com")
+  , fs.read("/var/log")
+  , fs.write("/tmp/reports")
   , process.signal
 
 import DateTime with (now, fromUnixSecs)
@@ -175,7 +175,7 @@ generateReport = \outputPath ->
     data <- collectData
 
     // 临时授予网络权限，块内有效
-    with capability net.http "api.example.com" {
+    with capability net.http("api.example.com") {
       enriched <- enrichWithApi data
       writeFile outputPath enriched
     }
@@ -188,7 +188,7 @@ cleanArtifacts : Path -> IO Unit
 cleanArtifacts = \dir ->
   do
     // 仅此一条命令获得 fs.write 权限
-    rm dir with capabilities fs.write "/tmp"
+    rm dir with capabilities fs.write("/tmp")
     print "cleaned"
 
 // ============================================================

@@ -159,22 +159,23 @@ firstElem = identity (Just 42)
 
 conversions : (Int, Nat, Float, String, Bytes)
 conversions =
-  n  = 42           // Int
-  u  = 42u          // Nat
-  f  = 3.14         // Float
+  let
+    n  = 42           // Int
+    u  = 42u          // Nat
+    f  = 3.14         // Float
 
-  // Nat <-> Int
-  n1 = toInt u     // Nat -> Int（始终安全）
-  u1 = toNat n     // Int -> Nat（负数 → Panic）
+    // Nat <-> Int
+    n1 = toInt u     // Nat -> Int（始终安全）
+    u1 = toNat n     // Int -> Nat（负数 → Panic）
 
-  // Float <-> Int
-  f1 = toFloat n   // Int -> Float
-  n2 = toInt f     // Float -> Int（截断）
+    // Float <-> Int
+    f1 = toFloat n   // Int -> Float
+    n2 = toInt f     // Float -> Int（截断）
 
-  // String <-> Bytes
-  b  = toBytes "hello"  // String -> Bytes
-  s  = toString b       // Bytes -> String
-
+    // String <-> Bytes
+    b  = toBytes "hello"  // String -> Bytes
+    s  = toString b       // Bytes -> String
+  in
   (n1, u1, f1, b, s)
 
 // ============================================================
