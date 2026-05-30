@@ -56,23 +56,23 @@
 
   ```
   type Errno
-    = ENOENT    -- No such file or directory
-    | EACCES    -- Permission denied
-    | EPERM     -- Operation not permitted
-    | EINTR     -- Interrupted system call
-    | EIO       -- I/O error
-    | ENOMEM    -- Out of memory
-    | EBADF     -- Bad file descriptor
-    | EAGAIN    -- Resource temporarily unavailable
-    | EEXIST    -- File exists
-    | ENOTDIR   -- Not a directory
-    | EISDIR    -- Is a directory
-    | EINVAL    -- Invalid argument
-    | EPIPE     -- Broken pipe
-    | EMFILE    -- Too many open files
-    | ENOSPC    -- No space left on device
-    | ESPIPE    -- Illegal seek
-    | EROFS     -- Read-only file system
+    = ENOENT    // No such file or directory
+    | EACCES    // Permission denied
+    | EPERM     // Operation not permitted
+    | EINTR     // Interrupted system call
+    | EIO       // I/O error
+    | ENOMEM    // Out of memory
+    | EBADF     // Bad file descriptor
+    | EAGAIN    // Resource temporarily unavailable
+    | EEXIST    // File exists
+    | ENOTDIR   // Not a directory
+    | EISDIR    // Is a directory
+    | EINVAL    // Invalid argument
+    | EPIPE     // Broken pipe
+    | EMFILE    // Too many open files
+    | ENOSPC    // No space left on device
+    | ESPIPE    // Illegal seek
+    | EROFS     // Read-only file system
   ```
 
 - 运行时表示为 i32（errno 编号），与 C ABI 兼容
