@@ -364,7 +364,14 @@ function sidebarWorking() {
           { text: '类型系统会话输入', link: '/input/input-maintainer-type-system-session' },
         ],
       },
-      { text: '经验教训', link: '/lessons/' },
+      {
+        text: '经验教训',
+        collapsed: true,
+        items: [
+          { text: '索引', link: '/lessons/' },
+          { text: '语法合规审计流程', link: '/lessons/grammar-audit-workflow' },
+        ],
+      },
       { text: '分析报告', link: '/analysis/' },
       {
         text: '回顾总结',
