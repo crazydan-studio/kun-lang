@@ -172,3 +172,76 @@
   ```
 
 - 语义场景：网络连接配置、防火墙规则、服务监听地址
+
+## `Args` — 命令行参数解析
+
+### 定位
+
+将 `main` 接收的原始 `List String` 解析为结构化配置，支持命名参数（`--flag` / `-f`）、带值选项（`--key value` / `-k value`）和位置参数。
+
+### 声明器
+
+```
+Args.flag : String -> Char -> Arg          // 布尔开关
+Args.option : String -> Char -> Arg         // 带值选项
+Args.positional : Int -> Arg               // 位置参数
+```
+
+- `flag`：匹配 `--name` 或 `-c`，类型 `Bool`
+- `option`：匹配 `--name value` 或 `-c value`，输出值类型为 `String`
+- `positional`：按出现顺序匹配，输出值类型为 `String`
+
+### 解析
+
+```
+Args.parse : List Arg -> List String -> Result (Map String ArgsValue) String
+```
+
+- 返回 `Ok (Map String ArgsValue)` — 参数名到值的映射
+- 返回 `Err String` — 解析失败（如未知选项、缺少值）
+
+### 值访问
+
+```
+Args.get : String -> Map String ArgsValue -> Maybe ArgsValue
+Args.getBool : String -> Map String ArgsValue -> Bool
+Args.getString : String -> Map String ArgsValue -> Maybe String
+Args.getPath : String -> Map String ArgsValue -> Maybe Path
+```
+
+### 示例
+
+```
+import Args
+
+type Config = Config { verbose : Bool, output : Maybe Path, name : Maybe String }
+
+parseCli : List String -> Result Config String
+parseCli = \raw ->
+  case Args.parse
+    [ Args.flag "verbose" 'v'
+    , Args.option "output" 'o'
+    , Args.option "name" 'n'
+    ] raw of
+    Ok opts ->
+      Ok (Config
+        { verbose = Args.getBool "verbose" opts || Args.getBool "v" opts
+        , output  = Args.getPath "output" opts
+        , name    = Args.getString "name" opts
+        })
+    Err msg -> Err msg
+
+main : List String -> IO Unit
+main = \raw ->
+  case parseCli raw of
+    Ok cfg  -> print f"config: {cfg.verbose} {cfg.output}"
+    Err msg -> print msg
+```
+
+### 启用命令示例
+
+```
+kun script.ku --verbose -o /tmp/out --name hello
+kun script.ku -v --output /tmp/out
+kun script.ku -v
+```

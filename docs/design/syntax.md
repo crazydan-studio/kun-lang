@@ -919,6 +919,42 @@ kun script.ku foo bar       // args = ["foo", "bar"]
 kun script.ku               // args = []
 ```
 
+### 命名参数
+
+实际脚本通常需要命名参数（`--output file.txt`、`-v`）。Kun 通过标准库 `Args` 模块将原始 `List String` 解析为结构化配置：
+
+```
+import Args
+
+type Config = Config { output : Maybe String, verbose : Bool, input : Maybe Path }
+
+main : List String -> IO Unit
+main = \raw ->
+  case Args.parse [ Args.flag "verbose" 'v', Args.option "output" 'o' ] raw of
+    Ok cfg  -> process cfg
+    Err msg -> print msg
+```
+
+`Args` 模块的设计：
+
+| 声明器 | 含义 | 匹配形式 |
+|--------|------|---------|
+| `Args.flag name short` | 布尔开关 | `--verbose` / `-v` |
+| `Args.option name short` | 带值选项 | `--output file` / `-o file` |
+| `Args.positional index` | 位置参数 | 按出现顺序匹配 |
+
+解析结果返回 `Result (Map String ArgsValue) String`，可通过键名访问：
+
+```
+case Args.parse [Args.flag "verbose" 'v', Args.option "output" 'o'] raw of
+  Ok opts ->
+    verbose = Args.get "verbose" opts |> maybe false identity
+    output  = Args.get "output" opts
+    ...
+```
+
+`Args` 模块的详细 API 见[标准库文档](standard-library.md#args)。
+
 ### 规则说明
 
 **`main` 优先**：文件定义了 `main` 时，编译器以此作为唯一入口，忽略其他顶层 IO 表达式：
