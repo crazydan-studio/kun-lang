@@ -15,7 +15,7 @@
 //
 // 多行注释也是每行以 // 开头
 //
-// 类型、函数、let 绑定、模块上的注释均视为文档注释
+// 类型、函数、模块上的注释均视为文档注释
 // 注释内容支持 Markdown 语法
 //
 // 文档注释中的 Markdown：
@@ -26,7 +26,7 @@
 Kun 仅支持 `//` 风格的注释。没有块注释语法（`/* */`）。连续多行 `//` 构成多行注释块。
 
 文档注释规则：
-- 直接位于 `type`、`pub`、函数定义、let 绑定、`module` 声明上方的注释行自动视为文档注释
+- 直接位于 `type`、函数定义、`module` 声明上方的注释行自动视为文档注释
 - 文档注释内容支持 Markdown 语法，生成文档时会被渲染
 - 非附着在上述结构上的注释视为普通代码注释，不进入文档生成
 
@@ -39,39 +39,47 @@ Kun 仅支持 `//` 风格的注释。没有块注释语法（`/* */`）。连续
 | Float | 十进制浮点或科学计数法 | `3.14`, `-2.5e10` |
 | Bool | 关键字 | `true`, `false` |
 | String | 双引号包裹，支持转义序列 | `"hello"`, `"line1\nline2"` |
-| String (多行) | `'''` 包裹，自动去公共缩进 | `'''` |
-| String (插值) | `` f`...` `` 前缀 + 反引号，`{expr}` 嵌入表达式，可选 `:` 格式说明 | `` f`count: {n}` ``, `` f`pi: {3.14:.2f}` `` |
+| String (多行) | `"""` 包裹，自动去公共缩进 | `"""` |
+| String (多行插值) | `f"""` 包裹，支持 `{expr}` 插值 | `f"""` |
+| String (插值) | `f"..."` 前缀 + 双引号，`{expr}` 嵌入，可选 `:` 格式说明 | `f"count: {n}"`, `f"pi: {3.14:.2f}"` |
 | Bytes | `0x` 前缀后接十六进制字节序列 | `0x48656C6C6F` |
 | Char | 单引号包裹 | `'A'`, `'\n'`, `'好'` |
-| Regex | `` r`...` `` 前缀 + 反引号 | `` r`[0-9]+` `` |
+| Regex | `r"..."` 前缀 + 双引号 | `r"(?i)[a-z]+"` |
 | Duration | 整数 + 单位后缀 | `5s`, `100ms`, `2h`, `30m`, `1d`, `500us`, `200ns` |
 | Unit | 空圆括号 | `()` |
-| Path | `` p`...` `` 前缀 + 反引号 | `` p`/tmp/foo` ``, `` p`./foo` `` |
+| Path | `p"..."` 前缀 + 双引号 | `p"/tmp/foo"`, `p"./foo"`, `p"/tmp/foo.sh"` |
 
-各类型选用最符合其内容的引用风格：
-- **双引号**：String — 需要转义序列支持
-- **反引号**：Path、Regex、f-string — 避免与路径中的反斜杠和字符串转义冲突
+前缀字面量（`p"..."`、`r"..."`、`f"..."`）的内容为**原始字符串**，不处理转义序列，仅双引号本身通过 `\"` 转义。这与普通字符串 `"..."`（处理 `\n`、`\t` 等转义）形成对照。
 
 ### 多行字符串
 
-以 `'''` 开头和结尾，自动去除每行开头的公共缩进：
+以 `"""` 开头和结尾，自动去除每行开头的公共缩进：
 
 ```
-content = '''
+content = """
     {
       "name": "Kun",
       "version": "0.1"
     }
-    '''
+    """
 // → "{\n  \"name\": \"Kun\",\n  \"version\": \"0.1\"\n}"
 ```
 
+多行插值字符串以 `f"""` 开头：
+
+```
+name = "Kun"
+content = f"""
+    {name} version 0.1
+    """
+```
+
 规则：
-- 开头 `'''` 后紧跟换行
-- 结尾 `'''` 前的缩进量决定公共缩进基准
+- 开头 `"""` 或 `f"""` 后紧跟换行
+- 结尾 `"""` 前的缩进量决定公共缩进基准
 - 每行开头的公共缩进被移除
 - 首行和末行的空行不计入内容
-- 多行字符串内不支持插值，如需插值应使用 `` f`...` ``
+- `f"""` 内支持插值语法 `{expr}`，普通 `"""` 不支持
 
 容器字面量：
 
@@ -90,25 +98,36 @@ content = '''
 { name = "Kun" }         -- 积类型（Record）：字段名和数量确定，字段类型可不相同
 ```
 
-Map 使用 `=` 而非 `=>` 分隔键值对。Map 不支持解构（因为键不确定），仅支持索引访问。
+Map 使用 `=` 而非 `=>` 分隔键值对。Map 不支持解构（因为键不确定），但支持索引访问和更新：
 
-容器字面量中的 `_` 仅作为位置占位符使用，不可用于访问或传递。
+```
+name: Maybe String
+name = data["name"]
+
+key = "value"
+val  = data[key]
+
+// Map 更新
+newData = #{ data | "value" = 2 }
+```
+
+对 List、Set 的更新只能通过类型模块中的函数，没有简单形式。
 
 ## 字符串插值与格式化
 
 ### 语法
 
-以 `` f`...` `` 为前缀的字符串字面量支持嵌入表达式和格式化说明：
+以 `f"..."` 为前缀的字符串字面量支持嵌入表达式和格式化说明：
 
 ```
-f`count: {n}`                     // 变量插值，自动 toString(n)
-f`result: {a + b}`                // 任意表达式
-f`pi = {3.14159:.2f}`             // 带格式说明
-f`{name:>10}`                     // 字符串对齐
-f`hex: {255:x} / {255:X}`         // 整数进制
+f"count: {n}"                     // 变量插值，自动 toString(n)
+f"result: {a + b}"                // 任意表达式
+f"pi = {3.14159:.2f}"             // 带格式说明
+f"{name:>10}"                     // 字符串对齐
+f"hex: {255:x} / {255:X}"         // 整数进制
 ```
 
-嵌入表达式使用大括号 `{expr}` 包裹，可在其中任意位置出现。`` f` `` 与 `}` 之间可以有任意内容。
+嵌入表达式使用大括号 `{expr}` 包裹，可在其中任意位置出现。
 
 ### 自动 toString
 
@@ -116,7 +135,7 @@ f`hex: {255:x} / {255:X}`         // 整数进制
 
 ```
 n = 42
-f`answer is {n}`          // → "answer is 42"
+f"answer is {n}"          // → "answer is 42"
 "answer is " ++ toString(n)  // 等价
 ```
 
@@ -160,57 +179,69 @@ f`answer is {n}`          // → "answer is 42"
 对齐格式支持填充字符指定（`fill` + `align`）：
 
 ```
-f`{42:#>6}`     → "####42"          // # 填充，右对齐
-f`{42:0>6}`     → "000042"          // 0 填充，右对齐
+f"{42:#>6}"     → "####42"          // # 填充，右对齐
+f"{42:0>6}"     → "000042"          // 0 填充，右对齐
 ```
 
 #### DateTime
 
-`DateTime` 类型支持 `%` 格式符，委托到 `strftime`：
+`DateTime` 类型采用 `%` 引导的格式描述符：
 
 ```
-f`{now:%Y-%m-%d %H:%M:%S}`    // → "2026-05-29 14:30:00"
-f`{now:%F}`                    // → "2026-05-29"
+f"{now:%yyyy-MM-dd HH:mm:ss.SSS Z}"    // → "2026-05-29 14:30:00.123 +0000"
+f"{now:%yyyy-MM-dd}"                   // → "2026-05-29"
 ```
+
+格式符以 `%` 开头，后接字段名：
+- `%yyyy` — 四位数年份
+- `%yy` — 两位数年份
+- `%MM` — 两位数月份（01-12）
+- `%dd` — 两位数日期（01-31）
+- `%HH` — 两位数小时（00-23）
+- `%mm` — 两位数分钟（00-59）
+- `%ss` — 两位数秒（00-59）
+- `%SSS` — 三位数毫秒（000-999）
+- `%Z` — 时区偏移（+0000）
 
 ### 转义
 
+前缀字面量（`f"..."`、`p"..."`、`r"..."`）为原始字符串，仅需转义双引号：
+
 | 需要输出 | 写法 | 说明 |
 |---------|------|------|
-| 字面量 `{` | `\{` | 大括号转义 |
-| 字面量 `}` | `\}` | 大括号转义 |
-| 字面量 `` ` `` | `` \` `` | 反引号转义 |
-| 字面量 `\` | `\\` | 反斜杠转义 |
+| 字面量 `"` | `\"` | 双引号转义 |
+| 字面量 `{` | `\{` | 大括号转义（仅 f-string） |
+| 字面量 `}` | `\}` | 大括号转义（仅 f-string） |
 
-示例：
+示例（f-string）：
 
 ```
-f`brace: \{hello\}`    → "brace: {hello}"
-f`backslash: \\`       → "backslash: \"
-f`backtick: \``        → "backtick: `"
+f"brace: \{hello\}"    → "brace: {hello}"
+f"quote: \""           → "quote: \""
 ```
 
 ### 嵌套
 
-f-string 中嵌入的表达式本身可包含字符串字面量，但不支持嵌套 f-string（不可写 `` f`outer {f`inner`}` ``）：
+f-string 中嵌入的表达式本身可包含字符串字面量，但不支持嵌套 f-string（不可写 `f"outer {f"inner"}"`）：
 
 ```
-f`list: {join ", " names}`         // 函数调用，参数为普通字符串
-f`path: {p`/etc/hosts`}`           // 嵌入 Path 字面量
+f"list: {join \", \" names}"          // 函数调用，双引号转义
+f"path: {p\"/etc/hosts\"}"            // 嵌入 Path 字面量
 ```
 
 ### 与普通字符串的关系
 
-- `"..."` — 普通字符串，不支持插值，`{` 无特殊含义
-- `` f`...` `` — 插值字符串，`{expr}` 被求值并格式化，`\{` 转义输出字面量 `{`
-- 运行时类型：两者均为 `String`，插值在编译期展开为 `toString`/格式化调用链
+- `"..."` — 普通字符串，支持转义序列，`{` 无特殊含义
+- `f"..."` — 插值字符串，`{expr}` 被求值并格式化，内容为原始字符串
+- `p"..."` — Path 字面量，内容为原始字符串
+- `r"..."` — Regex 字面量，内容为原始字符串
+- 运行时类型：`"..."` 和 `f"..."` 均为 `String`，插值在编译期展开为 `toString`/格式化调用链
 
 设计依据：
 
-1. **反引号前缀与 Path/Regex 一致**——`` p`...` ``（Path）、`` r`...` ``（Regex）、`` f`...` ``（插值字符串）统一使用反引号作为字面量边界
-2. **普通字符串不受影响**——无需在非插值字符串中转义 `{`，仅 `` f`...` `` 内大括号有特殊含义
-3. **Python 对齐**——格式说明语法与 Python 3 的格式规范微型语言保持一致，降低学习成本
-4. **编译期展开无运行时开销**——插值在编译期展开为 `++` 和 `toString`/格式化函数调用，与手写等价
+1. **双引号统一**——所有字符串类字面量统一使用双引号，前缀 (`f`/`p`/`r`) 区分类型
+2. **原始字符串简化转义**——前缀字面量内容为原始字符串，仅需转义 `"`，无需处理 `\n` 等序列
+3. **Python 对齐**——格式说明语法与 Python 3 的格式规范微型语言保持一致
 
 ## 标识符与命名
 
@@ -284,13 +315,15 @@ type UserName = UserName String
 type Uid = Uid Nat
 ```
 
-### 类型别名
+### 函数类型别名
+
+可为函数类型定义别名：
 
 ```
-type alias IOError = ...   // 待定
+type LongFunc = String -> Int -> Result {v: Int, l: String} String
 ```
 
-（当前设计直接使用 ADT 而非别名，后续按需引入。）
+`type` 后直接跟类型名和类型定义，无 `alias` 关键字。不支持为其他非函数类型定义别名（类型别名在导入时指定）。
 
 ### 类型标注
 
@@ -305,7 +338,7 @@ identity = \x -> x
 
 main : IO Unit
 main = do
-  content <- readFile p`/tmp/foo`
+  content <- readFile p"/tmp/foo"
   print content
 ```
 
@@ -357,7 +390,7 @@ myVariable                   // 变量引用
 ```
 identity 42
 map (\x -> x * 2) list
-readFile p`/tmp/foo`
+readFile p"/tmp/foo"
 pid 1234
 add 1 2
 ```
@@ -368,29 +401,31 @@ add 1 2
 plus (1, 2)                  // 元组参数（单参数）
 ```
 
-### Let 绑定
+### 名字绑定
 
-单条 let 绑定不使用 `let` 关键字：
-
-```
-name = value                     // 简单绑定
-p = p`/tmp/foo`
-(x, y, z) = tuple                // 元组解构
-{ name, version } = record       // Record 解构
-[x, y, *rest] = list             // List 解构
-{ x as x1, y as y1 } = point     // Record 解构带别名
-```
-
-多条 let 绑定使用 `let ... in` 语法：
+名字绑定均直接以 `a = b` 形式定义：
 
 ```
-sumSquares = \x y ->
+name = value
+p = p"/tmp/foo"
+(x, y, z) = tuple
+{ name, version } = record
+[x, y, *rest] = list
+{ x as x1, y as y1 } = point
+```
+
+`let ... in` 表达式用于确保多条语句之后有明确的唯一返回值：
+
+```
+a =
   let
-    a = x * x
-    b = y * y
+    square = \x ->
+      x * x
   in
-    a + b
+  square 3
 ```
+
+`let ... in` 并非仅针对多条绑定，它的作用与 Elm 中的 `let ... in` 一致：在一个表达式中引入局部定义，并最终产生一个明确的返回值。
 
 ### Case 表达式（模式匹配）
 
@@ -470,10 +505,20 @@ case result of
 ### If 表达式
 
 ```
-if condition then expr1 else expr2
+if condition then expr1
+else if condition2 then expr2
+else expr3
 ```
 
-`if` 是表达式，必有返回值。`else` 分支不可省略。
+`if` 是表达式，必有返回值。`else` 分支不可省略。`else if then` 链可用于处理多分支。
+
+### 三元表达式
+
+```
+condition ? expr1 : expr2
+```
+
+三元表达式是 `if condition then expr1 else expr2` 的简洁形式，适用于简单条件。
 
 ### 管道操作符
 
@@ -483,12 +528,44 @@ list |> map (\x -> x * 2)
 
 将左侧表达式的值作为最后一个参数传入右侧函数。
 
+### 反向管道操作符
+
+```
+sqrt 4 <| add 1 3
+```
+
+`<|` 将右侧表达式的值作为参数传入左侧函数，是 `|>` 的反向形式，减少括号嵌套：
+
+```
+// 无 <|
+print (sqrt (add 1 3))
+
+// 有 <|
+print <| sqrt <| add 1 3
+```
+
+### 函数组合操作符
+
+```
+f >> g >> h     // 从左向右组合：h(g(f(x)))
+f << g << h     // 从右向左组合：f(g(h(x)))
+```
+
+`>>` 和 `<<` 用于组合函数。`f >> g` 表示先应用 `f` 再应用 `g`。`f << g` 表示先应用 `g` 再应用 `f`。
+
+```
+add1 = \x -> x + 1
+double = \x -> x * 2
+add1ThenDouble = add1 >> double    // 等价于 \x -> double (add1 x)
+doubleThenAdd1 = add1 << double    // 等价于 \x -> add1 (double x)
+```
+
 ### Do 记法（IO 顺序组合）
 
 ```
 main : IO Unit
 main = do
-  content <- readFile p`/tmp/foo`
+  content <- readFile p"/tmp/foo"
   print content
 ```
 
@@ -512,6 +589,8 @@ list[i]          // List 索引，返回 Maybe t
 str[i]           // String 索引，返回 Char
 tuple.0          // Tuple 索引（0-based）
 tuple.1
+
+data["key"]      // Map 索引，返回 Maybe v
 ```
 
 ### 点调用
@@ -530,8 +609,8 @@ tuple.0              // 元组索引（正确）
 函数只从属于模块，通过模块导入后，以 `模块名.函数名` 形式调用：
 
 ```
-from Path import (parent)
-parent p`/tmp/foo`        // 通过模块导入的函数名调用
+import Path as P
+P.parent p"/tmp/foo"     // 通过模块限定的函数调用
 ```
 
 显式导入的函数可直接通过函数名调用，无需模块限定。
@@ -565,7 +644,7 @@ merged  = [*la, 0, *lb]           // 在列表中间展开
 
 ```
 readConfig : Path -> IO (Result Config String)
-config = readConfig? p`/etc/app.toml`
+config = readConfig? p"/etc/app.toml"
 ```
 
 `?` 标记在函数名之后（而非表达式之后），表示对该函数返回的 `Result` 进行解包：若结果为 `Ok t` 则取得 `t` 值，若为 `Err e` 则将错误传播到调用者。
@@ -573,7 +652,7 @@ config = readConfig? p`/etc/app.toml`
 等价于不写 `?` 时的显式模式匹配：
 
 ```
-config = case readConfig p`/etc/app.toml` of
+config = case readConfig p"/etc/app.toml" of
   Ok v  -> v
   Err e -> propagate e
 ```
@@ -629,7 +708,9 @@ firstThree = \[a, b, c] -> (a, b, c)
 | 比较 | `==`, `!=`, `<`, `>`, `<=`, `>=` | 无结合 |
 | 逻辑与 | `&&` | 左结合（短路） |
 | 逻辑或 | `\|\|` | 左结合（短路） |
-| 管道 | `\|>` | 左结合 |
+| 函数组合 | `>>`, `<<` | 左结合 |
+| 管道 | `\|>`, `<\|` | 左结合 |
+| 三元 | `? :` | 右结合 |
 | 绑定 | `=` | 右结合 |
 | 结果传播 | `?` | 右结合 |
 
@@ -643,7 +724,9 @@ firstThree = \[a, b, c] -> (a, b, c)
       ==  !=  <  >  <=  >=
       &&
       ||
-      |>
+      >>   <<
+      |>   <|
+      ? :
       =
 最低:  ?
 ```
@@ -661,6 +744,8 @@ module Maybe export (Maybe, Maybe(*))     // 导出类型及所有变体
 module Maybe export (Maybe(Just))         // 仅导出 Just 变体
 ```
 
+所有需要导出的符号均通过 `module export` 声明。不存在 `pub` 关键字。
+
 变体导出语法：
 - `Maybe(*)` — 导出类型 `Maybe` 及其所有变体（`Just`、`None`）
 - `Maybe(Just)` — 仅导出变体 `Just`（不含 `None`）
@@ -670,17 +755,15 @@ module Maybe export (Maybe(Just))         // 仅导出 Just 变体
 
 ```
 import List                     // 导入模块，公开符号可直接使用
-import List as L                // 限定别名
-from List import (map, filter)  // 限定导入特定符号
-from List import (map as listMap)  // 别名导入
+import List as L                // 模块别名
+import List as L with (map as m, filter)  // 模块别名 + 特定符号导入/别名
 ```
 
 从 ADT 导入变体：
 
 ```
-from Maybe import (Maybe, Maybe(*))    // 导入 Maybe、Just、None
-from Maybe import (Maybe(*))           // 仅导入变体 Just、None
-from Maybe import (Maybe(Just))        // 仅导入变体 Just
+import Maybe with (Maybe(*))        // 导入类型及所有变体
+import Maybe with (Maybe(Just))     // 仅导入 Just 变体
 ```
 
 导入变体后，变体名称可直接在代码中使用（`Just`、`None`），无需模块限定。
@@ -696,7 +779,7 @@ capability fs.read("/etc"), fs.read("/var/log"), net.http("api.example.com")
 ### 单命令注解
 
 ```
-cat p`/etc/nginx/nginx.conf` with capabilities fs.read("/etc")
+cat p"/etc/nginx/nginx.conf" with capabilities fs.read("/etc")
 ```
 
 ### 作用域级权限
@@ -715,7 +798,7 @@ with capability net.http("api.example.com") {
 ```
 stream expr                        // 从表达式创建惰性流
 
-stream readFile p`/tmp/large.log`
+stream readFile p"/tmp/large.log"
   |> filter (\line -> contains "ERROR" line)
   |> map parseLine
 ```
@@ -728,7 +811,7 @@ stream readFile p`/tmp/large.log`
 
 1. **类型标注与值定义分离**：解析器先识别 `name : type` 行，再识别 `name = expr` 行
 2. **泛型空格分隔**：`List Int` 中 `List` 和 `Int` 以空格分隔，解析器通过上下文（类型位置 vs 表达式位置）和首字母大小写区分类型标识符与变量
-3. **反引号字面量**：`` p`...` ``、`` r`...` ``、`` f`...` `` 三种前缀 + 反引号的字面量，解析器根据前缀字母区分
+3. **前缀字面量**：`p"..."`、`r"..."`、`f"..."` 三种前缀 + 双引号的字面量，解析器根据前缀字母区分，内容按原始字符串处理
 4. **`?` 与函数名的结合**：`?` 紧跟在函数名后，与函数名一同被解析
 
 ## 一致性决议
@@ -738,17 +821,23 @@ stream readFile p`/tmp/large.log`
 | 原不一致 | 决议 |
 |---------|------|
 | lambda 参数形式 | `\x ->` 单参数；`\x y ->` 多参数；`\(x, y) ->` 元组解构；`\{x, y} ->` Record 解构；`\[x, y] ->` List 解构 |
-| 注释风格 | 使用 `//`，类型/函数/let/模块上的 `//` 为文档注释，支持 Markdown |
-| 字面量引用风格 | `` p`...` ``（Path）、`` r`...` ``（Regex）、`` f`...` ``（插值字符串）统一使用反引号 |
-| 字符串插值 | `` f`...` `` 前缀 + 大括号嵌入 + `:` 格式说明，编译期展开为 `toString`/格式化链 |
+| 注释风格 | 使用 `//`，类型/函数/模块上的 `//` 为文档注释，支持 Markdown |
+| 字面量引用风格 | `p"..."`（Path）、`r"..."`（Regex）、`f"..."`（插值字符串）统一使用双引号；前缀字面量为原始字符串 |
+| 多行字符串 | `"""` 包裹（插值用 `f"""`），自动去公共缩进 |
+| 字符串插值 | `f"..."` 前缀 + 大括号嵌入 + `:` 格式说明，编译期展开为 `toString`/格式化链 |
 | 泛型语法 | Elm 风格空格分隔（`List Int`），不使用尖括号，嵌套用括号分组 |
 | 函数类型 | 柯里化 `Int -> Int -> Int`，除非参数本身为元组 |
 | 函数应用 | 空格分隔参数，无逗号；元组参数用圆括号包裹 |
-| `let` 绑定 | 单条不使用 `let`；多条用 `let ... in` |
+| 名字绑定 | 均以 `a = b` 形式；`let ... in` 用于确保多条语句的唯一返回值 |
 | List 模式 | `[a, *rest]` 替代 `a :: rest` |
-| Map 字面量 | `#{ "a" = 1 }`（`=` 替代 `=>`） |
+| Map 字面量 | `#{ "a" = 1 }`（`=` 替代 `=>`）；Map 索引 `data["key"]`；Map 更新使用 `update` 语法 |
 | `capability` 单复 | `with capability` 作用域（单数）；`with capabilities` 列举（复数） |
 | 点调用语义 | 仅限积类型字段投影和元组索引，无函数调用 |
 | `Stream` 构造 | `stream expr` 关键字语法 |
-| 模块导入 | `from List import (map)` 限定导入语法；`Maybe(*)` 变体导入语法 |
-| 模块导出 | `module List export (map)` 声明语法 |
+| 模块导入 | `import List as L with (map as m)` 语法；`Maybe(*)` 变体导入语法 |
+| 模块导出 | `module List export (map)` 声明语法，无 `pub` 关键字 |
+| 导出语法 | 仅 `module export`，无 `pub` 关键字 |
+| 类型别名 | 仅函数类型支持 `type LongFunc = ...`，非函数类型别名在导入时指定 |
+| 三元表达式 | `condition ? expr1 : expr2` 简化 `if then else` |
+| 函数组合 | 从左向右 `>>`, 从右向左 `<<` |
+| 反向管道 | 反向管道减少括号嵌套 |

@@ -188,14 +188,14 @@ conversions = \() ->
 processResult : Result Int String -> String
 processResult = \res ->
   case res of
-    Ok n  -> f`number: {n}`   // 此处 n : Int
+    Ok n  -> f"number: {n}"   // 此处 n : Int
     Err _ -> "error"           // 类型已知
 
 processIp : IpAddress -> String
 processIp = \addr ->
   case addr of
     Ipv4 (a, b, c, d) ->
-      f`{a}.{b}.{c}.{d}`
+      f"{a}.{b}.{c}.{d}"
     Ipv6 (a, b, c, d, e, f, g, h) ->
       "ipv6"
 

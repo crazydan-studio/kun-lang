@@ -148,7 +148,7 @@ readConfig = \path ->
     content <- readFile path
     // 纯函数解析
     lines  = split "\n" content
-    logDir = p`/var/log/myapp`
+    logDir = p"/var/log/myapp"
     // ? 解包 Result，Err 自动传播
     minLvl = parseLevel? (L.head lines |> maybe "INFO" identity)
     Ok (createDefaultConfig logDir)
@@ -184,9 +184,9 @@ main =
     empty    = ()                  // Unit
 
     // Path 字面量（新语法：反引号）
-    logPath    = p`/var/log/myapp/access.log`
-    configPath = p`./config.toml`
-    backupDir  = p`/tmp/backup`
+    logPath    = p"/var/log/myapp/access.log"
+    configPath = p"./config.toml"
+    backupDir  = p"/tmp/backup"
 
     // 容器字面量
     levels   = [Debug, Info, Warn, Error]   // List
@@ -197,14 +197,14 @@ main =
     // Bytes 字面量
     magicBytes = 0xCAFEBABE
 
-    // 正则字面量（新语法：r`...`）
-    ipRegex = r`[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+`
+    // 正则字面量（新语法：r"..."）
+    ipRegex = r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
 
-    // f-string 插值与格式化（新语法：f`...`）
-    greeting   = f`app {appName} v{version}`               // 变量插值
-    formatted  = f`rate: {rate:.2f} / timeout: {timeout}`  // Float 精度
-    hexVal     = f`hex: {255:x} / {255:X}`                 // 整数进制
-    showCount  = f`count: {result}`                         // Int 默认十进制
+    // f-string 插值与格式化（新语法：f"..."）
+    greeting   = f"app {appName} v{version}"               // 变量插值
+    formatted  = f"rate: {rate:.2f} / timeout: {timeout}"  // Float 精度
+    hexVal     = f"hex: {255:x} / {255:X}"                 // 整数进制
+    showCount  = f"count: {result}"                         // Int 默认十进制
 
     // 索引访问
     first     = levels[0]     // List 索引 → Maybe LogLevel
@@ -245,7 +245,7 @@ main =
     // 生成报告（使用 f-string）
     report =
       L.map (\e ->
-        f`{e.timestamp:%Y-%m-%d %H:%M:%S} [{e.level}] {e.message}`
+        f"{e.timestamp:%Y-%m-%d %H:%M:%S} [{e.level}] {e.message}"
       ) errors
         |> join "\n"
 
@@ -254,12 +254,12 @@ main =
 
     // 权限作用域
     with capability fs.read("/etc") {
-      sysconfig <- readFile p`/etc/myapp/config.toml`
+      sysconfig <- readFile p"/etc/myapp/config.toml"
       print sysconfig
     }
 
     // 单命令权限注解
     cleanTemp () with capabilities fs.write("/tmp")
 
-    print f`done: processed {L.length lines} lines`
+    print f"done: processed {L.length lines} lines"
 ```

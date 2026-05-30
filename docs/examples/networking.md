@@ -1,6 +1,6 @@
 # IO 与效应系统聚焦：网络服务监控
 
-覆盖：`do` 记法（深度）、`?` 操作符、权限声明三级粒度、`Signal`/`Port`/`Pid`/`SocketAddr`、`Stream`、`DateTime`/`Duration`、错误链、`capability` 作用域
+覆盖：`do` 记法（深度）、`?` 操作符、权限声明三级粒度、`Signal`/`Port`/`Pid`/`SocketAddr"、"Stream`、`DateTime`/`Duration`、错误链、`capability` 作用域
 
 ```
 // ============================================================
@@ -46,7 +46,7 @@ printTimestamp : IO Unit
 printTimestamp =
   do
     now <- now ()
-    print f`check at: {now:%H:%M:%S}`
+    print f"check at: {now:%H:%M:%S}"
 
 // 多层 do：按顺序组合
 checkService : SocketAddr -> IO HealthStatus
@@ -54,7 +54,7 @@ checkService = \addr ->
   do
     // 第一层 IO
     start <- now ()
-    result <- httpGet addr p`/health`
+    result <- httpGet addr p"/health"
 
     // case 分支内嵌套 IO
     case result of
@@ -68,7 +68,7 @@ checkService = \addr ->
             pure (Down { error = "unexpected response" })
       Err err ->
         do
-          print f`request failed: {err}`
+          print f"request failed: {err}"
           pure (Down { error = toString err })
 
 // ============================================================
@@ -98,7 +98,7 @@ fetchAndReport : SocketAddr -> IO (Result MonitorResult String)
 fetchAndReport = \addr ->
   do
     start <- now ()
-    body  <- httpGet? addr p`/api/data`
+    body  <- httpGet? addr p"/api/data"
     end   <- now ()
     parsed = parseJson? body
     data   = extractField? "value" parsed
@@ -120,8 +120,8 @@ reloadDaemon = \pid ->
   do
     result <- kill pid SIGHUP
     case result of
-      Ok _        -> print f`sent HUP to {pid}`
-      Err err     -> print f`failed: {err}`
+      Ok _        -> print f"sent HUP to {pid}"
+      Err err     -> print f"failed: {err}"
     result
 
 // 等待子进程
@@ -135,11 +135,11 @@ watchProcess = \pid timeout ->
           if code.isSuccess then
             print "process exited ok"
           else
-            print f`process failed: {code}`
+            print f"process failed: {code}"
           pure (Ok code)
       Err err ->
         do
-          print f`wait failed: {err}`
+          print f"wait failed: {err}"
           pure (Err err)
 
 // ============================================================
@@ -149,7 +149,7 @@ watchProcess = \pid timeout ->
 // 流式读取 HTTP 响应
 streamResponse : SocketAddr -> Stream String
 streamResponse = \addr ->
-  stream httpGetStream addr p`/events`
+  stream httpGetStream addr p"/events"
     |> filter (\line -> contains "data:" line)
     |> map (\line -> line.slice 5)
 
@@ -212,8 +212,8 @@ scheduleCheck =
     oneDay   = 1d
     halfHour = 30m
 
-    print f`checking every {interval}`
-    print f`timeout: {timeout}`
+    print f"checking every {interval}"
+    print f"timeout: {timeout}"
 
 // ============================================================
 // 组合：完整监控检查
@@ -230,16 +230,16 @@ main =
 
     case status of
       Up info ->
-        print f`service is up ({info.responseTime})`
+        print f"service is up ({info.responseTime})"
       Down err ->
         do
-          print f`service is down: {err.error}`
+          print f"service is down: {err.error}"
           // 重启逻辑：发送 SIGTERM
           pid = Pid.pid 1234
           result <- kill pid SIGTERM
           case result of
             Ok _  -> print "sent SIGTERM"
-            Err e -> print f`kill failed: {e}`
+            Err e -> print f"kill failed: {e}"
       Timeout ->
         print "request timed out"
 
@@ -247,5 +247,5 @@ main =
     processEvents addr
 
     // 生成报告
-    generateReport p`/tmp/reports/health.json`
+    generateReport p"/tmp/reports/health.json"
 ```
