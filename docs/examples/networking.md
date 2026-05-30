@@ -4,7 +4,7 @@
 
 ```
 // ============================================================
-// networking.ku  —  网络服务监控脚本
+// networking.kun  —  网络服务监控脚本
 // 涵盖：do 记法（深层嵌套）、? 操作符（错误传播）、
 //       权限声明三级粒度、Signal/Port/Pid/SocketAddr、
 //       Stream 惰性 IO、DateTime/Duration、IOError 处理

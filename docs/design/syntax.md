@@ -925,8 +925,8 @@ main = \args ->
 启动命令与参数映射：
 
 ```
-kun script.ku foo bar       // args = ["foo", "bar"]
-kun script.ku               // args = []
+kun script.kun foo bar       // args = ["foo", "bar"]
+kun script.kun               // args = []
 ```
 
 ### 命名参数

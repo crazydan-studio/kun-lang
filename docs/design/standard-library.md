@@ -241,7 +241,7 @@ main = \raw ->
 ### 启用命令示例
 
 ```
-kun script.ku --verbose -o /tmp/out --name hello
-kun script.ku -v --output /tmp/out
-kun script.ku -v
+kun script.kun --verbose -o /tmp/out --name hello
+kun script.kun -v --output /tmp/out
+kun script.kun -v
 ```
