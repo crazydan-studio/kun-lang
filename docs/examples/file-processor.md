@@ -259,7 +259,7 @@ main =
     }
 
     // 单命令权限注解
-    cleanTemp () with capabilities fs.write("/tmp")
+    cleanTemp with capabilities fs.write("/tmp")
 
     print f"done: processed {L.length lines} lines"
 ```

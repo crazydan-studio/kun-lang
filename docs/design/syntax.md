@@ -529,7 +529,7 @@ case expr of
 ```
 case parse "42" of
   Ok n  -> process n        // 变体模式 + 变量绑定
-  Err _ -> handleError ()   // 通配忽略
+  Err _ -> handleError    // 通配忽略
 ```
 
 #### List 模式

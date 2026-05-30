@@ -46,22 +46,22 @@ type MonitorResult
 printTimestamp : IO Unit
 printTimestamp =
   do
-    now <- now ()
-    print f"check at: {now:%H:%M:%S}"
+    nowTime <- now
+    print f"check at: {nowTime:%H:%M:%S}"
 
 // 多层 do：按顺序组合
 checkService : SocketAddr -> IO HealthStatus
 checkService = \addr ->
   do
     // 第一层 IO
-    start <- now ()
+    start <- now
     result <- httpGet addr p"/health"
 
     // case 分支内嵌套 IO
     case result of
       Ok body ->
         do
-          end <- now ()
+          end <- now
           elapsed = end - start
           if contains "\"status\":\"ok\"" body then
             pure (Up { responseTime = elapsed })
@@ -98,9 +98,9 @@ loadConfig = \path ->
 fetchAndReport : SocketAddr -> IO (Result MonitorResult String)
 fetchAndReport = \addr ->
   do
-    start <- now ()
+    start <- now
     body  <- httpGet? addr p"/api/data"
-    end   <- now ()
+    end   <- now
     parsed = parseJson? body
     data   = extractField? "value" parsed
     logResult data
@@ -172,7 +172,7 @@ processEvents = \addr ->
 generateReport : Path -> IO Unit
 generateReport = \outputPath ->
   do
-    data <- collectData ()
+    data <- collectData
 
     // 临时授予网络权限，块内有效
     with capability net.http "api.example.com" {
@@ -198,9 +198,9 @@ cleanArtifacts = \dir ->
 timeWindow : Duration -> IO Bool
 timeWindow = \window ->
   do
-    now   <- now ()
+    current <- now
     start <- fromUnixSecs 1700000000
-    elapsed = now - start
+    elapsed = current - start
     pure (elapsed < window)
 
 // Duration 字面量 + 运算
@@ -226,7 +226,7 @@ main =
     // 构造 SocketAddr
     addr = Tcp (parse? "10.0.1.5") (Port.fromInt 8080)
 
-    printTimestamp ()
+    printTimestamp
     status <- checkService addr
 
     case status of
