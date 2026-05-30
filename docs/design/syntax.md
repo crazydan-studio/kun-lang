@@ -379,7 +379,7 @@ Record 类型：
 |------|---------|-----------------|--------------|
 | **回调/事件处理器** | `onClick : () -> IO Unit` | `IO Unit` 本身已经是"延迟到 `<-` 时才执行的值"。传给事件调度器的 `IO Unit` 在被 `<-` 解包时即执行，每次 `<-` 都是重新执行，不需要函数包装 | `onClick : IO Unit` |
 | **工厂函数**（每次调用产生新值） | `newId : () -> IO Id` | 同上。`IO Id` 每次 `<-` 重新执行，产生新值 | `newId : IO Id` |
-| **延迟计算（thunk）** | `lazyCompute : () -> Int` | Kun 默认惰性求值，`x = compute()` 不会立即求值，只在被使用时才计算。绑定本身即延迟 | `x = compute()` |
+| **延迟计算（thunk）** | `lazyCompute : () -> Int` | Kun 默认惰性求值，`result = factorial 100` 不会立即求值，只在被使用时才计算。绑定本身即延迟 | `result = factorial 100` |
 | **可变参数处理** | `f : () -> Int -> Int` | 将 Unit 作为第一个参数无实际意义，`f : Int -> Int` 即可 | `f : Int -> Int` |
 
 #### 理由展开
