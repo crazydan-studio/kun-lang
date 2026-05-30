@@ -148,19 +148,25 @@ watchProcess = \pid timeout ->
 // ============================================================
 
 // 流式读取 HTTP 响应
-streamResponse : SocketAddr -> Stream String
+streamResponse : SocketAddr -> IO (Result (Stream String) IOError)
 streamResponse = \addr ->
-  stream httpGetStream addr p"/events"
-    |> filter (\line -> contains "data:" line)
-    |> map (\line -> String.slice 5 line)
+  do
+    response <- httpGetStream addr p"/events"
+    Ok (response
+      |> filter (\line -> contains "data:" line)
+      |> map (\line -> String.slice 5 line))
 
 // 消费流
 processEvents : SocketAddr -> IO Unit
 processEvents = \addr ->
   do
-    streamResponse addr
-      |> take 100
-      |> iter (\event -> processEvent event)
+    result <- streamResponse addr
+    case result of
+      Ok events ->
+        events
+          |> take 100
+          |> iter (\event -> processEvent event)
+      Err e -> print f"stream failed: {e}"
 
 // ============================================================
 // 权限作用域（三级粒度）

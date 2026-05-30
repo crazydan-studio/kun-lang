@@ -245,3 +245,86 @@ kun script.kun --verbose -o /tmp/out --name hello
 kun script.kun -v --output /tmp/out
 kun script.kun -v
 ```
+
+## `Stream` — 惰性序列
+
+### 定位
+
+Stream 是惰性拉取序列，元素在消费时按需求值。不绑定 IO，纯构造和 IO 构造均可。
+
+### 纯构造
+
+```
+Stream.fromList : List t -> Stream t
+Stream.range : Int -> Int -> Stream Int
+Stream.repeat : (Unit -> t) -> Stream t
+```
+
+- `fromList` — 从 List 构造
+- `range start end` — 左闭右开区间 `[start, end)`
+- `repeat f` — 反复调用 `f` 产生元素（替代已移除的 `stream` 关键字）
+
+### IO 构造
+
+```
+Stream.readLines : Path -> IO (Result (Stream String) IOError)
+Stream.readLinesSafe : Path -> IO (Result (Stream (Result String IOError)) IOError)
+```
+
+- `readLines` — 逐行读取文件，运行时读失败静默终止流
+- `readLinesSafe` — 每行包裹 `Result`，保留运行时错误
+
+IO 构造必须通过 `<-` 解包后才能消费：
+
+```
+main = do
+  lines? <- Stream.readLines p"/tmp/log.txt"
+  iter (\line -> print line) lines
+```
+
+### 变换（惰性）
+
+```
+map    : (a -> b) -> Stream a -> Stream b
+filter : (a -> Bool) -> Stream a -> Stream a
+take   : Int -> Stream a -> Stream a
+drop   : Int -> Stream a -> Stream a
+```
+
+变换不触发求值，只构造新的惰性流。
+
+### 消费（终端）
+
+```
+fold   : (b -> a -> b) -> b -> Stream a -> b
+toList : Stream a -> List a
+iter   : (a -> IO Unit) -> Stream a -> IO Unit
+```
+
+终端操作驱动求值，逐一拉取元素。
+
+### 错误处理辅助
+
+```
+filterMap : (a -> Maybe b) -> Stream a -> Stream b
+```
+
+`filterMap identity : Stream (Result t e) -> Stream t` — 过滤掉所有 `Err` 元素，保留 `Ok` 内容。
+
+### 示例
+
+```
+import Stream
+import Path
+
+main = do
+  result <- Stream.readLinesSafe p"/tmp/access.log"
+  case result of
+    Ok lines ->
+      lines
+        |> filterMap identity          // 跳过读失败的行
+        |> filter (\line -> contains "ERROR" line)
+        |> take 100
+        |> iter (\line -> print line)
+    Err e -> print f"cannot open: {e}"
+```

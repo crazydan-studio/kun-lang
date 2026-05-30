@@ -170,7 +170,8 @@ readConfig = \path ->
 processLargeFile : Path -> IO Unit
 processLargeFile = \path ->
   do
-    stream readFile path
+    lines? <- Stream.readLines path
+    lines
       |> L.filter (\line -> contains "ERROR" line)
       |> L.map parseLine
       |> L.filterMap identity

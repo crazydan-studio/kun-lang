@@ -1030,17 +1030,151 @@ with capability net.http("api.example.com") {
 
 `with capability`（单数）引入一个权限作用域块。`with capabilities`（复数）在单命令注解中列举多个权限。
 
-## Stream 表达式
+## Stream
+
+### 定位
+
+Stream 是**惰性拉取序列**（lazy pull-based sequence），不绑定 IO。元素在消费时按需求值，适用于大文件处理、无限序列、数据流管道。
+
+### 类型
 
 ```
-stream expr                        // 从表达式创建惰性流
-
-stream readFile p"/tmp/large.log"
-  |> filter (\line -> contains "ERROR" line)
-  |> map parseLine
+Stream t   // 元素类型为 t 的惰性序列
 ```
 
-`stream` 关键字将表达式的求值延迟到消费时，适用于大文件处理和惰性管道。
+Stream 是标准库类型，通过 `Stream` 模块的函数构造和消费。
+
+### 纯构造
+
+```
+Stream.fromList [1, 2, 3]              // 从 List 构造
+Stream.range 0 100                     // [0, 1, ..., 99]
+Stream.repeat (\() -> random ())        // 反复调用函数产生元素
+```
+
+`Stream.repeat` 替代已移除的 `stream` 关键字，将任意表达式包装为反复求值的惰性流。
+
+### IO 构造
+
+IO Stream 必须在 `do` 块中通过 `<-` 解包后才能消费：
+
+```
+main : IO Unit
+main = do
+  lines <- Stream.readLines p"/tmp/large.log"   // lines : Stream String
+  lines
+    |> filter (\line -> contains "ERROR" line)
+    |> take 100
+    |> iter (\line -> print line)
+```
+
+构造与消费分离：
+- **构造**（`<-` 时）：打开文件等初始化操作，在 IO 上下文中执行
+- **消费**（`iter` 等终端操作时）：逐元素拉取，按需读取
+
+### 变换（惰性）
+
+```
+map    : (a -> b) -> Stream a -> Stream b
+filter : (a -> Bool) -> Stream a -> Stream a
+take   : Int -> Stream a -> Stream a
+```
+
+变换操作不触发求值，只构造新的惰性流。多个变换组合为管线：
+
+```
+lines
+  |> filter (\line -> ...)     // 不变换
+  |> map (\line -> ...)        // 不变换，构造新 Stream
+  |> iter (\line -> ...)       // 终端：逐一拉取元素通过管线
+```
+
+### 消费（终端）
+
+```
+fold   : (b -> a -> b) -> b -> Stream a -> b
+toList : Stream a -> List a
+iter   : (a -> IO Unit) -> Stream a -> IO Unit
+```
+
+终端操作驱动求值，逐一从 Stream 中拉取元素并处理。
+
+### 错误处理
+
+Stream 的错误分两个阶段：
+
+#### 构造阶段（打开文件、网络连接等）
+
+```
+Stream.readLines : Path -> IO (Result (Stream String) IOError)
+```
+
+外层 `Result` 表示构造可能失败（文件不存在、权限不足）。通过 `?` 解包：
+
+```
+// 方案 A：自动解包，构造失败早返回
+main = do
+  lines? <- Stream.readLines p"/tmp/large.log"
+  iter (\line -> print line) lines
+
+// 方案 B：显式处理构造错误
+main = do
+  result <- Stream.readLines p"/tmp/large.log"
+  case result of
+    Ok lines -> iter (\line -> print line) lines
+    Err e   -> print f"cannot open: {e}"
+```
+
+`?` 在绑定标识上（`name? <-`）表示"解包此绑定的 Result，Err 早返回"。
+
+#### 运行时阶段（读取过程中的磁盘故障等）
+
+运行时读失败视为流终止——不再产生新元素。元素类型为纯值，消费端不感知错误：
+
+```
+Stream.readLines : Path -> IO (Result (Stream String) IOError)
+//                                        ↑ 元素为 String，不是 Result
+//                               运行时读失败 → 流静默终止
+```
+
+若需要逐元素处理错误，使用安全版本：
+
+```
+Stream.readLinesSafe : Path -> IO (Result (Stream (Result String IOError)) IOError)
+// 每个元素可能是 Err
+```
+
+消费时逐元素处理：
+
+```
+main = do
+  result <- Stream.readLines p"/tmp/large.log"
+  case result of
+    Ok lines ->
+      lines
+        |> filterMap identity          // 跳过 Err 元素，保留 Ok 内容
+        |> iter (\line -> print line)
+    Err e -> print f"cannot open: {e}"
+```
+
+`filterMap identity : Stream (Result t e) -> Stream t` 过滤掉所有 `Err` 元素，仅保留 `Ok t`。
+
+### 完整示例
+
+```
+readLines : Path -> IO (Result (Stream (Result String IOError)) IOError)
+
+main = do
+  result <- Stream.readLinesSafe p"/tmp/log.txt"
+  case result of
+    Ok lines ->
+      lines
+        |> filterMap identity     // 跳过读失败的行
+        |> filter (\line -> contains "ERROR" line)
+        |> take 100
+        |> iter (\line -> print line)
+    Err e -> print f"failed to open: {e}"
+```
 
 ## 与语法分析器的交互
 
@@ -1070,7 +1204,7 @@ stream readFile p"/tmp/large.log"
 | Map 字面量 | `#{ "a" = 1 }`（`=` 替代 `=>`）；Map 索引 `data["key"]`；Map 更新使用 `update` 语法 |
 | `capability` 单复 | `with capability` 作用域（单数）；`with capabilities` 列举（复数） |
 | 点调用语义 | 仅限积类型字段投影和元组索引，无函数调用 |
-| `Stream` 构造 | `stream expr` 关键字语法 |
+| `Stream` 构造 | `Stream.fromList`、`Stream.range`、`Stream.repeat` 替代 `stream` 关键字 |
 | 模块导入 | `import List as L with (map as m)` 语法；`Maybe(*)` 变体导入语法 |
 | 模块导出 | `module List export (map)` 声明语法，无 `pub` 关键字 |
 | 导出语法 | 仅 `module export`，无 `pub` 关键字 |
