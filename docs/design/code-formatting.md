@@ -93,6 +93,32 @@ case n of
   _ -> "negative"
 ```
 
+### `if then else`
+
+`if`、`else` 各自独立一行，分支体缩进 +2：
+
+```
+result =
+  if length parts < 4 then
+    Err UnknownFormat
+  else
+    Ok parsed
+```
+
+```
+parseLine = \line ->
+  let
+    parts = split "|" line
+  in
+    if length parts < 4 then
+      Err UnknownFormat
+    else
+      let
+        timestamp = parseTime parts[0]
+      in
+        Ok timestamp
+```
+
 ### `let in`
 
 `let` 和 `in` 各自在新行，不能与 `=` 在同一行：

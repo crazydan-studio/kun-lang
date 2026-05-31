@@ -43,7 +43,7 @@ area = \shape ->
       let
         s = (a + b + c) / 2.0
       in
-      sqrt (s * (s - a) * (s - b) * (s - c))
+        sqrt (s * (s - a) * (s - b) * (s - c))
 
 // 带通配：_ 覆盖未指定的变体
 describe : Shape -> String
@@ -137,7 +137,7 @@ swap = \pair ->
   let
     (x, y) = pair
   in
-  (y, x)
+    (y, x)
 
 // case 匹配元组内容
 bothOrNothing : (Maybe a, Maybe b) -> Maybe (a, b)
@@ -159,7 +159,7 @@ distance = \p1 p2 ->
     dx = x2 - x1
     dy = y2 - y1
   in
-  sqrt (dx * dx + dy * dy)
+    sqrt (dx * dx + dy * dy)
 
 // Record 解构带别名
 midpoint : { x : Float, y : Float } -> { x : Float, y : Float } -> { x : Float, y : Float }
@@ -168,7 +168,7 @@ midpoint = \p1 p2 ->
     { x as x1, y as y1 } = p1
     { x as x2, y as y2 } = p2
   in
-  { x = (x1 + x2) / 2.0, y = (y1 + y2) / 2.0 }
+    { x = (x1 + x2) / 2.0, y = (y1 + y2) / 2.0 }
 
 // case 匹配 Record 内容
 describePoint : { x : Float, y : Float } -> String
@@ -255,11 +255,13 @@ fizzbuzz : Int -> String
 fizzbuzz = \n ->
   case n % 15 of
     0 -> "fizzbuzz"
-    _ -> case n % 3 of
-      0 -> "fizz"
-      _ -> case n % 5 of
-        0 -> "buzz"
-        _ -> toString n
+    _ ->
+      case n % 3 of
+        0 -> "fizz"
+        _ ->
+          case n % 5 of
+            0 -> "buzz"
+            _ -> toString n
 
 // String 字面量
 parseHttpStatus : String -> Int
@@ -291,7 +293,10 @@ processNode = \tree ->
 // if 适合简单布尔判断
 checkFile : Path -> String
 checkFile = \p ->
-  if Path.exists p then "exists" else "not found"
+  if Path.exists p then
+    "exists"
+  else
+    "not found"
 
 // case 适合多分支和结构解构（推荐）
 describeFileType : Path -> String

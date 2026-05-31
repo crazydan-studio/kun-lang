@@ -78,24 +78,24 @@ parseLine = \line ->
   let
     parts = split "|" line
   in
-  if length parts < 4 then
-    Err UnknownFormat
-  else
-    let
-      timestamp = parseTime parts[0]
-      level     = parts[1]
-      message   = parts[2]
-      pidStr    = parts[3]
-    in
-    case parseLevel level of
-      Ok lvl ->
-        Ok (Entry
-          { timestamp = timestamp
-          , level     = lvl
-          , message   = message
-          , pid       = Pid.pid pidStr
-          })
-      Err e -> Err (ParseFailed e)
+    if length parts < 4 then
+      Err UnknownFormat
+    else
+      let
+        timestamp = parseTime parts[0]
+        level     = parts[1]
+        message   = parts[2]
+        pidStr    = parts[3]
+      in
+        case parseLevel level of
+          Ok lvl ->
+            Ok (Entry
+              { timestamp = timestamp
+              , level     = lvl
+              , message   = message
+              , pid       = Pid.pid pidStr
+              })
+          Err e -> Err (ParseFailed e)
 
 // 高阶函数：按级别过滤
 filterByLevel : LogLevel -> List LogEntry -> List LogEntry
@@ -112,7 +112,7 @@ filterByLevel = \minLevel entries ->
         (Error, Error) -> true
         _              -> false
   in
-  L.filter shouldInclude entries
+    L.filter shouldInclude entries
 
 // ============================================================
 // 管道 + Lambda 多参数
@@ -127,7 +127,7 @@ countByLevel = \entries ->
         level = entry.level
         n = get level acc |> maybe 0 identity
       in
-      insert level (n + 1) acc
+        insert level (n + 1) acc
     ) #{}
     |> identity
 
@@ -144,7 +144,7 @@ createDefaultConfig = \logDir ->
       , output   = Path.join logDir "report.txt"
       }
   in
-  { cfg | minLevel = Warn }
+    { cfg | minLevel = Warn }
 
 // ============================================================
 // IO 函数 + do 记法 + ? 操作符

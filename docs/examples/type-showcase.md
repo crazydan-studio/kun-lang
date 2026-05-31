@@ -180,7 +180,7 @@ conversions =
     b  = toBytes "hello"      // String -> Bytes
     s  = toString b           // Bytes -> String
   in
-  (n1, u1, f1, b, s)
+    (n1, u1, f1, b, s)
 
 // ============================================================
 // 7. 模式匹配中的类型收窄
