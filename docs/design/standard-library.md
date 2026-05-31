@@ -278,7 +278,7 @@ IO 构造必须通过 `<-` 解包后才能消费：
 
 ```
 main = do
-  lines? <- Stream.readLines p"/tmp/log.txt"
+  lines <-? Stream.readLines p"/tmp/log.txt"
   iter (\line -> print line) lines
 ```
 

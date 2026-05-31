@@ -684,6 +684,7 @@ do
 |------|------|---------|
 | `expr` | 执行 `expr`（类型 `IO T`），丢弃 `T` | 无绑定 |
 | `name <- expr` | 执行 `expr`，解包出 `T` 绑定到 `name` | `name : T` |
+| `name <-? expr` | 执行 `expr`（类型 `IO (Result T E)`），解包 IO 和 Result，Err 早返回 | `name : T` |
 | `_ <- expr` | 执行 `expr`，显式解包但丢弃 | 无绑定 |
 
 `<-` 与 `IO` 的关系：
@@ -1114,7 +1115,7 @@ Stream.readLines : Path -> IO (Result (Stream String) IOError)
 ```
 // 方案 A：自动解包，构造失败早返回
 main = do
-  lines? <- Stream.readLines p"/tmp/large.log"
+  lines <-? Stream.readLines p"/tmp/large.log"
   iter (\line -> print line) lines
 
 // 方案 B：显式处理构造错误
@@ -1125,7 +1126,7 @@ main = do
     Err e   -> print f"cannot open: {e}"
 ```
 
-`?` 在绑定标识上（`name? <-`）表示"解包此绑定的 Result，Err 早返回"。
+`<-?` 在绑定时同时解包 IO 和 Result，Err 早返回：
 
 #### 运行时阶段（读取过程中的磁盘故障等）
 
