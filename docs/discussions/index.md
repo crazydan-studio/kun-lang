@@ -12,3 +12,4 @@
 |------|------|------|
 | [类型系统设计决策](discussion-type-system-design-decisions.md) | 6 项核心设计决策（推断/整数/Nat/泛型/效应/子类型）+ Path/Regex 讨论 | 2026-05-28 |
 | [语法演进与设计决策](discussion-syntax-evolution.md) | 16 项语法变更的讨论：注释/字面量/泛型/函数/Stream/无参函数/模块等 | 2026-05-30 |
+| [异步支持必要性分析](discussion-async-support.md) | MVP 不做异步支持，通过标准库 Task 模块提供组合子式并发 | 2026-05-31 |

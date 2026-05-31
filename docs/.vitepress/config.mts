@@ -312,6 +312,7 @@ function sidebarWorking() {
           { text: '讨论编写指南', link: '/discussions/00-discussion-writing-guide' },
           { text: '类型系统设计决策', link: '/discussions/discussion-type-system-design-decisions' },
           { text: '语法演进与设计决策', link: '/discussions/discussion-syntax-evolution' },
+          { text: '异步支持必要性分析', link: '/discussions/discussion-async-support' },
         ],
       },
       {
