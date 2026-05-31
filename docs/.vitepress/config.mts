@@ -363,6 +363,10 @@ function sidebarWorking() {
           { text: '索引', link: '/input/' },
           { text: '输入处理指南', link: '/input/00-input-processing-guide' },
           { text: '类型系统会话输入', link: '/input/input-maintainer-type-system-session' },
+          { text: '语法规范附件', link: '/input/input-syntax-specification' },
+          { text: 'Stream 设计', link: '/input/input-stream-design' },
+          { text: '脚本入口与参数', link: '/input/input-entry-point-and-args' },
+          { text: '语法细节打磨', link: '/input/input-syntax-polish' },
         ],
       },
       {
