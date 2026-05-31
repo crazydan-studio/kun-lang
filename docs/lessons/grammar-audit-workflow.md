@@ -59,7 +59,7 @@
 | 16 | 点调用 | `p.parent()`、`code.isSuccess`、`line.slice 5` | `Path.parent p`、`ExitCode.isSuccess code`、`String.slice 5 line` |
 | 17 | 导入 | `from List import (map)` | `import List as L`（模块别名）或 `import List with (map, filter)`（精选导入），不可组合 |
 | 18 | 导出 | `pub` 关键字 | `module ... export (...)` |
-| 19 | `?` 操作符 | `(expr)?` | `funcName? args`（函数名后）；`name <-? expr`（绑定）；Stream 上不支持，用 `filterMap identity` |
+| 19 | `?` / `=?` 操作符 | `(expr)?`、`funcName? args` | `name =? expr`（纯绑定）；`name <-? expr`（IO 绑定）；Stream 上不支持，用 `filterMap toMaybe` |
 | 20 | `<-` 解包 | — | `name <- expr` 仅 IO；`name <-? expr` IO + Result |
 | 21 | 无参函数类型 | `() -> T` | 无。改用绑定或 `IO T` |
 | 22 | 类型别名 | `type alias` | 仅 `type LongFunc = ...`（函数类型） |

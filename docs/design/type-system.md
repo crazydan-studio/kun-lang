@@ -313,7 +313,7 @@ Kun 类型系统**不包含子类型关系**：
 
   ```
   struct Maybe_Int {
-    uint8_t tag;       // 0 = None, 1 = Just
+    uint8_t tag;       // 0 = Nothing, 1 = Just
     int64_t value;     // 仅 tag==1 时有意义
   };
   ```

@@ -105,16 +105,17 @@
 | v1（已弃用） | `import List as L with (map as m)`（`as` `with` 可组合） | `module List export (map)` 无 `pub` |
 | 最终（v2） | `import List as L` 或 `import List with (map as m)`（互斥，不可组合） | `module List export (map)` 无 `pub` |
 
-### 议题 11：`?` 操作符位置
+### 议题 11：`?` / `=?` 操作符位置
 
 | 方案 | 语法 | 说明 |
 |------|------|------|
 | 表达式后 | `(expr)?` | 优先级低，需括号包裹 |
 | 函数名后 | `funcName? args` | 作用于函数返回值 |
-| 绑定时 | `name <-? expr` | 作用于绑定表达式的 Result |
-| Stream 上 | `result?` 逐元素解包 | REJECTED——用 `filterMap identity` |
+| IO 绑定时 | `name <-? expr` | 作用于绑定表达式的 Result |
+| 纯绑定时 | `name =? expr` | 作用于纯 Result 表达式 |
+| Stream 上 | `result?` 逐元素解包 | REJECTED——用 `filterMap toMaybe` |
 
-**最终决策**：**函数名后** + **绑定时**。Stream 上不支持逐元素解包。
+**最终决策**：**纯绑定 `=?` + IO 绑定 `<-?`**。函数名后缀 `funcName?` 被移除，早返回仅限变量绑定时发生。Stream 上不支持逐元素解包。
 
 ### 议题 12：`<-` 解包语义
 
@@ -190,7 +191,7 @@
 | 函数组合 | 从左向右 `>>`, 从右向左 `<<` |
 | 反向管道 | 减少括号嵌套 |
 | 无参函数 | 不支持 `() -> T`。`IO T` 已是延迟值，`<-` 即执行；纯函数惰性求值靠绑定 |
-| `<-` vs `<-?` | `name <- expr` 仅解 IO；`name <-? expr` 解 IO + Result，Err 早返回 |
-| `?` 位置 | 函数名后 `funcName?` 和绑定标识 `name <-?`；Stream 上不支持逐元素解包，用 `filterMap identity` |
+| `=` / `=?` / `<-?` | `name = expr` 纯绑定；`name =? expr` 解纯 Result，Err 早返回；`name <-? expr` 解 IO + Result，Err 早返回 |
+| `?` / `=?` 位置 | 纯绑定 `name =?` 和 IO 绑定 `name <-?`；函数名后缀 `funcName?` 已移除；Stream 上不支持逐元素解包，用 `filterMap toMaybe` |
 | `stream` 关键字 | 已移除。纯构造用 `Stream.fromList`/`Stream.range`，IO 构造用 `Stream.readLines` |
 | IO Stream 消费 | IO Stream 必须通过 `<-` 解包后才能进行 `map`/`filter`/`iter` 等消费操作 |

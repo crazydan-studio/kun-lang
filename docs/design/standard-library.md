@@ -122,7 +122,7 @@
 - 通过构造器创建：`now : IO DateTime`（当前系统时间）、`fromUnixSecs : Int -> DateTime`
 - 支持操作：`+ Duration -> DateTime`、`- Duration -> DateTime`、`- DateTime -> Duration`
 - 字段提取：`year : DateTime -> Int`、`month : DateTime -> Int`、`day : DateTime -> Int`、`hour : DateTime -> Int`、`minute : DateTime -> Int`、`second : DateTime -> Int`
-- 格式化和解析：`format : String -> DateTime -> String`（strftime 风格）、`parse : String -> String -> Result DateTime String`
+- 格式化和解析：`format : String -> DateTime -> String`（`%` 引导的格式符，详见语法设计）、`parse : String -> String -> Result DateTime String`
 - 与 `Duration` 的关系：`DateTime` 是时间轴上的点，`Duration` 是两点之间的间隔
 - 语义场景：文件时间戳（`mtime`、`ctime`）、日志记录、调度触发、超时计算
 
@@ -307,7 +307,7 @@ iter   : (a -> IO Unit) -> Stream a -> IO Unit
 filterMap : (a -> Maybe b) -> Stream a -> Stream b
 ```
 
-`filterMap identity : Stream (Result t e) -> Stream t` — 过滤掉所有 `Err` 元素，保留 `Ok` 内容。
+`filterMap toMaybe : Stream (Result t e) -> Stream t` — 过滤掉所有 `Err` 元素，保留 `Ok` 内容。
 
 ### 示例
 
@@ -320,7 +320,7 @@ main = do
   case result of
     Ok lines ->
       lines
-        |> filterMap identity          // 跳过读失败的行
+        |> filterMap toMaybe          // 跳过读失败的行
         |> filter (contains "ERROR")
         |> take 100
         |> iter print

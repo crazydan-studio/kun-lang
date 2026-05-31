@@ -88,7 +88,7 @@ option "timeout" 't' : Duration with (range 1s 300s)
 - 长名：`--output <value>`
 - 短名：`-o <value>`
 - 类型支持：`String`、`Path`、`Int`、`Nat`、`Duration`、`Float`
-- 默认值：`None`（`Maybe T`，未指定时为 `None`）
+- 默认值：`Nothing`（`Maybe T`，未指定时为 `Nothing`）
 
 ### Positional（位置参数）
 

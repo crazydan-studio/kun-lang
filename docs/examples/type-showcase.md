@@ -68,7 +68,7 @@ createUser = \name uid email ->
 // 标准泛型：Maybe t 而非 Maybe<T>
 type Maybe t
   = Just t
-  | None
+  | Nothing
 
 // 多参数：Result t e 而非 Result<T, E>
 type Result t e

@@ -192,16 +192,16 @@ f"{now:%yyyy-MM-dd HH:mm:ss.SSS Z}"    // → "2026-05-29 14:30:00.123 +0000"
 f"{now:%yyyy-MM-dd}"                   // → "2026-05-29"
 ```
 
-格式符以 `%` 开头，后接字段名：
-- `%yyyy` — 四位数年份
-- `%yy` — 两位数年份
-- `%MM` — 两位数月份（01-12）
-- `%dd` — 两位数日期（01-31）
-- `%HH` — 两位数小时（00-23）
-- `%mm` — 两位数分钟（00-59）
-- `%ss` — 两位数秒（00-59）
-- `%SSS` — 三位数毫秒（000-999）
-- `%Z` — 时区偏移（+0000）
+格式模板为字段名直接组合（如 `yyyy-MM-dd`），在 `f"..."` 字符串中整体以 `%` 开头进入格式模式。支持的字段名：
+- `yyyy` — 四位数年份
+- `yy` — 两位数年份
+- `MM` — 两位数月份（01-12）
+- `dd` — 两位数日期（01-31）
+- `HH` — 两位数小时（00-23）
+- `mm` — 两位数分钟（00-59）
+- `ss` — 两位数秒（00-59）
+- `SSS` — 三位数毫秒（000-999）
+- `Z` — 时区偏移（+0000）
 
 ### 转义
 
@@ -295,7 +295,7 @@ type Color
 
 type Maybe t
   = Just t
-  | None
+  | Nothing
 
 type Result t e
   = Ok t
@@ -629,7 +629,10 @@ do
 | `expr` | 执行 `expr`（类型 `IO T`），丢弃 `T` | 无绑定 |
 | `name <- expr` | 执行 `expr`，解包出 `T` 绑定到 `name` | `name : T` |
 | `name <-? expr` | 执行 `expr`（类型 `IO (Result T E)`），解包 IO 和 Result，Err 早返回 | `name : T` |
+| `name =? expr` | 执行 `expr`（类型 `Result T E`），解包 Result，Err 早返回 | `name : T` |
 | `_ <- expr` | 执行 `expr`，显式解包但丢弃 | 无绑定 |
+
+`=` 与 `=?` 的对比：`name = expr` 为纯值绑定（类型 `T`），`name =? expr` 为带早返回的 Result 绑定（类型 `Result T E` → 解包为 `T`）。
 
 `<-` 与 `IO` 的关系：
 
@@ -754,25 +757,27 @@ merged  = [*la, 0, *lb]           // 在列表中间展开
 
 展开操作 `*list` 将 List 中的元素原地展开到新的 List 字面量中。
 
-### `?` 操作符
+### `?` / `=?` 操作符
 
-Kun 中 `?` 出现在两种位置，含义相同（解包 `Result`，`Err` 早返回），适用场景不同：
+Kun 中早返回操作符共两种，含义相同（解包 `Result`，`Err` 早返回），按绑定情景区分：
 
-| 位置 | 语法 | 解包对象 | 示例 |
+| 用法 | 语法 | 解包对象 | 示例 |
 |------|------|---------|------|
-| 函数名后 | `funcName? args` | 函数返回值中的 `Result` | `readConfig? path` — `readConfig` 返回 `IO (Result Config e)`，`?` 解包 Result |
-| 绑定标识 | `name <-? expr` | 绑定表达式值中的 `Result` | `lines <-? Stream.readLines path` — `Stream.readLines` 返回 `IO (Result (Stream String) e)`，`<-?` 解 IO + Result |
+| 纯绑定 | `name =? expr` | `expr` 返回值中的 `Result` | `config =? readConfig p"/etc/app.toml"` — `readConfig` 返回 `Result Config String`，`=?` 解包 Result |
+| IO 绑定 | `name <-? expr` | 绑定表达式值中的 `Result` | `lines <-? Stream.readLines path` — `Stream.readLines` 返回 `IO (Result (Stream String) e)`，`<-?` 解 IO + Result |
 
-「`?` 在 Stream 上逐元素解包 Result」**不支持**——Stream 元素为 `Result t e` 时，应使用 `filterMap identity` 跳过 Err 元素，而非用 `?` 语义覆盖到流内部的每个元素。
+早返回**仅允许在变量绑定时发生**，直接处理函数返回值不支持早返回。
+
+「`?` 在 Stream 上逐元素解包 Result」**不支持**——Stream 元素为 `Result t e` 时，应使用 `filterMap toMaybe` 跳过 Err 元素。
 
 ```
-readConfig : Path -> IO (Result Config String)
-config = readConfig? p"/etc/app.toml"
+readConfig : Path -> Result Config String
+config =? readConfig p"/etc/app.toml"
 ```
 
-`?` 标记在函数名之后（而非表达式之后），表示对该函数返回的 `Result` 进行解包：若结果为 `Ok t` 则取得 `t` 值，若为 `Err e` 则将错误传播到调用者。
+`=?` 在变量绑定中对右侧表达式的 `Result` 进行解包：若结果为 `Ok t` 则取得 `t` 值绑定到左侧名字，若为 `Err e` 则将错误传播到调用者。
 
-等价于不写 `?` 时的显式模式匹配：
+等价于不写 `=?` 时的显式模式匹配：
 
 ```
 config = case readConfig p"/etc/app.toml" of
@@ -870,8 +875,8 @@ module Maybe export (Maybe(Just))         // 仅导出 Just 变体
 所有需要导出的符号均通过 `module export` 声明。不存在 `pub` 关键字。
 
 变体导出语法：
-- `Maybe(*)` — 导出类型 `Maybe` 及其所有变体（`Just`、`None`）
-- `Maybe(Just)` — 仅导出变体 `Just`（不含 `None`）
+- `Maybe(*)` — 导出类型 `Maybe` 及其所有变体（`Just`、`Nothing`）
+- `Maybe(Just)` — 仅导出变体 `Just`（不含 `Nothing`）
 - `Maybe` — 仅导出类型名，不导出任何变体
 
 ### 导入
@@ -895,7 +900,7 @@ import Maybe with (Maybe(*))        // 导入类型及所有变体
 import Maybe with (Maybe(Just))     // 仅导入 Just 变体
 ```
 
-导入变体后，变体名称可直接在代码中使用（`Just`、`None`），无需模块限定。
+导入变体后，变体名称可直接在代码中使用（`Just`、`Nothing`），无需模块限定。
 
 ## 脚本入口
 
@@ -1060,12 +1065,12 @@ Stream.range 0 100                     // [0, 1, ..., 99]
 
 ### IO 构造
 
-IO Stream 必须在 `do` 块中通过 `<-` 解包后才能消费：
+IO Stream 必须在 `do` 块中通过 `<-` / `<-?` 解包后才能消费：
 
 ```
 main : IO Unit
 main = do
-  lines <- Stream.readLines p"/tmp/large.log"   // lines : Stream String
+  lines <-? Stream.readLines p"/tmp/large.log"   // lines : Stream String
   lines
     |> filter (contains "ERROR")
     |> take 100
@@ -1113,7 +1118,7 @@ Stream 的错误分两个阶段：
 Stream.readLines : Path -> IO (Result (Stream String) IOError)
 ```
 
-外层 `Result` 表示构造可能失败（文件不存在、权限不足）。通过 `?` 解包：
+外层 `Result` 表示构造可能失败（文件不存在、权限不足）。通过 `<-?` 解包：
 
 ```
 // 方案 A：自动解包，构造失败早返回
@@ -1152,33 +1157,18 @@ Stream.readLinesSafe : Path -> IO (Result (Stream (Result String IOError)) IOErr
 
 ```
 main = do
-  result <- Stream.readLines p"/tmp/large.log"
-  case result of
-    Ok lines ->
-      lines
-        |> filterMap identity          // 跳过 Err 元素，保留 Ok 内容
-        |> iter print
-    Err e -> print f"cannot open: {e}"
-```
-
-`filterMap identity : Stream (Result t e) -> Stream t` 过滤掉所有 `Err` 元素，仅保留 `Ok t`。
-
-### 完整示例
-
-```
-readLines : Path -> IO (Result (Stream (Result String IOError)) IOError)
-
-main = do
   result <- Stream.readLinesSafe p"/tmp/log.txt"
   case result of
     Ok lines ->
       lines
-        |> filterMap identity     // 跳过读失败的行
+        |> filterMap toMaybe     // 跳过读失败的行
         |> filter (contains "ERROR")
         |> take 100
         |> iter print
     Err e -> print f"failed to open: {e}"
 ```
+
+`filterMap toMaybe : Stream (Result t e) -> Stream t` 过滤掉所有 `Err` 元素，仅保留 `Ok t`。
 
 ## 与语法分析器的交互
 

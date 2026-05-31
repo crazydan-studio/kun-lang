@@ -68,7 +68,7 @@ head : List a -> Maybe a
 head = \list ->
   case list of
     [x, *_] -> Just x
-    []      -> None
+    []      -> Nothing
 
 // ============================================================
 // 3. List 模式（[*rest] 替代 ::）
@@ -102,7 +102,7 @@ thirdElement : List Int -> Maybe Int
 thirdElement = \list ->
   case list of
     [_, _, z, *_] -> Just z
-    _             -> None
+    _             -> Nothing
 
 // ============================================================
 // 4. 守卫子句（when）
@@ -124,7 +124,7 @@ describeMaybe = \m ->
     Just n when n > 100 -> "big number"
     Just n when n < 0   -> "negative"
     Just _              -> "some value"
-    None                -> "nothing"
+    Nothing                -> "nothing"
 
 // ============================================================
 // 5. 元组解构
@@ -143,7 +143,7 @@ bothOrNothing : (Maybe a, Maybe b) -> Maybe (a, b)
 bothOrNothing = \pair ->
   case pair of
     (Just a, Just b) -> Just (a, b)
-    _                -> None
+    _                -> Nothing
 
 // ============================================================
 // 6. Record 解构

@@ -1,13 +1,13 @@
 # 综合语法示例：日志文件处理器
 
-覆盖：注释、字面量、ADT、函数定义、Lambda、模式匹配、管道、IO、流、Record 操作、权限声明、模块导入、`?` 操作符、f-string
+覆盖：注释、字面量、ADT、函数定义、Lambda、模式匹配、管道、IO、流、Record 操作、权限声明、模块导入、`=?` / `<-?` 操作符、f-string
 
 ```
 // ============================================================
 // file-processor.kun  —  日志文件处理器
 // 涵盖：注释 / 字面量 / ADT / 类型标注 / 函数定义 / Lambda /
 //       case 模式匹配 / if / 管道 / do / Record 操作 / 导入 /
-//       权限声明 / 流 / 操作符 / ? 操作符
+//       权限声明 / 流 / 操作符 / =? / <-? 操作符
 // ============================================================
 
 // 脚本级权限声明
@@ -158,8 +158,8 @@ readConfig = \path ->
     // 纯函数解析
     lines  = split "\n" content
     logDir = p"/var/log/myapp"
-    // ? 解包 Result，Err 自动传播
-    minLvl = parseLevel? (L.head lines |> maybe "INFO" identity)
+    // =? 解包 Result，Err 自动传播
+    minLvl =? parseLevel (L.head lines |> maybe "INFO" identity)
   in
     Ok (createDefaultConfig logDir)
 
@@ -173,10 +173,10 @@ processLargeFile = \path ->
   do
     lines <-? Stream.readLines path
     lines
-      |> L.filter (contains "ERROR")
-      |> L.map parseLine
-      |> L.filterMap identity
-      |> L.iter (\entry -> print entry.message)
+      |> filter (contains "ERROR")
+      |> map parseLine
+      |> filterMap toMaybe
+      |> iter (\entry -> print entry.message)
 
 // ============================================================
 // 主入口：组合所有操作
@@ -256,7 +256,7 @@ main =
     // 生成报告（使用 f-string）
     report =
       L.map (\e ->
-        f"{e.timestamp:%Y-%m-%d %H:%M:%S} [{e.level}] {e.message}"
+        f"{e.timestamp:%yyyy-MM-dd HH:mm:ss} [{e.level}] {e.message}"
       ) errors
         |> join "\n"
 

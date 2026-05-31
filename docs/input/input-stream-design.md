@@ -29,7 +29,7 @@
 
 - `name <-? expr` 同时解包 IO 和 Result，Err 早返回
 - `name <- expr` 仅解 IO，留 `Result` 给显式处理
-- Stream 上不支持 `result?` 逐元素解包，用 `filterMap identity` 代替
+- Stream 上不支持 `result?` 逐元素解包，用 `filterMap toMaybe` 代替
 
 ## 设计结果
 

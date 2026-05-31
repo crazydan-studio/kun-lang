@@ -200,9 +200,9 @@ struct Stream {
 };
 ```
 
-- `next` 返回 `Maybe t`：`Just t` 表示有下一个元素，`None` 表示流已终止
+- `next` 返回 `Maybe t`：`Just t` 表示有下一个元素，`Nothing` 表示流已终止
 - 变换操作（`map`、`filter`、`take`）通过包裹 `next` 函数构造新的 Stream
-- 终端操作（`fold`、`toList`、`iter`）循环调用 `next` 直到返回 `None`
+- 终端操作（`fold`、`toList`、`iter`）循环调用 `next` 直到返回 `Nothing`
 
 Stream 构造与消费的两阶段分离：
 
@@ -404,7 +404,7 @@ typedef struct {
 | `Char` | `uint32_t` | Unicode 标量值 |
 | `Duration` | `int64_t` | 纳秒数 |
 | `List t` | `Array { uint8_t* ptr, uint64_t len, uint64_t cap }` | 连续存储 |
-| `Maybe t` | `TaggedUnion { uint8_t tag, uint64_t value }` | 0=None, 1=Just |
+| `Maybe t` | `TaggedUnion { uint8_t tag, uint64_t value }` | 0=Nothing, 1=Just |
 | `Result t e` | `TaggedUnion { uint8_t tag, uint64_t ok, uint64_t err }` | 0=Ok, 1=Err |
 
 ### 结构化参数序列化
@@ -592,7 +592,7 @@ ADT 在运行时表示为带标记的联合体：
 ```
 // Maybe Int
 struct Maybe_Int {
-    uint8_t tag;           // 0 = None, 1 = Just
+    uint8_t tag;           // 0 = Nothing, 1 = Just
     int64_t value;         // 仅 tag==1 时有意义
 };
 
@@ -640,7 +640,7 @@ struct Stream {
 };
 ```
 
-- `next` 返回 `void*`：非空指针 = `Just t`，NULL = `None`
+- `next` 返回 `void*`：非空指针 = `Just t`，NULL = `Nothing`
 - 变换操作不修改 `state`，而是创建新的 Stream 结构体包裹前一个 Stream
 - `drop` 释放 `state` 持有的所有资源（文件描述符、堆内存等）
 
@@ -958,7 +958,7 @@ void* readlines_next(void* state_ptr) {
     let state = (ReadLinesState*)state_ptr;
     
     if (state.eof && state.buf_pos >= state.buf_end) {
-        return NULL;  // None: 流已终止
+        return NULL;  // Nothing: 流已终止
     }
     
     // 从缓冲区读取直到换行符或 EOF
