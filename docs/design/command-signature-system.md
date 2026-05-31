@@ -126,7 +126,7 @@ command "git"
 
 subcommand "commit"
   flag "all"     'a' : Bool
-  flag "message" 'm' : String
+  option "message" 'm' : String
   positional 0        : String with (optional)  // 路径规格
   behavior
     fs.read(".")
@@ -447,7 +447,7 @@ flag "long"            'l' : Bool
 flag "human-readable"  'h' : Bool
 flag "recursive"       'R' : Bool
 flag "directory"       'd' : Bool
-flag "sort"            'S' : Bool with (enum ["size", "time", "version"])
+option "sort"          'S' : String with (enum ["size", "time", "version"])
 option "time"          't' : String with (enum ["atime", "ctime", "mtime"])
 positional 0                : Path with (optional)
 positional 1                : Path with (optional)

@@ -244,6 +244,7 @@ function sidebarDesign() {
         { text: '功能清单', link: '/design/feature-inventory' },
         { text: '安全角色与权限', link: '/design/roles-and-permissions' },
         { text: '供应链安全', link: '/design/supply-chain-security' },
+        { text: '命令签名系统', link: '/design/command-signature-system' },
       ],
     },
   ]
