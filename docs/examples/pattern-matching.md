@@ -153,8 +153,8 @@ bothOrNothing = \pair ->
 distance : { x : Float, y : Float } -> { x : Float, y : Float } -> Float
 distance = \p1 p2 ->
   let
-    { x = x1, y = y1 } = p1
-    { x = x2, y = y2 } = p2
+    { x as x1, y as y1 } = p1
+    { x as x2, y as y2 } = p2
     dx = x2 - x1
     dy = y2 - y1
   in
@@ -178,6 +178,25 @@ describePoint = \p ->
     { x = 0, y = _ } -> "on y axis"
     _                -> "somewhere"
 
+// case 中使用 as 别名
+type User
+  = Regular { name : String, age : Int }
+  | Admin   { name : String, role : String }
+
+greet : User -> String
+greet = \user ->
+  case user of
+    Regular { name = "Li" } ->
+      "hi Li"
+    Regular { name as n = "Wang" } ->
+      f"hello {n}-Wang"
+    Regular { name as n, age = 10 } ->
+      f"young {n}"
+    Admin { name as n, role = "root" } ->
+      f"admin {n}"
+    _ ->
+      "guest"
+
 // ============================================================
 // 7. 嵌套模式
 // ============================================================
@@ -191,12 +210,12 @@ describeCmd = \cmd ->
       f"run: {program}"
 
     // 嵌套变体中的嵌套 Record
-    Pipe (Run { program = p1, args = _ })
-         (Run { program = p2 }) ->
+    Pipe (Run { program as p1, args = _ })
+         (Run { program as p2 }) ->
       f"pipe: {p1} | {p2}"
 
     // 多层嵌套
-    Redirect { cmd = Pipe (_, _), file = f, mode = Append } ->
+    Redirect { cmd = Pipe (_, _), file as f, mode = Append } ->
       f"append pipe output to {f}"
 
     // 通配兜底
