@@ -1,0 +1,29 @@
+# 真理源与优先级
+
+## 真理源定义
+
+| 问题类型 | 主要真理源 | 说明 |
+|---|---|---|
+| 应该构建什么？ | `docs/ai-agent/requirements/` | 需求文档定义要构建的功能 |
+| 当前语言行为？ | `docs/ai-agent/design/` | 设计文档定义语言行为规范 |
+| 当前技术结构？ | `docs/ai-agent/architecture/` | 架构文档定义系统技术结构 |
+| 如何执行某个任务？ | `docs/ai-agent/plans/` | 计划文档定义具体执行步骤 |
+| 发生了什么？ | `docs/ai-agent/logs/` + `docs/ai-agent/testing/` + `docs/ai-agent/bugs/` + `docs/ai-agent/audits/` | 日志、测试、Bug、审计记录历史 |
+| 项目约定？ | `docs/ai-agent/context/` | 项目上下文定义协作规范 |
+
+## 文档优先级
+
+当文档之间出现冲突时，按以下优先级解决：
+
+1. **`docs/ai-agent/context/`** — 最高优先级，定义项目协作规则
+2. **`docs/ai-agent/architecture/`** — 系统架构与技术决策
+3. **`docs/ai-agent/design/`** — 应用层行为规范
+4. **`docs/ai-agent/requirements/`** — 需求定义
+5. **`docs/ai-agent/plans/`** — 执行计划
+6. **其他文档** — 日志、示例、讨论等
+
+## 代码与文档的关系
+
+- 源代码是运行时的真理源（实现的行为）
+- 文档是设计意图的真理源（应该的行为）
+- 当代码与文档不一致时，应更新文档以反映实际实现（除非是 Bug）
