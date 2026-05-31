@@ -58,7 +58,7 @@ checkService = \addr ->
 
     case result of
       Ok body ->
-        do in
+        do
           end <- now
           elapsed = end - start
         in

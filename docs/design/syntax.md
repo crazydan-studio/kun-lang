@@ -595,14 +595,14 @@ type Config = Config { content : String, size : Int }
 
 loadConfig : Path -> IO Config
 loadConfig = \path ->
-  do in
+  do
     content <- readFile path
   in
     Config { content = content, size = length content }
 
 processAndReturn : Path -> IO String
 processAndReturn = \path ->
-  do in
+  do
     content <- readFile path
     result <- parse content
   in
