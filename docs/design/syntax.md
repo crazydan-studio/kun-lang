@@ -1050,10 +1050,7 @@ Stream 是标准库类型，通过 `Stream` 模块的函数构造和消费。
 ```
 Stream.fromList [1, 2, 3]              // 从 List 构造
 Stream.range 0 100                     // [0, 1, ..., 99]
-Stream.repeat (\() -> random ())        // 反复调用函数产生元素
 ```
-
-`Stream.repeat` 替代已移除的 `stream` 关键字，将任意表达式包装为反复求值的惰性流。
 
 ### IO 构造
 
@@ -1205,7 +1202,7 @@ main = do
 | Map 字面量 | `#{ "a" = 1 }`（`=` 替代 `=>`）；Map 索引 `data["key"]`；Map 更新使用 `update` 语法 |
 | `capability` 单复 | `with capability` 作用域（单数）；`with capabilities` 列举（复数） |
 | 点调用语义 | 仅限积类型字段投影和元组索引，无函数调用 |
-| `Stream` 构造 | `Stream.fromList`、`Stream.range`、`Stream.repeat` 替代 `stream` 关键字 |
+| `Stream` 构造 | `Stream.fromList`、`Stream.range` 替代 `stream` 关键字 |
 | 模块导入 | `import List as L with (map as m)` 语法；`Maybe(*)` 变体导入语法 |
 | 模块导出 | `module List export (map)` 声明语法，无 `pub` 关键字 |
 | 导出语法 | 仅 `module export`，无 `pub` 关键字 |
