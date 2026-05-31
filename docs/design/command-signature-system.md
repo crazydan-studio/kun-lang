@@ -25,7 +25,7 @@
 
 CDF 使用 Kun 语法风格的声明式格式：
 
-```
+```kun-cdf
 // ls.cdf — ls 命令的签名定义
 
 command "ls"
@@ -121,7 +121,7 @@ option "size" 's' : String with (regex "^\\d+(K|M|G)$" && length 1 32)
 
 ### 子命令
 
-```
+```kun-cdf
 command "git"
 
 subcommand "commit"
@@ -142,7 +142,7 @@ subcommand "push"
 
 子命令签名映射为独立函数值：
 
-```
+```kun-cdf
 git.commit : Bool -> String -> Maybe String -> IO (Result (Stream String) (List IOError))
 git.push   : Bool -> Maybe String -> Maybe String -> IO (Result (Stream String) (List IOError))
 ```
@@ -162,7 +162,7 @@ git.push   : Bool -> Maybe String -> Maybe String -> IO (Result (Stream String) 
 
 ### 结构化输出示例
 
-```
+```kun-cdf
 // cat — 读取文件内容
 output : Stream String
 
@@ -186,7 +186,7 @@ output : Stream { path : Path, size : Int }
 
 ### 文件系统行为
 
-```
+```kun-cdf
 behavior
   fs.read("/etc")                               // 读取指定路径
   fs.read("/var")                               // 读取多个路径
@@ -197,7 +197,7 @@ behavior
 
 ### 网络行为
 
-```
+```kun-cdf
 behavior
   net.http("api.example.com")                   // HTTP 请求到指定域名
   net.https("*")                                // HTTPS 请求到任意域名
@@ -207,7 +207,7 @@ behavior
 
 ### 进程行为
 
-```
+```kun-cdf
 behavior
   process.exec                                  // 启动子进程
   process.signal                                // 发送信号
@@ -216,7 +216,7 @@ behavior
 
 ### 系统行为
 
-```
+```kun-cdf
 behavior
   sys.time                                      // 读取系统时间
   sys.env("HOME")                               // 读取指定环境变量
@@ -258,7 +258,7 @@ behavior
 
 内置签名编译在 Kun 运行时二进制中，以 Zig 静态数组形式存在：
 
-```
+```zig
 // Zig 伪代码：内置签名条目
 const BUILTIN_SIGNATURES = [_]SignatureEntry{
     .{ .name = "ls",  .cdf_data = @embedFile("cdf/ls.cdf") },
@@ -375,7 +375,7 @@ CDF + .sig 文件 → 分发
 
 CDF 格式版本号嵌入文件头部：
 
-```
+```kun-cdf
 // kun-cdf-v1
 command "ls"
 ...
@@ -415,7 +415,7 @@ command "ls"
 
 参数验证器在序列化参数前执行：
 
-```
+```kun-cdf
 option "port" 'p' : Int with (range 1 65535)
 // 用户传入 -p 99999
 // → 验证失败：ValidationError { validator: "range", constraint: "1..65535", actual: "99999" }
@@ -438,7 +438,7 @@ option "port" 'p' : Int with (range 1 65535)
 
 ### ls.cdf
 
-```
+```kun-cdf
 // kun-cdf-v1
 command "ls"
 
@@ -463,7 +463,7 @@ behavior
 
 基于 CDF 自动生成 Kun 函数签名：
 
-```
+```kun-cdf
 ls : { all : Bool, long : Bool, human_readable : Bool, recursive : Bool,
        directory : Bool, sort : Maybe String, time : Maybe String } ->
      Maybe Path -> Maybe Path ->

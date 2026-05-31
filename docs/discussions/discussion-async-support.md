@@ -40,7 +40,7 @@
 
 #### 方案 A 的候选 API
 
-```
+```kun
 Task.parallel : List (IO a) -> IO (List a)
 Task.race     : List (IO a) -> IO a
 Task.timeout  : Duration -> IO a -> IO (Maybe a)
@@ -48,7 +48,7 @@ Task.timeout  : Duration -> IO a -> IO (Maybe a)
 
 示例场景——同时检查多个服务：
 
-```
+```kun
 checkServices = \addrs ->
   addrs
     |> map checkService          // List (IO HealthStatus)

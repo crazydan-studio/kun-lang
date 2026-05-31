@@ -46,10 +46,6 @@ Type Universe
 └── Type Variables     (a, b, etc. — for generics)
 ```
 
-```plantuml
-@file:../diagrams/type-system-hierarchy.puml
-```
-
 ## 基础类型
 
 ### 概览
@@ -125,7 +121,7 @@ Type Universe
 - 编译期验证的正则表达式
 - 字面量使用 `r"..."` 前缀：`r"(?i)[a-z]+"`
 
-  ```
+  ```kun
   r"(?i)[a-z]+"       // 忽略大小写
   r"(?m)^foo"         // 多行模式（^/$ 匹配行边界）
   r"(?s).+"           // DotAll（. 匹配换行符）
@@ -171,7 +167,7 @@ Type Universe
 - 与 `String` 语义上区分（但运行时同用 `[]u8`）
 - 字面量使用 `p"..."` 前缀：`p"/tmp/foo"`、`p"./foo"`
 
-```
+```kun
 // 路径操作是纯字符串语义，不依赖文件类型
 p = p"/tmp/foo"
 ```
@@ -250,10 +246,6 @@ Kun 类型系统**不包含子类型关系**：
   约束等式 → 求解 → 类型替换 → 最终类型
 ```
 
-```plantuml
-@file:../diagrams/type-checking-flow.puml
-```
-
 ### 阶段 1: 约束生成
 
 对 AST 的每个节点，根据其种类生成对应的类型约束：
@@ -311,7 +303,7 @@ Kun 类型系统**不包含子类型关系**：
 - 禁止运行时类型擦除 —— 仅在必要时保留类型标签（如 ADT 变体标记）
 - 和类型运行时采用带标记的联合体（Tagged Union）：
 
-  ```
+  ```zig
   struct Maybe_Int {
     uint8_t tag;       // 0 = Nothing, 1 = Just
     int64_t value;     // 仅 tag==1 时有意义
