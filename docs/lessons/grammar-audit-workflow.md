@@ -59,12 +59,15 @@
 | 16 | 点调用 | `p.parent()`、`code.isSuccess`、`line.slice 5` | `Path.parent p`、`ExitCode.isSuccess code`、`String.slice 5 line` |
 | 17 | 导入 | `from List import (map)` | `import List` / `import List as L with (map as m)` |
 | 18 | 导出 | `pub` 关键字 | `module ... export (...)` |
-| 19 | `?` 操作符 | `(expr)?` | `funcName? args` |
-| 20 | 无参函数类型 | `() -> T` | 无。改用绑定或 `IO T` |
-| 21 | 类型别名 | `type alias` | 仅 `type LongFunc = ...`（函数类型） |
-| 22 | Record 类型别名 | `type Point = { x, y }` | `type Point = Point { x, y }`（Newtype）或内联 |
-| 23 | 管道 | bare `\|` | `\|>` / `<\|` |
-| 24 | 函数组合 | — | `>>`（从左向右）、`<<`（从右向左） |
+| 19 | `?` 操作符 | `(expr)?` | `funcName? args`（函数名后）；`name <-? expr`（绑定）；Stream 上不支持，用 `filterMap identity` |
+| 20 | `<-` 解包 | — | `name <- expr` 仅 IO；`name <-? expr` IO + Result |
+| 21 | 无参函数类型 | `() -> T` | 无。改用绑定或 `IO T` |
+| 22 | 类型别名 | `type alias` | 仅 `type LongFunc = ...`（函数类型） |
+| 23 | Record 类型别名 | `type Point = { x, y }` | `type Point = Point { x, y }`（Newtype）或内联 |
+| 24 | 管道 | bare `\|` | `\|>` / `<\|` |
+| 25 | 函数组合 | — | `>>`（从左向右）、`<<`（从右向左） |
+| 26 | `stream` 关键字 | `stream expr` | 已移除。用 `Stream.fromList`/`Stream.readLines` |
+| 27 | IO Stream 消费 | — | IO Stream 必须 `<-` 解包后消费 |
 
 ### 附加约束
 

@@ -765,6 +765,15 @@ merged  = [*la, 0, *lb]           // 在列表中间展开
 
 ### `?` 操作符
 
+Kun 中 `?` 出现在两种位置，含义相同（解包 `Result`，`Err` 早返回），适用场景不同：
+
+| 位置 | 语法 | 解包对象 | 示例 |
+|------|------|---------|------|
+| 函数名后 | `funcName? args` | 函数返回值中的 `Result` | `readConfig? path` — `readConfig` 返回 `IO (Result Config e)`，`?` 解包 Result |
+| 绑定标识 | `name <-? expr` | 绑定表达式值中的 `Result` | `lines <-? Stream.readLines path` — `Stream.readLines` 返回 `IO (Result (Stream String) e)`，`<-?` 解 IO + Result |
+
+「`?` 在 Stream 上逐元素解包 Result」**不支持**——Stream 元素为 `Result t e` 时，应使用 `filterMap identity` 跳过 Err 元素，而非用 `?` 语义覆盖到流内部的每个元素。
+
 ```
 readConfig : Path -> IO (Result Config String)
 config = readConfig? p"/etc/app.toml"
@@ -1211,3 +1220,7 @@ main = do
 | 函数组合 | 从左向右 `>>`, 从右向左 `<<` |
 | 反向管道 | 减少括号嵌套 |
 | 无参函数 | 不支持 `() -> T`。`IO T` 已是延迟值，`<-` 即执行；纯函数惰性求值靠绑定 |
+| `<-` vs `<-?` | `name <- expr` 仅解 IO；`name <-? expr` 解 IO + Result，Err 早返回 |
+| `?` 位置 | 函数名后 `funcName?` 和绑定标识 `name <-?`；Stream 上不支持逐元素解包，用 `filterMap identity` |
+| `stream` 关键字 | 已移除。纯构造用 `Stream.fromList`/`Stream.range`，IO 构造用 `Stream.readLines` |
+| IO Stream 消费 | IO Stream 必须通过 `<-` 解包后才能进行 `map`/`filter`/`iter` 等消费操作 |
