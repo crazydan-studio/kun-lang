@@ -271,7 +271,27 @@ fetchData
 add = \x y -> x + y
 ```
 
-注释在代码上方独立一行，不放在行尾。
+行尾注释允许在代码较短时使用，代码与 `//` 之间至少间隔 2 个空格。同组变量尽量对齐：
+
+```
+// 推荐：对齐注释列
+name     = "app"       // String
+version  = 2024        // Int
+rate     = 3.14        // Float
+
+// 推荐：短代码行尾注释
+result =
+  case value of
+    Ok r -> r           // 解包成功
+    Err _ -> default    // 使用默认值
+
+// 不推荐：代码过长挤占注释空间
+aLongVariableName = someFunction withMany args  // 不推荐
+
+// 推荐：代码过长时注释独立一行
+// 这是一个较长的说明文字
+aLongVariableName = someFunction withMany args
+```
 
 ## 空白行
 

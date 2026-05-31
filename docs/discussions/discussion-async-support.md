@@ -51,10 +51,8 @@ Task.timeout  : Duration -> IO a -> IO (Maybe a)
 ```
 checkServices = \addrs ->
   addrs
-    // List (IO HealthStatus)
-    |> map checkService
-    // IO (List HealthStatus)
-    |> Task.parallel
+    |> map checkService          // List (IO HealthStatus)
+    |> Task.parallel             // IO (List HealthStatus)
 ```
 
 ## 结论

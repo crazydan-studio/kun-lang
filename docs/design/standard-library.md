@@ -56,40 +56,23 @@
 
   ```
   type Errno
-    // No such file or directory
-    = ENOENT
-    // Permission denied
-    | EACCES
-    // Operation not permitted
-    | EPERM
-    // Interrupted system call
-    | EINTR
-    // I/O error
-    | EIO
-    // Out of memory
-    | ENOMEM
-    // Bad file descriptor
-    | EBADF
-    // Resource temporarily unavailable
-    | EAGAIN
-    // File exists
-    | EEXIST
-    // Not a directory
-    | ENOTDIR
-    // Is a directory
-    | EISDIR
-    // Invalid argument
-    | EINVAL
-    // Broken pipe
-    | EPIPE
-    // Too many open files
-    | EMFILE
-    // No space left on device
-    | ENOSPC
-    // Illegal seek
-    | ESPIPE
-    // Read-only file system
-    | EROFS
+    = ENOENT     // No such file or directory
+    | EACCES     // Permission denied
+    | EPERM      // Operation not permitted
+    | EINTR      // Interrupted system call
+    | EIO        // I/O error
+    | ENOMEM     // Out of memory
+    | EBADF      // Bad file descriptor
+    | EAGAIN     // Resource temporarily unavailable
+    | EEXIST     // File exists
+    | ENOTDIR    // Not a directory
+    | EISDIR     // Is a directory
+    | EINVAL     // Invalid argument
+    | EPIPE      // Broken pipe
+    | EMFILE     // Too many open files
+    | ENOSPC     // No space left on device
+    | ESPIPE     // Illegal seek
+    | EROFS      // Read-only file system
   ```
 
 - 运行时表示为 i32（errno 编号），与 C ABI 兼容
@@ -158,18 +141,14 @@
 - 用户和组身份的抽象，包括名称和数字 ID
 
   ```
-  // 登录名
   type UserName
-    = UserName String
-  // 用户 ID（0..2^32-1）
+    = UserName String    // 登录名
   type Uid
-    = Uid Nat
-  // 组名
+    = Uid Nat            // 用户 ID（0..2^32-1）
   type GroupName
-    = GroupName String
-  // 组 ID（0..2^32-1）
+    = GroupName String   // 组名
   type Gid
-    = Gid Nat
+    = Gid Nat            // 组 ID（0..2^32-1）
   ```
 
 - 运行时查询函数：`currentUser : IO UserName`、`currentUid : IO Uid`、`currentGroup : IO GroupName`、`currentGid : IO Gid`
@@ -182,10 +161,8 @@
 
   ```
   type IpAddress
-    // each 0-255
-    = Ipv4 (Nat, Nat, Nat, Nat)
-    // each 0-65535
-    | Ipv6 (Nat, Nat, Nat, Nat, Nat, Nat, Nat, Nat)
+    = Ipv4 (Nat, Nat, Nat, Nat)                                      // each 0-255
+    | Ipv6 (Nat, Nat, Nat, Nat, Nat, Nat, Nat, Nat)    // each 0-65535
   ```
 
 - 解析和序列化：`parse : String -> Result IpAddress String`、`toString : IpAddress -> String`
@@ -209,12 +186,9 @@
 ### 声明器
 
 ```
-// 布尔开关
-Args.flag : String -> Char -> Arg
-// 带值选项
-Args.option : String -> Char -> Arg
-// 位置参数
-Args.positional : Int -> Arg
+Args.flag : String -> Char -> Arg        // 布尔开关
+Args.option : String -> Char -> Arg      // 带值选项
+Args.positional : Int -> Arg             // 位置参数
 ```
 
 - `flag`：匹配 `--name` 或 `-c`，类型 `Bool`

@@ -84,25 +84,18 @@ content = f"""
 容器字面量：
 
 ```
-// List
-[1, 2, 3]
-// Map
-#{ "a" = 1 }
-// Set
-#[1, 2, 3]
-// Tuple
-(1, "hello", true)
-// Record
-{ name = "Kun" }
+[1, 2, 3]           // List
+#{ "a" = 1 }        // Map
+#[1, 2, 3]          // Set
+(1, "hello", true)  // Tuple
+{ name = "Kun" }    // Record
 ```
 
 ### Map 字面量与积类型的区别
 
 ```
-// Map：键名和数量不确定，值类型相同
-#{ "a" = 1, "b" = 5 }
-// 积类型（Record）：字段名和数量确定，字段类型可不相同
-{ name = "Kun" }
+#{ "a" = 1, "b" = 5 }    // Map：键名和数量不确定，值类型相同
+{ name = "Kun" }         // 积类型（Record）：字段名和数量确定，字段类型可不相同
 ```
 
 Map 使用 `=` 而非 `=>` 分隔键值对。Map 不支持解构（因为键不确定），但支持索引访问和更新：
@@ -114,8 +107,7 @@ name = data["name"]
 key = "value"
 val  = data[key]
 
-// Map 更新
-newData = #{ data | "value" = 2 }
+newData = #{ data | "value" = 2 }    // Map 更新
 ```
 
 对 List、Set 的更新只能通过类型模块中的函数，没有简单形式。
@@ -127,16 +119,11 @@ newData = #{ data | "value" = 2 }
 以 `f"..."` 为前缀的字符串字面量支持嵌入表达式和格式化说明：
 
 ```
-// 变量插值，自动 toString(n)
-f"count: {n}"
-// 任意表达式
-f"result: {a + b}"
-// 带格式说明
-f"pi = {3.14159:.2f}"
-// 字符串对齐
-f"{name:>10}"
-// 整数进制
-f"hex: {255:x} / {255:X}"
+f"count: {n}"                      // 变量插值，自动 toString(n)
+f"result: {a + b}"                 // 任意表达式
+f"pi = {3.14159:.2f}"              // 带格式说明
+f"{name:>10}"                      // 字符串对齐
+f"hex: {255:x} / {255:X}"         // 整数进制
 ```
 
 嵌入表达式使用大括号 `{expr}` 包裹，可在其中任意位置出现。
@@ -149,8 +136,7 @@ f"hex: {255:x} / {255:X}"
 n = 42
 // → "answer is 42"
 f"answer is {n}"
-// 等价
-"answer is " ++ toString n
+"answer is " ++ toString n    // 等价
 ```
 
 对 `String` 类型，`toString` 直接返回自身。
@@ -193,10 +179,8 @@ f"answer is {n}"
 对齐格式支持填充字符指定（`fill` + `align`）：
 
 ```
-// # 填充，右对齐
-f"{42:#>6}"     → "####42"
-// 0 填充，右对齐
-f"{42:0>6}"     → "000042"
+f"{42:#>6}"     → "####42"    // # 填充，右对齐
+f"{42:0>6}"     → "000042"    // 0 填充，右对齐
 ```
 
 #### DateTime
@@ -240,8 +224,7 @@ f-string 的解析分为两个阶段：
 ```
 f"brace: \{hello\}"         → "brace: {hello}"
 f"quote: \""                → "quote: \""
-// 表达式内 " 无需转义
-f"list: { join ", " names }"
+f"list: { join ", " names }"    // 表达式内 " 无需转义
 ```
  
 ### 嵌套
@@ -249,10 +232,8 @@ f"list: { join ", " names }"
 f-string 中嵌入的表达式可包含字符串字面量，其内的引号无需转义。不支持嵌套 f-string（不可写 `f"outer {f"inner"}"`）：
  
 ```
-// 表达式内 " 无需转义
-f"list: { join ", " names }"
-// 嵌入 Path 字面量
-f"path: { p"/etc/hosts" }"
+f"list: { join ", " names }"    // 表达式内 " 无需转义
+f"path: { p"/etc/hosts" }"     // 嵌入 Path 字面量
 ```
 
 ### 与普通字符串的关系
@@ -282,13 +263,10 @@ f"path: { p"/etc/hosts" }"
 
 ```
 map   : (a -> b) -> List a -> List b
-// 用户的严格变体
-map'  : (a -> b) -> List a -> List b
+map'  : (a -> b) -> List a -> List b    // 用户的严格变体
 
-// 惰性绑定
-value   : Int
-// 用户约定的"立即求值"变体
-value'  : Int
+value   : Int                           // 惰性绑定
+value'  : Int                           // 用户约定的"立即求值"变体
 ```
 
 ## 类型声明
@@ -298,14 +276,10 @@ value'  : Int
 Kun 使用 **Elm 风格**的空格分隔泛型参数，不使用尖括号：
 
 ```
-// 单参数
-List Int
-// 单参数
-Maybe String
-// 多参数
-Result String IOError
-// 嵌套泛型用括号分组
-IO (Result FileType IOError)
+List Int                    // 单参数
+Maybe String                // 单参数
+Result String IOError       // 多参数
+IO (Result FileType IOError)  // 嵌套泛型用括号分组
 ```
 
 规则：
@@ -338,18 +312,15 @@ type SocketAddr
 
 ```
 type IpAddress
-  // 无名字段（元组风格）
-  = Ipv4 (Nat, Nat, Nat, Nat)
+  = Ipv4 (Nat, Nat, Nat, Nat)                              // 无名字段（元组风格）
   | Ipv6 (Nat, Nat, Nat, Nat, Nat, Nat, Nat, Nat)
 
 type Error
-  // 无名字段（空格分隔）
-  = NotFound Path
+  = NotFound Path          // 无名字段（空格分隔）
   | PermissionDenied Path
 
 type Color
-  // 具名字段（Record 风格）
-  = Rgb { r : Int, g : Int, b : Int }
+  = Rgb { r : Int, g : Int, b : Int }    // 具名字段（Record 风格）
 ```
 
 ### Newtype
@@ -395,14 +366,10 @@ main =
 函数类型语法：
 
 ```
-// 柯里化函数
-T1 -> T2 -> T3
-// 元组参数（参数本身为元组）
-(T1, T2) -> T3
-// IO 包装
-IO T
-// 泛型
-List Int
+T1 -> T2 -> T3          // 柯里化函数
+(T1, T2) -> T3          // 元组参数（参数本身为元组）
+IO T                    // IO 包装
+List Int                // 泛型
 ```
 
 规则：
@@ -421,29 +388,20 @@ Record 类型：
 ### 变量引用与字面量
 
 ```
-// Int 字面量
-42
-// String 字面量
-"hello"
-// List 字面量
-[1, 2, 3]
-// 变量引用
-myVariable
+42            // Int 字面量
+"hello"       // String 字面量
+[1, 2, 3]     // List 字面量
+myVariable    // 变量引用
 ```
 
 ### Lambda
 
 ```
-// 单参数
-\x -> x + 1
-// 多参数
-\x y -> x + y
-// 元组解构（参数本身为元组）
-\(x, y) -> x + y
-// Record 解构
-\{x, y} -> x + y
-// List 解构（最少长度 2）
-\[x, y] -> x + y
+\x -> x + 1               // 单参数
+\x y -> x + y             // 多参数
+\(x, y) -> x + y          // 元组解构（参数本身为元组）
+\{x, y} -> x + y          // Record 解构
+\[x, y] -> x + y          // List 解构（最少长度 2）
 ```
 
 ### 函数应用
@@ -461,8 +419,7 @@ add 1 2
 除非参数本身为元组类型，使用圆括号包裹元组参数：
 
 ```
-// 元组参数（单参数）
-plus (1, 2)
+plus (1, 2)    // 元组参数（单参数）
 ```
 
 ### 名字绑定
@@ -506,10 +463,8 @@ case expr of
 
 ```
 case parse "42" of
-  // 变体模式 + 变量绑定
-  Ok n  -> process n
-  // 通配忽略
-  Err _ -> handleError
+  Ok n  -> process n    // 变体模式 + 变量绑定
+  Err _ -> handleError  // 通配忽略
 ```
 
 #### List 模式
@@ -562,10 +517,8 @@ case n of
 
 ```
 case result of
-  // 忽略 Ok 内部的值
-  Ok _  -> "success"
-  // 忽略 Err 内部的值
-  Err _ -> "failed"
+  Ok _  -> "success"    // 忽略 Ok 内部的值
+  Err _ -> "failed"     // 忽略 Err 内部的值
 ```
 
 穷举检查：对自定义和类型（含 `Maybe`、`Result`）、`Bool` 强制穷举。
@@ -605,11 +558,9 @@ sqrt <| add 1 3
 `<|` 将右侧表达式的值作为参数传入左侧函数，是 `|>` 的反向形式，减少括号嵌套：
 
 ```
-// 无 <|
-print (sqrt (add 1 3))
+print (sqrt (add 1 3))    // 无 <|
 
-// 有 <|
-print
+print    // 有 <|
   <| sqrt
   <| add 1 3
 ```
@@ -617,10 +568,8 @@ print
 ### 函数组合操作符
 
 ```
-// 从左向右组合：h(g(f(x)))
-f >> g >> h
-// 从右向左组合：f(g(h(x)))
-f << g << h
+f >> g >> h    // 从左向右组合：h(g(f(x)))
+f << g << h    // 从右向左组合：f(g(h(x)))
 ```
 
 `>>` 和 `<<` 用于组合函数。`f >> g` 表示先应用 `f` 再应用 `g`。`f << g` 表示先应用 `g` 再应用 `f`。
@@ -628,10 +577,8 @@ f << g << h
 ```
 add1 = \x -> x + 1
 double = \x -> x * 2
-// 等价于 \x -> double (add1 x)
-add1ThenDouble = add1 >> double
-// 等价于 \x -> add1 (double x)
-doubleThenAdd1 = add1 << double
+add1ThenDouble = add1 >> double    // 等价于 \x -> double (add1 x)
+doubleThenAdd1 = add1 << double    // 等价于 \x -> add1 (double x)
 ```
 
 ### Do 记法（IO 顺序组合）
@@ -678,12 +625,9 @@ processAndReturn = \path ->
 
 ```
 do
-  // 行类型：IO String，执行但丢弃结果
-  readFile p"/tmp/foo"
-  // 执行，解包 String 绑定到 content
-  content <- readFile p"/tmp/foo"
-  // 执行，用 _ 显式丢弃解包后的值
-  _ <- readFile p"/tmp/foo"
+  readFile p"/tmp/foo"                // 行类型：IO String，执行但丢弃结果
+  content <- readFile p"/tmp/foo"     // 执行，解包 String 绑定到 content
+  _ <- readFile p"/tmp/foo"           // 执行，用 _ 显式丢弃解包后的值
 ```
 
 规则：
@@ -708,30 +652,22 @@ do
 ### Record 操作
 
 ```
-// 创建
-{ name = "Kun", version = "0.1" }
-// 字段访问
-record.name
-// 更新（不可变复制+修改）
-{ record | version = "0.2" }
+{ name = "Kun", version = "0.1" }    // 创建
+record.name                           // 字段访问
+{ record | version = "0.2" }          // 更新（不可变复制+修改）
 
-// 解构带别名
-{x as x1, y as y1} = point
+{x as x1, y as y1} = point            // 解构带别名
 ```
 
 ### 索引访问
 
 ```
-// List 索引，返回 Maybe t
-list[i]
-// String 索引，返回 Char
-str[i]
-// Tuple 索引（0-based）
-tuple.0
+list[i]        // List 索引，返回 Maybe t
+str[i]         // String 索引，返回 Char
+tuple.0        // Tuple 索引（0-based）
 tuple.1
 
-// Map 索引，返回 Maybe v
-data["key"]
+data["key"]    // Map 索引，返回 Maybe v
 ```
 
 ### 点调用
@@ -739,10 +675,8 @@ data["key"]
 点号 `.` 仅用于积类型的字段投影和元组的索引访问，不能用于函数调用：
 
 ```
-// 字段访问（正确）
-record.name
-// 元组索引（正确）
-tuple.0
+record.name    // 字段访问（正确）
+tuple.0        // 元组索引（正确）
 
 // 以下为不合法：
 // p.parent()            // 错误：不能用点号调用函数
@@ -753,8 +687,7 @@ tuple.0
 
 ```
 import Path as P
-// 通过模块限定的函数调用
-P.parent p"/tmp/foo"
+P.parent p"/tmp/foo"    // 通过模块限定的函数调用
 ```
 
 显式导入的函数可直接通过函数名调用，无需模块限定。
@@ -766,13 +699,10 @@ P.parent p"/tmp/foo"
 ```
 records = [{ name = "a", size = 1 }, { name = "b", size = 5 }]
 
-// 等价于 map (\r -> r.name)
-names = records |> map .name
-// 等价于 map (\r -> r.size)
-sizes = records |> map .size
+names = records |> map .name              // 等价于 map (\r -> r.name)
+sizes = records |> map .size              // 等价于 map (\r -> r.size)
 
-// 与 filter 结合
-big = records |> filter (\r -> r.size > 3)
+big = records |> filter (\r -> r.size > 3)  // 与 filter 结合
 namesOfBig = big |> map .name
 ```
 
@@ -783,15 +713,11 @@ namesOfBig = big |> map .name
 Kun 函数默认柯里化。当函数已接收部分参数时，实际返回仍为函数，接受剩余参数：
 
 ```
-// String -> Bool，已接收第一个参数
-contains "ERROR"
-// 等价于 filter (\line -> contains "ERROR" line)
-filter (contains "ERROR")
+contains "ERROR"          // String -> Bool，已接收第一个参数
+filter (contains "ERROR") // 等价于 filter (\line -> contains "ERROR" line)
 
-// Int -> Int，已接收第一个参数
-add 1
-// 等价于 map (\x -> add 1 x)
-map (add 1)
+add 1                     // Int -> Int，已接收第一个参数
+map (add 1)               // 等价于 map (\x -> add 1 x)
 ```
 
 这种写法在管道中尤其简洁：
@@ -817,8 +743,7 @@ lines
 解构操作仅针对最小长度可确定的情况：
 
 ```
-// 解构前两个元素 + 剩余部分
-[a, b, *rest] = list
+[a, b, *rest] = list    // 解构前两个元素 + 剩余部分
 ```
 
 对于长度不确定的 List，采用模式匹配：
@@ -832,10 +757,8 @@ case list of
 List 展开语法：
 
 ```
-// 在列表前方展开
-newList = [1, 2, *list]
-// 在列表中间展开
-merged  = [*la, 0, *lb]
+newList = [1, 2, *list]    // 在列表前方展开
+merged  = [*la, 0, *lb]   // 在列表中间展开
 ```
 
 展开操作 `*list` 将 List 中的元素原地展开到新的 List 字面量中。
@@ -877,8 +800,7 @@ config =
 add : Int -> Int -> Int
 add = \x y -> x + y
 
-// 或匿名函数绑定
-increment = \x -> x + 1
+increment = \x -> x + 1    // 或匿名函数绑定
 ```
 
 顶层函数建议标注类型签名。局部函数可省略：
@@ -893,16 +815,13 @@ main =
 函数参数支持直接解构：
 
 ```
-// 元组参数解构
-addPair : (Int, Int) -> Int
+addPair : (Int, Int) -> Int                     // 元组参数解构
 addPair = \(x, y) -> x + y
 
-// Record 参数解构
-sumCoordinates : { x : Int, y : Int } -> Int
+sumCoordinates : { x : Int, y : Int } -> Int    // Record 参数解构
 sumCoordinates = \{x, y} -> x + y
 
-// List 参数解构（最少长度 3）
-firstThree : List Int -> (Int, Int, Int)
+firstThree : List Int -> (Int, Int, Int)         // List 参数解构（最少长度 3）
 firstThree = \[a, b, c] -> (a, b, c)
 ```
 
@@ -930,10 +849,8 @@ firstThree = \[a, b, c] -> (a, b, c)
 ### 优先级（从高到低）
 
 ```
-// . 成员访问，(expr) 表达式分组
-最高:  .        (expr)
-// 一元
-      -        not
+最高:  .        (expr)    // . 成员访问，(expr) 表达式分组
+      -        not        // 一元
       *        /        %
       +        -        ++
       ==       !=       <      >      <=      >=
@@ -955,10 +872,8 @@ firstThree = \[a, b, c] -> (a, b, c)
 ```
 module List export (map, filter, fold)
 
-// 导出类型及所有变体
-module Maybe export (Maybe, Maybe(*))
-// 仅导出 Just 变体
-module Maybe export (Maybe(Just))
+module Maybe export (Maybe, Maybe(*))     // 导出类型及所有变体
+module Maybe export (Maybe(Just))         // 仅导出 Just 变体
 ```
 
 所有需要导出的符号均通过 `module export` 声明。不存在 `pub` 关键字。
@@ -974,25 +889,18 @@ module Maybe export (Maybe(Just))
 
 ```
 // 风格一：模块别名 — 所有公开符号通过别名限定访问
-// 直接通过 List.map 访问
-import List
-// 通过 L.map 访问（短别名）
-import List as L
+import List                            // 直接通过 List.map 访问
+import List as L                       // 通过 L.map 访问（短别名）
 
-// 风格二：精选导入 — 仅选择的符号可直接使用
-// map 和 filter 可直接使用
-import List with (map, filter)
-// 导入时重命名
-import List with (map as m, filter)
+import List with (map, filter)         // 风格二：精选导入 — 仅选择的符号可直接使用
+import List with (map as m, filter)    // 导入时重命名
 ```
 
 从 ADT 导入变体（精选导入风格）：
 
 ```
-// 导入类型及所有变体
-import Maybe with (Maybe(*))
-// 仅导入 Just 变体
-import Maybe with (Maybe(Just))
+import Maybe with (Maybe(*))     // 导入类型及所有变体
+import Maybe with (Maybe(Just))  // 仅导入 Just 变体
 ```
 
 导入变体后，变体名称可直接在代码中使用（`Just`、`Nothing`），无需模块限定。
@@ -1032,10 +940,8 @@ main = \args ->
 启动命令与参数映射：
 
 ```
-// args = ["foo", "bar"]
-kun script.kun foo bar
-// args = []
-kun script.kun
+kun script.kun foo bar    // args = ["foo", "bar"]
+kun script.kun            // args = []
 ```
 
 ### 命名参数
@@ -1083,8 +989,7 @@ case Args.parse [Args.flag "verbose" 'v', Args.option "output" 'o'] raw of
 main : IO Unit
 main =
   do
-    // 只执行此处
-    print "entry"
+    print "entry"    // 只执行此处
 ```
 
 **无 `main` 按顺序执行**：适合简单脚本，无需 `main = do` 包装：
@@ -1108,8 +1013,7 @@ greet = print "hi"
 ### 告警示例
 
 ```
-// 告警：main 签名不合法
-main : Int
+main : Int    // 告警：main 签名不合法
 main = 42
 // → warning: entry point 'main' must have type IO Unit or List String -> IO Unit, got Int
 
@@ -1151,8 +1055,7 @@ Stream 是**惰性拉取序列**（lazy pull-based sequence），不绑定 IO。
 ### 类型
 
 ```
-// 元素类型为 t 的惰性序列
-Stream t
+Stream t    // 元素类型为 t 的惰性序列
 ```
 
 Stream 是标准库类型，通过 `Stream` 模块的函数构造和消费。
@@ -1160,10 +1063,8 @@ Stream 是标准库类型，通过 `Stream` 模块的函数构造和消费。
 ### 纯构造
 
 ```
-// 从 List 构造
-Stream.fromList [1, 2, 3]
-// [0, 1, ..., 99]
-Stream.range 0 100
+Stream.fromList [1, 2, 3]    // 从 List 构造
+Stream.range 0 100           // [0, 1, ..., 99]
 ```
 
 ### IO 构造
@@ -1174,8 +1075,7 @@ IO Stream 必须在 `do` 块中通过 `<-` / `<-?` 解包后才能消费：
 main : IO Unit
 main =
   do
-    // lines : Stream String
-    lines <-? Stream.readLines p"/tmp/large.log"
+    lines <-? Stream.readLines p"/tmp/large.log"    // lines : Stream String
     lines
       |> filter (contains "ERROR")
       |> take 100
@@ -1198,12 +1098,9 @@ take   : Int -> Stream a -> Stream a
 
 ```
 lines
-  // 不变换
-  |> filter (\line -> ...)
-  // 不变换，构造新 Stream
-  |> map (\line -> ...)
-  // 终端：逐一拉取元素通过管线
-  |> iter (\line -> ...)
+  |> filter (\line -> ...)    // 不变换
+  |> map (\line -> ...)       // 不变换，构造新 Stream
+  |> iter (\line -> ...)      // 终端：逐一拉取元素通过管线
 ```
 
 ### 消费（终端）
@@ -1229,14 +1126,12 @@ Stream.readLines : Path -> IO (Result (Stream String) IOError)
 外层 `Result` 表示构造可能失败（文件不存在、权限不足）。通过 `<-?` 解包：
 
 ```
-// 方案 A：自动解包，构造失败早返回
-main =
+main =                                          // 方案 A：自动解包，构造失败早返回
   do
     lines <-? Stream.readLines p"/tmp/large.log"
     iter print lines
 
-// 方案 B：显式处理构造错误
-main =
+main =                                          // 方案 B：显式处理构造错误
   do
     result <- Stream.readLines p"/tmp/large.log"
     case result of
@@ -1272,8 +1167,7 @@ main =
     case result of
       Ok lines ->
         lines
-          // 跳过读失败的行
-          |> filterMap toMaybe
+          |> filterMap toMaybe    // 跳过读失败的行
           |> filter (contains "ERROR")
           |> take 100
           |> iter print

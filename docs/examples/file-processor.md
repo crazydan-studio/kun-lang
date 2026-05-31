@@ -154,10 +154,8 @@ createDefaultConfig = \logDir ->
 readConfig : Path -> IO (Result Config ProcessError)
 readConfig = \path ->
   do
-    // <- 从 IO 中解包
-    content <- readFile path
-    // 纯函数解析
-    lines  = split "\n" content
+    content <- readFile path       // <- 从 IO 中解包
+    lines  = split "\n" content    // 纯函数解析
     logDir = p"/var/log/myapp"
     // =? 解包 Result，Err 自动传播
     minLvl =? parseLevel (L.head lines |> maybe "INFO" identity)
@@ -187,20 +185,13 @@ main : IO Unit
 main =
   do
     // 字面量展示
-    // String
-    appName  = "log-processor"
-    // Int
-    version  = 2024
-    // Bool
-    debug    = false
-    // Float
-    rate     = 3.14
-    // Char
-    newline  = '\n'
-    // Duration
-    timeout  = 30s
-    // Unit
-    empty    = ()
+    appName  = "log-processor"     // String
+    version  = 2024                // Int
+    debug    = false               // Bool
+    rate     = 3.14                // Float
+    newline  = '\n'                // Char
+    timeout  = 30s                 // Duration
+    empty    = ()                  // Unit
 
     // Path 字面量（前缀 p + 双引号）
     logPath    = p"/var/log/myapp/access.log"
@@ -208,14 +199,10 @@ main =
     backupDir  = p"/tmp/backup"
 
     // 容器字面量
-    // List
-    levels   = [Debug, Info, Warn, Error]
-    // Map（= 替代 =>）
-    counts   = #{ "ok" = 42, "err" = 7 }
-    // Set
-    uniqPids = #[ 100u, 200u, 300u ]
-    // Tuple
-    pair     = ("result", true)
+    levels   = [Debug, Info, Warn, Error]     // List
+    counts   = #{ "ok" = 42, "err" = 7 }       // Map（= 替代 =>）
+    uniqPids = #[ 100u, 200u, 300u ]           // Set
+    pair     = ("result", true)                 // Tuple
 
     // Bytes 字面量
     magicBytes = 0xCAFEBABE
@@ -224,22 +211,15 @@ main =
     ipRegex = r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
 
     // f-string 插值与格式化（新语法：f"..."）
-    // 变量插值
-    greeting   = f"app {appName} v{version}"
-    // Float 精度
-    formatted  = f"rate: {rate:.2f} / timeout: {timeout}"
-    // 整数进制
-    hexVal     = f"hex: {255:x} / {255:X}"
-    // Int 默认十进制
-    showCount  = f"count: {result}"
+    greeting   = f"app {appName} v{version}"                 // 变量插值
+    formatted  = f"rate: {rate:.2f} / timeout: {timeout}"    // Float 精度
+    hexVal     = f"hex: {255:x} / {255:X}"                   // 整数进制
+    showCount  = f"count: {result}"                          // Int 默认十进制
 
     // 索引访问
-    // List 索引 → Maybe LogLevel
-    first     = levels[0]
-    // String 索引 → Char
-    firstChar = "hello"[0]
-    // Tuple 索引
-    firstElem = pair.0
+    first     = levels[0]         // List 索引 → Maybe LogLevel
+    firstChar = "hello"[0]        // String 索引 → Char
+    firstElem = pair.0            // Tuple 索引
 
     // 管道操作符
     result =

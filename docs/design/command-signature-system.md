@@ -47,10 +47,8 @@ error : List IOError
 
 // 行为声明
 behavior
-  // 读取目录内容
-  fs.read("/")
-  // 读取每个文件的元数据
-  fs.read(Path)
+  fs.read("/")                                  // 读取目录内容
+  fs.read(Path)                                 // 读取每个文件的元数据
 
 // 子命令（无）
 ```
@@ -129,18 +127,15 @@ command "git"
 subcommand "commit"
   flag "all"     'a' : Bool
   option "message" 'm' : String
-  // 路径规格
-  positional 0        : String with (optional)
+  positional 0        : String with (optional)    // 路径规格
   behavior
     fs.read(".")
     fs.write(".git")
 
 subcommand "push"
   flag "force"   'f' : Bool
-  // 远程名
-  positional 0        : String with (optional)
-  // 分支名
-  positional 1        : String with (optional)
+  positional 0        : String with (optional)    // 远程名
+  positional 1        : String with (optional)    // 分支名
   behavior
     net.git(Any)
 ```
@@ -175,10 +170,8 @@ output : Stream String
 flag "json" 'j' : Bool
 output : Stream Row
   // Row 类型定义
-  // --json 模式
-  when json     -> JsonValue
-  // 普通行模式
-  when !json    -> String
+  when json     -> JsonValue                    // --json 模式
+  when !json    -> String                       // 普通行模式
 
 // find — 文件名列表
 output : Stream Path
@@ -195,56 +188,40 @@ output : Stream { path : Path, size : Int }
 
 ```
 behavior
-  // 读取指定路径
-  fs.read("/etc")
-  // 读取多个路径
-  fs.read("/var")
-  // 写入指定路径
-  fs.write("/tmp")
-  // 可读取任意路径（宽松模式）
-  fs.read(Any)
-  // 仅读取元数据（stat、lstat），不读内容
-  fs.meta
+  fs.read("/etc")                               // 读取指定路径
+  fs.read("/var")                               // 读取多个路径
+  fs.write("/tmp")                              // 写入指定路径
+  fs.read(Any)                                  // 可读取任意路径（宽松模式）
+  fs.meta                                       // 仅读取元数据（stat、lstat），不读内容
 ```
 
 ### 网络行为
 
 ```
 behavior
-  // HTTP 请求到指定域名
-  net.http("api.example.com")
-  // HTTPS 请求到任意域名
-  net.https("*")
-  // 监听指定端口
-  net.listen(8080)
-  // 任意 TCP 连接
-  net.tcp(Any)
+  net.http("api.example.com")                   // HTTP 请求到指定域名
+  net.https("*")                                // HTTPS 请求到任意域名
+  net.listen(8080)                              // 监听指定端口
+  net.tcp(Any)                                  // 任意 TCP 连接
 ```
 
 ### 进程行为
 
 ```
 behavior
-  // 启动子进程
-  process.exec
-  // 发送信号
-  process.signal
-  // 终止进程
-  process.kill
+  process.exec                                  // 启动子进程
+  process.signal                                // 发送信号
+  process.kill                                  // 终止进程
 ```
 
 ### 系统行为
 
 ```
 behavior
-  // 读取系统时间
-  sys.time
-  // 读取指定环境变量
-  sys.env("HOME")
-  // 可读取所有环境变量
-  sys.env("*")
-  // 访问随机数设备
-  sys.random
+  sys.time                                      // 读取系统时间
+  sys.env("HOME")                               // 读取指定环境变量
+  sys.env("*")                                  // 可读取所有环境变量
+  sys.random                                    // 访问随机数设备
 ```
 
 ### seccomp 规则自动推导
@@ -349,12 +326,9 @@ man 页面
 
 command "<command>"
   // 自动推断结果（可能需要人工修正）
-  // 置信度: 高
-  flag "verbose" 'v' : Bool
-  // 置信度: 中（类型不确定）
-  option "output" 'o' : String
-  // 置信度: 低（位置参数含义未知）
-  positional 0 : String
+  flag "verbose" 'v' : Bool                     // 置信度: 高
+  option "output" 'o' : String                  // 置信度: 中（类型不确定）
+  positional 0 : String                         // 置信度: 低（位置参数含义未知）
 ```
 
 ## CDF 生命周期
@@ -521,3 +495,4 @@ CDF 文件和加密密钥建议按以下方式管理：
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | 0.1.0 | 2026-05-31 | CDF 文件格式、参数定义、输出类型、行为声明、签名自动推断、内置签名库、运行时集成 |
+

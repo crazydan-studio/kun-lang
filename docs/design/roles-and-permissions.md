@@ -205,8 +205,7 @@ cat p"/var/log/app.log" |> write_file p"/tmp/filtered.log" with capabilities fs.
 
   如需访问多个环境变量，可使用通配符：
 
-    // 允许读取所有环境变量
-    capability env.read("*")
+    capability env.read("*")    // 允许读取所有环境变量
 ```
 
 ```

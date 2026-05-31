@@ -164,30 +164,21 @@ firstElem = identity (Just 42)
 conversions : (Int, Nat, Float, String, Bytes)
 conversions =
   let
-    // Int
-    n  = 42
-    // Nat
-    u  = 42u
-    // Float
-    f  = 3.14
+    n  = 42       // Int
+    u  = 42u      // Nat
+    f  = 3.14     // Float
 
     // Nat <-> Int
-    // Nat -> Int（始终安全）
-    n1 = toInt u
-    // Int -> Nat（负数 → Panic）
-    u1 = toNat n
+    n1 = toInt u        // Nat -> Int（始终安全）
+    u1 = toNat n        // Int -> Nat（负数 → Panic）
 
     // Float <-> Int
-    // Int -> Float
-    f1 = toFloat n
-    // Float -> Int（截断）
-    n2 = toInt f
+    f1 = toFloat n       // Int -> Float
+    n2 = toInt f         // Float -> Int（截断）
 
     // String <-> Bytes
-    // String -> Bytes
-    b  = toBytes "hello"
-    // Bytes -> String
-    s  = toString b
+    b  = toBytes "hello"      // String -> Bytes
+    s  = toString b           // Bytes -> String
   in
   (n1, u1, f1, b, s)
 
@@ -199,10 +190,8 @@ conversions =
 processResult : Result Int String -> String
 processResult = \res ->
   case res of
-    // 此处 n : Int
-    Ok n  -> f"number: {n}"
-    // 类型已知
-    Err _ -> "error"
+    Ok n  -> f"number: {n}"      // 此处 n : Int
+    Err _ -> "error"             // 类型已知
 
 processIp : IpAddress -> String
 processIp = \addr ->
@@ -217,12 +206,9 @@ processIp = \addr ->
 // ============================================================
 
 // Type 种类：值可居留
-// Int : Type
-x : Int
-// Bool : Type
-y : Bool
-// String : Type
-z : String
+x : Int          // Int : Type
+y : Bool         // Bool : Type
+z : String       // String : Type
 
 // Type -> Type 种类：类型构造器
 // List     : Type -> Type

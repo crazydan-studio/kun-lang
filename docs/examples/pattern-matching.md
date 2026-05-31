@@ -60,8 +60,7 @@ describe = \shape ->
 describeResult : Result Int String -> String
 describeResult = \res ->
   case res of
-    // 字面量 + 变体
-    Ok 0    -> "zero"
+    Ok 0    -> "zero"            // 字面量 + 变体
     Ok n    -> f"got: {n}"
     Err msg -> f"error: {msg}"
 
@@ -232,16 +231,11 @@ type Expr
 simplify : Expr -> Expr
 simplify = \expr ->
   case expr of
-    // 0 + x = x
-    Add (IntLit 0) x -> simplify x
-    // x + 0 = x
-    Add x (IntLit 0) -> simplify x
-    // 1 * x = x
-    Mul (IntLit 1) x -> simplify x
-    // 双层嵌套
-    Add (IntLit a) (IntLit b) -> IntLit (a + b)
-    // 递归简化
-    Add x y -> Add (simplify x) (simplify y)
+    Add (IntLit 0) x -> simplify x          // 0 + x = x
+    Add x (IntLit 0) -> simplify x          // x + 0 = x
+    Mul (IntLit 1) x -> simplify x          // 1 * x = x
+    Add (IntLit a) (IntLit b) -> IntLit (a + b)  // 双层嵌套
+    Add x y -> Add (simplify x) (simplify y)      // 递归简化
     Mul x y -> Mul (simplify x) (simplify y)
     _       -> expr
 
@@ -286,10 +280,8 @@ parseHttpStatus = \status ->
 processNode : Tree Int -> Int
 processNode = \tree ->
   case tree of
-    // v : Int
-    Leaf v          -> v
-    // left, right : Tree Int
-    Node (left, right) ->
+    Leaf v          -> v          // v : Int
+    Node (left, right) ->         // left, right : Tree Int
       processNode left + processNode right
 
 // ============================================================
