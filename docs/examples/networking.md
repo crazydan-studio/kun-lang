@@ -52,10 +52,10 @@ printTimestamp =
 // 多层 do in：按顺序组合，返回 HealthStatus
 checkService : SocketAddr -> IO HealthStatus
 checkService = \addr ->
-  do in
+  do
     start <- now
     result <- httpGet addr p"/health"
-
+  in
     case result of
       Ok body ->
         do
@@ -69,7 +69,8 @@ checkService = \addr ->
       Err err ->
         do
           print f"request failed: {err}"
-          pure (Down { error = toString err })
+        in
+          Down { error = toString err }
 
 // ============================================================
 // ? 操作符：Error 自动传播
@@ -90,7 +91,7 @@ loadConfig = \path ->
     portStr = parseField? "port" content
     portInt = toInt portStr
     port  = Port.fromInt? portInt
-
+  in
     Ok { host = host, port = port }
 
 // ? 的链式使用
@@ -103,6 +104,7 @@ fetchAndReport = \addr ->
     parsed = parseJson? body
     data   = extractField? "value" parsed
     logResult data
+  in
     Ok (Result
       { service   = "api"
       , endpoint  = addr
@@ -120,8 +122,9 @@ reloadDaemon = \pid ->
   do
     result <- kill pid SIGHUP
     case result of
-      Ok _        -> print f"sent HUP to {pid}"
-      Err err     -> print f"failed: {err}"
+      Ok _    -> print f"sent HUP to {pid}"
+      Err err -> print f"failed: {err}"
+  in
     result
 
 // 等待子进程
@@ -129,6 +132,7 @@ watchProcess : Pid -> Duration -> IO (Result ExitCode IOError)
 watchProcess = \pid timeout ->
   do
     result <- wait pid timeout
+  in
     case result of
       Ok code ->
         do
@@ -136,11 +140,13 @@ watchProcess = \pid timeout ->
             print "process exited ok"
           else
             print f"process failed: {code}"
-          pure (Ok code)
+        in
+          Ok code
       Err err ->
         do
           print f"wait failed: {err}"
-          pure (Err err)
+        in
+          Err err
 
 // ============================================================
 // Stream：惰性处理网络数据
@@ -206,7 +212,8 @@ timeWindow = \window ->
     current <- now
     start <- fromUnixSecs 1700000000
     elapsed = current - start
-    pure (elapsed < window)
+  in
+    elapsed < window
 
 // Duration 字面量 + 运算
 scheduleCheck : IO Unit

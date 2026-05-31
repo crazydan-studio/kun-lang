@@ -57,7 +57,7 @@
 | 14 | List 模式 | `x :: xs`、`head::tail` | `[x, *xs]` |
 | 15 | Lambda | `\x, y ->` | `\x y ->`、`\(x, y) ->` |
 | 16 | 点调用 | `p.parent()`、`code.isSuccess`、`line.slice 5` | `Path.parent p`、`ExitCode.isSuccess code`、`String.slice 5 line` |
-| 17 | 导入 | `from List import (map)` | `import List` / `import List as L with (map as m)` |
+| 17 | 导入 | `from List import (map)` | `import List as L`（模块别名）或 `import List with (map, filter)`（精选导入），不可组合 |
 | 18 | 导出 | `pub` 关键字 | `module ... export (...)` |
 | 19 | `?` 操作符 | `(expr)?` | `funcName? args`（函数名后）；`name <-? expr`（绑定）；Stream 上不支持，用 `filterMap identity` |
 | 20 | `<-` 解包 | — | `name <- expr` 仅 IO；`name <-? expr` IO + Result |

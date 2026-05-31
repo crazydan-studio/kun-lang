@@ -160,6 +160,7 @@ readConfig = \path ->
     logDir = p"/var/log/myapp"
     // ? 解包 Result，Err 自动传播
     minLvl = parseLevel? (L.head lines |> maybe "INFO" identity)
+  in
     Ok (createDefaultConfig logDir)
 
 // ============================================================

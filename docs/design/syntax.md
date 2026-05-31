@@ -876,13 +876,19 @@ module Maybe export (Maybe(Just))         // 仅导出 Just 变体
 
 ### 导入
 
+导入有两种互斥的风格：**模块别名**（`as`）和**精选导入**（`with`），不可组合使用。
+
 ```
-import List                     // 导入模块，公开符号可直接使用
-import List as L                // 模块别名
-import List as L with (map as m, filter)  // 模块别名 + 特定符号导入/别名
+// 风格一：模块别名 — 所有公开符号通过别名限定访问
+import List                     // 直接通过 List.map 访问
+import List as L                // 通过 L.map 访问（短别名）
+
+// 风格二：精选导入 — 仅选择的符号可直接使用
+import List with (map, filter)              // map 和 filter 可直接使用
+import List with (map as m, filter)         // 导入时重命名
 ```
 
-从 ADT 导入变体：
+从 ADT 导入变体（精选导入风格）：
 
 ```
 import Maybe with (Maybe(*))        // 导入类型及所有变体

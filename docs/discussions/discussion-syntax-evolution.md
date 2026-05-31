@@ -102,7 +102,8 @@
 | 方案 | 导入语法 | 导出语法 |
 |------|---------|---------|
 | 初始 | `import List (map)` | `pub` 关键字 |
-| 最终 | `import List as L with (map as m)` | `module List export (map)` 无 `pub` |
+| v1（已弃用） | `import List as L with (map as m)`（`as` `with` 可组合） | `module List export (map)` 无 `pub` |
+| 最终（v2） | `import List as L` 或 `import List with (map as m)`（互斥，不可组合） | `module List export (map)` 无 `pub` |
 
 ### 议题 11：`?` 操作符位置
 
@@ -181,7 +182,7 @@
 | `capability` 单复 | `with capability` 作用域（单数）；`with capabilities` 列举（复数） |
 | 点调用语义 | 仅限积类型字段投影和元组索引，无函数调用 |
 | `Stream` 构造 | `Stream.fromList`、`Stream.range` 替代 `stream` 关键字 |
-| 模块导入 | `import List as L with (map as m)` 语法；`Maybe(*)` 变体导入语法 |
+| 模块导入 | `import List as L`（模块别名）或 `import List with (map as m)`（精选导入）互斥；`Maybe(*)` 变体导入语法 |
 | 模块导出 | `module List export (map)` 声明语法，无 `pub` 关键字 |
 | 导出语法 | 仅 `module export`，无 `pub` 关键字 |
 | 类型别名 | 仅函数类型支持 `type LongFunc = ...`，非函数类型别名在导入时指定 |

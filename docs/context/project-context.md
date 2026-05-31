@@ -19,8 +19,8 @@
 |---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型，含 21 项语法调整）、标准库类型设计（定型）、运行时架构设计（定型）、命令签名系统设计（定型）、安全模型设计（定型） |
 | Owner Doc | `docs/design/type-system.md`、`docs/design/syntax.md`、`docs/design/standard-library.md`、`docs/architecture/system-baseline.md`、`docs/design/command-signature-system.md`、`docs/design/roles-and-permissions.md` |
-| 活跃计划 | REPL 设计（被运行时设计阻塞） |
-| 最近完成 | 运行时架构设计全量扩展、命令签名系统（CDF）设计定型、安全模型深化（能力类型目录/运行时检查架构/动态授予流程/父-子能力传递/威胁模型分析） |
+| 活跃计划 | REPL 设计 |
+| 最近完成 | 运行时架构设计全量扩展（生命周期/执行模型/错误诊断/命令加载/类型表示/内存管理/模块解析/标准库集成）、命令签名系统（CDF）设计定型（文件格式/参数定义/行为声明/自动推断/内置签名库）、安全模型深化（能力类型目录/运行时检查架构/动态授予流程/父-子能力传递/威胁模型分析） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
