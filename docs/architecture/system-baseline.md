@@ -167,6 +167,7 @@ struct IO_Thunk {
     void* (*eval)(void* env);    // 求值函数指针
     void* env;                   // 闭包环境（捕获的变量）
 };
+```
 
 - `eval` 执行实际的副作用操作
 - `env` 存储闭包中捕获的变量
