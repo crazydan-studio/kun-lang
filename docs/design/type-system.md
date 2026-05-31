@@ -126,12 +126,18 @@ Type Universe
 - 字面量使用 `r"..."` 前缀：`r"(?i)[a-z]+"`
 
   ```
-  r"(?i)[a-z]+"       // 忽略大小写
-  r"(?m)^foo"         // 多行模式（^/$ 匹配行边界）
-  r"(?s).+"           // DotAll（. 匹配换行符）
-  r"(?u)\w+"          // Unicode 模式
-  r"(?im)[a-z]+"      // 多标志组合：忽略大小写 + 多行
-  r"(?i-m)[a-z]+"     // 开启 i，关闭 m
+  // 忽略大小写
+  r"(?i)[a-z]+"
+  // 多行模式（^/$ 匹配行边界）
+  r"(?m)^foo"
+  // DotAll（. 匹配换行符）
+  r"(?s).+"
+  // Unicode 模式
+  r"(?u)\w+"
+  // 多标志组合：忽略大小写 + 多行
+  r"(?im)[a-z]+"
+  // 开启 i，关闭 m
+  r"(?i-m)[a-z]+"
   ```
 
 - 支持修饰符：
@@ -313,8 +319,10 @@ Kun 类型系统**不包含子类型关系**：
 
   ```
   struct Maybe_Int {
-    uint8_t tag;       // 0 = Nothing, 1 = Just
-    int64_t value;     // 仅 tag==1 时有意义
+    // 0 = Nothing, 1 = Just
+    uint8_t tag;
+    // 仅 tag==1 时有意义
+    int64_t value;
   };
   ```
 

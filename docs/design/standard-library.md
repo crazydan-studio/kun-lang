@@ -56,23 +56,40 @@
 
   ```
   type Errno
-    = ENOENT    // No such file or directory
-    | EACCES    // Permission denied
-    | EPERM     // Operation not permitted
-    | EINTR     // Interrupted system call
-    | EIO       // I/O error
-    | ENOMEM    // Out of memory
-    | EBADF     // Bad file descriptor
-    | EAGAIN    // Resource temporarily unavailable
-    | EEXIST    // File exists
-    | ENOTDIR   // Not a directory
-    | EISDIR    // Is a directory
-    | EINVAL    // Invalid argument
-    | EPIPE     // Broken pipe
-    | EMFILE    // Too many open files
-    | ENOSPC    // No space left on device
-    | ESPIPE    // Illegal seek
-    | EROFS     // Read-only file system
+    // No such file or directory
+    = ENOENT
+    // Permission denied
+    | EACCES
+    // Operation not permitted
+    | EPERM
+    // Interrupted system call
+    | EINTR
+    // I/O error
+    | EIO
+    // Out of memory
+    | ENOMEM
+    // Bad file descriptor
+    | EBADF
+    // Resource temporarily unavailable
+    | EAGAIN
+    // File exists
+    | EEXIST
+    // Not a directory
+    | ENOTDIR
+    // Is a directory
+    | EISDIR
+    // Invalid argument
+    | EINVAL
+    // Broken pipe
+    | EPIPE
+    // Too many open files
+    | EMFILE
+    // No space left on device
+    | ENOSPC
+    // Illegal seek
+    | ESPIPE
+    // Read-only file system
+    | EROFS
   ```
 
 - 运行时表示为 i32（errno 编号），与 C ABI 兼容
@@ -141,10 +158,18 @@
 - 用户和组身份的抽象，包括名称和数字 ID
 
   ```
-  type UserName = UserName String      // 登录名
-  type Uid      = Uid Nat              // 用户 ID（0..2^32-1）
-  type GroupName = GroupName String    // 组名
-  type Gid      = Gid Nat              // 组 ID（0..2^32-1）
+  // 登录名
+  type UserName
+    = UserName String
+  // 用户 ID（0..2^32-1）
+  type Uid
+    = Uid Nat
+  // 组名
+  type GroupName
+    = GroupName String
+  // 组 ID（0..2^32-1）
+  type Gid
+    = Gid Nat
   ```
 
 - 运行时查询函数：`currentUser : IO UserName`、`currentUid : IO Uid`、`currentGroup : IO GroupName`、`currentGid : IO Gid`
@@ -157,8 +182,10 @@
 
   ```
   type IpAddress
-    = Ipv4 (Nat, Nat, Nat, Nat)          // each 0-255
-    | Ipv6 (Nat, Nat, Nat, Nat, Nat, Nat, Nat, Nat)  // each 0-65535
+    // each 0-255
+    = Ipv4 (Nat, Nat, Nat, Nat)
+    // each 0-65535
+    | Ipv6 (Nat, Nat, Nat, Nat, Nat, Nat, Nat, Nat)
   ```
 
 - 解析和序列化：`parse : String -> Result IpAddress String`、`toString : IpAddress -> String`
@@ -182,9 +209,12 @@
 ### 声明器
 
 ```
-Args.flag : String -> Char -> Arg          // 布尔开关
-Args.option : String -> Char -> Arg         // 带值选项
-Args.positional : Int -> Arg               // 位置参数
+// 布尔开关
+Args.flag : String -> Char -> Arg
+// 带值选项
+Args.option : String -> Char -> Arg
+// 位置参数
+Args.positional : Int -> Arg
 ```
 
 - `flag`：匹配 `--name` 或 `-c`，类型 `Bool`
@@ -214,7 +244,8 @@ Args.getPath : String -> Map String ArgsValue -> Maybe Path
 ```
 import Args
 
-type Config = Config { verbose : Bool, output : Maybe Path, name : Maybe String }
+type Config
+  = Config { verbose : Bool, output : Maybe Path, name : Maybe String }
 
 parseCli : List String -> Result Config String
 parseCli = \raw ->
@@ -275,9 +306,10 @@ Stream.readLinesSafe : Path -> IO (Result (Stream (Result String IOError)) IOErr
 IO 构造必须通过 `<-` 解包后才能消费：
 
 ```
-main = do
-  lines <-? Stream.readLines p"/tmp/log.txt"
-  iter print lines
+main =
+  do
+    lines <-? Stream.readLines p"/tmp/log.txt"
+    iter print lines
 ```
 
 ### 变换（惰性）
@@ -315,14 +347,16 @@ filterMap : (a -> Maybe b) -> Stream a -> Stream b
 import Stream
 import Path
 
-main = do
-  result <- Stream.readLinesSafe p"/tmp/access.log"
-  case result of
-    Ok lines ->
-      lines
-        |> filterMap toMaybe          // 跳过读失败的行
-        |> filter (contains "ERROR")
-        |> take 100
-        |> iter print
-    Err e -> print f"cannot open: {e}"
+main =
+  do
+    result <- Stream.readLinesSafe p"/tmp/access.log"
+    case result of
+      Ok lines ->
+        lines
+          // 跳过读失败的行
+          |> filterMap toMaybe
+          |> filter (contains "ERROR")
+          |> take 100
+          |> iter print
+      Err e -> print f"cannot open: {e}"
 ```

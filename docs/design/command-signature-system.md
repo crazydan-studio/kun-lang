@@ -47,8 +47,10 @@ error : List IOError
 
 // 行为声明
 behavior
-  fs.read("/")           // 读取目录内容
-  fs.read(Path)          // 读取每个文件的元数据
+  // 读取目录内容
+  fs.read("/")
+  // 读取每个文件的元数据
+  fs.read(Path)
 
 // 子命令（无）
 ```
@@ -127,15 +129,18 @@ command "git"
 subcommand "commit"
   flag "all"     'a' : Bool
   option "message" 'm' : String
-  positional 0        : String with (optional)  // 路径规格
+  // 路径规格
+  positional 0        : String with (optional)
   behavior
     fs.read(".")
     fs.write(".git")
 
 subcommand "push"
   flag "force"   'f' : Bool
-  positional 0        : String with (optional)  // 远程名
-  positional 1        : String with (optional)  // 分支名
+  // 远程名
+  positional 0        : String with (optional)
+  // 分支名
+  positional 1        : String with (optional)
   behavior
     net.git(Any)
 ```
@@ -170,8 +175,10 @@ output : Stream String
 flag "json" 'j' : Bool
 output : Stream Row
   // Row 类型定义
-  when json     -> JsonValue    // --json 模式
-  when !json    -> String       // 普通行模式
+  // --json 模式
+  when json     -> JsonValue
+  // 普通行模式
+  when !json    -> String
 
 // find — 文件名列表
 output : Stream Path
@@ -188,40 +195,56 @@ output : Stream { path : Path, size : Int }
 
 ```
 behavior
-  fs.read("/etc")              // 读取指定路径
-  fs.read("/var")              // 读取多个路径
-  fs.write("/tmp")             // 写入指定路径
-  fs.read(Any)                 // 可读取任意路径（宽松模式）
-  fs.meta                      // 仅读取元数据（stat、lstat），不读内容
+  // 读取指定路径
+  fs.read("/etc")
+  // 读取多个路径
+  fs.read("/var")
+  // 写入指定路径
+  fs.write("/tmp")
+  // 可读取任意路径（宽松模式）
+  fs.read(Any)
+  // 仅读取元数据（stat、lstat），不读内容
+  fs.meta
 ```
 
 ### 网络行为
 
 ```
 behavior
-  net.http("api.example.com")  // HTTP 请求到指定域名
-  net.https("*")               // HTTPS 请求到任意域名
-  net.listen(8080)             // 监听指定端口
-  net.tcp(Any)                 // 任意 TCP 连接
+  // HTTP 请求到指定域名
+  net.http("api.example.com")
+  // HTTPS 请求到任意域名
+  net.https("*")
+  // 监听指定端口
+  net.listen(8080)
+  // 任意 TCP 连接
+  net.tcp(Any)
 ```
 
 ### 进程行为
 
 ```
 behavior
-  process.exec                 // 启动子进程
-  process.signal               // 发送信号
-  process.kill                 // 终止进程
+  // 启动子进程
+  process.exec
+  // 发送信号
+  process.signal
+  // 终止进程
+  process.kill
 ```
 
 ### 系统行为
 
 ```
 behavior
-  sys.time                     // 读取系统时间
-  sys.env("HOME")              // 读取指定环境变量
-  sys.env("*")                 // 可读取所有环境变量
-  sys.random                   // 访问随机数设备
+  // 读取系统时间
+  sys.time
+  // 读取指定环境变量
+  sys.env("HOME")
+  // 可读取所有环境变量
+  sys.env("*")
+  // 访问随机数设备
+  sys.random
 ```
 
 ### seccomp 规则自动推导
@@ -326,9 +349,12 @@ man 页面
 
 command "<command>"
   // 自动推断结果（可能需要人工修正）
-  flag "verbose" 'v' : Bool        // 置信度: 高
-  option "output" 'o' : String     // 置信度: 中（类型不确定）
-  positional 0 : String            // 置信度: 低（位置参数含义未知）
+  // 置信度: 高
+  flag "verbose" 'v' : Bool
+  // 置信度: 中（类型不确定）
+  option "output" 'o' : String
+  // 置信度: 低（位置参数含义未知）
+  positional 0 : String
 ```
 
 ## CDF 生命周期

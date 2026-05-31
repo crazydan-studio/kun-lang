@@ -46,7 +46,8 @@ type ProcessError
   | UnknownFormat
 
 // Newtype
-type Config = Config
+type Config
+  = Config
   { logDir    : Path
   , minLevel  : LogLevel
   , output    : Path
@@ -186,13 +187,20 @@ main : IO Unit
 main =
   do
     // 字面量展示
-    appName  = "log-processor"     // String
-    version  = 2024                // Int
-    debug    = false               // Bool
-    rate     = 3.14                // Float
-    newline  = '\n'                // Char
-    timeout  = 30s                 // Duration
-    empty    = ()                  // Unit
+    // String
+    appName  = "log-processor"
+    // Int
+    version  = 2024
+    // Bool
+    debug    = false
+    // Float
+    rate     = 3.14
+    // Char
+    newline  = '\n'
+    // Duration
+    timeout  = 30s
+    // Unit
+    empty    = ()
 
     // Path 字面量（前缀 p + 双引号）
     logPath    = p"/var/log/myapp/access.log"
@@ -200,10 +208,14 @@ main =
     backupDir  = p"/tmp/backup"
 
     // 容器字面量
-    levels   = [Debug, Info, Warn, Error]   // List
-    counts   = #{ "ok" = 42, "err" = 7 }   // Map（= 替代 =>）
-    uniqPids = #[ 100u, 200u, 300u ]        // Set
-    pair     = ("result", true)              // Tuple
+    // List
+    levels   = [Debug, Info, Warn, Error]
+    // Map（= 替代 =>）
+    counts   = #{ "ok" = 42, "err" = 7 }
+    // Set
+    uniqPids = #[ 100u, 200u, 300u ]
+    // Tuple
+    pair     = ("result", true)
 
     // Bytes 字面量
     magicBytes = 0xCAFEBABE
@@ -212,15 +224,22 @@ main =
     ipRegex = r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
 
     // f-string 插值与格式化（新语法：f"..."）
-    greeting   = f"app {appName} v{version}"               // 变量插值
-    formatted  = f"rate: {rate:.2f} / timeout: {timeout}"  // Float 精度
-    hexVal     = f"hex: {255:x} / {255:X}"                 // 整数进制
-    showCount  = f"count: {result}"                         // Int 默认十进制
+    // 变量插值
+    greeting   = f"app {appName} v{version}"
+    // Float 精度
+    formatted  = f"rate: {rate:.2f} / timeout: {timeout}"
+    // 整数进制
+    hexVal     = f"hex: {255:x} / {255:X}"
+    // Int 默认十进制
+    showCount  = f"count: {result}"
 
     // 索引访问
-    first     = levels[0]     // List 索引 → Maybe LogLevel
-    firstChar = "hello"[0]    // String 索引 → Char
-    firstElem = pair.0        // Tuple 索引
+    // List 索引 → Maybe LogLevel
+    first     = levels[0]
+    // String 索引 → Char
+    firstChar = "hello"[0]
+    // Tuple 索引
+    firstElem = pair.0
 
     // 管道操作符
     result =

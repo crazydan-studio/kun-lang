@@ -38,7 +38,8 @@ area = \shape ->
   case shape of
     Circle { radius }         -> 3.14159 * radius * radius
     Rect { width, height }    -> width * height
-    Triangle { a, b, c }      -> // Heron's formula
+    Triangle { a, b, c } ->
+      // Heron's formula
       let
         s = (a + b + c) / 2.0
       in
@@ -59,7 +60,8 @@ describe = \shape ->
 describeResult : Result Int String -> String
 describeResult = \res ->
   case res of
-    Ok 0    -> "zero"         // 字面量 + 变体
+    // 字面量 + 变体
+    Ok 0    -> "zero"
     Ok n    -> f"got: {n}"
     Err msg -> f"error: {msg}"
 
@@ -284,8 +286,10 @@ parseHttpStatus = \status ->
 processNode : Tree Int -> Int
 processNode = \tree ->
   case tree of
-    Leaf v          -> v                           // v : Int
-    Node (left, right) ->                           // left, right : Tree Int
+    // v : Int
+    Leaf v          -> v
+    // left, right : Tree Int
+    Node (left, right) ->
       processNode left + processNode right
 
 // ============================================================

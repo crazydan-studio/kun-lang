@@ -205,7 +205,8 @@ cat p"/var/log/app.log" |> write_file p"/tmp/filtered.log" with capabilities fs.
 
   如需访问多个环境变量，可使用通配符：
 
-    capability env.read("*")  // 允许读取所有环境变量
+    // 允许读取所有环境变量
+    capability env.read("*")
 ```
 
 ```
@@ -388,12 +389,17 @@ capability fs.read("/var/log"), fs.read(Any)
 能力管理器是安全子系统的核心组件，在运行时维护当前执行上下文的有效能力集合：
 
 ```
+// 当前作用域的有效能力
 CapabilityManager
-├── current_scope: CapabilitySet     // 当前作用域的有效能力
-├── script_level: CapabilitySet      // 脚本级能力（启动时解析声明获得）
-├── scope_stack: [CapabilitySet]     // 作用域栈（嵌套 with capability 形成）
-├── command_map: {CmdName -> CapSet} // 单命令能力注解映射
-└── audit_log: [AccessAttempt]       // 访问审计日志
+├── current_scope: CapabilitySet
+// 脚本级能力（启动时解析声明获得）
+├── script_level: CapabilitySet
+// 作用域栈（嵌套 with capability 形成）
+├── scope_stack: [CapabilitySet]
+// 单命令能力注解映射
+├── command_map: {CmdName -> CapSet}
+// 访问审计日志
+└── audit_log: [AccessAttempt]
 ```
 
 ### 检查流程
@@ -440,13 +446,20 @@ net.http("a.com")               匹配 net.http("b.com")                 → 不
 
 ```
 {
-  timestamp: 1717084800,            // Unix 纳秒
-  script: "/home/user/deploy.kun",  // 脚本路径
-  line: 42,                         // 源码行号
-  resource: "/etc/shadow",          // 目标资源
-  capability: "fs.read",            // 所需能力
-  result: "denied",                 // allow / denied / granted_dynamic
-  reason: "not_in_scope"            // 拒绝原因
+  // Unix 纳秒
+  timestamp: 1717084800,
+  // 脚本路径
+  script: "/home/user/deploy.kun",
+  // 源码行号
+  line: 42,
+  // 目标资源
+  resource: "/etc/shadow",
+  // 所需能力
+  capability: "fs.read",
+  // allow / denied / granted_dynamic
+  result: "denied",
+  // 拒绝原因
+  reason: "not_in_scope"
 }
 ```
 

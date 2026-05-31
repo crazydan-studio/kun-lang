@@ -48,10 +48,14 @@ type Error
 // 2. Newtype — 单变体 ADT 的包装语义
 // ============================================================
 
-type UserName = UserName String
-type UserId   = UserId Nat
-type GroupId  = GroupId Nat
-type Email    = Email String
+type UserName
+  = UserName String
+type UserId
+  = UserId Nat
+type GroupId
+  = GroupId Nat
+type Email
+  = Email String
 
 // 构造器即函数
 createUser : UserName -> UserId -> Email -> { name : UserName, uid : UserId, email : Email }
@@ -160,21 +164,30 @@ firstElem = identity (Just 42)
 conversions : (Int, Nat, Float, String, Bytes)
 conversions =
   let
-    n  = 42           // Int
-    u  = 42u          // Nat
-    f  = 3.14         // Float
+    // Int
+    n  = 42
+    // Nat
+    u  = 42u
+    // Float
+    f  = 3.14
 
     // Nat <-> Int
-    n1 = toInt u     // Nat -> Int（始终安全）
-    u1 = toNat n     // Int -> Nat（负数 → Panic）
+    // Nat -> Int（始终安全）
+    n1 = toInt u
+    // Int -> Nat（负数 → Panic）
+    u1 = toNat n
 
     // Float <-> Int
-    f1 = toFloat n   // Int -> Float
-    n2 = toInt f     // Float -> Int（截断）
+    // Int -> Float
+    f1 = toFloat n
+    // Float -> Int（截断）
+    n2 = toInt f
 
     // String <-> Bytes
-    b  = toBytes "hello"  // String -> Bytes
-    s  = toString b       // Bytes -> String
+    // String -> Bytes
+    b  = toBytes "hello"
+    // Bytes -> String
+    s  = toString b
   in
   (n1, u1, f1, b, s)
 
@@ -186,8 +199,10 @@ conversions =
 processResult : Result Int String -> String
 processResult = \res ->
   case res of
-    Ok n  -> f"number: {n}"   // 此处 n : Int
-    Err _ -> "error"           // 类型已知
+    // 此处 n : Int
+    Ok n  -> f"number: {n}"
+    // 类型已知
+    Err _ -> "error"
 
 processIp : IpAddress -> String
 processIp = \addr ->
@@ -202,9 +217,12 @@ processIp = \addr ->
 // ============================================================
 
 // Type 种类：值可居留
-x : Int          // Int : Type
-y : Bool         // Bool : Type
-z : String       // String : Type
+// Int : Type
+x : Int
+// Bool : Type
+y : Bool
+// String : Type
+z : String
 
 // Type -> Type 种类：类型构造器
 // List     : Type -> Type
