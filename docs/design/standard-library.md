@@ -277,7 +277,7 @@ IO 构造必须通过 `<-` 解包后才能消费：
 ```
 main = do
   lines <-? Stream.readLines p"/tmp/log.txt"
-  iter (\line -> print line) lines
+  iter print lines
 ```
 
 ### 变换（惰性）
@@ -321,8 +321,8 @@ main = do
     Ok lines ->
       lines
         |> filterMap identity          // 跳过读失败的行
-        |> filter (\line -> contains "ERROR" line)
+        |> filter (contains "ERROR")
         |> take 100
-        |> iter (\line -> print line)
+        |> iter print
     Err e -> print f"cannot open: {e}"
 ```

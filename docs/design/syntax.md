@@ -577,6 +577,10 @@ doubleThenAdd1 = add1 << double    // 等价于 \x -> add1 (double x)
 
 ### Do 记法（IO 顺序组合）
 
+`do` 块按顺序执行 IO 操作。`<-` 从 IO 操作中解包值，将结果绑定到左侧名字。
+
+无返回值的 `do` 块：
+
 ```
 main : IO Unit
 main = do
@@ -584,7 +588,28 @@ main = do
   print content
 ```
 
-`do` 块按顺序执行每一行。`<-` 从 IO 操作中解包值，将结果绑定到左侧名字。
+有返回值的 `do` 块使用 `do in` 语法，与 `let in` 类似——IO 效应放在 `do` 和 `in` 之间，返回值放在 `in` 之后：
+
+```
+type Config = Config { content : String, size : Int }
+
+loadConfig : Path -> IO Config
+loadConfig = \path ->
+  do in
+    content <- readFile path
+  in
+    Config { content = content, size = length content }
+
+processAndReturn : Path -> IO String
+processAndReturn = \path ->
+  do in
+    content <- readFile path
+    result <- parse content
+  in
+    result
+```
+
+`do in` 确保 `do` 块始终为一个单一表达式（与 `let in` 确保函数体为单一表达式同理）。没有 `in` 部分的 `do` 块无返回值，类型为 `IO Unit`。
 
 #### `<-` 的解包语义
 
@@ -656,6 +681,53 @@ P.parent p"/tmp/foo"     // 通过模块限定的函数调用
 ```
 
 显式导入的函数可直接通过函数名调用，无需模块限定。
+
+### 字段访问速记
+
+在高阶函数中，可直接以 `.字段名` 形式获取积类型上的字段值：
+
+```
+records = [{ name = "a", size = 1 }, { name = "b", size = 5 }]
+
+names = records |> map .name          // 等价于 map (\r -> r.name)
+sizes = records |> map .size          // 等价于 map (\r -> r.size)
+
+// 与 filter 结合
+big = records |> filter (\r -> r.size > 3)
+namesOfBig = big |> map .name
+```
+
+`.name` 等价于 `\x -> x.name`，适用于任何接受回调的高阶函数。
+
+### 柯里化简写
+
+Kun 函数默认柯里化。当函数已接收部分参数时，实际返回仍为函数，接受剩余参数：
+
+```
+contains "ERROR"              // String -> Bool，已接收第一个参数
+filter (contains "ERROR")     // 等价于 filter (\line -> contains "ERROR" line)
+
+add 1                         // Int -> Int，已接收第一个参数
+map (add 1)                   // 等价于 map (\x -> add 1 x)
+```
+
+这种写法在管道中尤其简洁：
+
+```
+lines
+  |> filter (contains "ERROR")
+  |> map (String.slice 0 100)
+  |> iter print
+```
+
+等价于：
+
+```
+lines
+  |> filter (contains "ERROR")
+  |> map (String.slice 0 100)
+  |> iter print
+```
 
 ### List 解构与展开
 
@@ -989,9 +1061,9 @@ main : IO Unit
 main = do
   lines <- Stream.readLines p"/tmp/large.log"   // lines : Stream String
   lines
-    |> filter (\line -> contains "ERROR" line)
+    |> filter (contains "ERROR")
     |> take 100
-    |> iter (\line -> print line)
+    |> iter print
 ```
 
 构造与消费分离：
@@ -1041,13 +1113,13 @@ Stream.readLines : Path -> IO (Result (Stream String) IOError)
 // 方案 A：自动解包，构造失败早返回
 main = do
   lines <-? Stream.readLines p"/tmp/large.log"
-  iter (\line -> print line) lines
+  iter print lines
 
 // 方案 B：显式处理构造错误
 main = do
   result <- Stream.readLines p"/tmp/large.log"
   case result of
-    Ok lines -> iter (\line -> print line) lines
+    Ok lines -> iter print lines
     Err e   -> print f"cannot open: {e}"
 ```
 
@@ -1079,7 +1151,7 @@ main = do
     Ok lines ->
       lines
         |> filterMap identity          // 跳过 Err 元素，保留 Ok 内容
-        |> iter (\line -> print line)
+        |> iter print
     Err e -> print f"cannot open: {e}"
 ```
 
@@ -1096,9 +1168,9 @@ main = do
     Ok lines ->
       lines
         |> filterMap identity     // 跳过读失败的行
-        |> filter (\line -> contains "ERROR" line)
+        |> filter (contains "ERROR")
         |> take 100
-        |> iter (\line -> print line)
+        |> iter print
     Err e -> print f"failed to open: {e}"
 ```
 

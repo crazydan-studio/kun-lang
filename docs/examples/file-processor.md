@@ -172,7 +172,7 @@ processLargeFile = \path ->
   do
     lines <-? Stream.readLines path
     lines
-      |> L.filter (\line -> contains "ERROR" line)
+      |> L.filter (contains "ERROR")
       |> L.map parseLine
       |> L.filterMap identity
       |> L.iter (\entry -> print entry.message)

@@ -42,31 +42,30 @@ type MonitorResult
 // do 记法：多层嵌套
 // ============================================================
 
-// 基础 do：单一 IO 操作
+// 基础 do：单一 IO 操作（无返回值）
 printTimestamp : IO Unit
 printTimestamp =
   do
     nowTime <- now
     print f"check at: {nowTime:%H:%M:%S}"
 
-// 多层 do：按顺序组合
+// 多层 do in：按顺序组合，返回 HealthStatus
 checkService : SocketAddr -> IO HealthStatus
 checkService = \addr ->
-  do
-    // 第一层 IO
+  do in
     start <- now
     result <- httpGet addr p"/health"
 
-    // case 分支内嵌套 IO
     case result of
       Ok body ->
-        do
+        do in
           end <- now
           elapsed = end - start
+        in
           if contains "\"status\":\"ok\"" body then
-            pure (Up { responseTime = elapsed })
+            Up { responseTime = elapsed }
           else
-            pure (Down { error = "unexpected response" })
+            Down { error = "unexpected response" }
       Err err ->
         do
           print f"request failed: {err}"
@@ -153,7 +152,7 @@ streamResponse = \addr ->
   do
     response <- httpGetStream addr p"/events"
     Ok (response
-      |> filter (\line -> contains "data:" line)
+      |> filter (contains "data:")
       |> map (\line -> String.slice 5 line))
 
 // 消费流
