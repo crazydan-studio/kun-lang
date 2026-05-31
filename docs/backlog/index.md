@@ -7,7 +7,7 @@
 | P0 | 项目初始化与文档体系搭建 | — | `docs/context/project-context.md` | — | `done` | `implement` | 无 | 2026-05-30 |
 | P0 | 类型系统核心设计 | — | `docs/design/type-system.md` | — | `done` | `plan-first` | 无 | 2026-05-30 |
 | P0 | 语法全面调整（21 项） | — | `docs/design/syntax.md` | `docs/plans/plan-syntax-overhaul.md` | `done` | `implement` | 无 | 2026-05-30 |
-| P0 | 运行时架构设计 | — | `docs/architecture/system-baseline.md` | — | `idea` | `plan-first` | 无 | — |
+| P0 | 运行时架构设计 | — | `docs/architecture/system-baseline.md` | `docs/plans/plan-runtime-architecture.md` | `done` | `plan-first` | 无 | 2026-05-31 |
 | P1 | 命令签名系统设计 | — | `docs/design/app-overview.md` | — | `idea` | `plan-first` | 无 | — |
 | P1 | 安全模型设计 | — | `docs/design/roles-and-permissions.md` | — | `needs-design` | `plan-first` | 无 | — |
 | P1 | 标准库类型设计 | — | `docs/design/standard-library.md` | — | `done` | `implement` | 无 | 2026-05-30 |

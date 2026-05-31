@@ -17,10 +17,10 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型，含 21 项语法调整）、标准库类型设计（定型） |
-| Owner Doc | `docs/design/type-system.md`、`docs/design/syntax.md`、`docs/design/standard-library.md` |
-| 活跃计划 | 命令签名系统设计、运行时架构设计、安全模型设计 |
-| 最近完成 | 语法全面调整（21 项变更，含注释/字面量/泛型/函数类型/模块等） |
+| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型，含 21 项语法调整）、标准库类型设计（定型）、运行时架构设计（定型） |
+| Owner Doc | `docs/design/type-system.md`、`docs/design/syntax.md`、`docs/design/standard-library.md`、`docs/architecture/system-baseline.md` |
+| 活跃计划 | 命令签名系统设计、安全模型设计 |
+| 最近完成 | 运行时架构设计全量扩展（生命周期、执行模型、错误诊断、命令加载、类型表示、内存管理、模块解析、标准库集成） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
