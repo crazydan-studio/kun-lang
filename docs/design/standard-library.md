@@ -262,7 +262,7 @@ Stream.repeat : (Unit -> t) -> Stream t
 
 - `fromList` — 从 List 构造
 - `range start end` — 左闭右开区间 `[start, end)`
-- `repeat f` — 反复调用 `f` 产生元素（替代已移除的 `stream` 关键字）
+- `repeat f` — 反复调用 `f` 产生元素。`f : Unit -> t` 是 `Unit -> T` 的合法使用场景（需每次调用产生新值，惰性绑定无法满足）
 
 ### IO 构造
 

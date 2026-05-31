@@ -60,7 +60,7 @@
 | 17 | 导入 | `from List import (map)` | `import List` / `import List as L with (map as m)` |
 | 18 | 导出 | `pub` 关键字 | `module ... export (...)` |
 | 19 | `?` 操作符 | `(expr)?` | `funcName? args` |
-| 20 | 无参函数类型 | `() -> T` | `Unit -> T` |
+| 20 | 无参函数类型 | `() -> T` | 无。改用绑定或 `IO T`（`Stream.repeat` 是 `Unit -> T` 的唯一合法例外） |
 | 21 | 类型别名 | `type alias` | 仅 `type LongFunc = ...`（函数类型） |
 | 22 | Record 类型别名 | `type Point = { x, y }` | `type Point = Point { x, y }`（Newtype）或内联 |
 | 23 | 管道 | bare `\|` | `\|>` / `<\|` |
