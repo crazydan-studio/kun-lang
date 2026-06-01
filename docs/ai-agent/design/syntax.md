@@ -226,11 +226,11 @@ f"brace: \{hello\}"         → "brace: {hello}"
 f"quote: \""                → "quote: \""
 f"list: { join ", " names }"    // 表达式内 " 无需转义
 ```
- 
+
 ### 嵌套
- 
+
 f-string 中嵌入的表达式可包含字符串字面量，其内的引号无需转义。不支持嵌套 f-string（不可写 `f"outer {f"inner"}"`）：
- 
+
 ```kun
 f"list: { join ", " names }"    // 表达式内 " 无需转义
 f"path: { p"/etc/hosts" }"     // 嵌入 Path 字面量
@@ -1065,7 +1065,7 @@ readConfig =
 ```kun
 main =
   do
-    readFile Path.cwd   -- 若未声明 fs.read → 运行时 PermissionError
+    readFile Path.cwd   // 若未声明 fs.read → 运行时 PermissionError
 ```
 
 ## Stream
