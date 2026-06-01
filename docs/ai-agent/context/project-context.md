@@ -44,6 +44,12 @@
 | 检查 Markdown 语法 | `cd docs && pnpm lint:md` |
 | 单元测试 | 待定 |
 
+## 最近任务路由
+
+| 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
+|------|------|------|----------------|------------|---------|
+| 2026-06-01 | 能力安全系统重新设计 | 重构+设计 | ✅ roles-and-permissions、syntax、system-baseline | ❌ 未检查（事后补查：skills/ 含 document-audit/plan-audit/closure-audit 提示词） | 应走 `plan-first`，实际未写计划直接实施（违规） |
+
 ## AI 阻塞条件
 
 - `project-context.md` 中的活跃需求为空时，AI 不应实施任何代码变更

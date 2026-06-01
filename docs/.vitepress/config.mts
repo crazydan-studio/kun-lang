@@ -306,6 +306,7 @@ function sidebarWorking() {
           { text: '索引', link: '/ai-agent/audits/' },
           { text: '审计执行指南', link: '/ai-agent/audits/00-audit-execution-guide' },
           { text: '类型系统完备性审计', link: '/ai-agent/audits/audit-type-system-completeness' },
+          { text: '能力安全系统闭合审计', link: '/ai-agent/audits/audit-capability-redesign-closure' },
         ],
       },
       {
