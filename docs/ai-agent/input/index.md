@@ -15,3 +15,4 @@
 | [Stream 设计与错误处理](input-stream-design.md) | 项目维护者 | 2026-05-30 |
 | [脚本入口与参数传递](input-entry-point-and-args.md) | 项目维护者 | 2026-05-30 |
 | [语法细节打磨](input-syntax-polish.md) | 项目维护者 | 2026-05-30 |
+| [能力语法与安全模型重新设计](input-capability-syntax-redesign.md) | 项目维护者 | 2026-06-01 |
