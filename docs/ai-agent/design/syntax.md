@@ -380,16 +380,7 @@ List Int                // 泛型
 Record 类型：
 
 ```kun
-{ name : String, version : String }    // 常规字段
-{ name : String = "Anonymous" }        // 字段绑定缺省值
-```
-
-缺省值在创建 Record 时若未指定该字段，则自动使用缺省值：
-
-```kun
-{ }                        // name = "Anonymous"（使用缺省值）
-{ name = "Kun" }           // name = "Kun"（显式指定覆盖缺省值）
-{ name = "Kun", extra = true }  // 编译期错误：extra 不在类型中
+{ name : String, version : String }
 ```
 
 ## 表达式
@@ -661,9 +652,7 @@ do
 ### Record 操作
 
 ```kun
-{ name = "Kun", version = "0.1" }    // 创建（所有字段显式指定）
-{ }                                  // 创建（使用所有字段的缺省值，需要类型上下文）
-{ tag = "stable" }                   // 创建（仅指定 tag，其他用缺省值，需要类型上下文）
+{ name = "Kun", version = "0.1" }    // 创建
 record.name                           // 字段访问
 { record | version = "0.2" }          // 更新（不可变复制+修改）
 
