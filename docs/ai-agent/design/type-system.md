@@ -318,6 +318,28 @@ Kun 类型系统**不包含子类型关系**：
 
 ## 版本与演进
 
+### Record 字段缺省值
+
+Record 类型定义时可为字段绑定缺省值（编译期常量），创建 Record 时若未指定该字段则自动使用缺省值：
+
+```kun
+type Config
+  = { host : String = "localhost"
+    , port : Int = 8080
+    , debug : Bool = false
+    }
+
+defaults = { }                      // host="localhost", port=8080, debug=false
+custom   = { port = 9090 }          // host="localhost", port=9090, debug=false
+```
+
+规则：
+
+- 缺省值必须是编译期字面量（数值、字符串、布尔、Path 等）
+- 创建时显式指定字段值覆盖缺省值
+- 缺省值不影响 Record 的类型结构：`{ port : Int = 8080 }` 与 `{ port : Int }` 是同一类型
+- 模式匹配和解构不受缺省值影响
+
 | 版本 | 变更 |
 |------|------|
 | 0.1.0 | MVP 基础类型 + `Maybe`/`Result` + HM 推断 + 简单参数化多态 + `IO` 效应标记 |
