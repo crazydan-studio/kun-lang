@@ -288,6 +288,7 @@ function sidebarWorking() {
           { text: '类型系统设计决策', link: '/ai-agent/discussions/discussion-type-system-design-decisions' },
           { text: '语法演进与设计决策', link: '/ai-agent/discussions/discussion-syntax-evolution' },
           { text: '异步支持必要性分析', link: '/ai-agent/discussions/discussion-async-support' },
+          { text: '能力安全系统设计', link: '/ai-agent/discussions/discussion-capability-design' },
         ],
       },
       {
