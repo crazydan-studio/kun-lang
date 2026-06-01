@@ -1034,15 +1034,10 @@ with caps
 with caps
   process.exec = ["ls", "cat"]
 
-main = do
-  ...
+main =
+  do
+    ...
 ```
-
-- `with caps` 关键字独立成行
-- 能力动作和目标声明各自独占一行，通过缩进指示其为能力声明配置
-- 直接引用已声明的能力（`fs.write = fs.read`），编译期展开，不支持运行时运算
-- 多个 `with caps` 块：最终能力为并集
-- 模块不允许声明能力，仅可执行脚本可以
 
 ### 函数内能力声明
 
@@ -1068,8 +1063,9 @@ readConfig =
 未声明任何能力的脚本只能使用默认权限（空）：
 
 ```kun
-main = do
-  readFile Path.cwd   -- 若未声明 fs.read → 运行时 PermissionError
+main =
+  do
+    readFile Path.cwd   -- 若未声明 fs.read → 运行时 PermissionError
 ```
 
 ## Stream

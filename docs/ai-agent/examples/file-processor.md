@@ -11,7 +11,8 @@
 // ============================================================
 
 // 脚本级权限声明
-with caps fs.read = [Path.cwd, p"/var/log", p"/etc"]
+with caps
+  fs.read = [Path.cwd, p"/var/log", p"/etc"]
 
 // 模块导入（新语法）
 import List as L

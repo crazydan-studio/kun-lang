@@ -54,8 +54,9 @@ with caps
 with caps
   process.exec = ["ls", "cat"]
 
-main = do
-  ...
+main =
+  do
+    ...
 ```
 
 语法规则：
@@ -330,10 +331,11 @@ with caps
   fs.read = [p"/etc"]
   net.http = ["api.example.com"]
 
-main = do
-  // 调用子脚本，显式传递能力子集
-  kun "child.kun" with caps
-    fs.read = [p"/etc"]
+main =
+  do
+    // 调用子脚本，显式传递能力子集
+    kun "child.kun" with caps
+      fs.read = [p"/etc"]
 ```
 
 ### 传递规则

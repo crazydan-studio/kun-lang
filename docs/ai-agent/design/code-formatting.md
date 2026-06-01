@@ -194,8 +194,9 @@ with caps
 with caps
   fs.read = [Path.cwd]
 
-main = do
-  ...
+main =
+  do
+    ...
 ```
 
 函数内 `with caps` 与 `do` 同一缩进层级：
