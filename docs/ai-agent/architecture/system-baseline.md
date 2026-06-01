@@ -1018,8 +1018,7 @@ void* readlines_next(void* state_ptr) {
 │   ├── 默认：工作目录及其子目录
 │   └── 扩展：显式权限声明
 │       ├── 脚本级声明
-│       ├── 作用域级声明（with capability）
-│       └── 单命令级注解（with capabilities）
+│       └── 作用域级声明（with caps）
 ├── 能力安全（Capability-Based Security）
 │   ├── 运行时在启动时根据权限声明授予
 │   ├── 父脚本显式传递
