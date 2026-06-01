@@ -81,6 +81,7 @@
 | Seccomp 系统调用过滤 | ✅ 设计定型 | 基于 CDF 自动推导系统调用过滤规则 |
 | 单命令沙箱隔离 | ✅ 设计定型 | 高风险命令在独立 namespace 中执行 |
 | 信任分级策略 | ✅ 设计定型 | trusted / verified / sandboxed / denied 四级 |
+
 ### IO 与数据
 
 | 功能 | 状态 | 说明 |

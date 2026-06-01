@@ -526,9 +526,12 @@ case result of
 ### If 表达式
 
 ```kun
-if condition then expr1
-else if condition2 then expr2
-else expr3
+if condition then
+  expr1
+else if condition2 then
+  expr2
+else
+  expr3
 ```
 
 `if` 是表达式，必有返回值。`else` 分支不可省略。`else if then` 链可用于处理多分支。
@@ -848,18 +851,19 @@ firstThree = \[a, b, c] -> (a, b, c)
 
 ### 优先级（从高到低）
 
-```kun
-最高:  .        (expr)    // . 成员访问，(expr) 表达式分组
-      -        not        // 一元
-      *        /        %
-      +        -        ++
-      ==       !=       <      >      <=      >=
-      &&
-      ||
-      >>       <<
-      |>       <|
-      ? :
-      =
+```
+最高:
+  .        (expr)         // . 成员访问，(expr) 表达式分组
+  -        not            // 一元
+  *        /        %
+  +        -        ++
+  ==       !=       <      >      <=      >=
+  &&
+  ||
+  >>       <<
+  |>       <|
+  ? :
+  =
 最低:  ?
 ```
 
