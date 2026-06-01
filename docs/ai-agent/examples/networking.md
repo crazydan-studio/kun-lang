@@ -1,21 +1,21 @@
 # IO 与效应系统聚焦：网络服务监控
 
-覆盖：`do` 记法（深度）、`=?` / `<-?` 操作符、权限声明三级粒度、`Signal`/`Port`/`Pid`/`SocketAddr`/`Stream`/`DateTime`/`Duration`、错误链、`capability` 作用域
+覆盖：`do` 记法（深度）、`=?` / `<-?` 操作符、权限声明、`Signal`/`Port`/`Pid`/`SocketAddr`/`Stream`/`DateTime`/`Duration`、错误链、`capability` 作用域
 
 ```kun
 // ============================================================
 // networking.kun  —  网络服务监控脚本
 // 涵盖：do 记法（深层嵌套）、=? / <-? 操作符（错误传播）、
-//       权限声明三级粒度、Signal/Port/Pid/SocketAddr、
+//       权限声明、Signal/Port/Pid/SocketAddr、
 //       Stream 惰性 IO、DateTime/Duration、IOError 处理
 // ============================================================
 
 // 脚本级权限声明（全局基线）
-capability
-  net.http("api.example.com")
-  , fs.read("/var/log")
-  , fs.write("/tmp/reports")
-  , process.signal
+with caps
+  net.http = ["api.example.com"]
+  fs.read = [Path.cwd, p"/var/log"]
+  fs.write = [Path.cwd, p"/tmp/reports"]
+  process.signal = []
 
 import DateTime with (now, fromUnixSecs)
 import Duration
@@ -173,7 +173,7 @@ processEvents = \addr ->
       Err e -> print f"stream failed: {e}"
 
 // ============================================================
-// 权限作用域（三级粒度）
+// 权限作用域（二级粒度）
 // ============================================================
 
 // 1. 脚本级（顶部声明）：全局可用
@@ -184,22 +184,15 @@ generateReport = \outputPath ->
   do
     data <- collectData
 
-    // 临时授予网络权限，块内有效
-    with capability net.http("api.example.com") {
+    // 临时授予网络权限，do 块内有效
+    with caps
+      net.http = ["api.example.com"]
+    do
       enriched <- enrichWithApi data
       writeFile outputPath enriched
-    }
     // 离开块后 net.http 权限自动收回
 
     print "report generated"
-
-// 3. 单命令级：精确约束
-cleanArtifacts : Path -> IO Unit
-cleanArtifacts = \dir ->
-  do
-    // 仅此一条命令获得 fs.write 权限
-    rm dir with capabilities fs.write("/tmp")
-    print "cleaned"
 
 // ============================================================
 // DateTime / Duration 操作

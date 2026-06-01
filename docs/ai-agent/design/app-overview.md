@@ -125,7 +125,7 @@ CDF 定义命令的精确签名。常见核心命令（ls、cat、grep、find、
 
 ### 单命令权限与作用域权限
 
-通过 `with capabilities` 为单个命令指定精确的权限集合，通过 `with capability` 作用域语法临时授予能力。详细设计请参见 [安全角色与权限模型](roles-and-permissions.md#单命令权限分配)。
+通过 `with caps` 为单个命令指定精确的权限集合，通过 `with caps` 作用域语法临时授予能力。详细设计请参见 [安全角色与权限模型](roles-and-permissions.md#单命令权限分配)。
 
 ### 能力安全
 

@@ -180,7 +180,7 @@
 | 名字绑定 | 均以 `a = b` 形式；`let ... in` 用于确保多条语句的唯一返回值 |
 | List 模式 | `[a, *rest]` 替代 `a :: rest` |
 | Map 字面量 | `#{ "a" = 1 }`（`=` 替代 `=>`）；Map 索引 `data["key"]`；Map 更新使用 `update` 语法 |
-| `capability` 单复 | `with capability` 作用域（单数）；`with capabilities` 列举（复数） |
+| `capability` -> `with caps` | `with capability`/`with capabilities` 统一为 `with caps` |
 | 点调用语义 | 仅限积类型字段投影和元组索引，无函数调用 |
 | `Stream` 构造 | `Stream.fromList`、`Stream.range` 替代 `stream` 关键字 |
 | 模块导入 | `import List as L`（模块别名）或 `import List with (map as m)`（精选导入）互斥；`Maybe(*)` 变体导入语法 |

@@ -23,8 +23,8 @@ kun-lang/
 ├── 安全子系统
 │   ├── 权限声明解析
 │   │   ├── 脚本级权限解析
-│   │   ├── 作用域权限解析（with capability）
-│   │   └── 单命令权限注解解析（with capabilities）
+│   │   ├── 作用域权限解析（with caps）
+│   │   └── 单命令权限注解解析（with caps）
 │   ├── 能力管理器
 │   ├── Namespace 沙箱
 │   ├── 容器环境检测

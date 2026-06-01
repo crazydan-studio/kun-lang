@@ -45,11 +45,6 @@ output : Stream String
 // 错误类型
 error : List IOError
 
-// 行为声明
-behavior
-  fs.read("/")                                  // 读取目录内容
-  fs.read(Path)                                 // 读取每个文件的元数据
-
 // 子命令（无）
 ```
 
@@ -61,7 +56,7 @@ behavior
 | `flag` / `option` / `positional` | 否 | 参数定义，每种类型可重复 |
 | `output` | 否 | 输出类型，默认 `Stream String` |
 | `error` | 否 | 错误类型，默认 `List IOError` |
-| `behavior` | 否 | 行为声明，影响 seccomp 规则生成 |
+| `behavior` | 否 | 行为声明（已废弃，seccomp 规则由参数类型推导） |
 | `subcommand` | 否 | 子命令定义，递归结构 |
 
 ## 参数定义
@@ -128,16 +123,11 @@ subcommand "commit"
   flag "all"     'a' : Bool
   option "message" 'm' : String
   positional 0        : String with (optional)    // 路径规格
-  behavior
-    fs.read(".")
-    fs.write(".git")
 
 subcommand "push"
   flag "force"   'f' : Bool
   positional 0        : String with (optional)    // 远程名
   positional 1        : String with (optional)    // 分支名
-  behavior
-    net.git(Any)
 ```
 
 子命令签名映射为独立函数值：
@@ -180,61 +170,17 @@ output : Stream Path
 output : Stream { path : Path, size : Int }
 ```
 
-## 行为声明
+## seccomp 规则自动推导
 
-行为声明定义命令在运行时的预期系统资源访问模式，影响 seccomp 规则生成：
+seccomp-BPF 过滤规则由命令的参数类型和名称自动推导，不再依赖独立的 behavior 声明：
 
-### 文件系统行为
-
-```kun-cdf
-behavior
-  fs.read("/etc")                               // 读取指定路径
-  fs.read("/var")                               // 读取多个路径
-  fs.write("/tmp")                              // 写入指定路径
-  fs.read(Any)                                  // 可读取任意路径（宽松模式）
-  fs.meta                                       // 仅读取元数据（stat、lstat），不读内容
-```
-
-### 网络行为
-
-```kun-cdf
-behavior
-  net.http("api.example.com")                   // HTTP 请求到指定域名
-  net.https("*")                                // HTTPS 请求到任意域名
-  net.listen(8080)                              // 监听指定端口
-  net.tcp(Any)                                  // 任意 TCP 连接
-```
-
-### 进程行为
-
-```kun-cdf
-behavior
-  process.exec                                  // 启动子进程
-  process.signal                                // 发送信号
-  process.kill                                  // 终止进程
-```
-
-### 系统行为
-
-```kun-cdf
-behavior
-  sys.time                                      // 读取系统时间
-  sys.env("HOME")                               // 读取指定环境变量
-  sys.env("*")                                  // 可读取所有环境变量
-  sys.random                                    // 访问随机数设备
-```
-
-### seccomp 规则自动推导
-
-行为声明到 seccomp-BPF 过滤规则的映射：
-
-| CDF 行为声明 | 允许的系统调用 | 说明 |
-|-------------|--------------|------|
-| `fs.read(Path)` | `openat`、`read`、`pread64`、`fstat`、`close`、`lseek` | 文件读取 |
-| `fs.write(Path)` | `openat`、`write`、`pwrite64`、`ftruncate`、`fsync`、`close` | 文件写入 |
-| `net.http(host)` | `socket`、`connect`、`sendto`、`recvfrom`、`close` | 网络请求 |
-| `process.exec` | `clone`、`execve`、`waitid`、`exit_group` | 进程管理 |
-| 无声明 | `brk`、`mmap`、`munmap`、`exit_group` | 仅内存操作 |
+| 参数模式 | 允许的系统调用 | 说明 |
+|---------|--------------|------|
+| `Path` 类型参数 | `openat`、`read`、`pread64`、`fstat`、`close`、`lseek` | 文件读取 |
+| 输出/写入语义参数 | `openat`、`write`、`pwrite64`、`ftruncate`、`fsync`、`close` | 文件写入 |
+| 网络/URL 类型参数 | `socket`、`connect`、`sendto`、`recvfrom`、`close` | 网络请求 |
+| 子进程相关参数 | `clone`、`execve`、`waitid`、`exit_group` | 进程管理 |
+| 无匹配参数 | `brk`、`mmap`、`munmap`、`exit_group` | 仅内存操作 |
 
 ## 内置签名库
 
@@ -404,7 +350,7 @@ command "ls"
   │
   ├── 3. 参数验证：运行时检查参数类型、范围、枚举值等
   │
-  ├── 4. 行为契约注册：将 CDF behavior 转换为 seccomp 规则
+  ├── 4. seccomp 规则生成：根据命令参数类型和名称推导 seccomp 规则
   │
   ├── 5. 执行命令：通过 dlopen/ptrace/fork-exec 加载
   │
@@ -430,8 +376,7 @@ option "port" 'p' : Int with (range 1 65535)
 |-----------|-----------|
 | 命令加载器 | 根据 CDF 决定加载策略（dlopen/ptrace/fork-exec） |
 | 参数序列化器 | 根据 CDF 参数定义确定序列化格式 |
-| seccomp 管理器 | 根据 CDF behavior 生成 seccomp-BPF 规则 |
-| 能力管理器 | 根据 CDF behavior 检查权限 |
+| seccomp 管理器 | 根据命令参数类型和名称生成 seccomp-BPF 规则 |
 | 结果反序列化器 | 根据 CDF output 定义解析返回值 |
 
 ## 完整示例
@@ -453,10 +398,6 @@ positional 0                : Path with (optional)
 positional 1                : Path with (optional)
 
 output : Stream String
-
-behavior
-  fs.read("/")
-  fs.meta
 ```
 
 ### 生成的 Kun 类型签名

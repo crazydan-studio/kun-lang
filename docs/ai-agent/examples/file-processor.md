@@ -11,7 +11,7 @@
 // ============================================================
 
 // 脚本级权限声明
-capability fs.read("/var/log"), fs.read("/etc")
+with caps fs.read = [Path.cwd, p"/var/log", p"/etc"]
 
 // 模块导入（新语法）
 import List as L
@@ -263,13 +263,11 @@ main =
     writeFile (Path.join backupDir "errors.log") report
 
     // 权限作用域
-    with capability fs.read("/etc") {
+    with caps
+      fs.read = [p"/etc"]
+    do
       sysconfig <- readFile p"/etc/myapp/config.toml"
       print sysconfig
-    }
-
-    // 单命令权限注解
-    cleanTemp with capabilities fs.write("/tmp")
 
     print f"done: processed {L.length lines} lines"
 ```

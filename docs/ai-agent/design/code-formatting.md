@@ -178,6 +178,38 @@ readConfig = \path ->
     Ok (createDefaultConfig logDir)
 ```
 
+### `with caps`
+
+`with caps` 块用于声明能力，独立成行，配置项缩进 2 空格：
+
+```kun
+with caps
+  fs.read = [Path.cwd, p"/tmp"]
+  fs.write = fs.read
+```
+
+脚本级 `with caps` 与函数体之间空 1 行：
+
+```kun
+with caps
+  fs.read = [Path.cwd]
+
+main = do
+  ...
+```
+
+函数内 `with caps` 与 `do` 同一缩进层级：
+
+```kun
+readConfig =
+  with caps
+    fs.read = [p"/etc/config"]
+  do
+    readFile p"/etc/config"
+```
+
+`with caps` 块不允许为空。
+
 ## 管道
 
 每个管道操作独立一行，`|>` 在行首：

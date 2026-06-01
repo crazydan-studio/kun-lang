@@ -1025,26 +1025,52 @@ main = 42
 
 ### 脚本级声明
 
-```kun
-capability fs.read("/etc"), fs.read("/var/log"), net.http("api.example.com")
-```
-
-### 单命令注解
+可执行脚本在模块顶部声明能力：
 
 ```kun
-cat p"/etc/nginx/nginx.conf" with capabilities fs.read("/etc")
+with caps
+  fs.read = [Path.cwd, p"/tmp"]
+  fs.write = fs.read
+with caps
+  process.exec = ["ls", "cat"]
+
+main = do
+  ...
 ```
 
-### 作用域级权限
+- `with caps` 关键字独立成行
+- 能力动作和目标声明各自独占一行，通过缩进指示其为能力声明配置
+- 直接引用已声明的能力（`fs.write = fs.read`），编译期展开，不支持运行时运算
+- 多个 `with caps` 块：最终能力为并集
+- 模块不允许声明能力，仅可执行脚本可以
+
+### 函数内能力声明
+
+能力声明仅针对 IO 操作，IO 操作必然在 `do`（含 `do in`）内，因此能力声明附着于 `do` 块：
 
 ```kun
-with capability net.http("api.example.com") {
-  response = curl "https://api.example.com/data"
-  process response
-}
+readConfig =
+  with caps
+    fs.read = [p"/etc/kun/config"]
+  do
+    conf <-? readFile p"/etc/kun/config"
+  in
+    conf
 ```
 
-`with capability`（单数）引入一个权限作用域块。`with capabilities`（复数）在单命令注解中列举多个权限。
+- `with caps` 与 `do` 在同一缩进层级
+- `do` 块本身是单一表达式，加上 `with caps` 后仍是单一表达式，仅添加了能力声明
+- 同一个表达式的能力声明只能出现一次
+- `with caps` 可以附着在任意层级的 `do` 块上
+
+### 空能力集
+
+未声明任何能力的脚本只能使用默认权限（空）：
+
+```kun
+main = do
+  readFile Path.cwd   -- 若未声明 fs.read → 运行时 PermissionError
+```
 
 ## Stream
 
