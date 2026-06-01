@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs'
 import { defineConfig } from 'vitepress'
 import { configureDiagramsPlugin, createBuildTimeDiagramsPlugin } from 'vitepress-plugin-diagrams'
 
-const remoteLogoUrl = 'https://raw.githubusercontent.com/crazydan-studio/kun-shell/refs/heads/master/logo.svg'
+const remoteLogoUrl = 'https://raw.githubusercontent.com/crazydan-studio/kun-lang/refs/heads/master/logo.svg'
 let logo = remoteLogoUrl
 let fetchLogo = async (distDir: string) => {}
 
@@ -120,7 +120,7 @@ export default defineConfig({
     lastUpdated: { text: '最后更新于' },
 
     editLink: {
-      pattern: 'https://github.com/crazydan-studio/kun-shell/edit/main/docs/ai-agent/:path',
+      pattern: 'https://github.com/crazydan-studio/kun-lang/edit/main/docs/ai-agent/:path',
       text: '在 GitHub 上编辑此页',
     },
   },

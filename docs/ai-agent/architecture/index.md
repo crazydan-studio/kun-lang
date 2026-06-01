@@ -5,7 +5,7 @@
 ## 文件说明
 
 | 文件 | 用途 |
-|---|---|---|
+|---|---|
 | [project-vision.md](project-vision.md) | 项目愿景与核心理念 |
 | [system-baseline.md](system-baseline.md) | 系统技术基线与运行时架构设计（含生命周期、执行模型、错误诊断、命令加载、类型表示、内存管理、模块解析、标准库集成） |
 | [module-boundaries.md](module-boundaries.md) | 模块边界与职责划分 |

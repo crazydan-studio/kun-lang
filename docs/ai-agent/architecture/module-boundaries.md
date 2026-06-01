@@ -3,7 +3,7 @@
 ## 模块划分
 
 ```
-kun-shell/
+kun-lang/
 ├── 解释器核心
 │   ├── 词法分析器（Lexer）
 │   ├── 语法分析器（Parser）
