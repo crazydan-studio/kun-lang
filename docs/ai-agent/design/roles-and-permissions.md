@@ -181,7 +181,7 @@ readConfig =
 - **出口能力**（`http`、`https`、`tcp`、`udp`、`dns`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
 - **进口能力**（`listen`）：限制脚本能在哪些地址和端口上提供服务。未声明 `listen` 时，脚本无法启动任何网络服务监听。
 
-DNS 解析作为独立的 `net.dns` 动作，与 `net.udp` 分离——`net.udp` 控制任意 UDP 通信，`net.dns` 仅控制域名解析。脚本只需主机名解析时无需声明 `net.udp`：
+DNS 解析作为独立的 `net.dns` 动作，与 `net.udp` 分离。`net.udp` 控制任意 UDP 通信，`net.dns` 仅控制域名解析。脚本只需主机名解析时无需声明 `net.udp`：
 
 ```kun
 with caps
@@ -189,13 +189,36 @@ with caps
   net.http = ["api.example.com"]  // 允许 HTTP 请求
 ```
 
+#### `net.dns` 的实现原理
+
+DNS 解析在 Kun 中通过 **Primitive 函数**（调用 libc `getaddrinfo`）实现，不依赖外部命令。解析过程完全在进程内完成，不通过 Kun 的 `net.udp` 机制。因此 `net.dns` 与 `net.udp` 不存在控制冲突：
+
+| 层面 | `net.dns` | `net.udp` |
+|------|-----------|-----------|
+| 入口 | Primitive 函数（`getaddrinfo`） | Primitive 函数（socket/connect/sendto） |
+| 网络流量来源 | libc 内部的 UDP 请求 | 脚本显式发起的 UDP 操作 |
+| 进程内拦截点 | `getaddrinfo` 调用前 | socket/connect/sendto 调用前 |
+| 控制方式 | 在 `getaddrinfo` 入口处检查 | `capability_check("net", "udp", target)` |
+
+**`net.dns` 只在 Primitive 入口检查一次**，libc 后续发出的底层 UDP 包不经过 Kun 的能力系统，不存在与 `net.udp` 的检查重叠。
+
+**对外部命令子进程的 DNS 支持**：外部命令（通过 `process.exec` 启动）的 DNS 解析依赖于系统 libc。其 Network Namespace 沙箱需要针对 `net.dns` 声明的 DNS 服务器放行 UDP 53 端口的出站流量。
+
+#### 目标格式
+
+| 格式 | 语义 | 示例 |
+|------|------|------|
+| `[]`（空列表） | 使用系统默认解析器（读取 `/etc/resolv.conf`），允许任何 DNS 服务器 | `net.dns = []` |
+| `"IP"` | 仅允许向指定 DNS 服务器 IP 的 53 端口发起解析 | `net.dns = ["8.8.8.8"]` |
+| `"IP:端口"` | 允许向指定 IP 和端口的 DNS 服务器发起解析 | `net.dns = ["10.0.0.1:5353"]` |
+
 目标匹配规则：
 
 | 动作 | 规则 | 示例 |
 |------|------|------|
 | `http` / `https` | `域名`、`域名:端口`、`IP:端口`、glob 匹配 | `"api.example.com:443"`、`"*.example.com"` |
 | `tcp` / `udp` | `IP:端口`、`域名:端口` | `"10.0.0.1:5432"`、`"db.internal:3306"` |
-| `dns` | DNS 服务器 IP、空列表 | `[]`（系统默认解析器）、`"8.8.8.8"` |
+| `dns` | DNS 服务器 IP、`IP:端口`、空列表 | `[]`、`"8.8.8.8"`、`"10.0.0.1:5353"` |
 | `listen` | `<ip>:<port>`、`:<port>`、`localhost:<port>` | `"0.0.0.0:8080"`、`":9090"`、`"localhost:3000"` |
 | — | `[]`（空列表） | 匹配任何目标 |
 
