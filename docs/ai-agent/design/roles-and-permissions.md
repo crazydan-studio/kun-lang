@@ -172,15 +172,22 @@ readConfig =
 | `http` | 出口 | `[String]` | 发起 HTTP 请求到指定目标 | `net.http = ["api.example.com"]` |
 | `https` | 出口 | `[String]` | 发起 HTTPS 请求到指定目标 | `net.https = []`（任何主机） |
 | `tcp` | 出口 | `[String]` | 发起 TCP 连接到指定目标 | `net.tcp = ["10.0.0.1:5432"]` |
-| `udp` | 出口 | `[String]` | 发送 UDP 数据报到指定目标 | `net.udp = ["192.168.1.1:53"]` |
+| `udp` | 出口 | `[String]` | 发送 UDP 数据报到指定目标 | `net.udp = ["192.168.1.1:5353"]` |
+| `dns` | 出口 | `[String]` | 解析域名到 IP 地址 | `net.dns = []`（系统默认解析器） |
 | `listen` | 进口 | `[String]` | 在指定地址端口监听连接请求 | `net.listen = [":8080"]` |
 
 网络能力同时控制出口（egress）和进口（ingress）两个方向：
 
-- **出口能力**（`http`、`https`、`tcp`、`udp`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
+- **出口能力**（`http`、`https`、`tcp`、`udp`、`dns`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
 - **进口能力**（`listen`）：限制脚本能在哪些地址和端口上提供服务。未声明 `listen` 时，脚本无法启动任何网络服务监听。
 
-无需区分方向的网络通信（如 DNS 查询）在默认能力之外——若脚本需要 DNS 解析能力，需通过 `net.udp` 声明显式授予。
+DNS 解析作为独立的 `net.dns` 动作，与 `net.udp` 分离——`net.udp` 控制任意 UDP 通信，`net.dns` 仅控制域名解析。脚本只需主机名解析时无需声明 `net.udp`：
+
+```kun
+with caps
+  net.dns = []                    // 允许使用系统默认解析器
+  net.http = ["api.example.com"]  // 允许 HTTP 请求
+```
 
 目标匹配规则：
 
@@ -188,6 +195,7 @@ readConfig =
 |------|------|------|
 | `http` / `https` | `域名`、`域名:端口`、`IP:端口`、glob 匹配 | `"api.example.com:443"`、`"*.example.com"` |
 | `tcp` / `udp` | `IP:端口`、`域名:端口` | `"10.0.0.1:5432"`、`"db.internal:3306"` |
+| `dns` | DNS 服务器 IP、空列表 | `[]`（系统默认解析器）、`"8.8.8.8"` |
 | `listen` | `<ip>:<port>`、`:<port>`、`localhost:<port>` | `"0.0.0.0:8080"`、`":9090"`、`"localhost:3000"` |
 | — | `[]`（空列表） | 匹配任何目标 |
 
