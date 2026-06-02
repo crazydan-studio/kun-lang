@@ -1021,28 +1021,28 @@ void* readlines_next(void* state_ptr) {
 ```
 安全层
 ├── 最小权限原则
-│   ├── 默认：工作目录及其子目录
-│   └── 扩展：显式权限声明
+│   ├── 默认：零能力（无任何默认 IO 权限）
+│   └── 扩展：显式 with caps 声明
 │       ├── 脚本级声明
 │       └── 作用域级声明（with caps）
-├── 能力安全（Capability-Based Security）
-│   ├── 运行时在启动时根据权限声明授予
+├── 能力安全（Capability-Based Security）—— **硬防线**
+│   ├── capability_check：所有 Kun IO 原语入口强制检查
+│   ├── 零默认能力：脚本启动时无任何 IO 权限
 │   ├── 父脚本显式传递
-│   └── 用户确认后动态授予
-├── 命令级安全
-│   ├── CDF 导出能力名称用于 Seccomp 规则生成
-│   ├── 二进制完整性校验（SHA-256 哈希）
-│   ├── CDF 密码学签名（Ed25519）
-│   ├── Seccomp 系统调用过滤（基于 CDF 自动推导）
-│   ├── 单命令沙箱隔离（高风险命令独立 namespace）
-│   └── 信任分级策略（trusted / verified / sandboxed / denied）
-└── Linux Namespace 沙箱
-    ├── Mount Namespace（文件系统隔离）
-    ├── PID Namespace（进程隔离）
-    └── 容器环境检测（避免嵌套命名空间）
+│   └── 仅 REPL 支持动态授予
+├── 沙箱隔离—— **尽力而为**
+│   ├── Mount/Network Namespace（目录级/网络级，动态链接命令限制大）
+│   ├── seccomp-BPF 系统调用过滤（仅动作级，不支持路径过滤）
+│   ├── Landlock LSM（路径级控制，需内核 5.13+）
+│   └── 容器环境检测（无法 namespace 时降级，依赖容器自有隔离）
+└── 命令级安全
+    ├── CDF 导出能力名称用于 Seccomp 规则生成
+    ├── 二进制完整性校验（SHA-256 哈希）
+    ├── CDF 密码学签名（Ed25519）
+    └── 信任分级策略（trusted / verified / sandboxed / denied）
 ```
 
-安全模型的完整设计将在后续独立文档中展开。
+`capability_check` 是唯一的硬防线，对所有 Kun IO 原语强制执行。沙箱提供纵深防御但已知有局限（见 `roles-and-permissions.md` 沙箱节）。
 
 ## 版本历史
 
