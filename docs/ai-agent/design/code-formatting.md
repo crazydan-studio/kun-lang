@@ -184,7 +184,7 @@ readConfig = \path ->
 
 ```kun
 with caps
-  fs.read = [Path.cwd, p"/tmp"]
+  fs.read = [Path.cwd, p"/tmp/"]
   fs.write = fs.read
 ```
 

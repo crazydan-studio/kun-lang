@@ -12,7 +12,7 @@
 
 // 脚本级权限声明
 with caps
-  fs.read = [Path.cwd, p"/var/log", p"/etc"]
+  fs.read = [Path.cwd, p"/var/log/", p"/etc/"]
 
 // 模块导入（新语法）
 import List as L
@@ -265,7 +265,7 @@ main =
 
     // 权限作用域
     with caps
-      fs.read = [p"/etc"]
+      fs.read = [p"/etc/"]
     do
       sysconfig <- readFile p"/etc/myapp/config.toml"
       print sysconfig

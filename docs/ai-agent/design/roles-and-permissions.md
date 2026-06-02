@@ -51,7 +51,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 
 ```kun
 with caps
-  fs.read = [Path.cwd, p"/tmp"]
+  fs.read = [Path.cwd, p"/tmp/"]
   fs.write = fs.read
 with caps
   process.exec = ["ls", "cat"]
@@ -160,13 +160,13 @@ readConfig =
 
 | 动作 | 目标类型 | 语义 | 示例 |
 |------|---------|------|------|
-| `read` | `[Path]` | 读取文件/目录内容及元数据 | `fs.read = [p"/etc", Path.cwd]` |
-| `write` | `[Path]` | 写入/创建/删除文件/目录 | `fs.write = [p"/tmp"]` |
+| `read` | `[Path]` | 读取文件/目录内容及元数据 | `fs.read = [p"/etc/", Path.cwd]` |
+| `write` | `[Path]` | 写入/创建/删除文件/目录 | `fs.write = [p"/tmp/"]` |
 | `meta` | （无目标） | 仅读取元数据（stat），不读内容 | `fs.meta = []` |
 
 路径匹配规则：
-- `p"/etc/"` —— 目录前缀匹配，匹配 `/etc` 及所有子路径
-- `p"/etc/config"` —— 仅匹配该精确文件
+- `p"/etc/"` —— 目录前缀匹配，匹配 `/etc` 及所有子路径。**目标为目录时必须以 `/` 结尾**
+- `p"/etc/config"` —— 仅匹配该精确文件。**目标为文件时不能以 `/` 结尾**
 - `[]` —— 空列表 = 匹配任何路径
 
 ### 网络（net）
@@ -308,8 +308,8 @@ IO 操作 → capability_check(namespace, action, target)
 
 ```kun
 with caps
-  fs.read = [Path.cwd, p"/tmp"]
-  fs.write = fs.read    // 编译期展开为 fs.write = [Path.cwd, p"/tmp"]
+  fs.read = [Path.cwd, p"/tmp/"]
+  fs.write = fs.read    // 编译期展开为 fs.write = [Path.cwd, p"/tmp/"]
 ```
 
 引用语法是编译期展开，不是运行时操作。不允许前向引用。
@@ -330,7 +330,7 @@ with caps
 - 当前层级有效能力集 = 与父层级能力集的**交集**，不可逃逸
 - CDF 不再包含能力行为声明。行为仅由能力名称描述，用于沙箱规则生成（seccomp），不用于访问控制
 
-> **目录粒度限制**：Mount Namespace 的路径隔离通过 bind-mount 实现，目录级别粒度。`fs.read = [p"/etc"]` 会挂载整个 `/etc` 目录，包含其中的敏感文件（如 `/etc/shadow`）。按文件粒度隔离需要为每个文件创建独立的 bind-mount，在大量文件时过于复杂。此限制是内核机制决定的，建议脚本作者按目录粒度组织敏感文件，以便精确声明能力。
+> **目录粒度限制**：Mount Namespace 的路径隔离通过 bind-mount 实现，目录级别粒度。`fs.read = [p"/etc/"]` 会挂载整个 `/etc` 目录，包含其中的敏感文件（如 `/etc/shadow`）。按文件粒度隔离需要为每个文件创建独立的 bind-mount，在大量文件时过于复杂。此限制是内核机制决定的，建议脚本作者按目录粒度组织敏感文件，以便精确声明能力。
 
 ### 容器环境检测
 
@@ -345,7 +345,7 @@ with caps
 ```kun
 // 错误：模块（库文件）不能声明能力
 with caps                // ❌ 编译期错误
-  fs.read = [p"/etc"]
+  fs.read = [p"/etc/"]
 
 helper = fn x => x + 1  // ✅ 纯函数，不需要能力
 ```
@@ -379,14 +379,14 @@ readConfig =
 ```kun
 // 父脚本：deploy.kun
 with caps
-  fs.read = [p"/etc"]
+  fs.read = [p"/etc/"]
   net.http = ["api.example.com"]
 
 main =
   do
     // 调用子脚本，显式传递能力子集
     kun "child.kun" with caps
-      fs.read = [p"/etc"]
+      fs.read = [p"/etc/"]
 ```
 
 ### 传递规则
@@ -394,17 +394,17 @@ main =
 | 场景 | 子脚本获得的能力 | 说明 |
 |------|----------------|------|
 | `kun "child.kun"`（无 `with caps`） | 子脚本默认能力（无任何能力） | 能力不传递 |
-| `kun "child.kun" with caps fs.read = [p"/etc"]` | 子脚本获得 `fs.read = [p"/etc"]` | 显式传递 |
-| 子脚本自身声明了 `fs.read = [p"/var"]` | 实际能力 = 父传递 ∩ 子声明 | 交集运算 |
+| `kun "child.kun" with caps fs.read = [p"/etc/"]` | 子脚本获得 `fs.read = [p"/etc/"]` | 显式传递 |
+| 子脚本自身声明了 `fs.read = [p"/etc/"], net.http = []` | 交集 = 父声明的 `net.http = ["api.example.com"]` ∩ 子声明的 `[]` | 空列表代表"任意"，取父传入值 |
 
 ### 交集运算
 
 子脚本的实际可用能力 = 父脚本传递的能力 ∩ 子脚本自身声明的能力：
 
 ```kun
-// 父脚本传递:  fs.read = [p"/etc"], net.http = ["api.example.com"]
-// 子脚本声明:  fs.read = [p"/etc"], net.http = []
-// 实际可用:    fs.read = [p"/etc"]
+// 父脚本传递:  fs.read = [p"/etc/"], net.http = ["api.example.com"]
+// 子脚本声明:  fs.read = [p"/etc/"], net.http = []
+// 实际可用:    fs.read = [p"/etc/"]
 //              net.http 虽由父传递，但子脚本自身声明 []（空 = 任何主机）
 //              交集结果取决于目标列表的交集逻辑
 ```
@@ -499,7 +499,7 @@ kun --cap-log deploy.kun
   或授权访问整个目录：
 
     with caps
-      fs.read = [p"/etc"]
+      fs.read = [p"/etc/"]
 ```
 
 ```

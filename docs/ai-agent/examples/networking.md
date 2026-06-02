@@ -13,8 +13,8 @@
 // 脚本级权限声明（全局基线）
 with caps
   net.http = ["api.example.com"]
-  fs.read = [Path.cwd, p"/var/log"]
-  fs.write = [Path.cwd, p"/tmp/reports"]
+  fs.read = [Path.cwd, p"/var/log/"]
+  fs.write = [Path.cwd, p"/tmp/reports/"]
   process.signal = []
 
 import DateTime with (now, fromUnixSecs)
