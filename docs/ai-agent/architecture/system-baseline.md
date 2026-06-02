@@ -318,9 +318,7 @@ struct CommandError {
 | 错误类型 | 检测阶段 | 传播方式 | 处理方式 |
 |---------|---------|---------|---------|
 | `TypeError` | 类型检查 | 编译期报错 | 必须修复后重试 |
-| `PermissionError` | 运行时 | `IO (Result T PermissionError)` | 调用者通过 `?`/`<-?`/`case` 处理 |
-| `ValidationError` | 运行时 | `Result T ValidationError` | 调用者通过 `?`/`case` 处理 |
-| `CommandError` | 运行时 | `IO (Result T CommandError)` | 调用者通过 `?`/`<-?`/`case` 处理 |
+| `IOError` | 运行时 | `IO (Result T IOError)` | 调用者通过 `?`/`<-?`/`case` 处理。变体：`NotFound`、`PermissionDenied`、`AlreadyExists`、`Unsupported`、`Other` |
 
 ### 报告管道
 

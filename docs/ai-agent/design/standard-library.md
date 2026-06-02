@@ -335,11 +335,13 @@ kun script.kun -v
 ```kun
 type CmdResult t = { stdout : t, exitCode : ExitCode }
 
-exec : Path -> List String -> IO (Result (CmdResult (Stream String)) IOError)
+exec      : Path -> List String -> IO (Result (CmdResult (Stream String)) IOError)
+execBytes : Path -> List String -> IO (Result (CmdResult Bytes) IOError)
 execWithInput : Path -> List String -> String -> IO (Result (CmdResult (Stream String)) IOError)
 ```
 
-- `exec` — 执行指定路径的二进制，参数以字符串列表传递，stdout 以 Stream 形式返回
+- `exec` — 执行指定路径的二进制，参数以字符串列表传递，stdout 以 Stream 形式返回（文本输出）
+- `execBytes` — 同 `exec`，但 stdout 以 `Bytes` 形式返回（二进制输出，如 `dd`、`tar`、`xxd`）
 - `execWithInput` — 同 `exec`，额外传递 stdin 内容
 - 需配合 `process.exec` 能力使用
 
