@@ -57,6 +57,21 @@
 | `context/project-context.md` | 任务路由记录 |
 | `discussions/discussion-design-review-round2.md` | 审计共识记录 |
 
+### 命令函数设计重构
+
+- **命令输出结构化**：CDF 不声明输出格式参数，运行时自动选择最佳输出格式并解析为结构化类型
+- **移除 `exec` 原语**：无 CDF 的命令不可调用，统一走命令函数路径，消除安全逃逸
+- **`process.exec` 自动推断**：脚本直接调用的命令自动获得授权，模块引入的命令需显式声明
+- **`runAs` 隐式参数**：所有命令函数带有 `runAs : Maybe String`，通过 `process.run-as` 能力控制
+- **Record 参数统一**：所有 `flag`/`option`/`positional` 合并到同一 Record 类型
+- **`sudo`/`su` 禁止映射**：由 `runAs` 参数替代
+- **内置签名库按能力集成价值确定范围**：文本变换命令不映射，标准库覆盖
+
+### VitePress 导航修复
+
+- 补充 7 个缺失的 sidebar 入口（计划/需求/讨论/审计）
+- 记录到 `agents-md-compliance.md` 重复违规表
+
 ## 待解决问题
 
-- 无——55 项审计发现问题已全部修复或关闭
+- 无——设计审计 57 项已修复/关闭，命令函数设计已完成

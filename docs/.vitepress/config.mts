@@ -295,6 +295,7 @@ function sidebarWorking() {
           { text: '异步支持必要性分析', link: '/ai-agent/discussions/discussion-async-support' },
           { text: '能力安全系统设计', link: '/ai-agent/discussions/discussion-capability-design' },
           { text: '能力安全系统设计审计（第二轮）', link: '/ai-agent/discussions/discussion-design-review-round2' },
+          { text: '命令函数设计', link: '/ai-agent/discussions/discussion-command-function-design' },
         ],
       },
       {
