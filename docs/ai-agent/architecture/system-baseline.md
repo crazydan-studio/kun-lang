@@ -355,7 +355,7 @@ Kun 脚本中的命令调用
         │
         ├── 未知命令（可适配）→ ptrace 适配层 → stub 注入
         │
-        └── 未知命令（不可适配）→ fork/exec → argv 传参
+        └── 未知命令（不可适配）→ 命令不可用（需编写 CDF）
 ```
 
 ### 命令发现策略
@@ -365,7 +365,7 @@ Kun 脚本中的命令调用
 1. **内置命令**：运行时预置的核心命令（ls、cat、grep 等），编译在运行时二进制中
 2. **CDF 适配命令**：有 CDF 描述文件的命令，可通过 dlopen 直接加载
 3. **ptrace 适配命令**：无 CDF 但可通过 ptrace 拦截+stub 注入适配的命令
-4. **fork/exec 回退**：无法适配的命令通过传统进程创建方式执行
+4. **命令可用性**：无法适配的命令不可用，需编写 CDF 后方可调用
 
 命令查找路径：内置表 → CDF 缓存 → PATH 环境变量搜索
 
@@ -474,23 +474,18 @@ dlopen 加载 → dlsym 定位入口函数
    - ptrace 适配比直接 dlopen 慢 10-100 倍（取决于参数复杂度和输出大小）
    - 适配结果可缓存（签名的 C ABI 包装器生成后缓存到磁盘）
 
-### fork/exec 回退
+### 命令进程管理
 
-当 dlopen 和 ptrace 都不可用时，回退到传统 fork/exec 模型：
+所有命令函数通过 OS 的 fork/exec 机制启动子进程，无论通过 dlopen、ptrace 还是直接 argv 传参：
 
-1. **适用场景**：
-   - 命令为脚本文件（Python、Perl 等），无法通过 dlopen 加载
-   - ptrace 适配失败（权限不足、容器环境限制等）
-   - 用户强制指定回退模式
-
-2. **进程管理**：
-   - fork 子进程 → exec 加载命令 → 传递 argv 字符串数组
+1. **进程管理**：
+   - fork 子进程 → exec 加载命令 → 传递 argv 字符串数组或结构化参数
    - 父进程 waitpid 收集退出码
    - stdout/stderr 通过管道捕获
 
-3. **退出码收集**：
+2. **退出码收集**：
    - WEXITSTATUS → `ExitCode.success`（0）或 `ExitCode.generalError`（非0）
-   - WIFSIGNALED → `CommandError` 包含终止信号编号
+   - WIFSIGNALED → `IOError` 包含终止信号编号
 
 ### 失败处理链
 

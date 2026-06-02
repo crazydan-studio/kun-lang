@@ -213,19 +213,9 @@ readConfig =
 | **basename 匹配** | 仅匹配命令名，不检查路径 | `process.exec = ["ls", "cat"]` 匹配 `ls`、`p"/usr/bin/ls"` |
 | **绝对路径匹配** | 路径必须以 `/` 开头，精确匹配目标 | `process.exec = [p"/usr/bin/ls"]` 仅匹配 `/usr/bin/ls` |
 
-basename 匹配和绝对路径匹配可以在同一个列表中混用，但检查时互斥——以 `p"..."` 开头的目标为绝对路径匹配，否则为 basename 匹配：
-
-```kun
-with caps
-  process.exec = ["ls", p"/usr/bin/cat"]
-
-main = do
-  ls p"."              -- ✅ "ls" basename 匹配
-  cat p"README"        -- ✅ p"/usr/bin/cat" 绝对路径匹配（命令函数解析到该路径时）
-  exec p"./chmod"      -- ❌ "./chmod" 不是 basename "chmod" 也不是绝对路径
-```
-
 `process.exec` 控制的是**能否启动子进程**这一操作本身，与文件系统层面的文件可执行性（`+x` 权限位）无关。后者由操作系统负责——文件无可执行权限时 OS 拒绝 `execve` 系统调用；`process.exec` 未声明时能力系统在调用前就拒绝，不会到达 OS。
+
+命令函数调用（`ls p"."`）使用命令名匹配 basename，命令解析器按 CDF 签名搜索路径解析到具体二进制。
 
 命令函数（如 `ls`、`cat`）通过命令解析器按搜索路径解析到具体二进制。能力检查对命令函数使用的匹配规则与 `exec` 原语一致——若声明 `process.exec = [p"/usr/bin/ls"]` 但命令解析器将 `ls` 解析为内置实现，则路径匹配失败。建议在声明绝对路径时确保路径与命令解析器的解析结果一致。
 

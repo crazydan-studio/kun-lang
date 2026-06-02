@@ -324,36 +324,6 @@ kun script.kun -v --output /tmp/out
 kun script.kun -v
 ```
 
-## `Exec` — 原始进程执行
-
-### 定位
-
-直接执行外部二进制，返回进程的原始输出和退出码。`exec` 是**逃生口**——当命令函数无法覆盖或需要原始输出时使用。与命令函数不同：
-- `exec` 不使用 CDF，参数作为原始字符串传递
-- 返回 `Stream String`（原始文本输出），不做结构化解析
-- 通过 fork/exec 机制执行，非 dlopen
-
-### 函数签名
-
-```kun
-type CmdResult t = { stdout : t, exitCode : ExitCode }
-
-exec      : Path -> List String -> IO (Result (CmdResult (Stream String)) IOError)
-execBytes : Path -> List String -> IO (Result (CmdResult Bytes) IOError)
-execWithInput : Path -> List String -> String -> IO (Result (CmdResult (Stream String)) IOError)
-```
-
-- `exec` — 执行指定路径的二进制，参数以字符串列表传递，stdout 以 Stream 形式返回（文本输出）
-- `execBytes` — 同 `exec`，但 stdout 以 `Bytes` 形式返回（二进制输出，如 `dd`、`tar`、`xxd`）
-- `execWithInput` — 同 `exec`，额外传递 stdin 内容
-- 需配合 `process.exec` 能力使用
-
-### 限制
-
-- 通过 fork/execve 执行，非 dlopen。无 CDF 行为保护，启动开销高于命令函数
-- 参数作为原始字符串传递，不经 shell 展开——无注入风险
-- stdout 按行流式返回；stderr 不捕获（直接继承父进程的 stderr）
-
 ## `Stream` — 惰性序列
 
 ### 定位

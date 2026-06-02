@@ -20,7 +20,7 @@
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型，含 21 项语法调整）、标准库类型设计（定型）、运行时架构设计（定型）、命令签名系统设计（定型）、安全模型设计（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/design/command-signature-system.md`、`docs/ai-agent/design/roles-and-permissions.md` |
 | 活跃计划 | REPL 设计 |
-| 最近完成 | 能力安全系统全面重新设计（`with caps` 语法、零默认能力、编译器内置能力对象、移除 CDF 能力声明、独立资源预算限流层、模块禁止声明能力、`--audit`/`--confirm`/`--cap-log` 审查机制）、五轮设计审计（57 项问题修复）、安全边界简化（capability_check 为唯一硬防线）、环境变量 exec 前过滤、CLOEXEC fd 安全、FileStat/FileMode/Exec 标准库补充 |
+| 最近完成 | 能力安全系统全面重新设计（`with caps` 语法、零默认能力、编译器内置能力对象、移除 CDF 能力声明、独立资源预算限流层、模块禁止声明能力、`--audit`/`--confirm`/`--cap-log` 审查机制）、五轮设计审计（57 项问题修复）、安全边界简化（capability_check 为唯一硬防线）、环境变量 exec 前过滤、CLOEXEC fd 安全、FileStat/FileMode 标准库补充 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
