@@ -181,12 +181,27 @@ readConfig =
 - **出口能力**（`http`、`https`、`tcp`、`udp`、`dns`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
 - **进口能力**（`listen`）：限制脚本能在哪些地址和端口上提供服务。未声明 `listen` 时，脚本无法启动任何网络服务监听。
 
-DNS 解析作为独立的 `net.dns` 动作，与 `net.udp` 分离。`net.udp` 控制任意 UDP 通信，`net.dns` 仅控制域名解析。脚本只需主机名解析时无需声明 `net.udp`：
+DNS 解析作为独立的 `net.dns` 动作，与 `net.udp` 分离。`net.udp` 控制任意 UDP 通信，`net.dns` 仅控制域名解析。脚本只需主机名解析时无需声明 `net.udp`。
+
+**`net.dns` 的使用场景**：
+
+| 场景 | 是否需要 `net.dns` | 说明 |
+|------|-------------------|------|
+| `net.http = ["api.example.com"]` | **隐式** | DNS 解析是 HTTP 连接的前提条件，`capability_check` 通过目标域名隐式允许 |
+| 脚本显式调用 `resolve "example.com"` | **需显式声明** | 将域名解析为 IP 地址的独立操作 |
+| 外部命令需要 DNS（如 `curl example.com`） | **隐式** | 命令基于进程的 `net.http` 能力获得 DNS 权限 |
+
+其他 `net` 动作（`tcp`、`https`、`udp`）使用域名作为目标时同理——目标中的域名隐式允许其 DNS 解析，不需要额外声明 `net.dns`：
 
 ```kun
 with caps
-  net.dns = []                    // 允许使用系统默认解析器
-  net.http = ["api.example.com"]  // 允许 HTTP 请求
+  net.http = ["api.example.com"]   // 隐式允许解析 api.example.com
+  net.tcp = ["db.internal:5432"]   // 隐式允许解析 db.internal
+
+// 只有直接调用 resolve 函数时才需要显式声明
+with caps
+  net.dns = []
+  net.http = ["api.example.com"]
 ```
 
 #### `net.dns` 的实现原理
