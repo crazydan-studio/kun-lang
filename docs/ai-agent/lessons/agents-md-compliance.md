@@ -26,9 +26,18 @@
 
 ### 待执行
 
-- [ ] 每次新任务开始时运行启动检查清单
+- [ ] 每次新任务开始时运行启动检查清单（⚠️ 6 月 2 日会话仍存在同样问题——创建新文件后未更新 VitePress 导航）
 - [ ] subagent 委托时传递 AGENTS.md 约束
 - [ ] 实施后自动触发闭合审计流程
+- [ ] 新建文件后必须同步更新 `config.mts` 的 nav 和 sidebar 对应项
+
+## 重复违规记录
+
+| 日期 | 违规类型 | 说明 |
+|------|---------|------|
+| 2026-06-02 | VitePress 导航未同步 | 创建 `discussion-design-review-round2`、`plan-capability-redesign`、`req-capability-design` 等文件后未在 `config.mts` 中添加对应的 sidebar 入口 |
+| 2026-06-02 | 旧设计模式遗留 | `roles-and-permissions.md` 中仍使用 `--` 注释（非 `//`）和 `fn x =>`（非 `\x ->`）——违反代码格式化规范 |
+| 2026-06-02 | 启动检查清单未执行 | 检查清单已创建但未在新任务前实际运行 |
 
 ## 关键提醒
 

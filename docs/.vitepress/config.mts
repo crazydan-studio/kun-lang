@@ -268,6 +268,7 @@ function sidebarWorking() {
           { text: '索引', link: '/ai-agent/requirements/' },
           { text: '需求综合指南', link: '/ai-agent/requirements/00-requirement-synthesis-guide' },
           { text: 'MVP', link: '/ai-agent/requirements/mvp' },
+          { text: '能力安全系统重新设计', link: '/ai-agent/requirements/req-capability-design' },
           { text: '产品范围', link: '/ai-agent/requirements/product-scope' },
         ],
       },
@@ -278,6 +279,9 @@ function sidebarWorking() {
           { text: '索引', link: '/ai-agent/plans/' },
           { text: '计划编写与执行指南', link: '/ai-agent/plans/00-plan-authoring-and-execution-guide' },
           { text: '类型系统核心设计', link: '/ai-agent/plans/plan-type-system-core-design' },
+          { text: '语法全面调整', link: '/ai-agent/plans/plan-syntax-overhaul' },
+          { text: '运行时架构设计', link: '/ai-agent/plans/plan-runtime-architecture' },
+          { text: '能力安全系统重新设计', link: '/ai-agent/plans/plan-capability-redesign' },
         ],
       },
       {
@@ -290,6 +294,7 @@ function sidebarWorking() {
           { text: '语法演进与设计决策', link: '/ai-agent/discussions/discussion-syntax-evolution' },
           { text: '异步支持必要性分析', link: '/ai-agent/discussions/discussion-async-support' },
           { text: '能力安全系统设计', link: '/ai-agent/discussions/discussion-capability-design' },
+          { text: '能力安全系统设计审计（第二轮）', link: '/ai-agent/discussions/discussion-design-review-round2' },
         ],
       },
       {
