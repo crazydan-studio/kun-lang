@@ -195,7 +195,9 @@ readConfig =
 | `kill` | （无目标） | 终止任意进程 | `process.kill = []` |
 | `trace` | （无目标） | 跟踪/调试其他进程（ptrace） | `process.trace = []` |
 
-`exec` 使用命令 basename 精确匹配。`["ls"]` 不匹配 `lsblk`。
+`exec` 使用命令 basename 精确匹配，无论通过命令函数（`ls p"."`）还是通过 `exec` 原语（`exec p"/usr/bin/ls"`）启动，均匹配 basename。`["ls"]` 不匹配 `lsblk`。
+
+`process.exec` 控制的是**能否启动子进程**这一操作本身，与文件系统层面的文件可执行性（`+x` 权限位）无关。后者由操作系统负责——文件无可执行权限时 OS 拒绝 `execve` 系统调用；`process.exec` 未声明时能力系统在调用前就拒绝，不会到达 OS。
 
 ### 环境变量（env）
 
