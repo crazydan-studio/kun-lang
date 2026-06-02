@@ -20,7 +20,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 | 文件系统读 | 无 | 所有路径（包括 CWD）默认不可读 |
 | 文件系统写 | 无 | 所有路径（包括 CWD）默认不可写 |
 | 文件系统元数据 | 无 | `stat` 等操作默认不可用 |
-| 网络出站 | 无 | HTTP/HTTPS/TCP 全部禁止 |
+| 网络出站 | 无 | HTTP/HTTPS/TCP/UDP 全部禁止 |
 | 网络监听 | 无 | 禁止监听任何端口 |
 | 进程执行 | 无 | 禁止执行任何子进程 |
 | 进程信号/终止 | 无 | 禁止信号发送与进程终止 |
@@ -169,22 +169,27 @@ readConfig =
 
 | 动作 | 方向 | 目标类型 | 语义 | 示例 |
 |------|------|---------|------|------|
-| `http` | 出口 | `[String]` | 发起 HTTP 请求到指定主机 | `net.http = ["api.example.com"]` |
-| `https` | 出口 | `[String]` | 发起 HTTPS 请求到指定主机 | `net.https = []`（任何主机） |
-| `tcp` | 出口 | `[String]` | 发起 TCP 连接到 `地址:端口` | `net.tcp = ["10.0.0.1:5432"]` |
-| `listen` | 进口 | `[Port]` | 在指定端口监听连接请求 | `net.listen = [8080]` |
+| `http` | 出口 | `[String]` | 发起 HTTP 请求到指定目标 | `net.http = ["api.example.com"]` |
+| `https` | 出口 | `[String]` | 发起 HTTPS 请求到指定目标 | `net.https = []`（任何主机） |
+| `tcp` | 出口 | `[String]` | 发起 TCP 连接到指定目标 | `net.tcp = ["10.0.0.1:5432"]` |
+| `udp` | 出口 | `[String]` | 发送 UDP 数据报到指定目标 | `net.udp = ["192.168.1.1:53"]` |
+| `listen` | 进口 | `[String]` | 在指定地址端口监听连接请求 | `net.listen = [":8080"]` |
 
 网络能力同时控制出口（egress）和进口（ingress）两个方向：
 
-- **出口能力**（`http`、`https`、`tcp`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
-- **进口能力**（`listen`）：限制脚本能在哪些端口上提供服务。未声明 `listen` 时，脚本无法启动任何网络服务监听。
+- **出口能力**（`http`、`https`、`tcp`、`udp`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
+- **进口能力**（`listen`）：限制脚本能在哪些地址和端口上提供服务。未声明 `listen` 时，脚本无法启动任何网络服务监听。
 
-无需区分方向的网络通信（如 DNS 查询）在默认能力之外——若脚本需要 DNS 解析能力，也需通过 `net` 声明显式授予。
+无需区分方向的网络通信（如 DNS 查询）在默认能力之外——若脚本需要 DNS 解析能力，需通过 `net.udp` 声明显式授予。
 
-主机匹配规则：
-- `"api.example.com"` —— 精确匹配
-- `"*.example.com"` —— 子域名 glob 匹配
-- `[]` —— 空列表 = 匹配任何主机
+目标匹配规则：
+
+| 动作 | 规则 | 示例 |
+|------|------|------|
+| `http` / `https` | `域名`、`域名:端口`、`IP:端口`、glob 匹配 | `"api.example.com:443"`、`"*.example.com"` |
+| `tcp` / `udp` | `IP:端口`、`域名:端口` | `"10.0.0.1:5432"`、`"db.internal:3306"` |
+| `listen` | `<ip>:<port>`、`:<port>`、`localhost:<port>` | `"0.0.0.0:8080"`、`":9090"`、`"localhost:3000"` |
+| — | `[]`（空列表） | 匹配任何目标 |
 
 ### 进程（process）
 
@@ -195,7 +200,24 @@ readConfig =
 | `kill` | （无目标） | 终止任意进程 | `process.kill = []` |
 | `trace` | （无目标） | 跟踪/调试其他进程（ptrace） | `process.trace = []` |
 
-`exec` 使用命令 basename 精确匹配，无论通过命令函数（`ls p"."`）还是通过 `exec` 原语（`exec p"/usr/bin/ls"`）启动，均匹配 basename。`["ls"]` 不匹配 `lsblk`。
+`exec` 支持两种匹配方式：
+
+| 匹配方式 | 规则 | 示例 |
+|---------|------|------|
+| **basename 匹配** | 仅匹配命令名，不检查路径 | `process.exec = ["ls", "cat"]` 匹配 `ls`、`p"/usr/bin/ls"` |
+| **绝对路径匹配** | 路径必须以 `/` 开头，精确匹配目标 | `process.exec = [p"/usr/bin/ls"]` 仅匹配 `/usr/bin/ls` |
+
+basename 匹配和绝对路径匹配可以在同一个列表中混用，但检查时互斥——以 `p"..."` 开头的目标为绝对路径匹配，否则为 basename 匹配：
+
+```kun
+with caps
+  process.exec = ["ls", p"/usr/bin/cat"]
+
+main = do
+  ls p"."              -- ✅ "ls" basename 匹配
+  cat p"README"        -- ✅ p"/usr/bin/cat" 绝对路径匹配（命令函数解析到该路径时）
+  exec p"./chmod"      -- ❌ "./chmod" 不是 basename "chmod" 也不是绝对路径
+```
 
 `process.exec` 控制的是**能否启动子进程**这一操作本身，与文件系统层面的文件可执行性（`+x` 权限位）无关。后者由操作系统负责——文件无可执行权限时 OS 拒绝 `execve` 系统调用；`process.exec` 未声明时能力系统在调用前就拒绝，不会到达 OS。
 
