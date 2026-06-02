@@ -34,6 +34,8 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 
 `Path.cwd` 提供当前工作目录：在脚本启动时求值一次并冻结。运行时 `chdir` **不**影响能力声明中的 `Path.cwd`。
 
+**`chdir` 操作**：Kun 不提供内建的 `chdir` 函数。脚本不应在运行时切换工作目录。若确实需要改变进程的 CWD（如影响子进程的路径解析），需通过外部命令 `cd` 在子 shell 中实现，该操作受 `process.exec` 控制。
+
 ### 与操作系统的关系
 
 - 能力系统完全独立于操作系统的 sudo。两者正交运作。
@@ -145,10 +147,12 @@ readConfig =
 | `fs.meta = []` | 可读取任意路径的元数据 |
 | `process.signal = []` | 可向任意进程发信号 |
 | `process.kill = []` | 可终止任意进程 |
-| `process.trace = []` | 可跟踪任意进程 |
+| `process.trace = [Pid 1234]` | 仅跟踪指定 PID 的进程（必须显式指定目标） |
 | `sys.time = []` | 可读取系统时间 |
 | `sys.random = []` | 可访问随机设备 |
 | `sys.hostname = []` | 可读取/设置主机名 |
+
+> **`[]`（空列表）使用注意**：`[]` 表示"匹配任何目标"。对敏感命名空间（`env.read`、`env.write`、`process.exec`）使用 `[]` 会显著扩大安全攻击面（如 `env.read = []` 暴露所有环境变量包括密钥）。建议仅在 `sys` 等只读系统能力上使用 `[]`，其他命名空间尽量精确声明目标。编译期可对敏感命名空间的 `[]` 使用发出警告。
 
 ## 能力类型目录
 
@@ -173,11 +177,12 @@ readConfig =
 | `https` | 出口 | `[String]` | 发起 HTTPS 请求到指定目标 | `net.https = []`（任何主机） |
 | `tcp` | 出口 | `[String]` | 发起 TCP 连接到指定目标 | `net.tcp = ["10.0.0.1:5432"]` |
 | `udp` | 出口 | `[String]` | 发送 UDP 数据报到指定目标 | `net.udp = ["192.168.1.1:5353"]` |
+| `unix` | 出口/进口 | `[Path]` | 连接或绑定 Unix domain socket | `net.unix = [p"/var/run/app.sock"]` |
 | `listen` | 进口 | `[String]` | 在指定地址端口监听连接请求 | `net.listen = [":8080"]` |
 
 网络能力同时控制出口（egress）和进口（ingress）两个方向：
 
-- **出口能力**（`http`、`https`、`tcp`、`udp`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
+- **出口能力**（`http`、`https`、`tcp`、`udp`、`unix`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
 - **进口能力**（`listen`）：限制脚本能在哪些地址和端口上提供服务。未声明 `listen` 时，脚本无法启动任何网络服务监听。
 
 **DNS 解析不由能力系统控制**。DNS 是 libc 内部功能（`getaddrinfo`），其网络流量受 OS 层的 Network Namespace 约束——基于已声明的 `net.*` 目标域名自动放行对应的 DNS 查询，无需独立的能力动作。`resolve` 函数是 libc `getaddrinfo` 的封装，不经过能力检查。
@@ -188,6 +193,7 @@ readConfig =
 |------|------|------|
 | `http` / `https` | `域名`、`域名:端口`、`IP:端口`、glob 匹配 | `"api.example.com:443"`、`"*.example.com"` |
 | `tcp` / `udp` | `IP:端口`、`域名:端口` | `"10.0.0.1:5432"`、`"db.internal:3306"` |
+| `unix` | 文件系统路径 | `p"/var/run/app.sock"`、`p"/tmp/kun.sock"` |
 | `listen` | `<ip>:<port>`、`:<port>`、`localhost:<port>` | `"0.0.0.0:8080"`、`":9090"`、`"localhost:3000"` |
 | — | `[]`（空列表） | 匹配任何目标 |
 
@@ -198,7 +204,7 @@ readConfig =
 | `exec` | `[String]` | 执行子进程（命令 basename 精确匹配） | `process.exec = ["ls", "cat"]` |
 | `signal` | （无目标） | 向进程发送信号 | `process.signal = []` |
 | `kill` | （无目标） | 终止任意进程 | `process.kill = []` |
-| `trace` | （无目标） | 跟踪/调试其他进程（ptrace） | `process.trace = []` |
+| `trace` | `[Pid]` | 跟踪/调试指定 PID 的进程（ptrace） | `process.trace = [Pid 1234]` |
 
 `exec` 支持两种匹配方式：
 
@@ -220,6 +226,8 @@ main = do
 ```
 
 `process.exec` 控制的是**能否启动子进程**这一操作本身，与文件系统层面的文件可执行性（`+x` 权限位）无关。后者由操作系统负责——文件无可执行权限时 OS 拒绝 `execve` 系统调用；`process.exec` 未声明时能力系统在调用前就拒绝，不会到达 OS。
+
+命令函数（如 `ls`、`cat`）通过命令解析器按搜索路径解析到具体二进制。能力检查对命令函数使用的匹配规则与 `exec` 原语一致——若声明 `process.exec = [p"/usr/bin/ls"]` 但命令解析器将 `ls` 解析为内置实现，则路径匹配失败。建议在声明绝对路径时确保路径与命令解析器的解析结果一致。
 
 对外部命令的权限元数据修改（如 `chmod`、`chown`）不涉及独立的能力动作，通过 `process.exec` + `fs.write` 组合控制：
 
@@ -321,6 +329,8 @@ with caps
 - 一次能力声明对应一个执行沙箱
 - 当前层级有效能力集 = 与父层级能力集的**交集**，不可逃逸
 - CDF 不再包含能力行为声明。行为仅由能力名称描述，用于沙箱规则生成（seccomp），不用于访问控制
+
+> **目录粒度限制**：Mount Namespace 的路径隔离通过 bind-mount 实现，目录级别粒度。`fs.read = [p"/etc"]` 会挂载整个 `/etc` 目录，包含其中的敏感文件（如 `/etc/shadow`）。按文件粒度隔离需要为每个文件创建独立的 bind-mount，在大量文件时过于复杂。此限制是内核机制决定的，建议脚本作者按目录粒度组织敏感文件，以便精确声明能力。
 
 ### 容器环境检测
 

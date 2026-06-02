@@ -50,6 +50,19 @@
 - 与 `Int` 互转：`fromInt : Int -> Result Signal String`（非法编号返回 `Err`）、`toInt : Signal -> Int`
 - 语义场景：进程信号发送（`kill`）、信号捕获注册、子进程状态变化通知
 
+#### 信号接收
+
+```kun
+on : Signal -> IO () -> IO ()      // 注册信号处理器
+ignore : Signal -> IO ()            // 忽略指定信号
+default : Signal -> IO ()           // 恢复默认行为
+```
+
+- `on` 注册信号处理函数，进程收到信号时执行；前一个处理器被替换
+- `ignore` 设置 SIG_IGN，`default` 恢复 SIG_DFL
+- 典型场景：`Signal.on SIGINT (\_ -> print "interrupted")`、`Signal.ignore SIGPIPE`
+- 语义场景：优雅关闭（SIGTERM/SIGINT）、子进程回收（SIGCHLD）、超时处理（SIGALRM）
+
 ### `Errno`
 
 - POSIX 系统调用错误码枚举
@@ -98,6 +111,27 @@
 - `Unknown` 变体用于兜底未预期的文件类型
 - 运行时查询函数：`fileType : Path -> IO (Result FileType IOError)`
 - 语义场景：文件操作前的类型检查、目录遍历过滤
+
+### `FileStat`
+
+- 完整的文件/目录元数据结构，由 `stat` 系统调用返回：
+
+  ```kun
+  type FileStat
+    = { size     : Int       // 字节大小
+      , mtime    : DateTime  // 最后修改时间
+      , ctime    : DateTime  // 元数据变更时间
+      , atime    : DateTime  // 最后访问时间
+      , fileType : FileType  // 文件类型
+      , mode     : Int       // 权限位（八进制，如 0o644）
+      , owner    : UserName  // 所有者
+      , group    : GroupName // 所属组
+      }
+  ```
+
+- 运行时查询函数：`stat : Path -> IO (Result FileStat IOError)`、`lstat : Path -> IO (Result FileStat IOError)`
+- `stat` 跟随符号链接，`lstat` 返回符号链接自身信息
+- 语义场景：文件大小检查、修改时间比较、权限验证、备份筛选
 
 ### `IOError`
 

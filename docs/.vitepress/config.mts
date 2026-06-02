@@ -43,6 +43,7 @@ export default defineConfig({
 
   markdown: {
     lineNumbers: true,
+    languages: ['zig', 'c', 'bash', 'toml', 'xml'],
     theme: {
       light: 'github-light',
       dark: 'one-dark-pro',
