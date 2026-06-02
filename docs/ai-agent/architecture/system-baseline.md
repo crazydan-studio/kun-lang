@@ -894,8 +894,8 @@ fn readFile(env: void*, args: void*) -> void* {
         return create_permission_error(path, "fs", "read", ...);
     }
 
-    // 2. 执行 POSIX 系统调用
-    let fd = posix_open(path.ptr, O_RDONLY);
+    // 2. 执行 POSIX 系统调用（O_CLOEXEC 防止 fd 泄漏到子进程）
+    let fd = posix_open(path.ptr, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
         return create_io_error(errno_to_ioerror(errno), path);
     }
@@ -915,9 +915,15 @@ IO 操作的统一模式：
 | 步骤 | 说明 |
 |------|------|
 | 能力检查 | 委托 Capability Manager 检查当前上下文是否拥有所需权限 |
-| POSIX 调用 | 执行底层系统调用（open、read、write、stat 等） |
+| POSIX 调用 | 执行底层系统调用（open、read、write、stat 等），所有 fd 创建时设 `O_CLOEXEC` |
 | Arena 分配 | IO 结果从当前脚本的 Arena 中分配 |
 | 结果封装 | 返回值包裹为 `Result T E` 或 `IO (Result T E)` |
+
+#### 文件描述符安全
+
+所有运行时管理的文件描述符（Primitive 函数打开的文件、Stream 状态机中的 fd、signalfd、timerfd 等）在创建时必须设置 `FD_CLOEXEC`（通过 `O_CLOEXEC` 标志或创建后调用 `fcntl(F_SETFD, FD_CLOEXEC)`）。这确保通过 `process.exec` 启动的子进程不会继承运行时管理的 fd，防止子进程绕过 `capability_check` 访问已打开的文件。
+
+例外：标准流（stdin 0、stdout 1、stderr 2）不设 CLOEXEC——子进程需要继承标准流以支持管道和重定向。
 
 ### Args 模块运行时支持
 

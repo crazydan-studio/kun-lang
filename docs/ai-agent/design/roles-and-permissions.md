@@ -239,6 +239,27 @@ main = do
 
 `chmod` 和 `chown` 作为外部命令受 `process.exec` 门控，其内部元数据写入行为受沙箱 `fs.write` 约束。
 
+#### 环境变量过滤（exec 前安全策略）
+
+通过 `process.exec` 启动子进程前，运行时自动过滤环境变量，防止密钥泄漏和注入攻击：
+
+```c
+// 伪代码：exec 前执行
+char** filtered_env = build_filtered_env(
+    current_env(),              // 当前进程完整环境
+    current_scope.env.read,     // 脚本声明的 env.read 目标
+);
+execve(path, argv, filtered_env);
+```
+
+| 规则 | 说明 |
+|------|------|
+| 始终剔除 | `LD_PRELOAD`、`LD_LIBRARY_PATH`、`LD_AUDIT`、`LD_DEBUG`、`BASH_ENV`、`IFS`、`SHELL`、`LC_ALL`、`GIO_EXTRA_MODULES`、`PYTHONPATH`、`PERL5LIB`——无论 `env.read` 如何声明，这些变量永不传递给子进程 |
+| `env.read = []`（通配） | 剔除始终剔除列表后，保留所有剩余变量 |
+| `env.read = ["HOME", "PATH"]` | 剔除始终剔除列表后，仅保留 `HOME` 和 `PATH` |
+
+此策略由运行时自动执行，无需额外能力声明。始终剔除列表为编译期硬编码的安全基线，不可被脚本覆盖。
+
 ### 环境变量（env）
 
 | 动作 | 目标类型 | 语义 | 示例 |
