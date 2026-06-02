@@ -22,7 +22,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 | 文件系统元数据 | 无 | `stat` 等操作默认不可用 |
 | 网络出站 | 无 | HTTP/HTTPS/TCP/UDP 全部禁止 |
 | 网络监听 | 无 | 禁止监听任何端口 |
-| 进程执行 | 无 | 禁止执行任何子进程 |
+| 进程执行（模块引入） | 无 | 禁止执行模块函数引入的外部命令（直接调用的命令自动推断） |
 | 进程信号/终止 | 无 | 禁止信号发送与进程终止 |
 | 进程运行用户切换 | 无 | 只能以当前进程用户运行命令函数 |
 | 环境变量读 | 无 | 禁止读取任何环境变量 |
@@ -203,22 +203,41 @@ readConfig =
 
 | 动作 | 目标类型 | 语义 | 示例 |
 |------|---------|------|------|
-| `exec` | `[String]` | 执行子进程（命令 basename 精确匹配） | `process.exec = ["ls", "cat"]` |
+| `exec` | `[String]` | 显式声明模块中引入的外部命令 | `process.exec = ["curl"]` |
 | `run-as` | `[String]` | 允许命令函数切换到的用户名或 UID | `process.run-as = ["root", "nobody"]` |
 | `signal` | （无目标） | 向进程发送信号 | `process.signal = []` |
 | `kill` | （无目标） | 终止任意进程 | `process.kill = []` |
 | `trace` | `[Pid]` | 跟踪/调试指定 PID 的进程（ptrace） | `process.trace = [Pid 1234]` |
 
+`process.exec` 的声明规则：
+
+| 调用方式 | 是否需要显式 `process.exec` | 说明 |
+|---------|--------------------------|------|
+| 脚本直接调用 `ls { ... }` | **不需要**——运行时自动推断 | 脚本作者直接调用的命令，CDF 本身即授权 |
+| 模块函数内部调用 `curl` | **需要**——`process.exec = ["curl"]` | 脚本作者可能不知道模块引入了哪些外部命令 |
+
+`process.exec` 控制的是**脚本作者对模块引入的外部命令的知情权**，而非子进程执行本身——直接调用的命令通过 CDF 的存在自动获得授权。
+
+```kun
+with caps
+  -- 不需要显式声明 process.exec = ["ls", "cat"]
+  fs.read = [Path.cwd]
+
+main = do
+  ls { path0 = p"." }          -- ✅ 直接调用，自动推断
+  cat { path0 = p"README" }     -- ✅ 直接调用，自动推断
+  NetUtils.fetchAll url         -- ❌ 模块函数内部调用 curl，
+                                 --    需 process.exec = ["curl"]
+```
+
 `exec` 支持两种匹配方式：
 
 | 匹配方式 | 规则 | 示例 |
 |---------|------|------|
-| **basename 匹配** | 仅匹配命令名，不检查路径 | `process.exec = ["ls", "cat"]` 匹配 `ls`、`p"/usr/bin/ls"` |
-| **绝对路径匹配** | 路径必须以 `/` 开头，精确匹配目标 | `process.exec = [p"/usr/bin/ls"]` 仅匹配 `/usr/bin/ls` |
+| **basename 匹配** | 仅匹配命令名，不检查路径 | `process.exec = ["curl"]` 匹配 `curl` |
+| **绝对路径匹配** | 路径必须以 `/` 开头，精确匹配目标 | `process.exec = [p"/usr/bin/curl"]` 仅匹配 `/usr/bin/curl` |
 
-`process.exec` 控制的是**能否启动子进程**这一操作本身，与文件系统层面的文件可执行性（`+x` 权限位）无关。后者由操作系统负责——文件无可执行权限时 OS 拒绝 `execve` 系统调用；`process.exec` 未声明时能力系统在调用前就拒绝，不会到达 OS。
-
-命令函数调用（`ls { path0 = p"." }`）使用命令名匹配 basename，命令解析器按 CDF 签名搜索路径解析到具体二进制。
+命令函数调用使用命令名匹配 basename，命令解析器按 CDF 签名搜索路径解析到具体二进制。`process.exec` 未声明时，直接调用的命令由运行时自动推断；模块引入的命令被拒绝。
 
 #### `process.run-as`——运行用户控制
 
@@ -226,11 +245,10 @@ readConfig =
 
 ```kun
 with caps
-  process.exec = ["ls"]
   process.run-as = ["root", "nobody"]   // 允许切换到的用户
 
 main =
-  ls { path0 = p"/root", runAs = Just "root" }   // ✅ 以 root 执行
+  ls { path0 = p"/root", runAs = Just "root" }   // ✅ 以 root 执行（ls 自动推断）
   ls { path0 = p"/tmp" }                          // ✅ 缺省当前用户
   ls { runAs = Just "mysql" }                     // ❌ "mysql" 不在 process.run-as 中
 ```
