@@ -425,7 +425,7 @@ ls : { all : Bool, long : Bool, human_readable : Bool, recursive : Bool,
 
 ```kun
 case grep "ERROR" logFile of
-  Ok { stdout = lines, exitCode = code } ->
+  Ok { stdout as lines, exitCode as code } ->
     if ExitCode.isSuccess code then
       print "found errors"
     else
