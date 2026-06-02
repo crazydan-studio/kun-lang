@@ -199,6 +199,16 @@ readConfig =
 
 `process.exec` 控制的是**能否启动子进程**这一操作本身，与文件系统层面的文件可执行性（`+x` 权限位）无关。后者由操作系统负责——文件无可执行权限时 OS 拒绝 `execve` 系统调用；`process.exec` 未声明时能力系统在调用前就拒绝，不会到达 OS。
 
+对外部命令的权限元数据修改（如 `chmod`、`chown`）不涉及独立的能力动作，通过 `process.exec` + `fs.write` 组合控制：
+
+| 能力 | 作用 | 示例 |
+|------|------|------|
+| `process.exec` | 允许启动 `chmod`/`chown` 命令 | `process.exec = ["chmod", "chown"]` |
+| `fs.write` | 沙箱锚定可修改的目标路径 | `fs.write = [p"/etc/config"]` |
+| OS 内核 | 实际的 `chown` 系统调用权限检查（root/owner） | 能力系统不干涉 |
+
+`chmod` 和 `chown` 作为外部命令受 `process.exec` 门控，其内部元数据写入行为受沙箱 `fs.write` 约束。
+
 ### 环境变量（env）
 
 | 动作 | 目标类型 | 语义 | 示例 |
