@@ -220,14 +220,14 @@ readConfig =
 
 ```kun
 with caps
-  -- 不需要显式声明 process.exec = ["ls", "cat"]
+  // 不需要显式声明 process.exec = ["ls", "cat"]
   fs.read = [Path.cwd]
 
 main = do
-  ls { path0 = p"." }          -- ✅ 直接调用，自动推断
-  cat { path0 = p"README" }     -- ✅ 直接调用，自动推断
-  NetUtils.fetchAll url         -- ❌ 模块函数内部调用 curl，
-                                 --    需 process.exec = ["curl"]
+  ls { path0 = p"." }          // ✅ 直接调用，自动推断
+  cat { path0 = p"README" }     // ✅ 直接调用，自动推断
+  NetUtils.fetchAll url         // ❌ 模块函数内部调用 curl，
+                                //    需 process.exec = ["curl"]
 ```
 
 `exec` 支持两种匹配方式：
@@ -421,7 +421,7 @@ Kun 的安全模型有两层防线，职责不同：
 with caps                // ❌ 编译期错误
   fs.read = [p"/etc/"]
 
-helper = fn x => x + 1  // ✅ 纯函数，不需要能力
+helper = \x -> x + 1      // ✅ 纯函数，不需要能力
 ```
 
 ### 模块函数可收窄能力
