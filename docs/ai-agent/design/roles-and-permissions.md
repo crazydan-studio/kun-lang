@@ -167,12 +167,19 @@ readConfig =
 
 ### 网络（net）
 
-| 动作 | 目标类型 | 语义 | 示例 |
-|------|---------|------|------|
-| `http` | `[String]` | HTTP 请求到指定主机 | `net.http = ["api.example.com"]` |
-| `https` | `[String]` | HTTPS 请求到指定主机 | `net.https = []`（任何主机） |
-| `tcp` | `[String]` | TCP 连接到 `地址:端口` | `net.tcp = ["10.0.0.1:5432"]` |
-| `listen` | `[Port]` | 在指定端口监听 | `net.listen = [8080]` |
+| 动作 | 方向 | 目标类型 | 语义 | 示例 |
+|------|------|---------|------|------|
+| `http` | 出口 | `[String]` | 发起 HTTP 请求到指定主机 | `net.http = ["api.example.com"]` |
+| `https` | 出口 | `[String]` | 发起 HTTPS 请求到指定主机 | `net.https = []`（任何主机） |
+| `tcp` | 出口 | `[String]` | 发起 TCP 连接到 `地址:端口` | `net.tcp = ["10.0.0.1:5432"]` |
+| `listen` | 进口 | `[Port]` | 在指定端口监听连接请求 | `net.listen = [8080]` |
+
+网络能力同时控制出口（egress）和进口（ingress）两个方向：
+
+- **出口能力**（`http`、`https`、`tcp`）：限制脚本主动发起的对外连接能到达的目标主机或地址。未声明出口网络能力时，脚本无法发起任何对外连接。
+- **进口能力**（`listen`）：限制脚本能在哪些端口上提供服务。未声明 `listen` 时，脚本无法启动任何网络服务监听。
+
+无需区分方向的网络通信（如 DNS 查询）在默认能力之外——若脚本需要 DNS 解析能力，也需通过 `net` 声明显式授予。
 
 主机匹配规则：
 - `"api.example.com"` —— 精确匹配
@@ -272,7 +279,7 @@ with caps
 每条能力声明对应一个执行沙箱。能力系统与沙箱的关系如下：
 
 - **Mount Namespace**：基于能力声明中的 `fs.read`/`fs.write` 目标路径，配置文件系统隔离
-- **Network Namespace**：基于能力声明中的 `net.http`/`net.https`/`net.tcp`/`net.listen` 目标，配置网络隔离
+- **Network Namespace**：基于能力声明中的出口（`net.http`/`net.https`/`net.tcp`）和进口（`net.listen`）目标，配置网络隔离。出口能力通过 iptables/nftables 规则限制对外连接的目标，进口能力限制可监听的端口
 - **seccomp-BPF**：基于能力声明生成 seccomp 规则，过滤系统调用
 
 ### 沙箱配置原则
