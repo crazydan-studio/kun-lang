@@ -199,19 +199,14 @@ execve(path, argv, filtered_env);
 
 ```c
 const char* STRIP_ALWAYS[] = {
-    "LD_PRELOAD",           // 共享库注入
-    "LD_LIBRARY_PATH",      // 库搜索路径劫持
+    "LD_PRELOAD",           // 共享库注入（劫持任意 syscall）
     "LD_AUDIT",            // 动态链接审计注入
     "LD_DEBUG",            // 链接调试信息（可能泄漏内存地址）
-    "BASH_ENV",            // bash 自动加载文件（如果子进程是 shell）
-    "IFS",                 // shell 字段分隔符劫持
-    "SHELL",               // 子 shell 选择
-    "LC_ALL",              // 区域设置（影响子进程行为）
-    "GIO_EXTRA_MODULES",   // glib 模块注入
-    "PYTHONPATH",          // Python 模块注入
-    "PERL5LIB",            // Perl 模块注入
+    "BASH_ENV",            // bash 自动加载文件（若子进程为 shell）
 };
 ```
+
+> 注意：`LD_LIBRARY_PATH`、`PYTHONPATH`、`PERL5LIB`、`IFS`、`SHELL`、`LC_ALL` 等变量有合法用途（如构建工具依赖 `LD_LIBRARY_PATH`），**不**在始终剔除列表中，遵循 `env.read` 能力规则。
 
 ### 完整过滤链
 
