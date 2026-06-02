@@ -20,7 +20,7 @@
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型，含 21 项语法调整）、标准库类型设计（定型）、运行时架构设计（定型）、命令签名系统设计（定型）、安全模型设计（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/design/command-signature-system.md`、`docs/ai-agent/design/roles-and-permissions.md` |
 | 活跃计划 | REPL 设计 |
-| 最近完成 | 能力安全系统全面重新设计（`with caps` 语法、零默认能力、编译器内置能力对象、移除 CDF 能力声明、独立资源预算限流层、模块禁止声明能力、`--audit`/`--confirm`/`--cap-log` 审查机制）、代码格式化规范（多规则细化） |
+| 最近完成 | 能力安全系统全面重新设计（`with caps` 语法、零默认能力、编译器内置能力对象、移除 CDF 能力声明、独立资源预算限流层、模块禁止声明能力、`--audit`/`--confirm`/`--cap-log` 审查机制）、五轮设计审计（57 项问题修复）、安全边界简化（capability_check 为唯一硬防线）、环境变量 exec 前过滤、CLOEXEC fd 安全、FileStat/FileMode/Exec 标准库补充 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -49,6 +49,7 @@
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
 | 2026-06-01 | 能力安全系统重新设计 | 重构+设计 | ✅ roles-and-permissions、syntax、system-baseline | ❌ 未检查（事后补查：skills/ 含 document-audit/plan-audit/closure-audit 提示词） | 应走 `plan-first`，实际未写计划直接实施（违规） |
+| 2026-06-02 | 五轮设计审计与修复 | 审计+修复 | ✅ 全部 owner docs | ✅ 使用 closure-audit-prompt、document-audit-prompt | `implement` 直接执行 |
 
 ## AI 阻塞条件
 
