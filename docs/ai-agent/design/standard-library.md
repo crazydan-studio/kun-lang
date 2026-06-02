@@ -53,14 +53,15 @@
 #### 信号接收
 
 ```kun
-on : Signal -> IO () -> IO ()      // 注册信号处理器
-ignore : Signal -> IO ()            // 忽略指定信号
-default : Signal -> IO ()           // 恢复默认行为
+on      : Signal -> (Signal -> IO Unit) -> IO Unit  // 注册信号处理器
+ignore  : Signal -> IO Unit                          // 忽略指定信号
+default : Signal -> IO Unit                          // 恢复默认行为
 ```
 
-- `on` 注册信号处理函数，进程收到信号时执行；前一个处理器被替换
+- `on` 注册信号处理函数，收到信号时执行并传递信号值；前一个处理器被替换
+- 处理函数接收信号参数（`Signal -> IO Unit`），可用于区分不同信号
 - `ignore` 设置 SIG_IGN，`default` 恢复 SIG_DFL
-- 典型场景：`Signal.on SIGINT (\_ -> print "interrupted")`、`Signal.ignore SIGPIPE`
+- 典型场景：`Signal.on SIGINT (\sig -> print f"caught {sig}")`、`Signal.ignore SIGPIPE`
 - 语义场景：优雅关闭（SIGTERM/SIGINT）、子进程回收（SIGCHLD）、超时处理（SIGALRM）
 
 ### `Errno`
