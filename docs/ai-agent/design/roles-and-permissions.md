@@ -24,6 +24,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 | 网络监听 | 无 | 禁止监听任何端口 |
 | 进程执行 | 无 | 禁止执行任何子进程 |
 | 进程信号/终止 | 无 | 禁止信号发送与进程终止 |
+| 进程运行用户切换 | 无 | 只能以当前进程用户运行命令函数 |
 | 环境变量读 | 无 | 禁止读取任何环境变量 |
 | 环境变量写 | 无 | 禁止修改任何环境变量 |
 | 系统时间 | 无 | 禁止读取系统时间 |
@@ -148,6 +149,7 @@ readConfig =
 | `process.signal = []` | 可向任意进程发信号 |
 | `process.kill = []` | 可终止任意进程 |
 | `process.trace = [Pid 1234]` | 仅跟踪指定 PID 的进程（必须显式指定目标） |
+| `process.run-as = ["root", "nobody"]` | 允许命令函数切换到指定用户执行 |
 | `sys.time = []` | 可读取系统时间 |
 | `sys.random = []` | 可访问随机设备 |
 | `sys.hostname = []` | 可读取/设置主机名 |
@@ -202,6 +204,7 @@ readConfig =
 | 动作 | 目标类型 | 语义 | 示例 |
 |------|---------|------|------|
 | `exec` | `[String]` | 执行子进程（命令 basename 精确匹配） | `process.exec = ["ls", "cat"]` |
+| `run-as` | `[String]` | 允许命令函数切换到的用户名或 UID | `process.run-as = ["root", "nobody"]` |
 | `signal` | （无目标） | 向进程发送信号 | `process.signal = []` |
 | `kill` | （无目标） | 终止任意进程 | `process.kill = []` |
 | `trace` | `[Pid]` | 跟踪/调试指定 PID 的进程（ptrace） | `process.trace = [Pid 1234]` |
@@ -215,7 +218,27 @@ readConfig =
 
 `process.exec` 控制的是**能否启动子进程**这一操作本身，与文件系统层面的文件可执行性（`+x` 权限位）无关。后者由操作系统负责——文件无可执行权限时 OS 拒绝 `execve` 系统调用；`process.exec` 未声明时能力系统在调用前就拒绝，不会到达 OS。
 
-命令函数调用（`ls p"."`）使用命令名匹配 basename，命令解析器按 CDF 签名搜索路径解析到具体二进制。
+命令函数调用（`ls { path0 = p"." }`）使用命令名匹配 basename，命令解析器按 CDF 签名搜索路径解析到具体二进制。
+
+#### `process.run-as`——运行用户控制
+
+命令函数的隐式参数 `runAs` 用于指定执行用户。该参数由 `process.run-as` 能力授权：
+
+```kun
+with caps
+  process.exec = ["ls"]
+  process.run-as = ["root", "nobody"]   // 允许切换到的用户
+
+main =
+  ls { path0 = p"/root", runAs = Just "root" }   // ✅ 以 root 执行
+  ls { path0 = p"/tmp" }                          // ✅ 缺省当前用户
+  ls { runAs = Just "mysql" }                     // ❌ "mysql" 不在 process.run-as 中
+```
+
+- `runAs` 缺省 `Nothing`（当前进程用户）
+- 目标为用户名（`"root"`）或 UID 字符串（`"0"`）
+- 运行时通过 `setuid()`/`seteuid()` 切换用户，需进程有足够 OS 权限（root 或 CAP_SETUID）
+- 此能力不替代 `sudo`——进程的 OS 权限决定了能否成功切换
 
 命令函数（如 `ls`、`cat`）通过命令解析器按搜索路径解析到具体二进制。能力检查对命令函数使用的匹配规则与 `exec` 原语一致——若声明 `process.exec = [p"/usr/bin/ls"]` 但命令解析器将 `ls` 解析为内置实现，则路径匹配失败。建议在声明绝对路径时确保路径与命令解析器的解析结果一致。
 
