@@ -355,6 +355,7 @@ function sidebarWorking() {
         items: [
           { text: '索引', link: '/ai-agent/lessons/' },
           { text: '语法合规审计流程', link: '/ai-agent/lessons/grammar-audit-workflow' },
+          { text: 'AGENTS.md 合规性', link: '/ai-agent/lessons/agents-md-compliance' },
         ],
       },
       { text: '分析报告', link: '/ai-agent/analysis/' },
