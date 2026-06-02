@@ -254,9 +254,12 @@ execve(path, argv, filtered_env);
 
 | 规则 | 说明 |
 |------|------|
-| 始终剔除 | `LD_PRELOAD`、`LD_LIBRARY_PATH`、`LD_AUDIT`、`LD_DEBUG`、`BASH_ENV`、`IFS`、`SHELL`、`LC_ALL`、`GIO_EXTRA_MODULES`、`PYTHONPATH`、`PERL5LIB`——无论 `env.read` 如何声明，这些变量永不传递给子进程 |
+| 始终剔除（纯注入向量，无合法用途） | `LD_PRELOAD`、`LD_AUDIT`、`LD_DEBUG`、`BASH_ENV`——无论 `env.read` 如何声明，这些变量永不传递给子进程 |
 | `env.read = []`（通配） | 剔除始终剔除列表后，保留所有剩余变量 |
 | `env.read = ["HOME", "PATH"]` | 剔除始终剔除列表后，仅保留 `HOME` 和 `PATH` |
+| 未声明 `env.read` | **不执行过滤**，子进程继承完整环境变量 |
+
+始终剔除列表只包含纯注入向量——有合法用途的变量（`LD_LIBRARY_PATH`、`PYTHONPATH`、`PERL5LIB`、`IFS`、`SHELL`、`LC_ALL` 等）**不**在始终剔除列表中，遵循 `env.read` 能力规则。未声明 `env.read` 时所有变量正常传递，不影响 `gcc`、`make` 等构建工具的执行。
 
 此策略由运行时自动执行，无需额外能力声明。始终剔除列表为编译期硬编码的安全基线，不可被脚本覆盖。
 
