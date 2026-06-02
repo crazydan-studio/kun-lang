@@ -404,11 +404,33 @@ output : Stream String
 
 基于 CDF 自动生成 Kun 函数签名：
 
-```kun-cdf
+```kun
+type CmdResult t = { stdout : t, exitCode : ExitCode }
+
 ls : { all : Bool, long : Bool, human_readable : Bool, recursive : Bool,
        directory : Bool, sort : Maybe String, time : Maybe String } ->
      Maybe Path -> Maybe Path ->
-     IO (Result (Stream String) (List IOError))
+     IO (Result (CmdResult (Stream String)) (List IOError))
+```
+
+命令退出码的处理规则：
+
+| 退出码 | 语义 | Kun 返回值 |
+|--------|------|-----------|
+| `0` | 成功 | `Ok { stdout = ..., exitCode = ExitCode 0 }` |
+| `1`-`125` | 命令特定含义（如 `grep` 未匹配、`diff` 文件差异） | `Ok { stdout = ..., exitCode = ExitCode n }`——**非 `Err`** |
+| `126`+ | 系统错误（命令未找到、权限拒绝、信号终止） | `Err IOError` |
+
+这意味着 `grep` 未匹配、`diff` 文件差异等场景**不**产生 `Err`，脚本可通过检查 `exitCode` 判断结果：
+
+```kun
+case grep "ERROR" logFile of
+  Ok { stdout = lines, exitCode = code } ->
+    if ExitCode.isSuccess code then
+      print "found errors"
+    else
+      print "no matches"
+  Err err -> print f"grep failed: {err}"
 ```
 
 ## CDF 源代码管理

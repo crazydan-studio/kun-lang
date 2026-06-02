@@ -61,6 +61,20 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - `on` 注册信号处理函数，收到信号时执行并传递信号值；前一个处理器被替换
 - 处理函数接收信号参数（`Signal -> IO Unit`），可用于区分不同信号
 - `ignore` 设置 SIG_IGN，`default` 恢复 SIG_DFL
+
+#### 信号投递机制
+
+信号处理采用 **signalfd** 机制（Linux 3.8+），并非在 OS 信号上下文中直接执行 Kun 代码：
+
+1. 进程收到信号时，OS 将信号写入 signalfd 文件描述符
+2. Kun 的事件循环在安全时点读取 signalfd，取出待处理信号
+3. 在事件循环上下文中调用注册的处理函数
+
+这保证了：
+- 处理函数不运行在信号处理上下文中——可执行任意 IO 操作，无需 async-signal-safe 约束
+- 信号不会中断关键操作（内存分配、类型检查等）
+- 多个信号按接收顺序排队处理
+
 - 典型场景：`Signal.on SIGINT (\sig -> print f"caught {sig}")`、`Signal.ignore SIGPIPE`
 - 语义场景：优雅关闭（SIGTERM/SIGINT）、子进程回收（SIGCHLD）、超时处理（SIGALRM）
 
@@ -113,23 +127,47 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - 运行时查询函数：`fileType : Path -> IO (Result FileType IOError)`
 - 语义场景：文件操作前的类型检查、目录遍历过滤
 
+### `FileMode`
+
+- 文件权限位抽象，封装 Unix 权限位语义：
+
+  ```kun
+  type FileMode = FileMode Int    // 八进制权限位，如 0o755、0o644
+  ```
+
+- 构造器参数为八进制权限值（如 `FileMode 0o755`），非法权限位（超出 0o777）编译期报错
+- 支持操作：
+  | 函数 | 语义 |
+  |------|------|
+  | `isReadable : FileMode -> Bool` | 所有者可读 |
+  | `isWritable : FileMode -> Bool` | 所有者可写 |
+  | `isExecutable : FileMode -> Bool` | 所有者可执行 |
+  | `isSetuid : FileMode -> Bool` | 设置 setuid 位 |
+  | `isSetgid : FileMode -> Bool` | 设置 setgid 位 |
+  | `isSticky : FileMode -> Bool` | 设置 sticky 位 |
+  | `toInt : FileMode -> Int` | 转为 `Int`（用于 `chmod` 等外部命令） |
+- 语义场景：`stat` 结果权限检查、文件创建模式设置、安全审计
+
 ### `FileStat`
 
 - 完整的文件/目录元数据结构，由 `stat` 系统调用返回：
 
   ```kun
   type FileStat
-    = { size     : Int       // 字节大小
-      , mtime    : DateTime  // 最后修改时间
-      , ctime    : DateTime  // 元数据变更时间
-      , atime    : DateTime  // 最后访问时间
-      , fileType : FileType  // 文件类型
-      , mode     : Int       // 权限位（八进制，如 0o644）
-      , owner    : UserName  // 所有者
-      , group    : GroupName // 所属组
+    = { size      : Int       // 字节大小
+      , mtime     : DateTime  // 最后修改时间
+      , ctime     : DateTime  // 元数据变更时间
+      , atime     : DateTime  // 最后访问时间
+      , fileType  : FileType  // 文件类型
+      , mode      : FileMode  // 权限位
+      , owner     : Uid       // 所有者数字 ID（UID）
+      , group     : Gid       // 所属组数字 ID（GID）
+      , ownerName : String    // 所有者名称（便利字段，可能为空）
+      , groupName : String    // 所属组名称（便利字段，可能为空）
       }
   ```
 
+- `owner`/`group` 为数字 ID（`Uid`/`Gid`），源于 `stat` 系统调用的原始返回值。`ownerName`/`groupName` 通过 `getpwuid`/`getgrgid` 查询（查找失败则为空字符串，不影响 `stat` 本身成功）
 - 运行时查询函数：`stat : Path -> IO (Result FileStat IOError)`、`lstat : Path -> IO (Result FileStat IOError)`
 - `stat` 跟随符号链接，`lstat` 返回符号链接自身信息
 - 语义场景：文件大小检查、修改时间比较、权限验证、备份筛选
@@ -285,6 +323,31 @@ kun script.kun --verbose -o /tmp/out --name hello
 kun script.kun -v --output /tmp/out
 kun script.kun -v
 ```
+
+## `Exec` — 原始进程执行
+
+### 定位
+
+直接执行外部二进制，返回进程的输出和退出码。与命令函数（`ls`、`cat` 等）不同，`exec` 不使用 CDF，通过 fork/exec 机制执行。
+
+### 函数签名
+
+```kun
+type CmdResult t = { stdout : t, exitCode : ExitCode }
+
+exec : Path -> List String -> IO (Result (CmdResult (Stream String)) IOError)
+execWithInput : Path -> List String -> String -> IO (Result (CmdResult (Stream String)) IOError)
+```
+
+- `exec` — 执行指定路径的二进制，参数以字符串列表传递，stdout 以 Stream 形式返回
+- `execWithInput` — 同 `exec`，额外传递 stdin 内容
+- 需配合 `process.exec` 能力使用
+
+### 限制
+
+- 通过 fork/execve 执行，非 dlopen。无 CDF 行为保护，启动开销高于命令函数
+- 参数作为原始字符串传递，不经 shell 展开——无注入风险
+- stdout 按行流式返回；stderr 不捕获（直接继承父进程的 stderr）
 
 ## `Stream` — 惰性序列
 

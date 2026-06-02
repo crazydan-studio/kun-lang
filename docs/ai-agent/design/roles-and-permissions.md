@@ -268,6 +268,8 @@ CapabilityManager
 └── audit_log: [AccessAttempt]        // 访问审计日志
 ```
 
+> **线程安全**：CapabilityManager 当前为单线程执行设计，scope_stack 的可变状态（push/pop）无并发保护。若未来加入 `Task.parallel` 等并发机制，需要对 scope_stack 和 audit_log 加锁（Mutex 或 RwLock）。
+
 ### 检查流程
 
 ```
@@ -335,6 +337,11 @@ with caps
 ### 容器环境检测
 
 当在 Docker、Kubernetes 等容器化环境中运行时，解释器检测到已在命名空间中运行，避免创建嵌套命名空间，依赖容器的现有隔离。
+
+> **容器模式已知限制**：容器内运行时无法创建新的 Mount/PID/Network Namespace（非特权容器不允许 `CLONE_NEWNS`）。此时：
+> - Capability Manager 的运行时检查（`capability_check`）——**始终有效**，对所有 Kun IO 原语（`readFile` 等）执行
+> - 子进程沙箱隔离——**不可用**，外部命令（通过 `process.exec` 启动）无 namespace 隔离
+> - 依赖容器的现有隔离策略（Pod Security Policy、AppArmor profile 等）作为替代防御
 
 ## 模块能力规则
 
@@ -405,9 +412,18 @@ main =
 // 父脚本传递:  fs.read = [p"/etc/"], net.http = ["api.example.com"]
 // 子脚本声明:  fs.read = [p"/etc/"], net.http = []
 // 实际可用:    fs.read = [p"/etc/"]
-//              net.http 虽由父传递，但子脚本自身声明 []（空 = 任何主机）
-//              交集结果取决于目标列表的交集逻辑
+//              net.http = ["api.example.com"]
 ```
+
+交集规则：
+
+| 父传递目标 | 子声明目标 | 交集结果 | 说明 |
+|-----------|-----------|---------|------|
+| `[p"/etc/"]` | `[p"/etc/"]` | `[p"/etc/"]` | 精确匹配 |
+| `[p"/etc/"]` | `[]`（任意） | `[p"/etc/"]` | 子声明"任意"但不能超父——取父值 |
+| `[]`（任意） | `[p"/var/"]` | `[p"/var/"]` | 父传递任意、子声明精确——取子值 |
+| `["api.example.com"]` | `[]`（任意） | `["api.example.com"]` | 子不能超父 |
+| `[p"/etc/"]` | `[p"/var/"]` | `[]`（不允许） | 交集为空——无可用能力 |
 
 ## 审查机制
 
