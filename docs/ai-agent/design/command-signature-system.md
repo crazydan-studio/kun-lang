@@ -13,192 +13,235 @@
 3. **无 CDF 则不可用**：无 CDF 的命令函数无法调用。签名来源优先级为：内置签名 > 项目级 CDF > 用户级 CDF > 自动推断。若所有来源均无签名，则命令不可用
 4. **来源可信**：CDF 文件通过密码学签名建立信任链，防止恶意签名定义
 
-## CDF 文件格式
+## CDF → Kun 代码生成
+
+CDF 不再是运行时解析的描述文件，而是**编译期代码生成源**——CDF 在编译时被转译为 Kun 模块代码，生成完整的 Options Record 类型、命令函数签名、argv 构造逻辑和输出解析器调用。
 
 ### 文件位置
 
 ```
-~/.kun/cdf/<command>.cdf        # 用户级（自动推断结果缓存在此）
+~/.kun/cdf/<command>.cdf        # 用户级
 <project>/.kun/cdf/<command>.cdf # 项目级（提交到版本控制）
-<runtime>/cdf/                   # 内置签名库（由 Kun 发行版提供）
+<runtime>/cdf/                   # 内置签名库
 ```
 
-### 语法
+### CDF 语法
 
-CDF 使用 Kun 语法风格的声明式格式：
+#### 校验器和解析器（根命令层级，无缩进）
 
 ```kun-cdf
-// ls.cdf — ls 命令的签名定义
+// 校验器——纯函数，仅对值本身做校验（格式、范围、正则等）
+// 不可涉及 IO（如文件存在性检查）
+validator portRange = all [range 1 65535, not (\p -> p == 666)]
+validator nonEmpty = all [length 1 255]
+validator branchName = regex r"^[a-zA-Z0-9_/.-]+$"
+validator nameCheck = MyModule.validateName     // 引用模块函数
 
-command "ls"
-
-// 只声明影响结果集合的参数，不声明输出格式相关参数
-flag "all"     'a' : Bool
-flag "recursive" 'R' : Bool
-flag "directory" 'd' : Bool
-option "sort"  'S' : String with (include ["size", "time", "version"])
-option "time"  't' : String with (include ["atime", "ctime", "mtime"])
-positional 0   : Path    with (optional)
-positional 1   : Path    with (optional)
-
-// 输出类型（结构化类型，运行时自动解析）
-output : Stream { name : Path, type : FileType, size : Int, mtime : DateTime }
-
-// 错误类型
-error : List IOError
+// 解析器——纯函数，输入始终为 Stream String（命令原始 stdout）
+// 返回值 Stream (Result EntryType String)，每行独立成功/失败
+parser statusFormat : Stream (Result StatusEntry String) = MyParser.parseStatus
+parser logFormat    : Stream (Result CommitEntry String) = MyParser.parseLog
 ```
 
-### 核心结构
-
-| 章节 | 必需 | 说明 |
-|------|------|------|
-| `command` | 是 | 命令名，用于匹配和执行 |
-| `flag` / `option` / `positional` | 否 | 参数定义，每种类型可重复 |
-| `output` | 否 | 输出类型，默认 `Stream String` |
-| `error` | 否 | 错误类型，默认 `List IOError` |
-| `behavior` | 否 | 行为声明（已废弃，seccomp 规则由参数类型推导） |
-| `subcommand` | 否 | 子命令定义，递归结构 |
-
-## 参数定义
-
-### Flag（布尔标志）
+#### `option`——命令选项
 
 ```
-flag "verbose" 'v' : Bool
-flag "recursive" 'R' : Bool
+option <name> "<flag>" : <type>[!] [with (<validator>)]
 ```
 
-- 长名：`--verbose`
-- 短名：`-v`
-- 类型：始终为 `Bool`
-- 默认值：`false`（未指定时）
+| 部分 | 说明 |
+|------|------|
+| `<name>` | 函数 Options Record 的字段名，不加引号 |
+| `"<flag>"` | 命令的选项名（长名 `--long` 或短名 `-a`），二选其一 |
+| `<type>` | 选项值类型 |
+| `[!]` | 可选标记，`T!` 表示必填（非 Bool 类型），缺省为可选（`Maybe T`）。`Bool` 不受 `!` 影响 |
+| `[with (<validator>)]` | 可选验证器 |
 
-### Option（带值选项）
-
-```
-option "output" 'o' : Path
-option "timeout" 't' : Duration with (range 1s 300s)
-```
-
-- 长名：`--output <value>`
-- 短名：`-o <value>`
-- 类型支持：`String`、`Path`、`Int`、`Nat`、`Duration`、`Float`
-- 默认值：`Nothing`（`Maybe T`，未指定时为 `Nothing`）
-
-### Positional（位置参数）
-
-```
-positional 0 : Path
-positional 1 : String with (optional)
+```kun-cdf
+option verbose "-v" : Bool                   // Bool → Bool，缺省 false
+option config "-c" : Path                    // 可选 → Maybe Path
+option name "-n" : String!                   // 必填 → String
+option port "-p" : Int with (portRange)       // 可选 + 验证器
+option format "-f" : String with (include ["json", "csv"])
+option type "--type" : String                  // 字段名 type 合法
 ```
 
-- 序号从 0 开始
-- `optional` 标记表示该参数可省略
-- 类型支持：`Path`、`String`、`Int`、`Nat`、`Float`
+#### `param`——位置参数
 
-### 参数验证器
+```
+param <N> : <type>                           // 确定位置，始终必填
+param * : List <type>                        // 剩余参数，集合类型
+```
 
-验证器是 Kun 类型 `Validator t`，通过 `all`/`any`/`not` 组合器复合。内置验证器和自定义函数具有统一的类型签名：
+- `param <N>` 顺序对应函数参数位置，按顺序依次存在——不支持前一个不存在而后一个存在的情况
+- 确定位置的参数始终必填，不支持 `!` 标记
+- `param * : List T` 显式写出 `List`，语义为零个或多个相同类型的参数
+- 不同类型的位置参数必须分别映射为 `param <N>`，`param *` 要求所有元素同类型
+
+```kun-cdf
+param 0 : Path                    // 函数第 2 个参数（Options 后第 1 个），Path
+param 1 : String                  // 函数第 3 个参数，String
+param * : List String             // 函数最后一个参数，List String
+```
+
+参数映射关系：
+
+```
+函数参数顺序 = [Options Record] + [param 0] + [param 1] + ... + [param *]
+      位置:          1             2           3             最后
+```
+
+#### `param *` 的类型为 `List Path`
+
+```kun-cdf
+param * : List Path      // ✅ 正确：显式 List
+param * : Path           // ❌ 错误：param * 必须显式 List
+param 0 : Path           // ✅ 正确：确定位置，无需 List
+param 0 : Path!          // ❌ 错误：确定位置不使用 ! 标记
+```
+
+#### `output`——输出解析器引用
+
+```kun-cdf
+output <parser_name>           // 引用已定义的 parser
+output default                 // 内置解析器，返回 Stream String
+output json                    // 内置解析器，返回 Stream JsonValue
+```
+
+#### `bin`——命令路径
+
+```kun-cdf
+command myTool "my-tool"                    // 函数名 myTool，二进制 my-tool
+  bin p"/usr/local/bin/my-tool"             // 绝对路径
+  bin p"./tools/my-tool"                    // 相对路径（相对于 CDF 所在目录，不可超出）
+
+command git                                 // 函数名 = 二进制名 = "git"
+  // 缺省不写 bin，按函数名搜索 PATH
+```
+
+相对路径不可超出 CDF 所在目录（`../` 不允许）。
+
+#### 完整 CDF 示例
+
+```kun-cdf
+// git.cdf
+validator branchName = regex r"^[a-zA-Z0-9_/.-]+$"
+validator urlPattern = regex r"^https?://"
+
+parser statusFormat : Stream (Result StatusEntry String) = MyParser.parseStatus
+parser logFormat    : Stream (Result CommitEntry String) = MyParser.parseLog
+
+command git
+  output default
+  param * : List String
+
+subcommand status
+  output statusFormat
+  option short "-s" : Bool
+
+subcommand log
+  output logFormat
+  option maxCount "-n" : Int with (all [range 1 1000])
+  param 0 : String with (branchName)
+
+subcommand remote
+  output default
+  option verbose "-v" : Bool
+
+  subcommand add
+    option fetch "-f" : Bool
+    param 0 : String
+    param 1 : String with (urlPattern)
+
+subcommand config
+  output default
+  option global "--global" : Bool
+
+  subcommand get
+    option type "--type" : String with (include ["int", "bool", "path"])
+    param 0 : String
+```
+
+#### 生成的 Kun 模块
 
 ```kun
-type Validator t = t -> Result t String   // 验证失败返回 Err 原因
+module Git export
+  ( git, git_status, git_log
+  , git_remote, git_remote_add
+  , git_config, git_config_get
+  )
+
+// 解析器返回类型
+type StatusEntry = { file : Path, status : String }
+type CommitEntry = { hash : String, author : String, message : String }
+
+// Options Record（代码生成，runAs 自动注入）
+type GitOptions = { runAs : Maybe RunAs }
+type GitStatusOptions = { short : Bool, runAs : Maybe RunAs }
+type GitLogOptions = { maxCount : Maybe Int, runAs : Maybe RunAs }
+
+// 根命令（参数顺序：Options → param *）
+git : GitOptions -> List String -> IO
+  (Result (CmdResult (Stream String)) (List IOError))
+
+// 一级子命令
+git_status : GitStatusOptions -> IO
+  (Result (CmdResult (Stream StatusEntry)) (List IOError))
+
+git_log : GitLogOptions -> String -> IO
+  (Result (CmdResult (Stream CommitEntry)) (List IOError))
+
+// 嵌套子命令
+git_remote : GitRemoteOptions -> IO
+  (Result (CmdResult (Stream String)) (List IOError))
+
+git_remote_add : GitRemoteAddOptions -> String -> String -> IO
+  (Result (CmdResult (Stream String)) (List IOError))
+
+git_config : GitConfigOptions -> IO
+  (Result (CmdResult (Stream String)) (List IOError))
+
+git_config_get : GitConfigGetOptions -> String -> IO
+  (Result (CmdResult (Stream ConfigEntry)) (List IOError))
 ```
 
-内置验证器（定义在标准库中）：
-
-| 验证器 | 签名 | 说明 |
-|--------|------|------|
-| `range` | `Int -> Int -> Validator Int` | 值在 `[min, max]` 范围内 |
-| `include` | `List t -> Validator t` | 值在列表中（白名单） |
-| `exclude` | `List t -> Validator t` | 值不在列表中（黑名单） |
-| `length` | `Int -> Int -> Validator String` | 字符串长度在 `[min, max]` 范围内 |
-| `regex` | `Regex -> Validator String` | 匹配正则表达式 |
-
-组合器：
-
-| 组合器 | 签名 | 说明 |
-|--------|------|------|
-| `all` | `List (Validator t) -> Validator t` | 所有验证器通过（AND） |
-| `any` | `List (Validator t) -> Validator t` | 任一验证器通过（OR） |
-| `not` | `Validator t -> Validator t` | 验证器结果取反 |
-
-应用在 CDF 参数定义上。字面量使用 Kun 类型系统支持的形式（`r"..."` 为正则、`p"..."` 为路径等）：
-
-```
-option "port" 'p' : Int with (all [range 1 65535])
-option "size" 's' : String with (all [regex r"^\d+(K|M|G)$", length 1 32])
-option "name" 'n' : String with (exclude ["admin", "root"])
-option "mode" 'm' : String with (any [include ["r", "w", "x"], regex r"^[rwx]{3}$"])
-option "format" 'f' : String with (not (regex r"^[0-9]+$"))
-option "format" 'f' : String with (regex r"^[a-z]+(\.[a-z]+)*$")
-positional 0 : Path with (regex r"^/etc/")
-```
-
-自定义验证器通过 `custom` 引用 Kun 模块中的函数：
-
-```
-positional 0 : Path with (custom MyModule.validatePath)
-positional 1 : String with (custom (all [length 1 255, mySpecialValidator]))
-```
-
-`custom` 后接的表达式必须为 `Validator t` 类型，`t` 与参数类型一致。自定义验证器在 CDF 加载时注册，运行时调用。
-
-### 子命令
-
-```kun-cdf
-command "git"
-
-subcommand "commit"
-  flag "all"     'a' : Bool
-  flag "amend"   : Bool
-  option "message" 'm' : String
-  // output: Unit（仅退出码）
-
-subcommand "push"
-  flag "force"   'f' : Bool
-  flag "verbose" 'v' : Bool
-  positional 0        : String with (optional)    // 远程名
-  // output: Unit（仅退出码）
-```
-
-子命令签名映射为独立函数值，参数合并到同一 Record 中，`runAs` 为隐式参数：
+#### 调用示例
 
 ```kun
-git.commit : { all : Bool, amend : Bool, message : Maybe String
-             , runAs : Maybe RunAs = Nothing
-             } -> IO (Result Unit (List IOError))
-git.push   : { force : Bool, verbose : Bool, remote : Maybe String
-             , runAs : Maybe RunAs = Nothing
-             } -> IO (Result Unit (List IOError))
+// 根命令
+git {} ["status"]
+// → git status
+
+// status 子命令
+git_status { short = true }
+// → git status -s
+
+// remote add 子命令
+git_remote_add { fetch = true } "origin" "https://github.com/user/repo.git"
+// → git remote add --fetch origin https://github.com/user/repo.git
+
+// config get 子命令
+git_config_get { type = Just "bool" } "core.autocrlf"
+// → git config get --type bool core.autocrlf
 ```
 
-## 输出类型定义
+### 代码生成规则
 
-命令函数的返回值类型直接在 CDF 中声明为结构化类型，运行时自动将命令输出解析为对应类型：
-
-```kun-cdf
-// ls — 文件列表
-output : Stream { name : Path, type : FileType, size : Int, mtime : DateTime }
-
-// du — 磁盘使用量（仅影响结果的选项）
-flag "summarize" 's' : Bool  // 汇总模式返回单条
-flag "separate-dirs" : Bool  // 单独统计目录
-output : Stream { path : Path, size : Int }
-
-// find — 文件搜索结果
-output : Stream { path : Path, type : FileType, size : Int }
-
-// grep — 匹配行
-output : Stream { path : Path, line : Int, content : String }
-
-// ps — 进程列表
-output : Stream { pid : Pid, cpu : Float, mem : Float, cmd : String }
-
-// curl — HTTP 响应
-output : { status : Int, headers : Map String String, body : Bytes }
-```
-
-用户不需要关心命令的内部输出格式——CDF 声明了返回值的结构，运行时自动完成解析。
+| CDF 声明 | 生成产物 |
+|---------|---------|
+| `command <name>` | 函数 `<name>`，Record `<Name>Options` |
+| `subcommand <name>` | 函数 `<main>_<name>`（多层嵌套 `<main>_<sub1>_<sub2>`） |
+| `option x "-x" : Bool` | 字段 `x : Bool`，argv 构造展开为 `-x` |
+| `option x "-x" : T` | 字段 `x : Maybe T` |
+| `option x "-x" : T!` | 字段 `x : T` |
+| `param <N> : T` | 函数第 N+1 个参数（Options 后），类型 `T` |
+| `param * : List T` | 函数最后一个参数，类型 `List T` |
+| `validator <name> = <expr>` | 常量 `name : Validator T`，编译期展开 |
+| `parser <name> : Stream (Result T S) = M.f` | 注入 `M.f` 到命令函数实现 |
+| `output <name>` | 命令函数返回值类型为 `CmdResult (Stream T)` |
+| `output default` / `output json` | 同前，`T` = `String` / `JsonValue` |
+| `runAs` | 自动注入到 Options Record 作为`runAs : Maybe RunAs` |
+| `option type`等关键字名 | Record 字段名直接使用关键字，不受限制 |
 
 ## seccomp 规则自动推导
 
@@ -448,103 +491,7 @@ option "port" 'p' : Int with (range 1 65535)
 | seccomp 管理器 | 根据命令参数类型和名称生成 seccomp-BPF 规则 |
 | 结果反序列化器 | 根据 CDF output 定义解析返回值 |
 
-## 完整示例
 
-### 内建 Primitive 命令（以 `ls` 为例）
-
-内建 Primitive 命令**没有 CDF 文件**——其签名在运行时内部以 Zig 静态定义形式存在：
-
-```zig
-// Zig 伪代码：内建 Primitive 注册
-register_primitive(PrimitiveEntry{
-    .name = "ls",
-    .fn_ptr = &builtin_ls,
-    .params = &[Param]{
-        { .name = "all",       .type = TYPE_BOOL, .default = false },
-        { .name = "recursive", .type = TYPE_BOOL, .default = false },
-        { .name = "directory", .type = TYPE_BOOL, .default = false },
-        { .name = "sort",      .type = TYPE_STRING, .optional = true },
-        { .name = "time",      .type = TYPE_STRING, .optional = true },
-        { .name = "path0",     .type = TYPE_PATH, .optional = true },
-        { .name = "path1",     .type = TYPE_PATH, .optional = true },
-    },
-    .output = TYPE_STREAM_RECORD(NAME_PATH, TYPE_FILETYPE, TYPE_INT, TYPE_DATETIME),
-});
-```
-
-这等价于如下 CDF 声明（仅用于文档参考）：
-
-```kun-cdf
-// kun-cdf-v1 — 仅用于文档参考，非运行时文件
-command "ls"
-
-flag "all"             'a' : Bool
-flag "recursive"       'R' : Bool
-flag "directory"       'd' : Bool
-option "sort"          'S' : String with (enum ["size", "time", "version"])
-option "time"          't' : String with (enum ["atime", "ctime", "mtime"])
-positional 0                : Path with (optional)
-positional 1                : Path with (optional)
-
-output : Stream { name : Path, type : FileType, size : Int, mtime : DateTime }
-```
-
-### 命令函数签名约定
-
-所有命令函数的参数和返回值遵循以下约定：
-
-```kun
-type CmdResult t = { stdout : t, exitCode : ExitCode }
-
-cmdName : { runAs : Maybe RunAs            // 执行用户，缺省为当前用户
-          , ...  // CDF 声明的参数合并至此
-          } ->
-          IO (Result (CmdResult <output_type>) (List IOError))
-```
-
-- `runAs` 是所有命令函数的**隐式参数**，CDF 中不声明，由编译器自动注入
-- 命令的 `flag`/`option`/`positional` 参数合并到同一 Record 类型中
-- `runAs` 缺省 `Nothing`（当前进程用户）。类型为 `Maybe RunAs`——`ByName name`（用户名）或 `ById id`（数字 UID）
-
-#### 示例：ls 的生成签名
-
-```kun
-ls : { all : Bool, recursive : Bool, directory : Bool,
-       sort : Maybe String, time : Maybe String,
-       path0 : Maybe Path, path1 : Maybe Path
-     , runAs : Maybe RunAs = Nothing
-     } ->
-     IO (Result (CmdResult (Stream { name : Path, type : FileType,
-                                     size : Int, mtime : DateTime }))
-                (List IOError))
-```
-
-`runAs` 的调用方式：
-
-```kun
-ls { path0 = p"/root", runAs = Just (ByName "root") }     // 以 root 执行
-ls { all = true, path0 = p"/tmp" }                // 以当前用户执行
-```
-
-命令退出码的处理规则：
-
-| 退出码 | 语义 | Kun 返回值 |
-|--------|------|-----------|
-| `0` | 成功 | `Ok { stdout = ..., exitCode = ExitCode 0 }` |
-| `1`-`125` | 命令特定含义（如 `grep` 未匹配、`diff` 文件差异） | `Ok { stdout = ..., exitCode = ExitCode n }`——**非 `Err`** |
-| `126`+ | 系统错误（命令未找到、权限拒绝、信号终止） | `Err IOError` |
-
-这意味着 `grep` 未匹配、`diff` 文件差异等场景**不**产生 `Err`，脚本可通过检查 `exitCode` 判断结果：
-
-```kun
-case grep "ERROR" logFile of
-  Ok { stdout as lines, exitCode as code } ->
-    if ExitCode.isSuccess code then
-      print "found errors"
-    else
-      print "no matches"
-  Err err -> print f"grep failed: {err}"
-```
 
 ## CDF 源代码管理
 

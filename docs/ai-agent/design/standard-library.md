@@ -321,7 +321,16 @@ not : Validator t -> Validator t           // 取反
 
 ### 自定义验证器
 
-任何符合 `Validator t` 签名的 Kun 函数均可作为验证器：
+任何符合 `Validator t` 签名的**纯函数**（无 IO）均可作为验证器。验证器只能对值本身做校验——不能涉及文件系统、网络等 IO 操作：
+
+```kun
+// ✅ 正确：纯校验，不涉及 IO
+nameCheck : Validator String
+nameCheck = all [length 1 255, regex r"^[a-zA-Z]+$"]
+
+// ❌ 错误：涉及 IO（文件存在性检查），不能作为验证器
+fileExists : Validator Path = ...
+```
 
 ```kun
 myPortValidator : Validator Int
@@ -338,9 +347,9 @@ portCheck = all [range 1 65535, not (\p -> p == 666)]
 ### CDF 中使用
 
 ```
-option "port" 'p' : Int with (all [range 1 65535])
-option "size" 's' : String with (all [regex r"^\d+$", length 1 32])
-positional 0 : Path with (custom MyModule.myPortValidator)
+option port "-p" : Int with (all [range 1 65535])
+option size "-s" : String with (all [regex r"^\d+$", length 1 32])
+param 0 : Path with (nameCheck)
 ```
 
 ## `Args` — 命令行参数解析

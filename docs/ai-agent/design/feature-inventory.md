@@ -38,12 +38,12 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为带 Record 参数和结构化返回类型的安全函数，支持内建 Primitive 和 CDF 映射两种实现方式 |
+| 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为带 Record 参数和结构化返回类型的安全函数，支持内建 Primitive 和 CDF→Kun 代码生成两种实现方式 |
+| CDF→Kun 代码生成 | ✅ 设计定型 | CDF 在编译期转译为 Kun 模块，自动生成 Options Record、函数签名、argv 构造和输出解析器调用 |
 | 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/walkDir 等）以 Zig 内建实现，进程内执行、无子进程开销、类型精确 |
-| walkDir 目录遍历 | ✅ 设计定型 | 内建标准库函数，遍历返回 `Stream DirEntry`，过滤在外部通过 `filter` 完成 |
-| runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，通过 `process.run-as` 能力控制 |
-| 输出结构化 | ✅ 设计定型 | 内建 Primitive 直接返回结构化类型；CDF 命令由运行时自动解析输出 |
-| CDF 命令描述文件 | ✅ 设计定型 | 定义复杂命令（curl/grep/ps/find 等）的精确签名和输出类型 |
+| runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，类型为 `Maybe RunAs`（`ByName`/`ById`），通过 `process.run-as` 能力控制 |
+| 输出结构化 | ✅ 设计定型 | 内建 Primitive 直接返回结构化类型；CDF 命令通过 `parser` 纯函数解析输出，支持 `default`/`json` 内置解析器和自定义解析器 |
+| Validator 验证器系统 | ✅ 设计定型 | `Validator t` 纯函数类型，支持 `all`/`any`/`not` 组合器和内置验证器（`range`/`include`/`exclude`/`length`/`regex`） |
 | 内置签名库 | ✅ 设计定型 | 仅映射 Kun 无法原生获取的外部命令（ls/du/ps/grep/find/curl 等） |
 | 签名自动推断 | ✅ 设计定型 | 优先通过 man 手册获取帮助信息，回退到 --help/-h；支持子命令识别与独立签名建立 |
 | 项目级自定义签名 | ✅ 设计定型 | 项目目录中提供自定义签名 |
