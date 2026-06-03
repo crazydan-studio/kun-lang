@@ -388,10 +388,18 @@ Record 类型：
 ### 变量引用与字面量
 
 ```kun
-42            // Int 字面量
-"hello"       // String 字面量
-[1, 2, 3]     // List 字面量
-myVariable    // 变量引用
+42              // Int 字面量
+"hello"         // String 字面量
+[1, 2, 3]       // List 字面量
+[1..10]         // List 范围字面量（惰性，等价于 range 1 11）
+[0..99999]      // 大范围惰性列表，不预分配内存
+myVariable      // 变量引用
+```
+
+`[start..end]` 范围字面量：左闭右开区间 `[start, end)`，生成 `List Int`。元素**惰性求值**——不预分配内存，仅在遍历时按需计算。适用于大范围迭代：
+
+```kun
+[0..1000000] |> filter (\n -> n % 2 == 0) |> take 10
 ```
 
 ### Lambda
