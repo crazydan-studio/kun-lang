@@ -230,24 +230,42 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - 预定义常量：`ExitCode.success`、`ExitCode.generalError`（1）、`ExitCode.commandNotFound`（127）
 - 语义场景：命令执行结果判断、进程退出值传递、管道错误传播
 
-### `User` / `Group`
+### `Uid` / `Gid`
 
-- 用户和组身份的抽象，包括名称和数字 ID
+- 用户和组 ID 的数字表示，在需要名称时按需查询
 
   ```kun
-  type UserName
-    = UserName String    // 登录名
-  type Uid
-    = Uid Nat            // 用户 ID（0..2^32-1）
-  type GroupName
-    = GroupName String   // 组名
-  type Gid
-    = Gid Nat            // 组 ID（0..2^32-1）
+  type Uid = Uid Nat       // 用户 ID（0..2^32-1）
+  type Gid = Gid Nat       // 组 ID（0..2^32-1）
   ```
 
-- 运行时查询函数：`currentUser : IO UserName`、`currentUid : IO Uid`、`currentGroup : IO GroupName`、`currentGid : IO Gid`
-- 名称与 ID 互查：`lookupUser : UserName -> IO (Result Uid String)`、`lookupUid : Uid -> IO (Result UserName String)`、`lookupGroup : GroupName -> IO (Result Gid String)`、`lookupGid : Gid -> IO (Result GroupName String)`
+- 运行时查询函数：`currentUid : IO Uid`、`currentGid : IO Gid`
+- ID 与名称互查（运行时通过 `getpwuid`/`getgrgid` 查询，查不到时返回 `Err`）：
+  `lookupName : Uid -> IO (Result String String)`、`lookupUid : String -> IO (Result Uid String)`
+  `lookupGroupName : Gid -> IO (Result String String)`、`lookupGid : String -> IO (Result Gid String)`
 - 语义场景：文件所有者查询、权限检查、进程运行身份
+
+### `RunAs`
+
+- 命令函数 `runAs` 参数的类型，支持用户名和 ID 两种形式：
+
+  ```kun
+  type RunAs
+    = ByName String   // 用户名（如 "root"）
+    | ById Nat        // 用户 ID（如 0）
+  ```
+
+- `process.run-as` 能力的目标为此类型：
+
+  ```kun
+  with caps
+    process.run-as = [ByName "root", ById 1000]
+
+  main =
+    ls { runAs = Just (ByName "nobody") }   // ✅ 按用户名
+    ls { runAs = Just (ById 65534) }         // ✅ 按 UID
+    ls { runAs = Nothing }                    // ✅ 缺省当前用户
+  ```
 
 ### `IpAddress`
 

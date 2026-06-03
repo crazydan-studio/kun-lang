@@ -328,9 +328,6 @@ type Color
 单变体 ADT 为 newtype：
 
 ```kun
-type UserName
-  = UserName String
-
 type Uid
   = Uid Nat
 ```

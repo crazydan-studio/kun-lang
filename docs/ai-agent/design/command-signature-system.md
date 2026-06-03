@@ -165,10 +165,10 @@ subcommand "push"
 
 ```kun
 git.commit : { all : Bool, amend : Bool, message : Maybe String
-             , runAs : Maybe String = Nothing
+             , runAs : Maybe RunAs = Nothing
              } -> IO (Result Unit (List IOError))
 git.push   : { force : Bool, verbose : Bool, remote : Maybe String
-             , runAs : Maybe String = Nothing
+             , runAs : Maybe RunAs = Nothing
              } -> IO (Result Unit (List IOError))
 ```
 
@@ -265,7 +265,7 @@ type DirEntry = { path : Path, fileType : FileType, size : Int, mtime : DateTime
 
 walkDir : { root : Path, depth : Maybe Int = Nothing
           , followSymlinks : Bool = false
-          , runAs : Maybe String = Nothing
+          , runAs : Maybe RunAs = Nothing
           } -> IO (Result (CmdResult (Stream DirEntry)) IOError)
 ```
 
@@ -496,7 +496,7 @@ output : Stream { name : Path, type : FileType, size : Int, mtime : DateTime }
 ```kun
 type CmdResult t = { stdout : t, exitCode : ExitCode }
 
-cmdName : { runAs : Maybe String            // 执行用户，缺省为当前用户
+cmdName : { runAs : Maybe RunAs            // 执行用户，缺省为当前用户
           , ...  // CDF 声明的参数合并至此
           } ->
           IO (Result (CmdResult <output_type>) (List IOError))
@@ -504,7 +504,7 @@ cmdName : { runAs : Maybe String            // 执行用户，缺省为当前用
 
 - `runAs` 是所有命令函数的**隐式参数**，CDF 中不声明，由编译器自动注入
 - 命令的 `flag`/`option`/`positional` 参数合并到同一 Record 类型中
-- `runAs` 缺省为当前进程用户
+- `runAs` 缺省 `Nothing`（当前进程用户）。类型为 `Maybe RunAs`——`ByName name`（用户名）或 `ById id`（数字 UID）
 
 #### 示例：ls 的生成签名
 
@@ -512,7 +512,7 @@ cmdName : { runAs : Maybe String            // 执行用户，缺省为当前用
 ls : { all : Bool, recursive : Bool, directory : Bool,
        sort : Maybe String, time : Maybe String,
        path0 : Maybe Path, path1 : Maybe Path
-     , runAs : Maybe String = Nothing
+     , runAs : Maybe RunAs = Nothing
      } ->
      IO (Result (CmdResult (Stream { name : Path, type : FileType,
                                      size : Int, mtime : DateTime }))
@@ -522,7 +522,7 @@ ls : { all : Bool, recursive : Bool, directory : Bool,
 `runAs` 的调用方式：
 
 ```kun
-ls { path0 = p"/root", runAs = Just "root" }     // 以 root 执行
+ls { path0 = p"/root", runAs = Just (ByName "root") }     // 以 root 执行
 ls { all = true, path0 = p"/tmp" }                // 以当前用户执行
 ```
 

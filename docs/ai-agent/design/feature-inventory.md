@@ -31,7 +31,7 @@
 | IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
 | DateTime | ✅ 设计定型 | 绝对时间点，format/parse，与 Duration 互操作 |
 | ExitCode | ✅ 设计定型 | 0-255，isSuccess/isFailure，预定义常量 |
-| User / Group | ✅ 设计定型 | UserName/Uid/GroupName/Gid，运行时查询函数 |
+| Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型，名称按需查询；RunAs 和类型支持名字和 ID |
 | IpAddress | ✅ 设计定型 | IPv4/IPv6 枚举，isLoopback/isPrivate，SocketAddr |
 
 ### 命令系统

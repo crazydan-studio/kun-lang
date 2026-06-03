@@ -11,45 +11,16 @@
 // ============================================================
 
 // ============================================================
-// 1. ADT — 四种变体字段风格
+// 3. ADT 定义与和类型
 // ============================================================
 
-// 1a. 无字段（枚举风格）
+// 简单 ADT
 type Color
   = Red
   | Green
   | Blue
-  | Yellow
 
-// 1b. 无名字段（空格分隔）
-type FileError
-  = NotFound Path
-  | PermissionDenied Path
-  | AlreadyExists Path
-
-// 1c. 元组风格字段（圆括号，多值）
-type IpAddress
-  = Ipv4 (Nat, Nat, Nat, Nat)
-  | Ipv6 (Nat, Nat, Nat, Nat, Nat, Nat, Nat, Nat)
-
-// 1d. Record 风格字段（花括号，具名）
-type HttpRequest
-  = Get { url : String, headers : Map String String }
-  | Post { url : String, body : String, headers : Map String String }
-
-// 混合：同一类型可混合，但推荐统一风格
-type Error
-  = IoError IOError
-  | NetworkError { host : String, port : Port }
-  | Timeout Duration
-  | Unknown
-
-// ============================================================
-// 2. Newtype — 单变体 ADT 的包装语义
-// ============================================================
-
-type UserName
-  = UserName String
+// Newtype（单变体）：包装已有类型为新类型
 type UserId
   = UserId Nat
 type GroupId
