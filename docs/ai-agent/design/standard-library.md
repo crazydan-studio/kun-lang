@@ -271,6 +271,59 @@ default : Signal -> IO Unit                          // 恢复默认行为
 
 - 语义场景：网络连接配置、防火墙规则、服务监听地址
 
+## `Validator` — 参数验证器
+
+### 定位
+
+CDF 参数运行时验证的统一类型。验证器将值转换为 `Result`，验证失败时返回错误原因。
+
+### 类型
+
+```kun
+type Validator t = t -> Result t String   // Ok 原值 或 Err 原因
+```
+
+### 内置验证器
+
+```kun
+range  : Int -> Int -> Validator Int                    // 值在 [min, max]
+enum   : List String -> Validator String                 // 值在列表中
+length : Int -> Int -> Validator String                  // 字符串长度 [min, max]
+regex  : String -> Validator String                      // 匹配正则
+```
+
+### 组合器
+
+```kun
+all : List (Validator t) -> Validator t    // 所有通过（AND）
+any : List (Validator t) -> Validator t    // 任一通过（OR）
+not : Validator t -> Validator t           // 取反
+```
+
+### 自定义验证器
+
+任何符合 `Validator t` 签名的 Kun 函数均可作为验证器：
+
+```kun
+myPortValidator : Validator Int
+myPortValidator = \port ->
+  if port >= 1 && port <= 65535 && port != 666 then
+    Ok port
+  else
+    Err "port must be 1-65535 and not 666"
+
+// 组合使用
+portCheck = all [range 1 65535, not (\p -> p == 666)]
+```
+
+### CDF 中使用
+
+```
+option "port" 'p' : Int with (all [range 1 65535])
+option "size" 's' : String with (all [regex "^\\d+$", length 1 32])
+positional 0 : Path with (custom MyModule.myPortValidator)
+```
+
 ## `Args` — 命令行参数解析
 
 ### 定位

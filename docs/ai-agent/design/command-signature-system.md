@@ -98,21 +98,46 @@ positional 1 : String with (optional)
 
 ### 参数验证器
 
-验证器约束应用在参数定义上，运行时校验：
+验证器是 Kun 类型 `Validator t`，通过 `all`/`any`/`not` 组合器复合。内置验证器和自定义函数具有统一的类型签名：
 
-```
-option "port" 'p' : Int with (range 1 65535)
-option "mode" 'm' : String with (enum ["r", "w", "x", "rw", "rx", "rwx"])
-option "name" 'n' : String with (length 1 255)
-option "format" 'f' : String with (regex "^[a-z]+(\\.[a-z]+)*$")
-positional 0 : Path with (custom isReadable)
+```kun
+type Validator t = t -> Result t String   // 验证失败返回 Err 原因
 ```
 
-验证器链式组合：
+内置验证器（定义在标准库中）：
+
+| 验证器 | 签名 | 说明 |
+|--------|------|------|
+| `range` | `Int -> Int -> Validator Int` | 值在 `[min, max]` 范围内 |
+| `enum` | `List String -> Validator String` | 值在枚举列表中 |
+| `length` | `Int -> Int -> Validator String` | 字符串长度在 `[min, max]` 范围内 |
+| `regex` | `String -> Validator String` | 匹配正则表达式 |
+
+组合器：
+
+| 组合器 | 签名 | 说明 |
+|--------|------|------|
+| `all` | `List (Validator t) -> Validator t` | 所有验证器通过（AND） |
+| `any` | `List (Validator t) -> Validator t` | 任一验证器通过（OR） |
+| `not` | `Validator t -> Validator t` | 验证器结果取反 |
+
+应用在 CDF 参数定义上：
 
 ```
-option "size" 's' : String with (regex "^\\d+(K|M|G)$" && length 1 32)
+option "port" 'p' : Int with (all [range 1 65535])
+option "size" 's' : String with (all [regex "^\\d+(K|M|G)$", length 1 32])
+option "name" 'n' : String with (not (regex "^admin$"))
+option "mode" 'm' : String with (any [enum ["r", "w", "x"], regex "^[rwx]{3}$"])
 ```
+
+自定义验证器通过 `custom` 引用 Kun 模块中的函数：
+
+```
+positional 0 : Path with (custom MyModule.validatePath)
+positional 1 : String with (custom (all [length 1 255, mySpecialValidator]))
+```
+
+`custom` 后接的表达式必须为 `Validator t` 类型，`t` 与参数类型一致。自定义验证器在 CDF 加载时注册，运行时调用。
 
 ### 子命令
 
