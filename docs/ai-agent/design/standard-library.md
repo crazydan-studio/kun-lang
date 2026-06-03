@@ -286,10 +286,10 @@ type Validator t = t -> Result t String   // Ok 原值 或 Err 原因
 ### 内置验证器
 
 ```kun
-range  : Int -> Int -> Validator Int                    // 值在 [min, max]
-enum   : List String -> Validator String                 // 值在列表中
-length : Int -> Int -> Validator String                  // 字符串长度 [min, max]
-regex  : String -> Validator String                      // 匹配正则
+range  : Int -> Int -> Validator Int        // 值在 [min, max]
+enum   : List String -> Validator String     // 值在列表中
+length : Int -> Int -> Validator String      // 字符串长度 [min, max]
+regex  : Regex -> Validator String           // 匹配正则，参数为 Regex 字面量
 ```
 
 ### 组合器
@@ -320,7 +320,7 @@ portCheck = all [range 1 65535, not (\p -> p == 666)]
 
 ```
 option "port" 'p' : Int with (all [range 1 65535])
-option "size" 's' : String with (all [regex "^\\d+$", length 1 32])
+option "size" 's' : String with (all [regex r"^\d+$", length 1 32])
 positional 0 : Path with (custom MyModule.myPortValidator)
 ```
 

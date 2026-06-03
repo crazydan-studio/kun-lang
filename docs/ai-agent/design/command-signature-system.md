@@ -121,13 +121,15 @@ type Validator t = t -> Result t String   // 验证失败返回 Err 原因
 | `any` | `List (Validator t) -> Validator t` | 任一验证器通过（OR） |
 | `not` | `Validator t -> Validator t` | 验证器结果取反 |
 
-应用在 CDF 参数定义上：
+应用在 CDF 参数定义上。字面量使用 Kun 类型系统支持的形式（`r"..."` 为正则、`p"..."` 为路径等）：
 
 ```
 option "port" 'p' : Int with (all [range 1 65535])
-option "size" 's' : String with (all [regex "^\\d+(K|M|G)$", length 1 32])
-option "name" 'n' : String with (not (regex "^admin$"))
-option "mode" 'm' : String with (any [enum ["r", "w", "x"], regex "^[rwx]{3}$"])
+option "size" 's' : String with (all [regex r"^\d+(K|M|G)$", length 1 32])
+option "name" 'n' : String with (not (regex r"^admin$"))
+option "mode" 'm' : String with (any [enum ["r", "w", "x"], regex r"^[rwx]{3}$"])
+option "format" 'f' : String with (regex r"^[a-z]+(\.[a-z]+)*$")
+positional 0 : Path with (regex r"^/etc/")
 ```
 
 自定义验证器通过 `custom` 引用 Kun 模块中的函数：
