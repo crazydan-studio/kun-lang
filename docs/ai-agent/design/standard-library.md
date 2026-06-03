@@ -174,7 +174,7 @@ default : Signal -> IO Unit                          // 恢复默认行为
 
 ### `DirEntry`
 
-- 目录树遍历的返回条目，由内建 `find` 函数生成：
+- 目录树遍历的返回条目，由内建 `walkDir` 函数生成：
 
   ```kun
   type DirEntry
@@ -185,10 +185,10 @@ default : Signal -> IO Unit                          // 恢复默认行为
       }
   ```
 
-- `find` 的谓词通过 Kun 的 `filter` + lambda 表达，无需系统 `find` 的 `-name -type -size` 语法：
+- `walkDir` 只负责遍历，过滤在外部通过 `filter` + lambda 表达，无需系统 `find` 的 `-name -type -size` 语法：
 
   ```kun
-  find { root = p"/var/log" }
+  walkDir { root = p"/var/log" }
     |> filter (\e -> e.name |> endsWith ".log")
     |> filter (\e -> e.fileType == RegularFile)
   ```

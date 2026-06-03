@@ -39,8 +39,8 @@
 | 功能 | 状态 | 说明 |
 |---|---|---|
 | 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为带 Record 参数和结构化返回类型的安全函数，支持内建 Primitive 和 CDF 映射两种实现方式 |
-| 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/find 等）以 Zig 内建实现，进程内执行、无子进程开销、类型精确 |
-| find 目录遍历搜索 | ✅ 设计定型 | 内建标准库函数 + Kun lambda 谓词，替代系统 find 的过时谓词语法 |
+| 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/walkDir 等）以 Zig 内建实现，进程内执行、无子进程开销、类型精确 |
+| walkDir 目录遍历 | ✅ 设计定型 | 内建标准库函数，遍历返回 `Stream DirEntry`，过滤在外部通过 `filter` 完成 |
 | runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，通过 `process.run-as` 能力控制 |
 | 输出结构化 | ✅ 设计定型 | 内建 Primitive 直接返回结构化类型；CDF 命令由运行时自动解析输出 |
 | CDF 命令描述文件 | ✅ 设计定型 | 定义复杂命令（curl/grep/ps/find 等）的精确签名和输出类型 |
