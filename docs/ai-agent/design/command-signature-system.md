@@ -36,8 +36,8 @@ command "ls"
 flag "all"     'a' : Bool
 flag "recursive" 'R' : Bool
 flag "directory" 'd' : Bool
-option "sort"  'S' : String with (enum ["size", "time", "version"])
-option "time"  't' : String with (enum ["atime", "ctime", "mtime"])
+option "sort"  'S' : String with (include ["size", "time", "version"])
+option "time"  't' : String with (include ["atime", "ctime", "mtime"])
 positional 0   : Path    with (optional)
 positional 1   : Path    with (optional)
 
@@ -109,9 +109,10 @@ type Validator t = t -> Result t String   // 验证失败返回 Err 原因
 | 验证器 | 签名 | 说明 |
 |--------|------|------|
 | `range` | `Int -> Int -> Validator Int` | 值在 `[min, max]` 范围内 |
-| `enum` | `List String -> Validator String` | 值在枚举列表中 |
+| `include` | `List t -> Validator t` | 值在列表中（白名单） |
+| `exclude` | `List t -> Validator t` | 值不在列表中（黑名单） |
 | `length` | `Int -> Int -> Validator String` | 字符串长度在 `[min, max]` 范围内 |
-| `regex` | `String -> Validator String` | 匹配正则表达式 |
+| `regex` | `Regex -> Validator String` | 匹配正则表达式 |
 
 组合器：
 
@@ -126,8 +127,9 @@ type Validator t = t -> Result t String   // 验证失败返回 Err 原因
 ```
 option "port" 'p' : Int with (all [range 1 65535])
 option "size" 's' : String with (all [regex r"^\d+(K|M|G)$", length 1 32])
-option "name" 'n' : String with (not (regex r"^admin$"))
-option "mode" 'm' : String with (any [enum ["r", "w", "x"], regex r"^[rwx]{3}$"])
+option "name" 'n' : String with (exclude ["admin", "root"])
+option "mode" 'm' : String with (any [include ["r", "w", "x"], regex r"^[rwx]{3}$"])
+option "format" 'f' : String with (not (regex r"^[0-9]+$"))
 option "format" 'f' : String with (regex r"^[a-z]+(\.[a-z]+)*$")
 positional 0 : Path with (regex r"^/etc/")
 ```

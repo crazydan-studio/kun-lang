@@ -286,10 +286,11 @@ type Validator t = t -> Result t String   // Ok 原值 或 Err 原因
 ### 内置验证器
 
 ```kun
-range  : Int -> Int -> Validator Int        // 值在 [min, max]
-enum   : List String -> Validator String     // 值在列表中
-length : Int -> Int -> Validator String      // 字符串长度 [min, max]
-regex  : Regex -> Validator String           // 匹配正则，参数为 Regex 字面量
+range   : Int -> Int -> Validator Int        // 值在 [min, max]
+include : List t -> Validator t              // 值在列表中（白名单）
+exclude : List t -> Validator t              // 值不在列表中（黑名单）
+length  : Int -> Int -> Validator String     // 字符串长度 [min, max]
+regex   : Regex -> Validator String          // 匹配正则，参数为 Regex 字面量
 ```
 
 ### 组合器
