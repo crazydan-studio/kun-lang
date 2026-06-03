@@ -72,26 +72,6 @@
 - 补充 7 个缺失的 sidebar 入口（计划/需求/讨论/审计）
 - 记录到 `agents-md-compliance.md` 重复违规表
 
-### CDF→Kun 代码生成设计
-
-- **CDF 格式重写**：移除旧的 `flag`/`positional`/`optional`，改为 `option <name> "<flag>" : T[!]`、`param <N> : T`、`param * : List T`
-- **编译期代码生成**：CDF 在编译期转译为 Kun 模块，自动生成 Options Record 类型、函数签名、argv 构造逻辑和输出解析器调用
-- **`validator`/`parser` 定义**：`validator` 为纯函数（不能涉及 IO），`parser` 为纯函数，返回值 `Stream (Result T String)`
-- **`option type` 直接命名**：Kun Record 字段名不受关键字限制，`type` 可直接作为字段名
-- **`param <N>` 始终必填**：不使用 `!` 标记，`param * : List T` 显式写出 `List`
-- **`Bool` 缺省 `false`**：不在 Record 类型定义中声明，由命令函数实现内部处理
-- **`output <name>` 引用解析器**：内置 `default`/`json` 解析器
-- **`command <name>` 同名简化**：命令名与函数名相同时省略二进制名
-- **嵌套子命令函数命名**：`<main>_<sub1>_<sub2>` 形式
-- **GIT 完整示例**：包含 root/status/log/diff/branch/remote/config 子命令
-
-### 实现方式分类细化
-
-- 新增 `ps`、`lscpu`、`uptime`、`locate` 为内建 Primitive
-- `walkDir` 替代 `find`——标准库函数 + `filter` lambda 谓词
-- 保留 `ss`、`curl`、`dig`、`rsync`、`tar`、`gzip` 等为 CDF 映射
-- `Validator` 标准库类型和组合器 `all`/`any`/`not` 文档化
-
 ## 待解决问题
 
-- 无——设计审计 57 项已修复/关闭，所有设计决策已完成
+- 无——设计审计 57 项已修复/关闭，命令函数设计已完成
