@@ -206,14 +206,39 @@ Kun 已内建 `Regex` 类型和正则引擎，因此文本搜索类命令（`gre
 | 归档包 | `zip`、`unzip` | CDF 映射 | 仅退出码 | 无内核支持，需外部库 |
 | 压缩 | `gzip`、`gunzip`、`xz`、`zstd` | CDF 映射 | 仅退出码 | 无内核支持，需外部库 |
 | 内容搜索 | `grep` | **内建 Primitive** | 结构化 | 复用内建正则引擎，避免子进程 pipe |
-| 查找检索 | `find`、`locate` | CDF 映射 | 结构化 | 表达式引擎复杂度高 |
-| 进程/网络信息 | `ps`、`ss` | CDF 映射 | 结构化 | `/proc` 解析需处理多内核版本差异 |
+| 目录遍历搜索 | `find` | **内建 Primitive（标准库）** | 结构化 | `fts_open()` 树遍历 + Kun lambda 谓词，替代外部 `find` 的过时谓词语法 |
+| 数据库检索 | `locate` | **内建 Primitive** | 结构化 | 直接读取 mlocate.db 二进制格式 |
+| 进程信息 | `ps` | **内建 Primitive** | 结构化 | 读取 `/proc/[pid]/*` 直接返回结构化类型 |
 | 系统信息 | `free`、`uname`、`lscpu`、`uptime` | **内建 Primitive** | 结构化 | `sysinfo()`/`uname()` 等直接系统调用 |
+| 网络连接信息 | `ss` | CDF 映射 | 结构化 | netlink 协议实现复杂度中等，保持外部命令 |
 | 网络交互 | `curl`、`wget`、`dig`、`ping` | CDF 映射 | 结构化 | HTTP/TLS/ICMP 栈复杂度极高 |
 | 远程同步 | `rsync`、`scp` | CDF 映射 | 结构化/仅退出码 | 复杂协议，无法内建 |
 | 归档内容 | `tar` | CDF 映射 | 结构化 | 归档格式解析复杂度高 |
 
 **不映射**（由 Kun 标准库和语言特性覆盖）：`sed`、`awk`、`sort`、`uniq`、`cut`、`tr`、`head`、`tail`、`cat`、`wc`、`tee`
+
+### `find` 的设计
+
+命令函数名 `find` 与系统 `find` 的功能一致（目录树搜索），但参数和谓词不一一对应。系统 `find` 的谓词语法（`-name -type -size -mtime`）在 Kun 中以标准库函数 + lambda 表达：
+
+```kun
+// 系统 find: find /var/log -name "*.log" -type f -size +100M
+// Kun 内建 find:
+find { root = p"/var/log" }
+  |> filter (\e -> e.name |> endsWith ".log")
+  |> filter (\e -> e.fileType == RegularFile)
+  |> filter (\e -> e.size > 100 * MB)
+```
+
+```kun
+// find 的签名
+type DirEntry = { path : Path, fileType : FileType, size : Int, mtime : DateTime }
+
+find : { root : Path, depth : Maybe Int = Nothing
+       , followSymlinks : Bool = false
+       , runAs : Maybe String = Nothing
+       } -> IO (Result (CmdResult (Stream DirEntry)) IOError)
+```
 
 ### 内置签名的存储
 

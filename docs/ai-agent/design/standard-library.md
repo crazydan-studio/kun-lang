@@ -172,6 +172,27 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - `stat` 跟随符号链接，`lstat` 返回符号链接自身信息
 - 语义场景：文件大小检查、修改时间比较、权限验证、备份筛选
 
+### `DirEntry`
+
+- 目录树遍历的返回条目，由内建 `find` 函数生成：
+
+  ```kun
+  type DirEntry
+    = { path     : Path     // 完整路径
+      , fileType : FileType // 文件类型
+      , size     : Int      // 字节大小
+      , mtime    : DateTime // 最后修改时间
+      }
+  ```
+
+- `find` 的谓词通过 Kun 的 `filter` + lambda 表达，无需系统 `find` 的 `-name -type -size` 语法：
+
+  ```kun
+  find { root = p"/var/log" }
+    |> filter (\e -> e.name |> endsWith ".log")
+    |> filter (\e -> e.fileType == RegularFile)
+  ```
+
 ### `IOError`
 
 - 系统调用返回的结构化错误类型
