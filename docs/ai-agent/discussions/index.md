@@ -15,4 +15,4 @@
 | [异步支持必要性分析](discussion-async-support.md) | MVP 不做异步支持，通过标准库 Task 模块提供组合子式并发 | 2026-05-31 |
 | [能力安全系统设计](discussion-capability-design.md) | `with caps` 语法、零默认能力、编译器内置能力对象、二级粒度声明、审查机制 | 2026-06-01 |
 | [命令函数设计](discussion-command-function-design.md) | 结构化输出、exec 移除、runAs 隐式参数、Record 参数、process.exec 自动推断 | 2026-06-02 |
-| [CDF→Kun 代码生成设计](discussion-cdf-code-generation.md) | CDF 编译期代码生成、validator/pure/parser 设计、param 语义、option type 直接命名 | 2026-06-02 |
+| [CDF→Kun 代码生成设计](discussion-cdf-code-generation.md) | CDF 编译期代码生成、validator/pure/parser 设计、param 语义、option type 直接命名 | 2026-06-03 |
