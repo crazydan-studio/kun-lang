@@ -11,8 +11,8 @@
 | P1 | 命令签名系统设计 | — | `docs/ai-agent/design/command-signature-system.md` | — | `done` | `plan-first` | 无 | 2026-05-31 |
 | P1 | 安全模型设计 | — | `docs/ai-agent/design/roles-and-permissions.md` | — | `done` | `plan-first` | 无 | 2026-05-31 |
 | P1 | 标准库类型设计 | — | `docs/ai-agent/design/standard-library.md` | — | `done` | `implement` | 无 | 2026-05-30 |
-| P2 | 语法设计 | — | `docs/ai-agent/design/syntax.md` | — | `done` | `plan-first` | 无 | 2026-05-30 |
 | P2 | REPL 设计 | — | — | — | `idea` | `plan-first` | 运行时设计 | — |
+| P2 | PlantUML 图表补全 | — | `docs/ai-agent/diagrams/index.md` | `plans/plan-type-system-core-design.md` | `needs-design` | `plan-first` | 无 | 2026-06-04 |
 
 ## 状态流转
 
