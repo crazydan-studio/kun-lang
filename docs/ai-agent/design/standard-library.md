@@ -222,10 +222,16 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - 与 `Duration` 的关系：`DateTime` 是时间轴上的点，`Duration` 是两点之间的间隔
 - 语义场景：文件时间戳（`mtime`、`ctime`）、日志记录、调度触发、超时计算
 
-#### `sleep`
+#### `sleep` / 定时器
 
 - `sleep : Duration -> IO Unit` — 阻塞当前协程指定时长
-- 语义场景：轮询等待、速率限制、定时任务间隔
+- `sleepUntil : DateTime -> IO Unit` — 阻塞直到指定绝对时间点
+- `Signal.setTimeout : Duration -> IO (Result SignalId IOError)` — 创建一次性定时器，超时后触发指定信号
+- `Signal.setInterval : Duration -> IO (Result SignalId IOError)` — 创建周期性定时器，每个周期触发指定信号
+- `Signal.clearTimer : SignalId -> IO Unit` — 取消定时器
+- 语义场景：轮询等待、速率限制、定时任务间隔、超时控制
+- 底层机制：基于 `timerfd_create`（Linux 3.8+），定时器信号通过 signalfd 与其他信号统一排队
+- 生命周期：定时器与当前能力作用域绑定——超出作用域时自动取消。脚本退出时全部清理
 - `sleep` 期间信号通过 signalfd 机制正常处理，可通过 `Signal.on` 中断等待
 
 ### `ExitCode`
