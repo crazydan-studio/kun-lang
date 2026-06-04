@@ -42,7 +42,7 @@
 | 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为带 Record 参数和结构化返回类型的安全函数，支持内建 Primitive 和 CDF（Command Description File，命令描述文件）→Kun 代码生成两种实现方式 |
 | CDF→Kun 代码生成 | ✅ 设计定型 | CDF 在编译期转译为 Kun 模块，自动生成 Options Record、函数签名、argv 构造和输出解析器调用 |
 | 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/walkDir 等）以 Zig 内建实现，进程内执行、无子进程开销、类型精确 |
-| runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，类型为 `Maybe RunAs`（`ByName`/`ById`），通过 `process.run-as` 能力控制 |
+| runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，类型为 `?RunAs`（`ByName`/`ById`），通过 `process.run-as` 能力控制 |
 | 输出结构化 | ✅ 设计定型 | 内建 Primitive 直接返回结构化类型；CDF 命令通过 `parser` 纯函数解析输出，支持 `default`/`json` 内置解析器和自定义解析器 |
 | Validator 验证器系统 | ✅ 设计定型 | `Validator t` 纯函数类型，支持 `all`/`any`/`not` 组合器和内置验证器（`range`/`include`/`exclude`/`length`/`regex`） |
 | 内置签名库 | ✅ 设计定型 | 仅映射 Kun 无法原生获取的外部命令（ls/du/ps/grep/find/curl 等） |
@@ -64,6 +64,7 @@
 | xargs 模式 | ✅ 设计定型 | `Stream.toList` + `|>` 管道自然覆盖，无需独立 xargs 命令 |
 | `FdSpec` fd 重定向 | ✅ 设计定型 | `fd : Map Int FdSpec` 隐式字段，支持 ReadFromPath/WriteToPath/ReadFromStr/InheritFrom/RedirectTo |
 | 超长参数自动分片 | ✅ 设计定型 | `param * : List T` 或 `option x : List T` 超出 `execve` 限制时自动分片执行 + 隐式合并 stdout |
+| 行流/文档输出模式 | ✅ 设计定型 | `output <name>` 行流（逐行解析） vs `output <name>-doc` 文档模式（完整输出一次解析）；支持 `text-doc` / `json-doc` 内置文档解析器 |
 
 ### 运行时
 
