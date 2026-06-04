@@ -404,6 +404,48 @@ Map.merge : Map String a -> Map String a -> Map String a
 - `update` 对已有值应用变换函数，键不存在时不操作
 - `merge` 并集合并，右侧覆盖左侧的相同键
 
+## `Result` — 错误处理组合子
+
+### 定位
+
+`Result t e` 是 Kun 的核心错误处理类型。`=!`/`<-!` 操作符提供了模式匹配的简化语法，`Result` 模块提供函数式组合子用于链式处理。
+
+### API
+
+```kun
+Result.map : (a -> b) -> Result a e -> Result b e
+Result.mapError : (e -> f) -> Result a e -> Result a f
+Result.andThen : (a -> Result b e) -> Result a e -> Result b e
+Result.withDefault : a -> Result a e -> a
+Result.ok : Result a e -> ?a
+Result.isOk : Result a e -> Bool
+Result.isErr : Result a e -> Bool
+```
+
+- `map` — 对 `Ok a` 应用函数，`Err` 不变
+- `andThen` — 链式调用，`Ok a` 时传入下一函数，`Err` 短路
+- `withDefault` — `Ok` 返回值，`Err` 返回缺省值
+- `ok` — 将 `Result` 转为 `?T`，`Err` 对应 `Nil`
+
+## `?T` (Nilable) — 可选值操作
+
+### 定位
+
+`?T` 是 Kun 的内置 Nilable 类型。`case` 和 `??` 提供了基础操作，模块函数提供组合子。
+
+### API
+
+```kun
+maybe : a -> ?a -> a                    // Nil 时返回缺省值
+mapNil : (a -> b) -> ?a -> ?b           // 非 Nil 时应用函数
+orElse : ?a -> ?a -> ?a                  // Nil 时返回备选
+toResult : e -> ?a -> Result a e         // Nil 转为 Err
+```
+
+- `maybe` 已在 f-string 中广泛使用：`Args.get "verbose" opts \|> maybe false identity`
+- `mapNil` 相当于 `?T` 上的 `map`
+- `orElse` 提供链式备选：`get "a" dict \|\| orElse (get "b" dict)`
+
 ## `Args` — 命令行参数解析
 
 ### 定位

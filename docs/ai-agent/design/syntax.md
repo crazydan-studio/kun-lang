@@ -1026,6 +1026,14 @@ case Args.parse [Args.flag "verbose" 'v', Args.option "output" 'o'] raw of
 
 `Args` 模块的详细 API 见[标准库文档](standard-library.md#args)。
 
+### 模块名冲突
+
+不同路径下的模块可能同名（如 `./lib/json.kun` 和 `./vendor/json.kun`）。搜索优先级决定哪个模块被导入：
+
+1. 项目本地路径 `./modules/` 优先于标准库路径 `<runtime_prefix>/lib/kun/`
+2. 同一路径下同名模块为编译期错误（无法确定开发者意图）
+3. 项目本地路径下同名模块按搜索顺序首命中，不告警
+
 ### 规则说明
 
 **`main` 优先**：文件定义了 `main` 时，编译器以此作为唯一入口，忽略其他顶层 IO 表达式：
