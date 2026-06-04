@@ -22,7 +22,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 | 文件系统元数据 | 无 | `stat` 等操作默认不可用 |
 | 网络出站 | 无 | HTTP/HTTPS/TCP/UDP 全部禁止 |
 | 网络监听 | 无 | 禁止监听任何端口 |
-| 进程执行 | 无 | 无 CDF 签名的外部命令不可执行（CDF-less 受限模式除外，需显式 opt-in） |
+| 进程执行（`run`） | 无 | `run""` 子进程执行需 `process.run` 白名单；CDF 命令函数通过 CDF 存在授权 |
 | 进程信号/终止 | 无 | 禁止信号发送与进程终止 |
 | 进程运行用户切换 | 无 | 只能以当前进程用户运行命令函数 |
 | 环境变量读 | 无 | 禁止读取任何环境变量 |
@@ -35,7 +35,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 
 `Path.cwd` 提供当前工作目录：在脚本启动时求值一次并冻结。运行时 `chdir` **不**影响能力声明中的 `Path.cwd`。
 
-**`chdir` 操作**：Kun 不提供内建的 `chdir` 函数。脚本不应在运行时切换工作目录。若确实需要改变进程的 CWD（如影响子进程的路径解析），需通过 CDF（Command Description File，命令描述文件）命令函数调用外部 `cd` 命令。
+**`chdir` 操作**：Kun 不提供内建的 `chdir` 函数。脚本不应在运行时切换工作目录。若确实需要改变进程的 CWD（如影响子进程的路径解析），需通过 `run` 或 CDF 命令函数调用外部 `cd` 命令。
 
 ### 与操作系统的关系
 
@@ -201,6 +201,7 @@ readConfig =
 
 | 动作 | 目标类型 | 语义 | 示例 |
 |------|---------|------|------|
+| `run` | `[String]` | 允许 `run""` 执行指定的命令名称（basename 匹配） | `process.run = ["kubectl", "docker"]` |
 | `run-as` | `[String]` | 允许命令函数切换到的用户名或 UID | `process.run-as = ["root", "nobody"]` |
 | `signal` | （无目标） | 向进程发送信号 | `process.signal = []` |
 | `kill` | （无目标） | 终止任意进程 | `process.kill = []` |
