@@ -52,14 +52,14 @@ process = \x y ->
 `case` 必须在换行后开始，不能与 `=`、`->` 在同一行：
 
 ```kun
--- 正确
+// 正确
 result =
   case value of
     Ok r -> r
     Err _ -> default
 
--- 错误
-result = case value of   -- case 与 = 在同一行
+// 错误
+result = case value of   // case 与 = 在同一行
   ...
 ```
 
@@ -124,7 +124,7 @@ parseLine = \line ->
 `let` 和 `in` 各自在新行，不能与 `=` 在同一行：
 
 ```kun
--- 正确
+// 正确
 result =
   let
     x = 1
@@ -132,10 +132,10 @@ result =
   in
     x + y
 
--- 错误
-result = let          -- let 与 = 在同一行
+// 错误
+result = let          // let 与 = 在同一行
   x = 1
-in x + y              -- in 与表达式在同一行
+in x + y              // in 与表达式在同一行
 ```
 
 单条绑定时省略 `let`：
@@ -150,13 +150,13 @@ result =
 `do` 在新行开始，`in` 在独立行：
 
 ```kun
--- 无返回值
+// 无返回值
 main =
   do
     step1
     step2
 
--- 有返回值
+// 有返回值
 main =
   do
     step1
@@ -173,7 +173,7 @@ readConfig = \path ->
   do
     content <- readFile path
     lines  = split "\n" content
-    minLvl =? parseLevel "INFO"
+    minLvl =! parseLevel "INFO"
   in
     Ok (createDefaultConfig logDir)
 ```
@@ -216,14 +216,14 @@ readConfig =
 每个管道操作独立一行，`|>` 在行首：
 
 ```kun
--- 正确
+// 正确
 result =
   list
     |> filter predicate
     |> map transform
     |> fold (+) 0
 
--- 错误
+// 错误
 result = list |> filter predicate |> map transform |> fold (+) 0
 ```
 
@@ -293,10 +293,6 @@ list = [1..1000]
 变体竖排，`=` 与第一个变体在同一行：
 
 ```kun
-type Maybe t
-  = Just t
-  | Nothing
-
 type Result t e
   = Ok t
   | Err e
@@ -385,11 +381,11 @@ parseLevel = \s ->
 processLargeFile : Path -> IO Unit
 processLargeFile = \path ->
   do
-    lines <-? Stream.readLines path
+    lines <-! Stream.readLines path
     lines
       |> filter (contains "ERROR")
       |> map parseLine
-      |> filterMap toMaybe
+      |> filterMap Result.ok
       |> iter (\entry -> print entry.message)
 
 readConfig : Path -> IO (Result Config Error)
@@ -398,7 +394,7 @@ readConfig = \path ->
     content <- readFile path
     lines   = split "\n" content
     logDir  = p"/var/log/myapp"
-    minLvl  =? parseLevel "INFO"
+    minLvl  =! parseLevel "INFO"
   in
     Ok (createDefaultConfig logDir)
 ```

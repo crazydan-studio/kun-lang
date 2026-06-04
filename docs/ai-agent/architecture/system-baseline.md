@@ -182,7 +182,7 @@ struct IO_Thunk {
 3. 将提取的值绑定到左侧名字
 4. 继续执行后续表达式
 
-`<-?` 额外执行 Result 解包：
+`<-!` 额外执行 Result 解包：
 
 1. 对右侧 `IO (Result T E)` 表达式求值
 2. 从 IO thunk 中提取 `Result T E` 值
@@ -197,7 +197,7 @@ Stream 在运行时的核心表示是一个**拉取驱动的迭代器**：
 ```zig
 struct Stream {
     void* state;                 // 迭代器内部状态
-    Maybe (*next)(void* state);  // 拉取下一个元素
+    ?t (*next)(void* state);     // 拉取下一个元素
     void (*drop)(void* state);   // 释放迭代器状态
 };
 ```
@@ -211,7 +211,7 @@ Stream 构造与消费的两阶段分离：
 ```kun
 // 构造阶段：打开文件，返回 IO (Result (Stream String) IOError)
 // 此处 Stream 的 state 包含文件描述符，next 包含 readline 逻辑
-lines <-? Stream.readLines p"/tmp/log.txt"
+lines <-! Stream.readLines p"/tmp/log.txt"
 
 // 消费阶段：iter 循环调用 lines 的 next 函数
 // 每次调用 next 从文件读取一行
@@ -318,7 +318,7 @@ struct CommandError {
 | 错误类型 | 检测阶段 | 传播方式 | 处理方式 |
 |---------|---------|---------|---------|
 | `TypeError` | 类型检查 | 编译期报错 | 必须修复后重试 |
-| `IOError` | 运行时 | `IO (Result T IOError)` | 调用者通过 `?`/`<-?`/`case` 处理。变体：`NotFound`、`PermissionDenied`、`AlreadyExists`、`Unsupported`、`Other` |
+| `IOError` | 运行时 | `IO (Result T IOError)` | 调用者通过 `?`/`<-!`/`case` 处理。变体：`NotFound`、`PermissionDenied`、`AlreadyExists`、`Unsupported`、`Other` |
 
 ### 报告管道
 

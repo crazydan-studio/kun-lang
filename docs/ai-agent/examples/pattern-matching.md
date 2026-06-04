@@ -1,11 +1,11 @@
 # 模式匹配聚焦：穷举、守卫、嵌套、解构
 
-覆盖：变体模式、字面量模式、通配、List 模式（`[*rest]`）、守卫子句、Tuple 解构、Record 解构（`as` 别名）、嵌套模式、类型收窄、穷举检查
+覆盖：变体模式、字面量模式、通配、List 模式（`[..rest]`）、守卫子句、Tuple 解构、Record 解构（`as` 别名）、嵌套模式、类型收窄、穷举检查
 
 ```kun
 // ============================================================
 // pattern-matching.kun  —  模式匹配专题
-// 涵盖：变体 / 字面量 / 通配 / List [a, *rest] / 守卫 /
+// 涵盖：变体 / 字面量 / 通配 / List [a, ..rest] / 守卫 /
 //       解构 / 嵌套 / 类型收窄 / 穷举检查
 // ============================================================
 
@@ -68,25 +68,25 @@ describeResult = \res ->
 head : List a -> ?a
 head = \list ->
   case list of
-    [x, *_] -> x
+    [x, .._] -> x
     []      -> Nil
 
 // ============================================================
-// 3. List 模式（[*rest] 替代 ::）
+// 3. List 模式（[..rest] 替代 ::）
 // ============================================================
 
-// 基本 [head, *tail]
+// 基本 [head, ..tail]
 sum : List Int -> Int
 sum = \list ->
   case list of
     []          -> 0
-    [x, *xs]    -> x + sum xs
+    [x, ..xs]    -> x + sum xs
 
 // 多元素前缀匹配
 startsWithOneTwo : List Int -> Bool
 startsWithOneTwo = \list ->
   case list of
-    [1, 2, *_] -> true
+    [1, 2, .._] -> true
     _          -> false
 
 // 长度判断
@@ -102,7 +102,7 @@ describeList = \list ->
 thirdElement : List Int -> ?Int
 thirdElement = \list ->
   case list of
-    [_, _, z, *_] -> z
+    [_, _, z, .._] -> z
     _             -> Nil
 
 // ============================================================
@@ -143,7 +143,7 @@ swap = \pair ->
 bothOrNothing : (?a, ?b) -> ?(a, b)
 bothOrNothing = \pair ->
   case pair of
-    (a, b) when a != Nil && b != Nil -> (a, b)  // 双方都有值
+    (a, b) when a /= Nil && b /= Nil -> (a, b)  // 双方都有值
     _                                -> Nil
 
 // ============================================================

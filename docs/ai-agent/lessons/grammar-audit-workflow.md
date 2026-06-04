@@ -54,13 +54,13 @@
 | 11 | Map 索引 | — | `data["key"]` |
 | 12 | 名字绑定 | `let x = y`（单条绑定） | `x = y` |
 | 13 | 多条绑定 | — | `let ... in` |
-| 14 | List 模式 | `x :: xs`、`head::tail` | `[x, *xs]` |
+| 14 | List 模式 | `x :: xs`、`head::tail` | `[x, ..xs]` |
 | 15 | Lambda | `\x, y ->` | `\x y ->`、`\(x, y) ->` |
 | 16 | 点调用 | `p.parent()`、`code.isSuccess`、`line.slice 5` | `Path.parent p`、`ExitCode.isSuccess code`、`String.slice 5 line` |
 | 17 | 导入 | `from List import (map)` | `import List as L`（模块别名）或 `import List with (map, filter)`（精选导入），不可组合 |
 | 18 | 导出 | `pub` 关键字 | `module ... export (...)` |
-| 19 | `?` / `=?` 操作符 | `(expr)?`、`funcName? args` | `name =? expr`（纯绑定）；`name <-? expr`（IO 绑定）；Stream 上不支持，用 `filterMap toMaybe` |
-| 20 | `<-` 解包 | — | `name <- expr` 仅 IO；`name <-? expr` IO + Result |
+| 19 | `?` / `=!` 操作符 | `(expr)?`、`funcName? args` | `name =! expr`（纯绑定）；`name <-! expr`（IO 绑定）；Stream 上不支持，用 `filterMap Result.ok` |
+| 20 | `<-` 解包 | — | `name <- expr` 仅 IO；`name <-! expr` IO + Result |
 | 21 | 无参函数类型 | `() -> T` | 无。改用绑定或 `IO T` |
 | 22 | 类型别名 | `type alias` | 仅 `type LongFunc = ...`（函数类型） |
 | 23 | Record 类型别名 | `type Point = { x, y }` | `type Point = Point { x, y }`（Newtype）或内联 |

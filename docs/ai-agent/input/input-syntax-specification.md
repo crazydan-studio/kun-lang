@@ -22,18 +22,18 @@
 | 6 | 插值字面量 | `` f`...` `` 前缀 + 反引号 |
 | 7 | Path 字面量 | `` p`...` `` 前缀 + 反引号 |
 | 8 | `_` 占位符 | 用于解构和模式匹配中的位置占位 |
-| 9 | List 解构/展开 | `[a, b, *rest] = list`、`[*la, 0, *lb]` |
+| 9 | List 解构/展开 | `[a, b, ..rest] = list`、`[..la, 0, ..lb]` |
 | 10 | Map 字面量 | `#{ "a" = 1 }`（`=` 替代 `=>`），不支持解构 |
 | 11 | Record 别名解构 | `{x as x1, y as y1} = point` |
-| 12 | 泛型参数 | Elm 风格空格分隔，如 `type Result t e`、`Maybe String`、`IO (Result FileType IOError)` |
+| 12 | 泛型参数 | Elm 风格空格分隔，如 `type Result t e`、`?String`、`IO (Result FileType IOError)` |
 | 13 | 点调用 | 仅积类型字段投影和元组索引，无函数调用；函数通过模块导入并调用 |
 | 14 | 函数类型 | Elm 风格 `Int -> Int -> Int`，无逗号，无 `()` -> 语法 |
 | 15 | 参数解构 | `\(x, y) ->`、`\{x, y} ->`、`\[x, y] ->` |
 | 16 | Let 绑定 | 单条无 `let`，多条 `let ... in` |
-| 17 | 模式匹配 | 形式与解构一致：`[_, y]`、`[1, _, z, *rest]`、`{x = 1, y}` |
+| 17 | 模式匹配 | 形式与解构一致：`[_, y]`、`[1, _, z, ..rest]`、`{x = 1, y}` |
 | 18 | `?` 操作符 | 标记在函数名之后 |
-| 19 | 模块导入 | `import List` / `from List import (map)` 双语法，变体导入 `Maybe(*)`/`Maybe(Just)`，别名 `map as listMap` |
-| 20 | 模块导出 | `module List export (map, filter)`、`Maybe(*)` 变体导出 |
+| 19 | 模块导入 | `import List` / `from List import (map)` 双语法，变体导入 `Result(..)`/`Result(Ok)`，别名 `map as listMap` |
+| 20 | 模块导出 | `module List export (map, filter)`、`Result(..)` 变体导出 |
 | 21 | 权限声明 | 保持不变 |
 
 ## 处理结果

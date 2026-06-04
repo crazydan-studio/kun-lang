@@ -75,9 +75,9 @@
 | 方案 | 示例 |
 |------|------|
 | Cons 风格 | `x :: xs`、`x :: y :: rest` |
-| 数组风格 | `[x, *xs]`、`[x, y, *rest]` |
+| 数组风格 | `[x, ..xs]`、`[x, y, ..rest]` |
 
-**最终决策**：**数组风格** `[x, *xs]`。更直观，与 List 字面量形式一致。
+**最终决策**：**数组风格** `[x, ..xs]`。更直观，与 List 字面量形式一致。
 
 ### 议题 8：Map 字面量语法
 
@@ -105,17 +105,17 @@
 | v1（已弃用） | `import List as L with (map as m)`（`as` `with` 可组合） | `module List export (map)` 无 `pub` |
 | 最终（v2） | `import List as L` 或 `import List with (map as m)`（互斥，不可组合） | `module List export (map)` 无 `pub` |
 
-### 议题 11：`?` / `=?` 操作符位置
+### 议题 11：`?` / `=!` 操作符位置
 
 | 方案 | 语法 | 说明 |
 |------|------|------|
 | 表达式后 | `(expr)?` | 优先级低，需括号包裹 |
 | 函数名后 | `funcName? args` | 作用于函数返回值 |
-| IO 绑定时 | `name <-? expr` | 作用于绑定表达式的 Result |
-| 纯绑定时 | `name =? expr` | 作用于纯 Result 表达式 |
-| Stream 上 | `result?` 逐元素解包 | REJECTED——用 `filterMap toMaybe` |
+| IO 绑定时 | `name <-! expr` | 作用于绑定表达式的 Result |
+| 纯绑定时 | `name =! expr` | 作用于纯 Result 表达式 |
+| Stream 上 | `result?` 逐元素解包 | REJECTED——用 `filterMap Result.ok` |
 
-**最终决策**：**纯绑定 `=?` + IO 绑定 `<-?`**。函数名后缀 `funcName?` 被移除，早返回仅限变量绑定时发生。Stream 上不支持逐元素解包。
+**最终决策**：**纯绑定 `=!` + IO 绑定 `<-!`**。函数名后缀 `funcName?` 被移除，早返回仅限变量绑定时发生。Stream 上不支持逐元素解包。
 
 ### 议题 12：`<-` 解包语义
 
@@ -125,7 +125,7 @@
 |------|------|
 | `expr` | 执行（类型 `IO T`），丢弃 `T` |
 | `name <- expr` | 执行，解包 `T` 绑定到 `name` |
-| `name <-? expr` | 执行，解包 IO + Result，Err 早返回 |
+| `name <-! expr` | 执行，解包 IO + Result，Err 早返回 |
 
 ### 议题 13：脚本入口
 
@@ -146,7 +146,7 @@
 |------|---------|---------|
 | 构造语法 | `stream expr` 关键字 | 已移除。`Stream.fromList`/`Stream.range`/`Stream.readLines` |
 | IO Stream 消费 | 直接链式 | 必须 `<-` 解包后消费 |
-| 构造错误处理 | 未定义 | `IO (Result (Stream String) IOError)`，`<-?` 解包 |
+| 构造错误处理 | 未定义 | `IO (Result (Stream String) IOError)`，`<-!` 解包 |
 | 运行时错误处理 | 未定义 | 静默终止流；安全版本 `readLinesSafe` 每行包裹 `Result` |
 | 元素类型 | 纯值 `t` | 不变。运行时错误不暴露为元素级 `Err` |
 
@@ -178,12 +178,12 @@
 | 函数类型 | 柯里化 `Int -> Int -> Int`，除非参数本身为元组 |
 | 函数应用 | 空格分隔参数，无逗号；元组参数用圆括号包裹 |
 | 名字绑定 | 均以 `a = b` 形式；`let ... in` 用于确保多条语句的唯一返回值 |
-| List 模式 | `[a, *rest]` 替代 `a :: rest` |
+| List 模式 | `[a, ..rest]` 替代 `a :: rest` |
 | Map 字面量 | `#{ "a" = 1 }`（`=` 替代 `=>`）；Map 索引 `data["key"]`；Map 更新使用 `update` 语法 |
 | `capability` -> `with caps` | `with capability`/`with capabilities` 统一为 `with caps` |
 | 点调用语义 | 仅限积类型字段投影和元组索引，无函数调用 |
 | `Stream` 构造 | `Stream.fromList`、`Stream.range` 替代 `stream` 关键字 |
-| 模块导入 | `import List as L`（模块别名）或 `import List with (map as m)`（精选导入）互斥；`Maybe(*)` 变体导入语法 |
+| 模块导入 | `import List as L`（模块别名）或 `import List with (map as m)`（精选导入）互斥；`Result(..)` 变体导入语法 |
 | 模块导出 | `module List export (map)` 声明语法，无 `pub` 关键字 |
 | 导出语法 | 仅 `module export`，无 `pub` 关键字 |
 | 类型别名 | 仅函数类型支持 `type LongFunc = ...`，非函数类型别名在导入时指定 |
@@ -191,7 +191,15 @@
 | 函数组合 | 从左向右 `>>`, 从右向左 `<<` |
 | 反向管道 | 减少括号嵌套 |
 | 无参函数 | 不支持 `() -> T`。`IO T` 已是延迟值，`<-` 即执行；纯函数惰性求值靠绑定 |
-| `=` / `=?` / `<-?` | `name = expr` 纯绑定；`name =? expr` 解纯 Result，Err 早返回；`name <-? expr` 解 IO + Result，Err 早返回 |
-| `?` / `=?` 位置 | 纯绑定 `name =?` 和 IO 绑定 `name <-?`；函数名后缀 `funcName?` 已移除；Stream 上不支持逐元素解包，用 `filterMap toMaybe` |
+| `=` / `=!` / `<-!` | `name = expr` 纯绑定；`name =! expr` 解纯 Result，Err 早返回；`name <-! expr` 解 IO + Result，Err 早返回 |
+| `?` / `=!` 位置 | 纯绑定 `name =!` 和 IO 绑定 `name <-!`；函数名后缀 `funcName?` 已移除；Stream 上不支持逐元素解包，用 `filterMap Result.ok` |
 | `stream` 关键字 | 已移除。纯构造用 `Stream.fromList`/`Stream.range`，IO 构造用 `Stream.readLines` |
 | IO Stream 消费 | IO Stream 必须通过 `<-` 解包后才能进行 `map`/`filter`/`iter` 等消费操作 |
+
+## 版本历史
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| 0.1.0 | 2026-06-04 | 初始版本：16 项语法变更讨论 |
+| 0.1.1 | 2026-06-04 | 议题 11 修订：`=?` / `<-?` → `=!` / `<-!`；不一致 `!=` → `/=` |
+| 0.1.2 | 2026-06-04 | 确认议题 1（无参函数）否决不变；List 展开/解构/模式 `*` → `..`；ADT 变体导入 `(*)` → `(..)`；新增 `import with (..)` 全量导入语法 |

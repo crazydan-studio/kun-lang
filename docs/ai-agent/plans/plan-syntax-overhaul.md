@@ -14,7 +14,7 @@
 | 4 | 插值字面量 | `f"..."` | `` f`...` `` | 5 |
 | 5 | 泛型语法 | `List<Int>` | `List Int` | 10 |
 | 6 | 泛型语法（嵌套） | `IO<Result<A, B>>` | `IO (Result A B)` | 10 |
-| 7 | List 解构 | `x :: xs` | `[x, *xs]` | 4 |
+| 7 | List 解构 | `x :: xs` | `[x, ..xs]` | 4 |
 | 8 | Map 字面量 | `#{ "a" => 1 }` | `#{ "a" = 1 }` | 3 |
 | 9 | 导入语法 | `import List as L` | `from List import (map)` 等 | 3 |
 | 10 | 函数类型 | `(Int, Int) -> Int` | `Int -> Int -> Int` | 4 |
@@ -64,13 +64,13 @@
 7. **函数定义与应用** — 空格分隔参数，无逗号：`add x y`
 8. **Lambda** — 参数直接解构：`\(x, y) ->`、`\{x, y} ->`、`\[x, y] ->`
 9. **Let 绑定** — 单行无 `let`，多行 `let ... in`
-10. **模式匹配** — List `[a, *rest]`、Record `{x as x1, y}`、元组 `(1, y)`
-11. **List 解构/展开** — `[a, b, *rest] = list`、`[*la, 0, *lb]`
+10. **模式匹配** — List `[a, ..rest]`、Record `{x as x1, y}`、元组 `(1, y)`
+11. **List 解构/展开** — `[a, b, ..rest] = list`、`[..la, 0, ..lb]`
 12. **Record 解构别名** — `{x as x1, y as y1} = point`
 13. **点调用** — 仅字段投影/元组索引，删除方法调用
 14. **管道** — `|>` 保持不变
 15. **`?` 操作符** — 标记在函数名后
-16. **模块导入** — `import List` / `from List import (map)` 双语法，变体导入 `Maybe(Just)`，别名 `map as listMap`
+16. **模块导入** — `import List` / `from List import (map)` 双语法，变体导入 `Result(Ok)`，别名 `map as listMap`
 17. **模块导出** — `module List export (map, filter)` 声明
 18. **权限声明** — 不变
 19. **Stream** — 不变
@@ -78,7 +78,7 @@
 
 ### Step 2: 更新类型系统文档 `docs/ai-agent/design/type-system.md`
 
-- 全局泛型语法：`List<T>` → `List t`，`Maybe<String>` → `Maybe String`，`IO<Result<FileType, IOError>>` → `IO (Result FileType IOError)`
+- 全局泛型语法：`List<T>` → `List t`，`?String` 替代 `Maybe String`；`IO<Result<FileType, IOError>>` → `IO (Result FileType IOError)`
 - 函数类型：`(Int, Int) -> Int` → `Int -> Int -> Int`
 - Path 字面量：`path"..."` → `` p`...` ``
 - 注释：`--` → `//`
@@ -120,8 +120,8 @@ pnpm lint:md && pnpm build && git commit
 ### 泛型括号规则
 
 ```kun
-// 旧: List<Int>, Maybe<String>, IO<Result<FileType, IOError>>
-// 新: List Int, Maybe String, IO (Result FileType IOError)
+// 旧: List<Int>, IO<Result<FileType, IOError>>
+// 新: List Int, IO (Result FileType IOError)
 ```
 
 ### 函数类型与应用规则
@@ -143,10 +143,10 @@ pnpm lint:md && pnpm build && git commit
 ### 包管理
 
 ```kun
-from List import (map, filter)       -- 限定导入
-from List import (map as listMap)    -- 别名导入
-from Maybe import (Maybe(*))         -- 导入全部变体
-from Maybe import (Maybe(Just))      -- 仅导入 Just 变体
+from List import (map, filter)       // 限定导入
+from List import (map as listMap)    // 别名导入
+from Result import (Result(..))       // 导入全部变体
+from Result import (Result(Ok))      // 仅导入 Ok 变体
 ```
 
 ## 审计要点
@@ -155,7 +155,7 @@ from Maybe import (Maybe(Just))      -- 仅导入 Just 变体
 2. 所有函数调用是否移除逗号（除元组参数外）
 3. 所有 Path/Regex/f-string 字面量是否改为反引号
 4. 所有 `--` 注释是否改为 `//`
-5. 所有 List 模式是否改为 `[x, *xs]` 形式（无遗留 `::`）
+5. 所有 List 模式是否改为 `[x, ..xs]` 形式（无遗留 `::`）
 6. 所有 Map 字面量是否改为 `=`（无遗留 `=>`）
 7. 所有导入语句是否更新为 `from ... import` 或新语法
 8. 所有点调用方法是否为纯字段投影/元组索引（无方法调用）
