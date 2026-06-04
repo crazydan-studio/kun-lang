@@ -7,7 +7,7 @@ Kun 0.1.0 的 MVP 目标是验证核心语言设计的可行性。
 ## MVP 包含
 
 - 基础类型系统（Int、Nat、Float、Bool、String、Bytes、Unit、Path）
-- Maybe、Result 和类型
+- `?T` Nilable 类型、`Result` 和类型
 - 基本的命令函数抽象（至少支持 ls、cat、echo 等简单命令）
 - 基本的管道操作符
 - 简单的 REPL 交互环境

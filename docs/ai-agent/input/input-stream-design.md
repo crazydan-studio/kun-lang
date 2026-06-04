@@ -21,15 +21,15 @@
 ### IO Stream 必须解包后才能消费
 
 - `Stream.readLines : Path -> IO (Result (Stream String) IOError)`
-- 构造阶段错误通过 `Result` 暴露，可用 `<-?` 自动解包或显式 match
+- 构造阶段错误通过 `Result` 暴露，可用 `<-!` 自动解包或显式 match
 - 运行时错误静默终止流（与 shell 管道行为一致）
 - 安全版本 `readLinesSafe` 每行包裹 `Result`
 
 ### 错误处理模型
 
-- `name <-? expr` 同时解包 IO 和 Result，Err 早返回
+- `name <-! expr` 同时解包 IO 和 Result，Err 早返回
 - `name <- expr` 仅解 IO，留 `Result` 给显式处理
-- Stream 上不支持 `result?` 逐元素解包，用 `filterMap toMaybe` 代替
+- Stream 上不支持 `result?` 逐元素解包，用 `filterMap Result.ok` 代替
 
 ## 设计结果
 

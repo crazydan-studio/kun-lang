@@ -43,7 +43,7 @@
 ```kun
 Task.parallel : List (IO a) -> IO (List a)
 Task.race     : List (IO a) -> IO a
-Task.timeout  : Duration -> IO a -> IO (Maybe a)
+Task.timeout  : Duration -> IO a -> IO (?a)
 ```
 
 示例场景——同时检查多个服务：
