@@ -29,7 +29,7 @@ with capability net.http("api.example.com") { ... }   // 作用域块——with 
 ### 2. `with` 的作用域不清晰
 
 ```kun
--- 疑问：单命令注解能否被作用域块完全替代？
+// 疑问：单命令注解能否被作用域块完全替代？
 cmd with caps        vs        with caps in cmd
 ```
 
@@ -50,7 +50,7 @@ cmd with caps        vs        with caps in cmd
 ### 5. 能力目标能否通配？
 
 ```kun
-fs.read(Any)       -- 安全隐患？还是必要的灵活性？
+fs.read(Any)       // 安全隐患？还是必要的灵活性？
 ```
 
 是否有场景确实需要 `Any`？用户传入路径参数时如何处理？

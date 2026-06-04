@@ -13,11 +13,11 @@ Kun 作为面向 Linux 的函数式脚本语言，其安全模型的设计直接
 **方案**：采用 `with caps` 关键字 + `命名空间.动作 = [目标列表]` 格式。
 
 ```kun
--- 脚本级声明
+// 脚本级声明
 with caps
   fs.read = [Path.cwd, p"/tmp/"]
 
--- 函数级（do 表达式块）
+// 函数级（do 表达式块）
 readConfig =
   with caps
     fs.read = [p"/etc/config"]
