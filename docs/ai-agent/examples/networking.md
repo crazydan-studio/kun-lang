@@ -93,7 +93,7 @@ loadConfig = \path ->
   in
     Ok { host = host, port = port }
 
-// ? 的链式使用
+// =! / <-! 的链式使用
 fetchAndReport : SocketAddr -> IO (Result MonitorResult String)
 fetchAndReport = \addr ->
   do

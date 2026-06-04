@@ -203,12 +203,14 @@ default : Signal -> IO Unit                          // 恢复默认行为
     | PermissionDenied Path
     | AlreadyExists Path
     | Unsupported String
+    | CommandFailed { command : String, exitCode : Int, stderr : String }
     | Other String
   ```
 
 - 与 `Errno` 的关系：`IOError` 是面向用户的语义封装，`Errno` 是底层 POSIX 码
 - 转换函数：`toIOError : Errno -> IOError`（将 POSIX 码映射为语义化错误）
 - 语义场景：文件操作、网络操作、进程管理等系统调用的错误报告
+- `CommandFailed` 用于命令函数（CDF/`run`）的执行失败，包含命令名、退出码和 stderr 输出
 
 ### `DateTime`
 
@@ -220,6 +222,12 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - 与 `Duration` 的关系：`DateTime` 是时间轴上的点，`Duration` 是两点之间的间隔
 - 语义场景：文件时间戳（`mtime`、`ctime`）、日志记录、调度触发、超时计算
 
+#### `sleep`
+
+- `sleep : Duration -> IO Unit` — 阻塞当前协程指定时长
+- 语义场景：轮询等待、速率限制、定时任务间隔
+- `sleep` 期间信号通过 signalfd 机制正常处理，可通过 `Signal.on` 中断等待
+
 ### `ExitCode`
 
 - 进程退出码，值域 `0 .. 255`（u8）
@@ -227,8 +235,9 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - 语义约定：`0` 表示成功，非零表示失败，`125`-`255` 有特殊含义（与 Shell 惯例对齐）
 - 构造器：`ExitCode.ofInt 0`、`ExitCode.ofInt 1`（超出 0-255 范围运行时 Panic）
 - 支持操作：`isSuccess : ExitCode -> Bool`（== 0）、`isFailure : ExitCode -> Bool`（≠ 0）、`toInt : ExitCode -> Int`
-- 预定义常量：`ExitCode.success`、`ExitCode.generalError`（1）、`ExitCode.commandNotFound`（127）
-- 语义场景：命令执行结果判断、进程退出值传递、管道错误传播
+- 预定义常量：`ExitCode.success`（0）、`ExitCode.generalError`（1）、`ExitCode.commandNotFound`（127）
+- 脚本退出码：`main : IO Unit` 隐式返回 `ExitCode.success`（0），`main : IO ExitCode` 允许脚本自定义退出码。未处理的 `Err` 传播到顶层时自动以 `ExitCode.generalError`（1）退出
+- 语义场景：命令执行结果判断、进程退出值传递、管道错误传播、脚本自定义退出码
 
 ### `Uid` / `Gid`
 
@@ -519,6 +528,43 @@ kun script.kun --verbose -o /tmp/out --name hello
 kun script.kun -v --output /tmp/out
 kun script.kun -v
 ```
+
+## `Random` — 随机数
+
+### 定位
+
+提供密码学安全的伪随机数生成器。
+
+### API
+
+```kun
+Random.int : Int -> Int -> IO Int                    // [min, max] 闭区间随机整数
+Random.bytes : Nat -> IO Bytes                        // 指定长度的随机字节序列
+Random.float : IO Float                               // [0, 1) 闭区间随机浮点数
+Random.shuffle : List a -> IO (List a)                // Fisher-Yates 洗牌
+```
+
+- 依赖能力：`sys.random = []`
+- 语义场景：唯一 ID 生成、端口选择、测试数据、负载分配
+
+## `TempFile` / `TempDir` — 临时文件与目录
+
+### 定位
+
+创建临时文件和目录，遵循安全最佳实践（`O_TMPFILE` 或 `mkstemp`）。
+
+### API
+
+```kun
+TempFile.create : IO (Result Path IOError)              // 创建临时文件，返回路径
+TempFile.createWith : String -> IO (Result Path IOError) // 创建指定前缀的临时文件
+TempDir.create : IO (Result Path IOError)                // 创建临时目录，返回路径
+TempDir.createWith : String -> IO (Result Path IOError)  // 创建指定前缀的临时目录
+```
+
+- 生命周期：临时文件/目录在脚本退出时由内核或 Arena 终结器自动清理（`O_TMPFILE` 或创建时标记删除）
+- 依赖能力：`fs.write`（临时目录路径）
+- 语义场景：配置文件生成、中间结果缓存、锁文件、安全的数据交换
 
 ## `Stream` — 惰性序列
 

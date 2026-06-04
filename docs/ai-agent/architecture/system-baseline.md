@@ -330,7 +330,7 @@ struct CommandError {
 | 错误类型 | 检测阶段 | 传播方式 | 处理方式 |
 |---------|---------|---------|---------|
 | `TypeError` | 类型检查 | 编译期报错 | 必须修复后重试 |
-| `IOError` | 运行时 | `IO (Result T IOError)` | 调用者通过 `?`/`<-!`/`case` 处理。变体：`NotFound`、`PermissionDenied`、`AlreadyExists`、`Unsupported`、`CommandFailed`、`Other` |
+| `IOError` | 运行时 | `IO (Result T IOError)` | 调用者通过 `=!`/`<-!`/`case` 处理。变体：`NotFound`、`PermissionDenied`、`AlreadyExists`、`Unsupported`、`CommandFailed`、`Other` |
 
 ### 报告管道
 
@@ -348,7 +348,7 @@ Error Structure ← Error Kind + Context
 ```
 
 - 编译期错误（`TypeError`）直接输出到 stderr，进程退出码 1
-- 运行时错误（`PermissionError`、`CommandError` 等）通过 `Result T E` 类型传递给用户代码
+- 运行时错误（`PermissionError`、`IOError` 等）通过 `Result T E` 类型传递给用户代码
 - 未处理的运行时错误传播到顶层时，运行时自动格式化并输出到 stderr，退出码依据错误类型确定
 
 ## 命令加载机制
