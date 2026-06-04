@@ -57,6 +57,8 @@
 | 环境变量注入 | ✅ 设计定型 | `env : Map String String` 隐式字段，注入子进程环境变量 |
 | fd 重定向 | ✅ 设计定型 | `stdin`/`stdout`/`stderr` 隐式字段，支持文件路径和 `Pipe`/`Inherit` 模式 |
 | xargs 模式 | ✅ 设计定型 | `Stream.toList` + `|>` 管道自然覆盖，无需独立 xargs 命令 |
+| `FdSpec` fd 重定向 | ✅ 设计定型 | `fd : Map Int FdSpec` 隐式字段，支持 ReadFromPath/WriteToPath/ReadFromStr/InheritFrom/RedirectTo |
+| 超长参数自动分片 | ✅ 设计定型 | `param * : List T` 或 `option x : List T` 超出 `execve` 限制时自动分片执行 + 隐式合并 stdout |
 
 ### 运行时
 
