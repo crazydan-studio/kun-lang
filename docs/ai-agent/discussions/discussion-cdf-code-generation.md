@@ -125,9 +125,10 @@ command myTool "my-tool"
 | 方案 | 说明 |
 |------|------|
 | 多层嵌套命名 | `<main>_<sub1>_<sub2>`，如 `git_remote_add` |
+| **`.` 分隔调用语法（选定）** | 内部函数名使用 `_`，对外调用语法使用 `<main>.<sub1>.<sub2>`，如 `git.remote.add` |
 | 父子命令选项不继承 | 子命令的选项各管各的，需要时在子命令上显式声明 |
 
-**结论**：命名 `<main>_<sub1>_<sub2>`。选项不继承，子命令独立声明。
+**结论**：内部实现使用 `<main>_<sub1>_<sub2>`（遵循 Kun 标识符规则），对外调用语法使用 `<main>.<sub1>.<sub2>`。选项不继承，子命令独立声明。
 
 ### 议题 13：`module` 声明位置
 
@@ -144,8 +145,10 @@ command myTool "my-tool"
 7. `command <name>` 同名时省略二进制名
 8. `option type "--type"` 直接使用 `type` 作为字段名
 9. Bool 选项缺省 `false`，不在类型定义中体现
-10. 嵌套子命令命名 `<main>_<sub1>_<sub2>`
+10. 嵌套子命令内部命名 `<main>_<sub1>_<sub2>`，对外调用语法 `<main>.<sub1>.<sub2>`
 11. `module` 在文件开头
+12. `with` 子句支持内联验证器表达式，无需事先声明 `validator`
+13. 四层分级可用性模型（T1 内建 → T2 CDF → T3 自动推断 → T4 CDF-less 受限模式）
 
 ## 版本历史
 
