@@ -352,6 +352,58 @@ option size "-s" : String with (all [regex r"^\d+$", length 1 32])
 param 0 : Path with (nameCheck)
 ```
 
+## `List` — 列表操作
+
+### 定位
+
+`List` 模块提供不可变列表的查询和变换操作。所有函数为纯函数。
+
+### API
+
+```kun
+List.length : List a -> Int
+List.isEmpty : List a -> Bool
+List.head : List a -> ?a
+List.last : List a -> ?a
+List.get : Int -> List a -> ?a
+List.map : (a -> b) -> List a -> List b
+List.filter : (a -> Bool) -> List a -> List a
+List.filterMap : (a -> ?b) -> List a -> List b
+List.fold : (b -> a -> b) -> b -> List a -> b
+List.append : List a -> List a -> List a
+List.reverse : List a -> List a
+```
+
+- `head` 返回首个元素，空列表返回 `Nil`
+- `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素，保留非 `Nil` 的值
+- `fold` 为左折叠，`fold (+) 0 [1, 2, 3]` → `6`
+
+## `Map` — 映射表操作
+
+### 定位
+
+`Map` 模块提供不可变字典的查询和变换操作。Map 的键类型必须可哈希（`Int`、`String`、`Bool`、`Char` 等）。
+
+### API
+
+```kun
+Map.get : String -> Map String a -> ?a
+Map.insert : String -> a -> Map String a -> Map String a
+Map.fromList : List (String, a) -> Map String a
+Map.toList : Map String a -> List (String, a)
+Map.keys : Map String a -> List String
+Map.values : Map String a -> List a
+Map.update : (a -> a) -> String -> Map String a -> Map String a
+Map.size : Map String a -> Nat
+Map.isEmpty : Map String a -> Bool
+Map.merge : Map String a -> Map String a -> Map String a
+```
+
+- `get` 返回键对应的值，不存在返回 `Nil`
+- `insert` 覆写已有键的值
+- `update` 对已有值应用变换函数，键不存在时不操作
+- `merge` 并集合并，右侧覆盖左侧的相同键
+
 ## `Args` — 命令行参数解析
 
 ### 定位

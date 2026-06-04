@@ -290,21 +290,23 @@ processNode = \tree ->
 // 10. If 表达式与模式匹配对比
 // ============================================================
 
-// if 适合简单布尔判断
-checkFile : Path -> String
+// if 适合简单布尔判断（Path.exists 返回 IO Bool，需在 do 块中使用）
+checkFile : Path -> IO String
 checkFile = \p ->
-  if Path.exists p then
-    "exists"
-  else
-    "not found"
+  do
+    exists <- Path.exists p
+  in
+    if exists then "exists" else "not found"
 
-// case 适合多分支和结构解构（推荐）
-describeFileType : Path -> String
+// case 适合多分支和结构解构（fileType 返回 IO (Result FileType IOError)）
+describeFileType : Path -> IO String
 describeFileType = \p ->
-  case fileType p of
-    Ok RegularFile   -> "regular file"
-    Ok Directory     -> "directory"
-    Ok Symlink       -> "symlink"
-    Ok _             -> "other"
-    Err _            -> "unknown"
+  do
+    fType <-! fileType p
+  in
+    case fType of
+      RegularFile   -> "regular file"
+      Directory     -> "directory"
+      Symlink       -> "symlink"
+      _             -> "other"
 ```

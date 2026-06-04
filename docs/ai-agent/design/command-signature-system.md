@@ -660,6 +660,21 @@ type FdSpec
 | `stderr` | `?(Fd OrPath OrStdioMode)` | 子进程标准错误目标，支持 `Pipe`/`Inherit` 模式 |
 | `fd` | `Map Int FdSpec` | 额外文件描述符重定向，键为 fd 编号，值为 `FdSpec` 类型 |
 
+其中 `Fd`、`OrPath`、`OrStdioMode` 类型定义：
+
+```kun
+type Fd = Fd Int                         // 文件描述符编号
+
+type OrPath
+  = FdSource Fd                          // 使用现有 fd
+  | PathSource Path                       // 从路径打开
+
+type OrStdioMode
+  = OrPathMode OrPath                    // 文件路径或现有 fd
+  | Pipe                                  // 通过管道捕获
+  | Inherit                               // 继承父进程 fd
+```
+
 调用示例：
 
 ```kun

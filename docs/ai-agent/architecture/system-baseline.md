@@ -1002,7 +1002,7 @@ void* readlines_next(void* state_ptr) {
 ## 命令签名系统
 
 - **CDF（Command Description File）**：命令描述文件，定义命令的精确签名
-- **内置签名**：核心命令（ls、cat、grep、find、sed、awk 等）预置精确签名
+- **内置签名**：核心命令（ls、cat、grep、find 等）预置精确签名；`sed`、`awk` 等文本变换命令由标准库字符串处理函数覆盖，不映射为 CDF 命令
 - **自动推断**：优先通过 man 手册获取帮助信息，回退到 `--help`/`-h`；能够识别子命令并为每个子命令分别建立独立签名
 - **项目级自定义**：项目目录中提供更精确的签名定义
 - **参数验证器**：`range`、`length`、`regex`、`enum`、`custom`，支持链式组合

@@ -187,6 +187,8 @@ readConfig =
 
 **DNS 解析不由能力系统控制**。DNS 是 libc 内部功能（`getaddrinfo`），其网络流量受 OS 层的 Network Namespace 约束——基于已声明的 `net.*` 目标域名自动放行对应的 DNS 查询，无需独立的能力动作。`resolve` 函数是 libc `getaddrinfo` 的封装，不经过能力检查。
 
+> **安全说明**：`resolve` 不经能力检查意味着即使脚本无网络能力仍可执行 DNS 查询。这在理论上可用于 DNS 隧道数据外泄。在生产环境中应通过 OS 层 Network Namespace 和 seccomp 策略限制进程内 DNS 解析。若需更严格的进程内 DNS 控制，可在后续版本引入 `net.dns` 能力。
+
 目标匹配规则：
 
 | 动作 | 规则 | 示例 |
