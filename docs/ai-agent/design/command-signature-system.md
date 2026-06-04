@@ -12,7 +12,7 @@
 
 ```kun
 run"kubectl" ["get", "pods", "-n", "default"]
-// → Stream String
+// → Stream String（T4 默认）
 // → 有审计日志 + 沙箱隔离
 // → 无结构化输出，无参数校验
 ```
@@ -68,20 +68,20 @@ run"kubectl" ["get", "pods"]（首次调用）
 
 | 级别 | 触发条件 | 返回值类型 | 安全检查 |
 |------|---------|-----------|---------|
-| **T1 内建** | 运行时内置 Primitive | `Result (CmdResult (Stream T)) IOError`（精确结构化） | 完整沙箱 + seccomp |
-| **T2 CDF** | 有 `.cdf` 文件 | `Result (CmdResult (Stream T)) IOError`（精确结构化） | 完整沙箱 + seccomp + 签名验证 |
-| **T3 自动推断** | auto-infer 成功，无签名 | `Result (CmdResult (Stream T)) IOError`（T 可能为 `String`） | seccomp + 沙箱，无签名 |
+| **T1 内建** | 运行时内置 Primitive | `Result (Stream T) IOError`（精确结构化） | 完整沙箱 + seccomp |
+| **T2 CDF** | 有 `.cdf` 文件 | `Result (Stream T) IOError`（精确结构化） | 完整沙箱 + seccomp + 签名验证 |
+| **T3 自动推断** | auto-infer 成功，无签名 | `Result (Stream T) IOError`（T 可能为 `String`） | seccomp + 沙箱，无签名 |
 | **T4 `run`** | 默认级别，无升级路径匹配 | `Stream String` | 基础沙箱 + 审计日志 |
 
 用户在所有级别使用相同的 `run""` 语法。升级是透明的：
 
 ```kun
 // 第一次写时：T4，返回 Stream String
-// 缓存 CDF 后：T2，返回 Result (CmdResult (Stream StatusEntry)) IOError
+// 缓存 CDF 后：T2，返回 Result (Stream StatusEntry) IOError
 // 用户代码不需要改——编译器根据 T 级别处理返回值
 let output = run"kubectl" ["get", "pods"]
 // T4 时：output : Stream String
-// T2 时：output : Result (CmdResult (Stream PodEntry)) IOError
+// T2 时：output : Result (Stream PodEntry) IOError
 ```
 
 ### 设计原则
@@ -160,7 +160,10 @@ command_decl   = 'command' , identifier , [ string_literal ] , newline
                  , indent , command_body , dedent ;
 subcommand_decl = 'subcommand' , identifier , [ string_literal ] , newline
                   , indent , command_body , dedent ;
-command_body   = { option_decl | param_decl | output_decl | bin_decl | subcommand_decl } ;
+command_body   = { option_decl | param_decl | output_decl | bin_decl | exitcode_decl | subcommand_decl } ;
+
+(* 退出码声明 *)
+exitcode_decl  = 'exitcode' , ( '*' | number ) , '=' , ( 'Ok' [ 'empty' ] | 'Err' , expression ) ;
 
 (* 选项 *)
 option_decl    = 'option' , identifier , flag_string , ':' , type_expr
@@ -325,6 +328,17 @@ output json                    // 内置解析器，返回 Stream JsonValue
 
 `output` 引用的 `parser_name` 必须在文件前面的 `parser_decl` 中已定义，否则编译期报错。`default` 和 `json` 为保留关键字，不可用作自定义 `parser` 名称。
 
+#### `exitcode`——退出码语义
+
+```
+exitcode <N> = Ok                    // 退出码 N → Ok (Stream T)
+exitcode <N> = Ok empty              // 退出码 N → Ok Stream.empty
+exitcode <N> = Err <expr>            // 退出码 N → Err <expr>
+exitcode * = Err <expr>              // 通配：其他未声明码
+```
+
+缺省行为：`0 = Ok`，非零 = `Err (IOError.Other "exit N")`。详见[退出码声明](#exitcode--退出码声明)节。
+
 #### `bin`——命令路径
 
 ```kun-cdf
@@ -385,6 +399,11 @@ subcommand config
   subcommand get
     option type "--type" : String with (include ["int", "bool", "path"])
     param 0 : String
+
+// 退出码声明
+exitcode 0 = Ok
+exitcode 1 = Ok empty       // 如 grep 无匹配
+exitcode * = Err (IOError.Other "exit {code}")
 ```
 
 ### CDF 与 Kun 的边界
@@ -427,27 +446,27 @@ type GitLogOptions = { maxCount : Maybe Int, runAs : Maybe RunAs }
 
 // 根命令（参数顺序：Options → param *）
 git : GitOptions -> List String -> IO
-  (Result (CmdResult (Stream String)) IOError)
+  (Result (Stream String) IOError)
 
 // 一级子命令
 git_status : GitStatusOptions -> IO
-  (Result (CmdResult (Stream StatusEntry)) IOError)
+  (Result (Stream StatusEntry) IOError)
 
 git_log : GitLogOptions -> String -> IO
-  (Result (CmdResult (Stream CommitEntry)) IOError)
+  (Result (Stream CommitEntry) IOError)
 
 // 嵌套子命令
 git_remote : GitRemoteOptions -> IO
-  (Result (CmdResult (Stream String)) IOError)
+  (Result (Stream String) IOError)
 
 git_remote_add : GitRemoteAddOptions -> String -> String -> IO
-  (Result (CmdResult (Stream String)) IOError)
+  (Result (Stream String) IOError)
 
 git_config : GitConfigOptions -> IO
-  (Result (CmdResult (Stream String)) IOError)
+  (Result (Stream String) IOError)
 
 git_config_get : GitConfigGetOptions -> String -> IO
-  (Result (CmdResult (Stream ConfigEntry)) IOError)
+  (Result (Stream ConfigEntry) IOError)
 ```
 
 #### 调用示例
@@ -470,19 +489,71 @@ git.config.get { type = Just "bool" } "core.autocrlf"
 // → git config get --type bool core.autocrlf
 ```
 
-### `CmdResult` — 命令执行结果
+### `exitcode` — 退出码声明
 
-命令执行返回值的标准包装类型，由代码生成器在所有命令函数签名中使用：
+退出码是 POSIX 进程级协议，命令函数在内部消化，不暴露给调用方。CDF 通过 `exitcode` 声明每个退出码的语义：
 
-```kun
-type CmdResult t = { stdout : t, exitCode : ExitCode }
+```cdf
+exitcode 0  = Ok                               // 成功 → Ok
+exitcode 1  = Ok empty                          // 同成功但无输出（如 grep 无匹配）
+exitcode 2  = Err (IOError.NotFound "{file}")   // 出错 → Err
+exitcode *  = Err (IOError.Other "{stderr}")    // 默认：其他非零码 → Err
 ```
 
-| 情况 | 处理方式 |
-|------|---------|
-| 退出码非零 | 放置在 `exitCode` 字段中，**不**映射为 `Result` 的 `Err` |
-| 进程启动失败（命令不存在、权限拒绝等） | 映射为 `Err IOError` |
-| 输出解析失败（`parser` 返回 `Err`） | 在流中逐行标记，不导致整个命令失败 |
+| 规则 | 说明 |
+|------|------|
+| `exitcode <N> = Ok` | 退出码 `N` → `Ok (Stream T)` |
+| `exitcode <N> = Ok empty` | 退出码 `N` → `Ok Stream.empty`（空流，非错误） |
+| `exitcode <N> = Err <expr>` | 退出码 `N` → `Err <expr>` |
+| `exitcode * = ...` | 通配规则，匹配其他所有未声明的退出码 |
+
+缺省行为（未声明任何 `exitcode` 时）：
+
+```
+退出码 0 → Ok (Stream T)
+退出码 ≠ 0 → Err (IOError.Other "command exited with code N")
+```
+
+#### 代码生成包装逻辑
+
+```
+子进程退出，exit code = N
+  │
+  ├── N 有显式 exitcode 声明？
+  │     ├── Ok → 返回 Ok，调用 CmdResult.stdout（已去除）
+  │     ├── Ok empty → 返回 Ok Stream.empty
+  │     └── Err expr → 返回 Err expr
+  │
+  └── N 无显式 & 无通配？
+        ├── N == 0 → Ok
+        └── N ≠ 0 → Err (IOError.Other "exit N")
+```
+
+#### 命令函数返回类型
+
+```kun
+IO (Result (Stream T) IOError)
+```
+
+`CmdResult` 已移除。退出码在内部处理，调用方只看到有意义的业务结果。
+
+调用方示例：
+
+```kun
+// grep 找到匹配 → Ok (Stream ["line1", "line2"])
+lines <-? grep {} ["pattern", "/etc/passwd"]
+lines |> iter print
+
+// grep 无匹配 → Ok Stream.empty（不是错误）
+lines <-? grep {} ["nonexistent", "/etc/passwd"]
+lines |> iter print    // 输出空
+
+// grep 文件不存在 → Err (IOError.NotFound "/nonexistent")
+Err e <-? grep {} ["pattern", "/nonexistent"]
+// e = NotFound "/nonexistent"
+
+// 命令不存在 → Err (IOError.Other "command not found")
+```
 
 ### 代码生成规则
 
@@ -498,11 +569,15 @@ type CmdResult t = { stdout : t, exitCode : ExitCode }
 | `param * : List T` | 函数最后一个参数，类型 `List T` |
 | `validator <name> = <expr>` | 常量 `name : Validator T`，编译期展开 |
 | `parser <name> : Stream (Result T S) = M.f` | 注入 `M.f` 到命令函数实现 |
-| `output <name>` | 命令函数返回值类型为 `Result (CmdResult (Stream T)) IOError` |
+| `output <name>` | 命令函数返回值类型为 `Result (Stream T) IOError` |
 | `output default` / `output json` | 同前，`T` = `String` / `JsonValue` |
 | `output` 内置标识符 | `default`、`json` 为保留标识符，自定义 `parser` 不可命名为 `default` 或 `json` |
 | `runAs` | 自动注入到 Options Record 作为`runAs : Maybe RunAs` |
 | `option type`等关键字名 | Record 字段名直接使用关键字，不受限制 |
+| `exitcode N = Ok` | 退出码 N → `Ok (Stream T)` |
+| `exitcode N = Ok empty` | 退出码 N → `Ok Stream.empty` |
+| `exitcode N = Err <expr>` | 退出码 N → `Err <expr>` |
+| `exitcode * = ...` | 通配规则，无对应声明时由缺省行为处理 |
 
 ### 隐式字段注入
 
@@ -629,7 +704,7 @@ type DirEntry = { path : Path, fileType : FileType, size : Int, mtime : DateTime
 walkDir : { root : Path, depth : Maybe Int = Nothing
           , followSymlinks : Bool = false
           , runAs : Maybe RunAs = Nothing
-          } -> IO (Result (CmdResult (Stream DirEntry)) IOError)
+           } -> IO (Result (Stream DirEntry) IOError)
 ```
 
 ### 管道与参数展开（xargs 模式）
@@ -856,7 +931,7 @@ param * : List String 传入 100 万条目
           └── 用户感知为一次完整的调用
 ```
 
-分片对用户完全透明，`CmdResult.stdout` 中的 `Stream` 元素顺序与不分裂时一致。
+分片对用户完全透明，`Stream` 元素顺序与不分裂时一致。
 
 仅在 `List String` 或 `List T` 类型的参数上触发。单个 `String`/`Int` 等标量参数不会超出限制。
 
