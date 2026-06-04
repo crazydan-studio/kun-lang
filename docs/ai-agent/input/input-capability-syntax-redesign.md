@@ -45,7 +45,7 @@ cmd with caps        vs        with caps in cmd
 
 ### 4. 命名空间分组是否需要？
 
-`fs.read`、`fs.write`、`net.http`、`process.exec`——"命名空间"是否为正确的抽象？还是应该扁平化为动作级？
+`fs.read`、`fs.write`、`net.http`——"命名空间"是否为正确的抽象？还是应该扁平化为动作级？
 
 ### 5. 能力目标能否通配？
 

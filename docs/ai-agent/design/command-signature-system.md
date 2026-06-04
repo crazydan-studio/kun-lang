@@ -100,6 +100,12 @@ param 0 : Path           // ✅ 正确：确定位置，无需 List
 param 0 : Path!          // ❌ 错误：确定位置不使用 ! 标记
 ```
 
+#### `List <type>` 在 CDF 中的语义
+
+CDF 中的 `List` 直接映射为 Kun 的 `List` 类型，无独立 CDF 类型系统：
+- `param * : List Path` → 生成的 Kun 函数最后一个参数类型为 `List Path`
+- CDF 不声明嵌套集合类型（如 `List (List String)`）
+
 #### `output`——输出解析器引用
 
 ```kun-cdf
@@ -121,9 +127,20 @@ command git                                 // 函数名 = 二进制名 = "git"
 
 相对路径不可超出 CDF 所在目录（`../` 不允许）。
 
+#### 版本号声明
+
+CDF 文件必须以版本注释开头，用于格式兼容性识别：
+
+```kun-cdf
+// kun-cdf-v1
+```
+
+格式变更时：解析器向下兼容旧版格式，运行时检测到旧版时输出升级建议。
+
 #### 完整 CDF 示例
 
 ```kun-cdf
+// kun-cdf-v1
 // git.cdf
 validator branchName = regex r"^[a-zA-Z0-9_/.-]+$"
 validator urlPattern = regex r"^https?://"
@@ -162,6 +179,18 @@ subcommand config
     param 0 : String
 ```
 
+### CDF 与 Kun 的边界
+
+CDF 是编译期 DSL，不是 Kun 语言的子集。各元素的来源和解析策略：
+
+| CDF 元素 | 来源 | 说明 |
+|---------|------|------|
+| 基本类型 `Bool`/`Int`/`String`/`Path` | 借用 Kun 类型名 | 编译期直接映射为 Kun 对应类型 |
+| `validator <name> = <expr>` 中的 `<expr>` | **CDF 自有表达式** | 独立解析，不经过 Kun 解析器 |
+| `MyModule.validateName` 引用 | 引用 Kun 模块函数 | CDF 编译器需理解 Kun 的模块路径解析 |
+| `p"/path"` 字面量 | 借用 Kun 语法 | CDF 编译期求值为 Path 常量 |
+| `r"^regex$"` 字面量 | 借用 Kun 语法 | CDF 编译期求值为 Regex 常量 |
+
 #### 生成的 Kun 模块
 
 ```kun
@@ -182,27 +211,27 @@ type GitLogOptions = { maxCount : Maybe Int, runAs : Maybe RunAs }
 
 // 根命令（参数顺序：Options → param *）
 git : GitOptions -> List String -> IO
-  (Result (CmdResult (Stream String)) (List IOError))
+  (Result (CmdResult (Stream String)) IOError)
 
 // 一级子命令
 git_status : GitStatusOptions -> IO
-  (Result (CmdResult (Stream StatusEntry)) (List IOError))
+  (Result (CmdResult (Stream StatusEntry)) IOError)
 
 git_log : GitLogOptions -> String -> IO
-  (Result (CmdResult (Stream CommitEntry)) (List IOError))
+  (Result (CmdResult (Stream CommitEntry)) IOError)
 
 // 嵌套子命令
 git_remote : GitRemoteOptions -> IO
-  (Result (CmdResult (Stream String)) (List IOError))
+  (Result (CmdResult (Stream String)) IOError)
 
 git_remote_add : GitRemoteAddOptions -> String -> String -> IO
-  (Result (CmdResult (Stream String)) (List IOError))
+  (Result (CmdResult (Stream String)) IOError)
 
 git_config : GitConfigOptions -> IO
-  (Result (CmdResult (Stream String)) (List IOError))
+  (Result (CmdResult (Stream String)) IOError)
 
 git_config_get : GitConfigGetOptions -> String -> IO
-  (Result (CmdResult (Stream ConfigEntry)) (List IOError))
+  (Result (CmdResult (Stream ConfigEntry)) IOError)
 ```
 
 #### 调用示例
@@ -225,6 +254,20 @@ git_config_get { type = Just "bool" } "core.autocrlf"
 // → git config get --type bool core.autocrlf
 ```
 
+### `CmdResult` — 命令执行结果
+
+命令执行返回值的标准包装类型，由代码生成器在所有命令函数签名中使用：
+
+```kun
+type CmdResult t = { stdout : t, exitCode : ExitCode }
+```
+
+| 情况 | 处理方式 |
+|------|---------|
+| 退出码非零 | 放置在 `exitCode` 字段中，**不**映射为 `Result` 的 `Err` |
+| 进程启动失败（命令不存在、权限拒绝等） | 映射为 `Err IOError` |
+| 输出解析失败（`parser` 返回 `Err`） | 在流中逐行标记，不导致整个命令失败 |
+
 ### 代码生成规则
 
 | CDF 声明 | 生成产物 |
@@ -238,10 +281,18 @@ git_config_get { type = Just "bool" } "core.autocrlf"
 | `param * : List T` | 函数最后一个参数，类型 `List T` |
 | `validator <name> = <expr>` | 常量 `name : Validator T`，编译期展开 |
 | `parser <name> : Stream (Result T S) = M.f` | 注入 `M.f` 到命令函数实现 |
-| `output <name>` | 命令函数返回值类型为 `CmdResult (Stream T)` |
+| `output <name>` | 命令函数返回值类型为 `Result (CmdResult (Stream T)) IOError` |
 | `output default` / `output json` | 同前，`T` = `String` / `JsonValue` |
+| `output` 内置标识符 | `default`、`json` 为保留标识符，自定义 `parser` 不可命名为 `default` 或 `json` |
 | `runAs` | 自动注入到 Options Record 作为`runAs : Maybe RunAs` |
 | `option type`等关键字名 | Record 字段名直接使用关键字，不受限制 |
+
+### `runAs` 隐式注入与冲突处理
+
+`runAs` 为代码生成器保留字段名：
+- 代码生成器自动在所有 Options Record 中注入 `runAs : Maybe RunAs`
+- 若 CDF 显式声明名为 `runAs` 的 `option`，**编译期报错**
+- 用户应改用其他字段名（如 `runAsUser`）
 
 ## seccomp 规则自动推导
 
@@ -279,6 +330,7 @@ Kun 已内建 `Regex` 类型和正则引擎，因此文本搜索类命令（`gre
 | 压缩 | `gzip`、`gunzip`、`xz`、`zstd` | CDF 映射 | 仅退出码 | 无内核支持，需外部库 |
 | 内容搜索 | `grep` | **内建 Primitive** | 结构化 | 复用内建正则引擎，避免子进程 pipe |
 | 目录遍历 | `walkDir` | **内建 Primitive（标准库）** | 结构化 | `fts_open()` 树遍历，返回 `Stream DirEntry`；过滤在外部通过 `filter` 完成 |
+| — | `find` | **不映射**（由 `walkDir` + `filter` 替代） | — | `walkDir` 的 `filter` 组合覆盖所有 `find` 用例（-name/-type/-size 等） |
 | 数据库检索 | `locate` | **内建 Primitive** | 结构化 | 直接读取 mlocate.db 二进制格式 |
 | 进程信息 | `ps` | **内建 Primitive** | 结构化 | 读取 `/proc/[pid]/*` 直接返回结构化类型 |
 | 系统信息 | `free`、`uname`、`lscpu`、`uptime` | **内建 Primitive** | 结构化 | `sysinfo()`/`uname()` 等直接系统调用 |
@@ -431,15 +483,7 @@ CDF + .sig 文件 → 分发
 
 ### 版本兼容性
 
-CDF 格式版本号嵌入文件头部：
-
-```kun-cdf
-// kun-cdf-v1
-command "ls"
-...
-```
-
-格式变更时：
+CDF 版本号声明方式见[版本号声明](#版本号声明)节。格式变更策略：
 - 向下兼容：解析器支持旧版格式
 - 升级提示：运行时检测到旧版 CDF 时输出建议
 - 强制升级：仅当旧版格式存在安全漏洞时

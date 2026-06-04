@@ -16,7 +16,6 @@ Kun 作为面向 Linux 的函数式脚本语言，其安全模型的设计直接
 -- 脚本级声明
 with caps
   fs.read = [Path.cwd, p"/tmp/"]
-  process.exec = ["ls", "cat"]
 
 -- 函数级（do 表达式块）
 readConfig =
@@ -57,7 +56,7 @@ readConfig =
 |------|---------|------|
 | `fs.read` / `fs.write` | 路径前缀匹配 | `p"/etc/"` 匹配 `/etc` 及所有子路径 |
 | `net.http` / `net.https` | 精确/glob 匹配 | `"*.example.com"` 匹配子域名 |
-| `process.exec` | 精确命令名匹配 | `["ls"]` 不匹配 `lsblk` |
+| 命令函数 | CDF 存在即授权 | 无 CDF 的命令不可执行 |
 
 ### 7. CDF 移除能力声明
 

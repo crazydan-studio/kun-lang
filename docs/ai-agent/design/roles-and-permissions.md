@@ -22,7 +22,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 | 文件系统元数据 | 无 | `stat` 等操作默认不可用 |
 | 网络出站 | 无 | HTTP/HTTPS/TCP/UDP 全部禁止 |
 | 网络监听 | 无 | 禁止监听任何端口 |
-| 进程执行（模块引入） | 无 | 禁止执行模块函数引入的外部命令（直接调用的命令自动推断） |
+| 进程执行 | 无 | 无 CDF 签名的外部命令不可执行 |
 | 进程信号/终止 | 无 | 禁止信号发送与进程终止 |
 | 进程运行用户切换 | 无 | 只能以当前进程用户运行命令函数 |
 | 环境变量读 | 无 | 禁止读取任何环境变量 |
@@ -35,7 +35,7 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 
 `Path.cwd` 提供当前工作目录：在脚本启动时求值一次并冻结。运行时 `chdir` **不**影响能力声明中的 `Path.cwd`。
 
-**`chdir` 操作**：Kun 不提供内建的 `chdir` 函数。脚本不应在运行时切换工作目录。若确实需要改变进程的 CWD（如影响子进程的路径解析），需通过外部命令 `cd` 在子 shell 中实现，该操作受 `process.exec` 控制。
+**`chdir` 操作**：Kun 不提供内建的 `chdir` 函数。脚本不应在运行时切换工作目录。若确实需要改变进程的 CWD（如影响子进程的路径解析），需通过 CDF 命令函数调用外部 `cd` 命令。
 
 ### 与操作系统的关系
 
@@ -54,8 +54,6 @@ Kun 的能力安全系统遵循最小权限原则（Principle of Least Privilege
 with caps
   fs.read = [Path.cwd, p"/tmp/"]
   fs.write = fs.read
-with caps
-  process.exec = ["ls", "cat"]
 
 main =
   do
@@ -154,7 +152,7 @@ readConfig =
 | `sys.random = []` | 可访问随机设备 |
 | `sys.hostname = []` | 可读取/设置主机名 |
 
-> **`[]`（空列表）使用注意**：`[]` 表示"匹配任何目标"。对敏感命名空间（`env.read`、`env.write`、`process.exec`）使用 `[]` 会显著扩大安全攻击面（如 `env.read = []` 暴露所有环境变量包括密钥）。建议仅在 `sys` 等只读系统能力上使用 `[]`，其他命名空间尽量精确声明目标。编译期可对敏感命名空间的 `[]` 使用发出警告。
+> **`[]`（空列表）使用注意**：`[]` 表示"匹配任何目标"。对敏感命名空间（`env.read`、`env.write`）使用 `[]` 会显著扩大安全攻击面（如 `env.read = []` 暴露所有环境变量包括密钥）。建议仅在 `sys` 等只读系统能力上使用 `[]`，其他命名空间尽量精确声明目标。编译期可对敏感命名空间的 `[]` 使用发出警告。
 
 ## 能力类型目录
 
@@ -203,41 +201,10 @@ readConfig =
 
 | 动作 | 目标类型 | 语义 | 示例 |
 |------|---------|------|------|
-| `exec` | `[String]` | 显式声明模块中引入的外部命令 | `process.exec = ["curl"]` |
 | `run-as` | `[String]` | 允许命令函数切换到的用户名或 UID | `process.run-as = ["root", "nobody"]` |
 | `signal` | （无目标） | 向进程发送信号 | `process.signal = []` |
 | `kill` | （无目标） | 终止任意进程 | `process.kill = []` |
 | `trace` | `[Pid]` | 跟踪/调试指定 PID 的进程（ptrace） | `process.trace = [Pid 1234]` |
-
-`process.exec` 的声明规则：
-
-| 调用方式 | 是否需要显式 `process.exec` | 说明 |
-|---------|--------------------------|------|
-| 脚本直接调用 `ls { ... }` | **不需要**——运行时自动推断 | 脚本作者直接调用的命令，CDF 本身即授权 |
-| 模块函数内部调用 `curl` | **需要**——`process.exec = ["curl"]` | 脚本作者可能不知道模块引入了哪些外部命令 |
-
-`process.exec` 控制的是**脚本作者对模块引入的外部命令的知情权**，而非子进程执行本身——直接调用的命令通过 CDF 的存在自动获得授权。
-
-```kun
-with caps
-  // 不需要显式声明 process.exec = ["ls", "cat"]
-  fs.read = [Path.cwd]
-
-main = do
-  ls { path0 = p"." }          // ✅ 直接调用，自动推断
-  cat { path0 = p"README" }     // ✅ 直接调用，自动推断
-  NetUtils.fetchAll url         // ❌ 模块函数内部调用 curl，
-                                //    需 process.exec = ["curl"]
-```
-
-`exec` 支持两种匹配方式：
-
-| 匹配方式 | 规则 | 示例 |
-|---------|------|------|
-| **basename 匹配** | 仅匹配命令名，不检查路径 | `process.exec = ["curl"]` 匹配 `curl` |
-| **绝对路径匹配** | 路径必须以 `/` 开头，精确匹配目标 | `process.exec = [p"/usr/bin/curl"]` 仅匹配 `/usr/bin/curl` |
-
-命令函数调用使用命令名匹配 basename，命令解析器按 CDF 签名搜索路径解析到具体二进制。`process.exec` 未声明时，直接调用的命令由运行时自动推断；模块引入的命令被拒绝。
 
 #### `process.run-as`——运行用户控制
 
@@ -259,21 +226,11 @@ main =
 - 运行时通过 `setuid()`/`seteuid()` 切换用户，需进程有足够 OS 权限（root 或 CAP_SETUID）
 - 此能力不替代 `sudo`——进程的 OS 权限决定了能否成功切换
 
-命令函数（如 `ls`、`cat`）通过命令解析器按搜索路径解析到具体二进制。能力检查对命令函数使用的匹配规则与 `exec` 原语一致——若声明 `process.exec = [p"/usr/bin/ls"]` 但命令解析器将 `ls` 解析为内置实现，则路径匹配失败。建议在声明绝对路径时确保路径与命令解析器的解析结果一致。
+对外部命令的权限元数据修改（如 `chmod`、`chown`）通过 CDF 命令函数授权，`fs.write` 沙箱控制可修改的路径范围。
 
-对外部命令的权限元数据修改（如 `chmod`、`chown`）不涉及独立的能力动作，通过 `process.exec` + `fs.write` 组合控制：
+#### 环境变量过滤（子进程执行前安全策略）
 
-| 能力 | 作用 | 示例 |
-|------|------|------|
-| `process.exec` | 允许启动 `chmod`/`chown` 命令 | `process.exec = ["chmod", "chown"]` |
-| `fs.write` | 沙箱锚定可修改的目标路径 | `fs.write = [p"/etc/config"]` |
-| OS 内核 | 实际的 `chown` 系统调用权限检查（root/owner） | 能力系统不干涉 |
-
-`chmod` 和 `chown` 作为外部命令受 `process.exec` 门控，其内部元数据写入行为受沙箱 `fs.write` 约束。
-
-#### 环境变量过滤（exec 前安全策略）
-
-通过 `process.exec` 启动子进程前，运行时自动过滤环境变量，防止密钥泄漏和注入攻击：
+CDF 命令函数执行子进程前，运行时自动过滤环境变量，防止密钥泄漏和注入攻击：
 
 ```c
 // 伪代码：exec 前执行
@@ -381,7 +338,7 @@ Kun 的安全模型有两层防线，职责不同：
 | 防线 | 控制对象 | 强度 | 说明 |
 |------|---------|------|------|
 | **`capability_check`** | Kun IO 原语（`readFile`、`httpGet` 等） | **硬防线**——在进程内强制检查，不可绕过 | 所有 IO 原语入口调用，检查 `(namespace, action, target)` 三元组 |
-| **沙箱**（namespace + seccomp） | 通过 `process.exec` 启动的子进程 | **尽力而为**——受内核版本和动态链接限制 | 子进程以 OS 用户权限运行，Kun 无法完全约束其内部文件访问 |
+| **沙箱**（namespace + seccomp） | CDF 命令函数执行的子进程 | **尽力而为**——受内核版本和动态链接限制 | 子进程以 OS 用户权限运行，Kun 无法完全约束其内部文件访问 |
 
 `capability_check` 是第一且唯一的硬防线。沙箱提供纵深防御，但有已知局限。
 
@@ -397,7 +354,7 @@ Kun 的安全模型有两层防线，职责不同：
 
 ### 已知局限
 
-1. **子进程文件访问**：通过 `process.exec` 启动的子进程以 OS 用户权限运行。对动态链接的命令，mount namespace 需暴露系统库路径（`/usr`、`/lib`），间接暴露整个根文件系统。`capability_check` 不控制子进程内部行为——它只在启动前检查传参（`cat p"/etc/shadow"` 中的路径），子进程内的文件访问由 OS 和 CDF 沙箱策略约束。
+1. **子进程文件访问**：CDF 命令函数执行的子进程以 OS 用户权限运行。对动态链接的命令，mount namespace 需暴露系统库路径（`/usr`、`/lib`），间接暴露整个根文件系统。`capability_check` 不控制子进程内部行为——它只在启动前检查传参（`cat p"/etc/shadow"` 中的路径），子进程内的文件访问由 OS 和 CDF 沙箱策略约束。
 
 2. **Symlink TOCTOU**：`capability_check` 的路径检查与实际 IO 之间存在时间窗口，攻击者可替换符号链接绕过检查。缓解：
    - 内核 5.6+：运行时 IO 原语使用 `openat2()` + `RESOLVE_NO_SYMLINKS` + `RESOLVE_BENEATH`

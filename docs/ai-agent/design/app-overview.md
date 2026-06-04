@@ -81,7 +81,7 @@ CDF 定义命令的精确签名。常见核心命令（ls、cat、grep、find、
 - `range`：数值范围检查
 - `length`：字符串长度检查
 - `regex`：格式检查
-- `enum`：枚举值检查
+- `include` / `exclude`：白名单/黑名单检查
 - `custom`：自定义验证函数
 
 验证器支持链式组合。

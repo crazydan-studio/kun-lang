@@ -61,7 +61,7 @@
 
 - **命令输出结构化**：CDF 不声明输出格式参数，运行时自动选择最佳输出格式并解析为结构化类型
 - **移除 `exec` 原语**：无 CDF 的命令不可调用，统一走命令函数路径，消除安全逃逸
-- **`process.exec` 自动推断**：脚本直接调用的命令自动获得授权，模块引入的命令需显式声明
+- **`process.exec` 完全移除**：CDF 存在即授权，无 CDF 的命令不可执行
 - **`runAs` 隐式参数**：所有命令函数带有 `runAs : Maybe String`，通过 `process.run-as` 能力控制
 - **Record 参数统一**：所有 `flag`/`option`/`positional` 合并到同一 Record 类型
 - **`sudo`/`su` 禁止映射**：由 `runAs` 参数替代

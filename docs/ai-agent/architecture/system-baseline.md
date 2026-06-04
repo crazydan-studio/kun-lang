@@ -914,7 +914,7 @@ IO 操作的统一模式：
 
 #### 文件描述符安全
 
-所有运行时管理的文件描述符（Primitive 函数打开的文件、Stream 状态机中的 fd、signalfd、timerfd 等）在创建时必须设置 `FD_CLOEXEC`（通过 `O_CLOEXEC` 标志或创建后调用 `fcntl(F_SETFD, FD_CLOEXEC)`）。这确保通过 `process.exec` 启动的子进程不会继承运行时管理的 fd，防止子进程绕过 `capability_check` 访问已打开的文件。
+所有运行时管理的文件描述符（Primitive 函数打开的文件、Stream 状态机中的 fd、signalfd、timerfd 等）在创建时必须设置 `FD_CLOEXEC`（通过 `O_CLOEXEC` 标志或创建后调用 `fcntl(F_SETFD, FD_CLOEXEC)`）。这确保 CDF 命令函数执行的子进程不会继承运行时管理的 fd，防止子进程绕过 `capability_check` 访问已打开的文件。
 
 例外：标准流（stdin 0、stdout 1、stderr 2）不设 CLOEXEC——子进程需要继承标准流以支持管道和重定向。
 
