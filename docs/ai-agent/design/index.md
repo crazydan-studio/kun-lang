@@ -15,6 +15,7 @@
 | [roles-and-permissions.md](roles-and-permissions.md) | 安全角色与权限模型（含容器化对比） |
 | [supply-chain-security.md](supply-chain-security.md) | 供应链安全防御方案 |
 | [command-signature-system.md](command-signature-system.md) | 命令签名系统（CDF）设计 |
+| [capability-mapping-guide.md](capability-mapping-guide.md) | 能力映射指南——将 Linux 命令能力抽象为类型安全函数的方法论 |
 
 ## 设计原则
 
