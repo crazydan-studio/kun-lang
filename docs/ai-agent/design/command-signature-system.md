@@ -99,7 +99,7 @@ subcommand_decl = 'subcommand' , identifier , [ string_literal ] , newline
 command_body   = { option_decl | param_decl | output_decl | bin_decl | subcommand_decl } ;
 
 (* 选项 *)
-option_decl    = 'option' , identifier , flag_string , ':' , type_name
+option_decl    = 'option' , identifier , flag_string , ':' , type_expr
                  , [ '!' ] , [ 'with' , '(' , expression ')' ] ;
 flag_string    = '"-' , flag_char , { flag_char } , '"'         (* 短名：-v *)
                | '"--' , identifier , '"'                       (* 长名：--verbose *)
@@ -132,7 +132,8 @@ identifier     = ( letter | '_' ) , { letter | digit | '_' } ;
 |---|------|---------|
 | 1 | `param <N>` 的编号 `N` 必须严格递增，不可跳跃（如先 `param 1` 后 `param 0`） | 编译期报错：参数编号顺序错误 |
 | 2 | `param *` 必须出现在所有 `param <N>` 之后，且每个 `command_body` 中最多一个 `param *` | 编译期报错：param * 位置错误 |
-| 3 | `!` 标记仅适用于非 `Bool` 类型的 `option`。`Bool` 类型后出现 `!` 为编译期警告并忽略 | 编译期警告：Bool 类型不支持 ! 标记 |
+| 3 | `!` 标记仅适用于非 `Bool` 非 `List` 类型的 `option`。`Bool` 或 `List T` 后出现 `!` 为编译期警告并忽略 | 编译期警告：Bool/List 类型不支持 ! 标记 |
+| 3a | `option` 声明 `List T` 时，`Kun` 字段类型为 `List T`，表示此标志可重复出现（0..N 次）。运行时 argv 构造为每个元素重复展开一次标志 | — |
 | 4 | `output` 引用 `identifier` 时，该标识符必须在文件前面的 `parser_decl` 中已定义 | 编译期报错：引用了未定义的解析器 |
 | 5 | `output default` 和 `output json` 为关键字，不可用作自定义 `parser` 名称 | 编译期报错：default/json 为保留标识符 |
 | 6 | `bin` 的相对路径（`p"./..."` 开头）不可超出 CDF 所在目录（`../` 不允许） | 编译期报错：bin 路径超出 CDF 目录 |
@@ -169,9 +170,24 @@ option <name> "<flag>" : <type>[!] [with (<validator>)]
 |------|------|
 | `<name>` | 函数 Options Record 的字段名，不加引号 |
 | `"<flag>"` | 命令的选项名，`-v`（短名，单字符）或 `--verbose`（长名），二选其一。解析器通过 `--` 前缀区分长短名 |
-| `<type>` | 选项值类型 |
-| `[!]` | 可选标记。`T!` 表示必填（`String!` → Kun 类型 `String`）。缺省为可选（`String` → Kun 类型 `Maybe String`）。**`Bool` 类型不受 `!` 影响**——编译期检查到 `Bool!` 时发出警告并忽略 `!` |
+| `<type>` | 选项值类型。支持 `T`、`T!`、`List T` 三种形式 |
+| `[!]` | 可选标记。`T!` 表示必填（`String!` → Kun 类型 `String`）。缺省为可选（`String` → Kun 类型 `Maybe String`）。**`Bool` 和 `List T` 不受 `!` 影响**——编译期检查到 `Bool!` 或 `List T!` 时发出警告并忽略 `!` |
 | `[with (<validator>)]` | 可选验证器，可以是已定义的 `validator` 名称，也可以是**内联表达式** |
+
+**`List T` 类型**：声明选项可重复出现任意次。生成的 Kun 字段类型为 `List T`。运行时 argv 构造为每个元素展开一次标志：
+
+```kun-cdf
+option env "-e" : String                   // -e 出现 0 或 1 次 → env : Maybe String
+option env "-e" : List String              // -e 出现 0..N 次 → env : List String
+```
+
+调用示例：
+
+```kun
+// docker run --env DB_HOST=prod --env DB_USER=admin
+docker.run { env = ["DB_HOST=prod", "DB_USER=admin"], detach = true }
+// → docker run --detach --env DB_HOST=prod --env DB_USER=admin
+```
 
 **内联验证器**：`with` 子句中的 `<validator>` 可以是已声明的 `validator` 名称，也可以是直接写在括号内的表达式——省去先定义后引用的步骤：
 
@@ -413,6 +429,7 @@ type CmdResult t = { stdout : t, exitCode : ExitCode }
 | `option x "-x" : Bool` | 字段 `x : Bool`，argv 构造展开为 `-x` |
 | `option x "-x" : T` | 字段 `x : Maybe T` |
 | `option x "-x" : T!` | 字段 `x : T` |
+| `option x "-x" : List T` | 字段 `x : List T`，argv 构造 `-x v1 -x v2 -x v3` |
 | `param <N> : T` | 函数第 N+1 个参数（Options 后），类型 `T` |
 | `param * : List T` | 函数最后一个参数，类型 `List T` |
 | `validator <name> = <expr>` | 常量 `name : Validator T`，编译期展开 |
@@ -423,12 +440,42 @@ type CmdResult t = { stdout : t, exitCode : ExitCode }
 | `runAs` | 自动注入到 Options Record 作为`runAs : Maybe RunAs` |
 | `option type`等关键字名 | Record 字段名直接使用关键字，不受限制 |
 
-### `runAs` 隐式注入与冲突处理
+### 隐式字段注入
 
-`runAs` 为代码生成器保留字段名：
-- 代码生成器自动在所有 Options Record 中注入 `runAs : Maybe RunAs`
-- 若 CDF 显式声明名为 `runAs` 的 `option`，**编译期报错**
-- 用户应改用其他字段名（如 `runAsUser`）
+代码生成器自动在所有 Options Record 中注入以下字段。CDF 中声明同名 `option` 均编译期报错：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `runAs` | `Maybe RunAs` | 命令函数的执行用户身份，控制通过 `process.run-as` 能力 |
+| `env` | `Map String String` | 子进程环境变量，缺省继承当前进程环境。非 CLI 参数，不传递给 argv |
+| `stdin` | `Maybe (Fd OrPath)` | 子进程标准输入来源（文件路径或现有 fd） |
+| `stdout` | `Maybe (Fd OrPath)` | 子进程标准输出目标 |
+| `stderr` | `Maybe (Fd OrPath OrStdioMode)` | 子进程标准错误目标，支持 `Pipe`/`Inherit` 模式 |
+
+调用示例：
+
+```kun
+// 带环境变量注入和输出重定向的命令
+git.log { env = Map.fromList [("GIT_DIR", "/repo/.git")]
+        , stdout = Just (Path p"/tmp/git.log")
+        , maxCount = Just 50 }
+// → GIT_DIR=/repo/.git git log -n 50 > /tmp/git.log
+
+// 管道模式
+git.log { stderr = Just StdioMode.Pipe, maxCount = Just 10 }
+  |> handleStderr
+// → git log -n 10 2>&1 管道到 handleStderr
+```
+
+隐式字段的 argv 映射：
+
+```
+env    → 不在 argv 中，通过 setenv/pre-exec 注入
+stdin  → 不在 argv 中，通过 dup2/重定向实现
+stdout → 不在 argv 中，通过 dup2/重定向实现
+stderr → 不在 argv 中，通过 dup2/重定向实现
+runAs  → 不在 argv 中，通过 setuid 切换实现
+```
 
 ## seccomp 规则自动推导
 
@@ -498,6 +545,30 @@ walkDir : { root : Path, depth : Maybe Int = Nothing
           , followSymlinks : Bool = false
           , runAs : Maybe RunAs = Nothing
           } -> IO (Result (CmdResult (Stream DirEntry)) IOError)
+```
+
+### 管道与参数展开（xargs 模式）
+
+Kun 的 `|>` 管道和 `Stream.toList` 组合自然支持 xargs 风格的模式，无需独立 `xargs` 命令：
+
+```kun
+// Shell: pip freeze | xargs pip install
+// Kun: 先取包列表，再作为参数传给安装命令
+packages = pip.freeze {} []
+  |> filter (\line -> line |> contains "==")
+  |> toList
+
+pip.install {} packages
+// → pip install package1==1.0 package2==2.0
+```
+
+`Stream.toList` 将惰性流消费为 `List String`，直接作为 `param *` 传入下一命令。对于需要逐个参数处理的场景（如并行调用），使用 `Stream.iter` 实现：
+
+```kun
+// 逐个安装（非 xargs 批量）
+pip.freeze {} []
+  |> filter (\line -> line |> contains "==")
+  |> iter (\pkg -> pip.install {} [pkg])
 ```
 
 ### 内置签名的存储

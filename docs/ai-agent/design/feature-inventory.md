@@ -53,6 +53,10 @@
 | 自动 CDF 生成工具 | ✅ 设计定型 | `kun cdf init <command>` 自动从 man/--help 生成 CDF 骨架 |
 | CDF 注册中心 | ✅ 设计定型 | 社区分发 CDF 文件的包管理器，支持安装/搜索/版本管理 |
 | CDF-less 受限模式 | ✅ 设计定型 | 显式 opt-in 的降级执行，返回 `Stream String`，审计日志强制记录 |
+| `List T` 重复选项 | ✅ 设计定型 | `option env "-e" : List String` 声明可重复标志，生成 `env : List String`，argv 展开为 `-e v1 -e v2` |
+| 环境变量注入 | ✅ 设计定型 | `env : Map String String` 隐式字段，注入子进程环境变量 |
+| fd 重定向 | ✅ 设计定型 | `stdin`/`stdout`/`stderr` 隐式字段，支持文件路径和 `Pipe`/`Inherit` 模式 |
+| xargs 模式 | ✅ 设计定型 | `Stream.toList` + `|>` 管道自然覆盖，无需独立 xargs 命令 |
 
 ### 运行时
 
