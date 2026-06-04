@@ -367,7 +367,15 @@ List Int                // 泛型
 
 规则：
 - 除非参数本身是元组类型，否则函数类型均为柯里化形式（`Int -> Int -> Int`）
-- **不支持无参函数**（不存在 `() -> T` 语法）。需接收 Unit 参数的函数应显式声明参数（如 `\_ -> body`）
+- **不支持无参函数**（不存在 `() -> T` 语法）。需接收 Unit 参数的函数应显式声明参数（如 `\_ -> body`）。无参回调的所有实际场景均已被替代机制覆盖：
+
+  | 场景 | 其他语言无参回调 | Kun 替代方案 |
+  |------|----------------|-------------|
+  | 重试/超时 | `retry(3, \() -> ioOp())` | `retry 3 ioOp` — `IO T` 本身就是 thunk，每次 `<-` 重新求值 |
+  | 定时器/事件 | `setInterval(5s, \() -> f())` | `setInterval 5s f` — 函数引用直接传递 |
+  | 延迟求值 | `defaultLazy(\() -> expensive())` | `let x = expensive() in maybe default x` — `let` 惰性绑定 |
+  | 高阶遍历 | `repeat 5 (\() -> random())` | `repeat 5 random` — `random : IO Int`，IO thunk 每次触发求值 |
+  | 资源回调 | `withFile path (\() -> ...)` | `withFile path (\f -> ...)` — 带参数回调，更精确 |
 - 单参数免除圆括号：`Int -> Int` 而非 `(Int) -> Int`
 
 Record 类型：
