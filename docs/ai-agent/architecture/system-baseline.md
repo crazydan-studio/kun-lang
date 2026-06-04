@@ -198,7 +198,7 @@ Stream 在运行时的核心表示是一个**拉取驱动的迭代器**：
 struct Stream {
     void* state;                 // 迭代器内部状态
     ?t (*next)(void* state);     // 拉取下一个元素
-    void (*drop)(void* state);   // 释放迭代器状态
+    void (*destroy)(void* state); // 释放迭代器状态
 };
 ```
 
@@ -301,7 +301,19 @@ struct ValidationError {
 
 ### `CommandError`
 
-命令执行阶段的错误，发生在调用外部命令失败时：
+命令执行阶段的错误，发生在调用外部命令失败时。`CommandError` 作为 `IOError` 的一个变体存在：
+
+```kun
+type IOError
+  = NotFound Path
+  | PermissionDenied Path
+  | AlreadyExists Path
+  | Unsupported String
+  | CommandFailed { command : String, exitCode : Int, stderr : String }
+  | Other String
+```
+
+`CommandError` 的内部结构（仅运行时实现使用，不暴露给 Kun 用户空间）：
 
 ```zig
 struct CommandError {
@@ -318,7 +330,7 @@ struct CommandError {
 | 错误类型 | 检测阶段 | 传播方式 | 处理方式 |
 |---------|---------|---------|---------|
 | `TypeError` | 类型检查 | 编译期报错 | 必须修复后重试 |
-| `IOError` | 运行时 | `IO (Result T IOError)` | 调用者通过 `?`/`<-!`/`case` 处理。变体：`NotFound`、`PermissionDenied`、`AlreadyExists`、`Unsupported`、`Other` |
+| `IOError` | 运行时 | `IO (Result T IOError)` | 调用者通过 `?`/`<-!`/`case` 处理。变体：`NotFound`、`PermissionDenied`、`AlreadyExists`、`Unsupported`、`CommandFailed`、`Other` |
 
 ### 报告管道
 
@@ -633,14 +645,14 @@ struct SocketAddr {
 struct Stream {
     void*    state;                // 迭代器内部状态（堆分配）
     void*    (*next)(void* state); // 拉取下一个元素，返回 ?t
-    void     (*drop)(void* state); // 释放迭代器状态
+    void     (*destroy)(void* state); // 释放迭代器状态
     uint64_t elem_size;            // 元素类型大小（用于内存拷贝）
 };
 ```
 
 - `next` 返回 `void*`：非空指针 = `Just t`，NULL = `Nothing`
 - 变换操作不修改 `state`，而是创建新的 Stream 结构体包裹前一个 Stream
-- `drop` 释放 `state` 持有的所有资源（文件描述符、堆内存等）
+- `destroy` 释放 `state` 持有的所有资源（文件描述符、堆内存等），作为安全网由 Arena 终结器在脚本结束时兜底
 
 ### 函数值
 

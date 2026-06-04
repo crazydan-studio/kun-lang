@@ -290,14 +290,20 @@ CapabilityManager
 ### 检查流程
 
 ```
-IO 操作 → capability_check(namespace, action, target)
+IO 操作 → 路径规范化（Path 类型解析 .. 和相对路径，确保能力检查前路径已归一化）
+          │
+          ▼
+          capability_check(namespace, action, target)
           │
           ├── current_scope.contains(namespace, action, target) ?
           │     │
-          │     ├── YES → 允许，记录审计日志
+          │     ├── YES → 允许，记录审计日志（result: "allowed"）
           │     │
-          │     └── NO  → 拒绝，抛出 PermissionError（含修改建议）
+          │     └── NO  → 记录审计日志（result: "denied"），
+          │                抛出 PermissionError（含修改建议）
 ```
+
+路径规范化步骤确保：`p"/etc/../var/log/messages"` 在能力检查前被规范化为 `/var/log/messages`，防止路径穿越绕过能力检查。`Path` 类型的规范化在能力检查路径中**总是**发生——既在脚本级 `with caps` 声明解析时，也在运行时 IO 原语的 `capability_check` 调用前。
 
 ### 审计日志
 

@@ -576,6 +576,8 @@ iter   : (a -> IO Unit) -> Stream a -> IO Unit
 
 终端操作驱动求值，逐一拉取元素。
 
+> **信号处理与纯 Stream 消费**：`fold`、`toList` 等纯终端操作不经过 IO thunk，因此 signalfd 信号会排队直到下一个 IO 边界才被处理。长时间纯 Stream 消费（如处理大文件后 `toList`）可能导致 Ctrl+C 响应延迟。如需在消费期间及时响应信号，应使用 `iter`（IO 终端）或其他含 IO 的消费方式。
+
 ### 错误处理辅助
 
 ```kun

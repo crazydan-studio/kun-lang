@@ -1003,7 +1003,12 @@ param * : List String 传入 100 万条目
           └── 用户感知为一次完整的调用
 ```
 
-分片对用户完全透明，`Stream` 元素顺序与不分裂时一致。
+分片对用户基本透明，`Stream` 元素顺序与不分裂时一致。
+
+**部分失败语义**：某分片执行失败（退出码非零或信号终止）时：
+1. 后续分片**不再执行**（类似 Shell `set -e` 行为）
+2. 已成功分片的 stdout 视为有效，通过 Stream 正常传递
+3. `Err` 包含失败分片信息和已处理分片计数：`Err (IOError.Other "shard N/M failed: exit code X")`
 
 仅在 `List String` 或 `List T` 类型的参数上触发。单个 `String`/`Int` 等标量参数不会超出限制。
 
