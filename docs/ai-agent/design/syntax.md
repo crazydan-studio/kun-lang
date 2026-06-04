@@ -663,6 +663,38 @@ record.name                           // 字段访问
 {x as x1, y as y1} = point            // 解构带别名
 ```
 
+### 行多态 Record 类型
+
+行多态允许函数接受"至少包含某些字段"的 Record，剩余字段由类型变量 `a` 表示：
+
+```kun
+getName : { a | name : String } -> String
+getName = \{ name } ->
+  name
+
+// 接受任何包含 name : String 的 Record
+getName { name = "Kun" }                    // → "Kun"
+getName { name = "Kun", version = "0.1" }   // → "Kun"
+```
+
+语法 `{ a | field1 : T1, field2 : T2 }` 中，`a` 是行变量（小写字母），代表剩余字段的类型。行多态不是子类型——它是参数化多态在 Record 字段上的应用，编译期通过行合一精确替换。
+
+### 扩展积类型
+
+基于已有 Record 类型声明扩展类型，编译期展开为完整字段：
+
+```kun
+type CmdOptions = { runAs : ?RunAs }
+
+type GitCommitOptions =
+  { CmdOptions
+  | message : String
+  }
+// 展开后：{ runAs : ?RunAs, message : String }
+```
+
+基类型必须是有名 Record 类型（`type T = { ... }`），字段名冲突时扩展字段覆盖基类型字段。
+
 ### 索引访问
 
 ```kun
