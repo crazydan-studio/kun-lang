@@ -40,11 +40,7 @@ createUser = \name uid email ->
 // 3. 泛型 ADT（空格分隔泛型参数）
 // ============================================================
 
-// 标准泛型：Maybe t 而非 Maybe<T>
-type Maybe t
-  = Just t
-  | Nothing
-
+// Nilable 类型为语言内置（?T），非 ADT
 // 多参数：Result t e 而非 Result<T, E>
 type Result t e
   = Ok t
@@ -125,8 +121,8 @@ b : Bool
 b = identity true
 
 // 复合类型实例化
-firstElem : Maybe Int
-firstElem = identity (Just 42)
+firstElem : ?Int
+firstElem = identity 42
 
 // ============================================================
 // 6. 显式类型转换
@@ -183,11 +179,10 @@ z : String       // String : Type
 
 // Type -> Type 种类：类型构造器
 // List     : Type -> Type
-// Maybe    : Type -> Type
 // Result   : Type -> Type -> Type
 
 // 完整应用归约到 Type：
 // List Int       : Type
-// Maybe String   : Type
+// ?String        : Type（Nilable 是语言内置）
 // Result Int String : Type
 ```

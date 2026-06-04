@@ -33,8 +33,8 @@
 
 | 方案 | 说明 |
 |------|------|
-| 散列 flag + 位置参数 | `ls : { all : Bool } -> Maybe Path -> Maybe Path -> IO ...` |
-| 统一 Record 参数 | `ls : { all : Bool, path0 : Maybe Path, ... } -> IO ...` |
+| 散列 flag + 位置参数 | `ls : { all : Bool } -> ?Path -> ?Path -> IO ...` |
+| 统一 Record 参数 | `ls : { all : Bool, path0 : ?Path, ... } -> IO ...` |
 
 **结论**：统一 Record 参数。所有 `flag`/`option`/`positional` 合并到同一 Record 类型中。
 
@@ -61,7 +61,7 @@
 | 方案 | 说明 |
 |------|------|
 | CDF 映射为命令函数 | `sudo` 本质是命令包装器，CDF 的参数模型无法表达"另一个命令调用" |
-| 作为命令函数的隐式参数 `runAs` | 所有命令函数带有 `runAs : Maybe String`，通过 `process.run-as` 能力控制允许切换到的用户 |
+| 作为命令函数的隐式参数 `runAs` | 所有命令函数带有 `runAs : ?RunAs`，通过 `process.run-as` 能力控制允许切换到的用户 |
 
 **结论**：禁止 `sudo`/`su` 映射为命令函数。新增 `runAs` 隐式参数 + `process.run-as` 能力。
 

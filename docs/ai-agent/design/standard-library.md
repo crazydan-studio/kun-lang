@@ -382,10 +382,10 @@ Args.parse : List Arg -> List String -> Result (Map String ArgsValue) String
 ### 值访问
 
 ```kun
-Args.get : String -> Map String ArgsValue -> Maybe ArgsValue
+Args.get : String -> Map String ArgsValue -> ?ArgsValue
 Args.getBool : String -> Map String ArgsValue -> Bool
-Args.getString : String -> Map String ArgsValue -> Maybe String
-Args.getPath : String -> Map String ArgsValue -> Maybe Path
+Args.getString : String -> Map String ArgsValue -> ?String
+Args.getPath : String -> Map String ArgsValue -> ?Path
 ```
 
 ### 示例
@@ -394,7 +394,7 @@ Args.getPath : String -> Map String ArgsValue -> Maybe Path
 import Args
 
 type Config
-  = Config { verbose : Bool, output : Maybe Path, name : Maybe String }
+  = Config { verbose : Bool, output : ?Path, name : ?String }
 
 parseCli : List String -> Result Config String
 parseCli = \raw ->
@@ -485,10 +485,9 @@ iter   : (a -> IO Unit) -> Stream a -> IO Unit
 ### 错误处理辅助
 
 ```kun
-filterMap : (a -> Maybe b) -> Stream a -> Stream b
-```
+filterMap : (a -> ?b) -> Stream a -> Stream b
 
-`filterMap toMaybe : Stream (Result t e) -> Stream t` — 过滤掉所有 `Err` 元素，保留 `Ok` 内容。
+`filterMap Result.ok : Stream (Result t e) -> Stream t` — 过滤掉所有 `Err` 元素，保留 `Ok` 内容。
 
 ### 示例
 
@@ -503,7 +502,7 @@ main =
       Ok lines ->
         lines
           // 跳过读失败的行
-          |> filterMap toMaybe
+          |> filterMap Result.ok
           |> filter (contains "ERROR")
           |> take 100
           |> iter print

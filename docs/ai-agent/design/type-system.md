@@ -9,7 +9,7 @@ Kun 的类型系统服务于一门面向 Linux 的函数式脚本语言。其设
 - **类型安全**：所有类型检查在编译期完成，消除运行时类型错误
 - **推断优先**：用户无需为局部变量和绝大多数函数参数提供类型标注
 - **实用至上**：为脚本场景做务实取舍，不追求理论完备性
-- **显式错误**：通过和类型（`Result`、`Maybe`）将错误处理纳入类型系统，禁止隐式异常
+- **显式错误**：通过和类型（`Result`）将错误处理纳入类型系统，禁止隐式异常。可选值通过 `?T`（nilable 类型）表达
 - **运行时对齐**：类型表示与 C ABI 兼容，保障 dlopen 直接加载命令二进制
 
 ### 设计原则
@@ -29,9 +29,9 @@ Kun 采用两级种类系统：
 | 种类 | 含义 | 示例 |
 |------|------|------|
 | `Type` | 具体类型（值可居留其中） | `Int`、`Bool`、`String` |
-| `Type -> Type` | 类型构造器（接受一个类型参数返回具体类型） | `List`、`Maybe`、`Set` |
+| `Type -> Type` | 类型构造器（接受一个类型参数返回具体类型） | `List`、`Set` |
 
-所有完整应用的类型构造器（如 `List Int`、`Maybe String`）归约到种类 `Type`。
+所有完整应用的类型构造器（如 `List Int`）归约到种类 `Type`。
 
 ### 类型分类
 
@@ -40,10 +40,44 @@ Type Universe
 ├── Base Types         (Int, Nat, Float, Bool, String, Bytes, Char, Regex, Duration, Unit, Path)
 ├── Compound Types     (List, Map, Set, Stream, Tuple)
 ├── Product Types      (Record/Tuple)
-├── Sum Types / ADTs   (custom sum types, Maybe, Result)
+├── Sum Types / ADTs   (custom sum types, Result)
+├── Nilable Types      (?T — Nil or T)
 ├── Function Types     (pure functions, command functions)
 ├── Effect Types       (IO)
 └── Type Variables     (a, b, etc. — for generics)
+```
+
+### Nilable 类型（`?T`）
+
+类型 `?T` 表示值可能存在（`T`），也可能不存在（`Nil`）。这是语言内置类型构造器，非 ADT。
+
+| 规则 | 说明 |
+|------|------|
+| `T`（无 `?`） | **不可**为 Nil。`let x : String = Nil` 编译期报错 |
+| `?T` | **可**为 Nil。`let x : ?String = Nil` 合法 |
+| `Nil` 字面量 | 唯一值为 `Nil`，类型为 `?a`（多态） |
+| Record 字段 | 未提供的字段自动为 `Nil` |
+| 和类型字段 | 字段类型默认不可 Nil，`?` 需显式标注 |
+| 函数参数 | 默认不可 Nil。`?` 标注时可为 Nil |
+
+操作符：
+
+| 操作符 | 语义 | 示例 |
+|-------|------|------|
+| `x ?? default` | Nil 合并：`x` 为 `Nil` 时返回 `default`，否则返回 `x` | `name ?? "guest"` |
+| `x ?. f` | 可选链：`x` 为 `Nil` 时返回 `Nil`，否则调用 `f(x)` | `getConfig "port" ?. parseInt` |
+
+模式匹配收窄：
+
+```kun
+let x : ?String = ...
+
+case x of
+  Nil -> "none"        // Nil 分支
+  s   -> s             // 此分支 s 收窄为 !String（安全）
+
+if x != Nil then
+  print x              // 此分支 x 收窄为 !String（安全）
 ```
 
 ## 基础类型
@@ -144,8 +178,8 @@ Type Universe
 - 支持修饰符开关：`(?i)` 开启，`(?-i)` 关闭
 - 编译期对正则语法进行验证，语法错误为编译期错误
 - 修饰符在编译期编码到正则中，运行时不可变更
-- 支持操作：`match : Regex -> String -> Maybe String`、`matchAll : Regex -> String -> List String`、`contains : Regex -> String -> Bool`、`split : Regex -> String -> List String`、`replace : Regex -> String -> String -> String`、`replaceAll : Regex -> String -> String -> String`
-- 捕获组支持：`captures : Regex -> String -> Maybe (List (Maybe String))`（返回所有捕获组，每组可能为 null）
+- 支持操作：`match : Regex -> String -> ?String`、`matchAll : Regex -> String -> List String`、`contains : Regex -> String -> Bool`、`split : Regex -> String -> List String`、`replace : Regex -> String -> String -> String`、`replaceAll : Regex -> String -> String -> String`
+- 捕获组支持：`captures : Regex -> String -> ?(List (?String))`（返回所有捕获组，每组可能为 null）
 
 #### `Duration`
 
@@ -306,9 +340,9 @@ Kun 类型系统**不包含子类型关系**：
 - 和类型运行时采用带标记的联合体（Tagged Union）：
 
   ```zig
-  struct Maybe_Int {
-    uint8_t tag;       // 0 = Nothing, 1 = Just
-    int64_t value;     // 仅 tag==1 时有意义
+  struct Nilable_Int64 {
+    uint8_t is_nil;    // 0 = 有值, 1 = Nil
+    int64_t value;     // 仅 is_nil==0 时有意义
   };
   ```
 
@@ -345,6 +379,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 | 版本 | 变更 |
 |------|------|
+| 0.2.0 | Nilable 类型 `?T` 替代 `Maybe`，新增 `?.` 可选链和 `??` Nil 合并操作符 |
 | 0.1.0 | MVP 基础类型 + `Maybe`/`Result` + HM 推断 + 简单参数化多态 + `IO` 效应标记 |
 
 ## 参考

@@ -175,7 +175,7 @@ processLargeFile = \path ->
     lines
       |> filter (contains "ERROR")
       |> map parseLine
-      |> filterMap toMaybe
+      |> filterMap Result.ok
       |> iter (\entry -> print entry.message)
 
 // ============================================================
@@ -218,7 +218,7 @@ main =
     showCount  = f"count: {result}"                          // Int 默认十进制
 
     // 索引访问
-    first     = levels[0]         // List 索引 → Maybe LogLevel
+    first     = levels[0]         // List 索引 → ?LogLevel
     firstChar = "hello"[0]        // String 索引 → Char
     firstElem = pair.0            // Tuple 索引
 

@@ -64,12 +64,12 @@ describeResult = \res ->
     Ok n    -> f"got: {n}"
     Err msg -> f"error: {msg}"
 
-// Maybe 模式
-head : List a -> Maybe a
+// Nilable 模式
+head : List a -> ?a
 head = \list ->
   case list of
-    [x, *_] -> Just x
-    []      -> Nothing
+    [x, *_] -> x
+    []      -> Nil
 
 // ============================================================
 // 3. List 模式（[*rest] 替代 ::）
@@ -99,11 +99,11 @@ describeList = \list ->
     _           -> "longer"
 
 // 固定位置匹配
-thirdElement : List Int -> Maybe Int
+thirdElement : List Int -> ?Int
 thirdElement = \list ->
   case list of
-    [_, _, z, *_] -> Just z
-    _             -> Nothing
+    [_, _, z, *_] -> z
+    _             -> Nil
 
 // ============================================================
 // 4. 守卫子句（when）
@@ -118,14 +118,14 @@ classify = \n ->
     m when m < 0 && m >= -10       -> "small negative"
     _                              -> "large negative"
 
-// 守卫 + 变体模式
-describeMaybe : Maybe Int -> String
-describeMaybe = \m ->
+// 守卫 + Nil 收窄
+describeNilable : ?Int -> String
+describeNilable = \m ->
   case m of
-    Just n when n > 100 -> "big number"
-    Just n when n < 0   -> "negative"
-    Just _              -> "some value"
-    Nothing                -> "nothing"
+    Nil            -> "nothing"
+    n when n > 100 -> "big number"
+    n when n < 0   -> "negative"
+    n              -> "some value"
 
 // ============================================================
 // 5. 元组解构
@@ -140,11 +140,11 @@ swap = \pair ->
     (y, x)
 
 // case 匹配元组内容
-bothOrNothing : (Maybe a, Maybe b) -> Maybe (a, b)
+bothOrNothing : (?a, ?b) -> ?(a, b)
 bothOrNothing = \pair ->
   case pair of
-    (Just a, Just b) -> Just (a, b)
-    _                -> Nothing
+    (a, b) when a != Nil && b != Nil -> (a, b)  // 双方都有值
+    _                                -> Nil
 
 // ============================================================
 // 6. Record 解构

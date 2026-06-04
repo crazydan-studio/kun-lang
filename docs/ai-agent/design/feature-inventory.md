@@ -10,7 +10,8 @@
 |---|---|---|
 | 基础类型 | ✅ 设计定型 | Int(i64)、Nat(独立非负)、Float(f64)、Bool、String(UTF-8)、Bytes、Char、Regex(matchAll+捕获组)、Duration、Unit、Path |
 | 复合类型 | ✅ 设计定型 | List(Rope 实现，支持索引)、Map、Set(内建 Eq)、Stream、Tuple |
-| 和类型 | ✅ 设计定型 | Maybe、Result、自定义和类型，穷举检查 |
+| 和类型 | ✅ 设计定型 | Result、自定义和类型，穷举检查 |
+| Nilable 类型 `?T` | ✅ 设计定型 | 语言内置 Nilable 类型，`?T` 标记可选，`?.` 可选链 + `??` Nil 合并 |
 | 代数数据类型 | ✅ 设计定型 | 积类型(Record/Tuple) + 和类型的组合 |
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
 | 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |
@@ -107,7 +108,8 @@
 | 功能 | 状态 | 说明 |
 |---|---|---|
 | Stream 类型 | ✅ 设计定型 | 惰性流，mmap/分块/非阻塞 IO |
-| Maybe / Result | ✅ 设计定型 | 显式错误处理，=? / <-? 操作符 |
+| Result | ✅ 设计定型 | 显式错误处理，=? / <-? 操作符 |
+| `?.` / `??` | ✅ 设计定型 | 可选链（`x ?. f`）和 Nil 合并（`x ?? default`）操作符 |
 | =? / <-? 操作符 | ✅ 设计定型 | 绑定期解包 Ok，传播 Err |
 | Effect 类型 | ✅ 设计定型 | 结构化 IO 操作管理 |
 

@@ -238,13 +238,13 @@ option <name> "<flag>" : <type>[!] [with (<validator>)]
 | `<name>` | 函数 Options Record 的字段名，不加引号 |
 | `"<flag>"` | 命令的选项名，`-v`（短名，单字符）或 `--verbose`（长名），二选其一。解析器通过 `--` 前缀区分长短名 |
 | `<type>` | 选项值类型。支持 `T`、`T!`、`List T` 三种形式 |
-| `[!]` | 可选标记。`T!` 表示必填（`String!` → Kun 类型 `String`）。缺省为可选（`String` → Kun 类型 `Maybe String`）。**`Bool` 和 `List T` 不受 `!` 影响**——编译期检查到 `Bool!` 或 `List T!` 时发出警告并忽略 `!` |
+| `[!]` | 可选标记。`T!` 表示必填（`String!` → Kun 类型 `String`）。缺省为可选（`String` → Kun 类型 `?String`）。**`Bool` 和 `List T` 不受 `!` 影响**——编译期检查到 `Bool!` 或 `List T!` 时发出警告并忽略 `!` |
 | `[with (<validator>)]` | 可选验证器，可以是已定义的 `validator` 名称，也可以是**内联表达式** |
 
 **`List T` 类型**：声明选项可重复出现任意次。生成的 Kun 字段类型为 `List T`。运行时 argv 构造为每个元素展开一次标志：
 
 ```kun-cdf
-option env "-e" : String                   // -e 出现 0 或 1 次 → env : Maybe String
+option env "-e" : String                   // -e 出现 0 或 1 次 → env : ?String
 option env "-e" : List String              // -e 出现 0..N 次 → env : List String
 ```
 
@@ -268,7 +268,7 @@ option branch "-b" : String with (regex r"^[a-z]+$")
 
 ```kun-cdf
 option verbose "-v" : Bool                   // Bool → Bool，缺省 false
-option config "-c" : Path                    // 可选 → Maybe Path
+option config "-c" : Path                    // 可选 → ?Path
 option name "-n" : String!                   // 必填 → String
 option port "-p" : Int with (portRange)       // 可选 + 引用已定义验证器
 option format "-f" : String with (include ["json", "csv"])
@@ -440,9 +440,9 @@ type StatusEntry = { file : Path, status : String }
 type CommitEntry = { hash : String, author : String, message : String }
 
 // Options Record（代码生成，runAs 自动注入）
-type GitOptions = { runAs : Maybe RunAs }
-type GitStatusOptions = { short : Bool, runAs : Maybe RunAs }
-type GitLogOptions = { maxCount : Maybe Int, runAs : Maybe RunAs }
+type GitOptions = { runAs : ?RunAs }
+type GitStatusOptions = { short : Bool, runAs : ?RunAs }
+type GitLogOptions = { maxCount : ?Int, runAs : ?RunAs }
 
 // 根命令（参数顺序：Options → param *）
 git : GitOptions -> List String -> IO
@@ -562,7 +562,7 @@ Err e <-? grep {} ["pattern", "/nonexistent"]
 | `command <name>` | 函数 `<name>`，Record `<Name>Options` |
 | `subcommand <name>` | 内部函数 `<main>_<name>`，调用语法 `<main>.<name>`（多层嵌套 `<main>.<sub1>.<sub2>`） |
 | `option x "-x" : Bool` | 字段 `x : Bool`，argv 构造展开为 `-x` |
-| `option x "-x" : T` | 字段 `x : Maybe T` |
+| `option x "-x" : T` | 字段 `x : ?T` |
 | `option x "-x" : T!` | 字段 `x : T` |
 | `option x "-x" : List T` | 字段 `x : List T`，argv 构造 `-x v1 -x v2 -x v3` |
 | `param <N> : T` | 函数第 N+1 个参数（Options 后），类型 `T` |
@@ -572,7 +572,7 @@ Err e <-? grep {} ["pattern", "/nonexistent"]
 | `output <name>` | 命令函数返回值类型为 `Result (Stream T) IOError` |
 | `output default` / `output json` | 同前，`T` = `String` / `JsonValue` |
 | `output` 内置标识符 | `default`、`json` 为保留标识符，自定义 `parser` 不可命名为 `default` 或 `json` |
-| `runAs` | 自动注入到 Options Record 作为`runAs : Maybe RunAs` |
+| `runAs` | 自动注入到 Options Record 作为`runAs : ?RunAs` |
 | `option type`等关键字名 | Record 字段名直接使用关键字，不受限制 |
 | `exitcode N = Ok` | 退出码 N → `Ok (Stream T)` |
 | `exitcode N = Ok empty` | 退出码 N → `Ok Stream.empty` |
@@ -596,11 +596,11 @@ type FdSpec
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `runAs` | `Maybe RunAs` | 命令函数的执行用户身份，控制通过 `process.run-as` 能力 |
+| `runAs` | `?RunAs` | 命令函数的执行用户身份，控制通过 `process.run-as` 能力 |
 | `env` | `Map String String` | 子进程环境变量，缺省继承当前进程环境。非 CLI 参数，不传递给 argv |
-| `stdin` | `Maybe (Fd OrPath)` | 子进程标准输入来源（文件路径或现有 fd） |
-| `stdout` | `Maybe (Fd OrPath)` | 子进程标准输出目标 |
-| `stderr` | `Maybe (Fd OrPath OrStdioMode)` | 子进程标准错误目标，支持 `Pipe`/`Inherit` 模式 |
+| `stdin` | `?(Fd OrPath)` | 子进程标准输入来源（文件路径或现有 fd） |
+| `stdout` | `?(Fd OrPath)` | 子进程标准输出目标 |
+| `stderr` | `?(Fd OrPath OrStdioMode)` | 子进程标准错误目标，支持 `Pipe`/`Inherit` 模式 |
 | `fd` | `Map Int FdSpec` | 额外文件描述符重定向，键为 fd 编号，值为 `FdSpec` 类型 |
 
 调用示例：
@@ -701,9 +701,9 @@ walkDir { root = p"/var/log" }
 // walkDir 的签名
 type DirEntry = { path : Path, fileType : FileType, size : Int, mtime : DateTime }
 
-walkDir : { root : Path, depth : Maybe Int = Nothing
+walkDir : { root : Path, depth : ?Int
           , followSymlinks : Bool = false
-          , runAs : Maybe RunAs = Nothing
+          , runAs : ?RunAs
            } -> IO (Result (Stream DirEntry) IOError)
 ```
 
