@@ -16,3 +16,4 @@
 | [能力安全系统设计](discussion-capability-design.md) | `with caps` 语法、零默认能力、编译器内置能力对象、二级粒度声明、审查机制 | 2026-06-01 |
 | [命令函数设计](discussion-command-function-design.md) | 结构化输出、exec 移除、runAs 隐式参数、Record 参数、process.exec 完全移除 | 2026-06-02 |
 | [CDF→Kun 代码生成设计](discussion-cdf-code-generation.md) | CDF 编译期代码生成、validator/pure/parser 设计、param 语义、option type 直接命名 | 2026-06-03 |
+| [行多态与扩展积类型](discussion-row-polymorphism.md) | 行变量与行合一、`{ a \| name : String }` 统一语法、编译期字段展开、无子类型兼容性 | 2026-06-04 |
