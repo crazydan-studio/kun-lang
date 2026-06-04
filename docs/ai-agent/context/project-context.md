@@ -20,7 +20,7 @@
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令签名系统设计（定型）、安全模型设计（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/design/command-signature-system.md`、`docs/ai-agent/design/roles-and-permissions.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | CDF 全面重构：EBNF 形式化语法、分级可用性模型（T1-T4）、run-first 入口（`run""` + `process.run`）、内联验证器、`.` 分隔子命令、List T 重复选项、env/fd 隐式注入、FdSpec 重定向、超长参数自动分片、CmdResult 移除→exitcode 声明、Maybe→?T Nilable 类型替换、?. 可选链 / ?? Nil 合并 |
+| 最近完成 | CDF 全面重构（同前）；语法操作符修订（`=?`→`=!`/`!=`→`/=`）；List 展开 `*`→`..`；Maybe→`?T` 清理；`--`→`//` 注释语法修正；行多态与扩展积类型设计；全面审计（8 轮/49 项问题修复）；标准库 API 盲点补充（`sleep`/`Random`/`TempFile`/`TempDir`/定时器/退出码）；README 修正 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -51,6 +51,7 @@
 | 2026-06-01 | 能力安全系统重新设计 | 重构+设计 | ✅ roles-and-permissions、syntax、system-baseline | ❌ 未检查（事后补查：skills/ 含 document-audit/plan-audit/closure-audit 提示词） | 应走 `plan-first`，实际未写计划直接实施（违规） |
 | 2026-06-02 | 五轮设计审计与修复 | 审计+修复 | ✅ 全部 owner docs | ✅ 使用 closure-audit-prompt、document-audit-prompt | `implement` 直接执行 |
 | 2026-06-04 | CDF 全面重构与命令函数系统重设计 | 设计+重构 | ✅ 全部 owner docs | ❌ 未检查 | `plan-first` → `implement`（先写 plan 后执行） |
+| 2026-06-04 | 语法打磨 + 多轮全面审计 + 标准库盲点补充 | 维护+审计 | ✅ 全部 owner docs | ✅ document-audit-prompt、closure-audit-prompt、multi-dimensional-audit-prompt | `implement` 直接执行 |
 
 ## AI 阻塞条件
 
