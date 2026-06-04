@@ -585,7 +585,7 @@ kubectl.logs {} ["pod-1"]        // output json → Stream JsonValue
   |> iter (\line -> process line)
 
 // 文档：完整 JSON 对象
-pod <-? kubectl.get.pods { output = "json" }   // output json-doc → JsonValue
+pod <-! kubectl.get.pods { output = "json" }   // output json-doc → JsonValue
 nodeCount = pod["items"] |> length
 ```
 
@@ -595,15 +595,15 @@ nodeCount = pod["items"] |> length
 
 ```kun
 // grep 找到匹配 → Ok (Stream ["line1", "line2"])
-lines <-? grep {} ["pattern", "/etc/passwd"]
+lines <-! grep {} ["pattern", "/etc/passwd"]
 lines |> iter print
 
 // grep 无匹配 → Ok Stream.empty（不是错误）
-lines <-? grep {} ["nonexistent", "/etc/passwd"]
+lines <-! grep {} ["nonexistent", "/etc/passwd"]
 lines |> iter print    // 输出空
 
 // grep 文件不存在 → Err (IOError.NotFound "/nonexistent")
-Err e <-? grep {} ["pattern", "/nonexistent"]
+Err e <-! grep {} ["pattern", "/nonexistent"]
 // e = NotFound "/nonexistent"
 
 // 命令不存在 → Err (IOError.Other "command not found")

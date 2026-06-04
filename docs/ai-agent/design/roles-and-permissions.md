@@ -77,7 +77,7 @@ readConfig =
   with caps
     fs.read = [p"/etc/kun/config"]
   do
-    conf <-? readFile p"/etc/kun/config"
+    conf <-! readFile p"/etc/kun/config"
   in
     conf
 ```
@@ -393,7 +393,7 @@ readConfig =
   with caps
     fs.read = [p"/etc/kun/config"]
   do
-    conf <-? readFile p"/etc/kun/config"
+    conf <-! readFile p"/etc/kun/config"
   in
     conf
 ```

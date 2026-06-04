@@ -335,7 +335,7 @@ fileExists : Validator Path = ...
 ```kun
 myPortValidator : Validator Int
 myPortValidator = \port ->
-  if port >= 1 && port <= 65535 && port != 666 then
+  if port >= 1 && port <= 65535 && port /= 666 then
     Ok port
   else
     Err "port must be 1-65535 and not 666"
@@ -457,7 +457,7 @@ IO 构造必须通过 `<-` 解包后才能消费：
 ```kun
 main =
   do
-    lines <-? Stream.readLines p"/tmp/log.txt"
+    lines <-! Stream.readLines p"/tmp/log.txt"
     iter print lines
 ```
 

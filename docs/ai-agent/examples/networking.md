@@ -1,11 +1,11 @@
 # IO 与效应系统聚焦：网络服务监控
 
-覆盖：`do` 记法（深度）、`=?` / `<-?` 操作符、权限声明、`Signal`/`Port`/`Pid`/`SocketAddr`/`Stream`/`DateTime`/`Duration`、错误链、`capability` 作用域
+覆盖：`do` 记法（深度）、`=!` / `<-!` 操作符、权限声明、`Signal`/`Port`/`Pid`/`SocketAddr`/`Stream`/`DateTime`/`Duration`、错误链、`capability` 作用域
 
 ```kun
 // ============================================================
 // networking.kun  —  网络服务监控脚本
-// 涵盖：do 记法（深层嵌套）、=? / <-? 操作符（错误传播）、
+// 涵盖：do 记法（深层嵌套）、=! / <-! 操作符（错误传播）、
 //       权限声明、Signal/Port/Pid/SocketAddr、
 //       Stream 惰性 IO、DateTime/Duration、IOError 处理
 // ============================================================
@@ -73,9 +73,9 @@ checkService = \addr ->
           Down { error = toString err }
 
 // ============================================================
-// =? / <-? 操作符：Error 自动传播
+// =! / <-! 操作符：Error 自动传播
 
-// 在返回 Result t e 的函数中，=? / <-? 解包 Ok 并传播 Err
+// 在返回 Result t e 的函数中，=! / <-! 解包 Ok 并传播 Err
 type ConfigError
   = MissingField String
   | InvalidPort
@@ -85,11 +85,11 @@ loadConfig : Path -> IO (Result { host : String, port : Port } ConfigError)
 loadConfig = \path ->
   do
     content <- readFile path
-    // =? 解包 Result，若为 Err 则提前返回
-    host    =? parseField "host" content
-    portStr =? parseField "port" content
+    // =! 解包 Result，若为 Err 则提前返回
+    host    =! parseField "host" content
+    portStr =! parseField "port" content
     portInt  = toInt portStr
-    port    =? Port.fromInt portInt
+    port    =! Port.fromInt portInt
   in
     Ok { host = host, port = port }
 
@@ -98,10 +98,10 @@ fetchAndReport : SocketAddr -> IO (Result MonitorResult String)
 fetchAndReport = \addr ->
   do
     start <- now
-    body  <-? httpGet addr p"/api/data"
+    body  <-! httpGet addr p"/api/data"
     end   <- now
-    parsed =? parseJson body
-    data   =? extractField "value" parsed
+    parsed =! parseJson body
+    data   =! extractField "value" parsed
     logResult data
   in
     Ok (Result
