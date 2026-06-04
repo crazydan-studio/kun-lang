@@ -27,6 +27,82 @@ CDF 不再是运行时解析的描述文件，而是**编译期代码生成源**
 
 ### CDF 语法
 
+#### CDF 形式化语法（EBNF）
+
+以下 EBNF 定义 CDF 文件格式（v1）。终端符用单引号包裹，可选用 `[ ]`，零次或多次用 `{ }`，分组用 `( )`。
+
+```ebnf
+cdf_file    = version_header , { validator_decl | parser_decl } , command_decl ;
+comment     = '//' , { character } , newline ;
+
+version_header = '//' , 'kun-cdf-v1' ;
+
+(* 验证器 *)
+validator_decl = 'validator' , identifier , '=' , expression ;
+expression     = identifier                           (* 引用其他验证器 *)
+               | identifier , { expression }          (* 函数应用：all [...] *)
+               | string_literal | number              (* 字面量 *)
+               | '\\' , identifier , '->' , expression (* lambda *)
+               | '[' , [ expression , { expression } ] , ']'  (* 列表 *)
+               ;
+
+(* 解析器 *)
+parser_decl    = 'parser' , identifier , ':' , stream_type , '=' , module_ref ;
+stream_type    = 'Stream' , '(' , 'Result' , type_name , type_name , ')' ;
+module_ref     = identifier , '.' , identifier ;
+
+(* 命令声明 *)
+command_decl   = 'command' , identifier , [ string_literal ] , newline
+                 , indent , command_body , dedent ;
+subcommand_decl = 'subcommand' , identifier , [ string_literal ] , newline
+                  , indent , command_body , dedent ;
+command_body   = { option_decl | param_decl | output_decl | bin_decl | subcommand_decl } ;
+
+(* 选项 *)
+option_decl    = 'option' , identifier , flag_string , ':' , type_name
+                 , [ '!' ] , [ 'with' , '(' , identifier ')' ] ;
+flag_string    = '"-' , flag_char , { flag_char } , '"'         (* 短名：-v *)
+               | '"--' , identifier , '"'                       (* 长名：--verbose *)
+               ;
+flag_char      = letter | digit | '_' ;
+
+(* 位置参数 *)
+param_decl     = 'param' , ( '*' | natural ) , ':' , type_expr
+                 , [ 'with' , '(' , identifier ')' ] ;
+
+(* 输出声明 *)
+output_decl    = 'output' , ( identifier | 'default' | 'json' ) ;
+
+(* 命令路径 *)
+bin_decl       = 'bin' , path_literal ;
+
+(* 类型 *)
+type_expr      = type_name | 'List' , type_name ;
+type_name      = 'Bool' | 'Int' | 'Nat' | 'Float' | 'String' | 'Path' | identifier ;
+path_literal   = 'p"' , { character } , '"' ;
+string_literal = '"' , { character } , '"' ;
+number         = digit , { digit } ;
+natural        = digit , { digit } ;
+identifier     = ( letter | '_' ) , { letter | digit | '_' } ;
+```
+
+**语义约束**（解析器必须在语法分析后额外检查）：
+
+| # | 约束 | 违规处理 |
+|---|------|---------|
+| 1 | `param <N>` 的编号 `N` 必须严格递增，不可跳跃（如先 `param 1` 后 `param 0`） | 编译期报错：参数编号顺序错误 |
+| 2 | `param *` 必须出现在所有 `param <N>` 之后，且每个 `command_body` 中最多一个 `param *` | 编译期报错：param * 位置错误 |
+| 3 | `!` 标记仅适用于非 `Bool` 类型的 `option`。`Bool` 类型后出现 `!` 为编译期警告并忽略 | 编译期警告：Bool 类型不支持 ! 标记 |
+| 4 | `output` 引用 `identifier` 时，该标识符必须在文件前面的 `parser_decl` 中已定义 | 编译期报错：引用了未定义的解析器 |
+| 5 | `output default` 和 `output json` 为关键字，不可用作自定义 `parser` 名称 | 编译期报错：default/json 为保留标识符 |
+| 6 | `bin` 的相对路径（`p"./..."` 开头）不可超出 CDF 所在目录（`../` 不允许） | 编译期报错：bin 路径超出 CDF 目录 |
+
+**词法规定**：
+- CDF 使用缩进（空格/制表符）表示 `command`/`subcommand` 的嵌套层级
+- `//` 为行注释，注释内不解析其他语法
+- `identifier` 区分大小写，不能以数字开头
+- `flag_string` 的短名形式限制为 `"-` + ASCII 字母数字 + `"`，不支持 `-abc` 合并短名（合并由运行时 argv 解析器处理，CDF 只声明单字符短名）
+
 #### 校验器和解析器（根命令层级，无缩进）
 
 ```kun-cdf
@@ -52,10 +128,12 @@ option <name> "<flag>" : <type>[!] [with (<validator>)]
 | 部分 | 说明 |
 |------|------|
 | `<name>` | 函数 Options Record 的字段名，不加引号 |
-| `"<flag>"` | 命令的选项名（长名 `--long` 或短名 `-a`），二选其一 |
+| `"<flag>"` | 命令的选项名，`-v`（短名，单字符）或 `--verbose`（长名），二选其一。解析器通过 `--` 前缀区分长短名 |
 | `<type>` | 选项值类型 |
-| `[!]` | 可选标记，`T!` 表示必填（非 Bool 类型），缺省为可选（`Maybe T`）。`Bool` 不受 `!` 影响 |
-| `[with (<validator>)]` | 可选验证器 |
+| `[!]` | 可选标记。`T!` 表示必填（`String!` → Kun 类型 `String`）。缺省为可选（`String` → Kun 类型 `Maybe String`）。**`Bool` 类型不受 `!` 影响**——编译期检查到 `Bool!` 时发出警告并忽略 `!` |
+| `[with (<validator>)]` | 可选验证器，引用已定义的 `validator` |
+
+**长短名区分规则**：`"<flag>"` 以 `--` 开头为长名，以 `-` 开头为短名。短名必须是单字符（`-a` 合法，`-abc` 不合法）。合并短名（如 `-abc` 展开为 `-a -b -c`）由运行时 argv 解析器处理，不在 CDF 声明范围内。
 
 ```kun-cdf
 option verbose "-v" : Bool                   // Bool → Bool，缺省 false
@@ -74,7 +152,9 @@ param * : List <type>                        // 剩余参数，集合类型
 ```
 
 - `param <N>` 顺序对应函数参数位置，按顺序依次存在——不支持前一个不存在而后一个存在的情况
+- `param <N>` 的编号 `N` 必须严格递增（如 `param 0` → `param 1` → `param 2`，不可跳跃或逆序）
 - 确定位置的参数始终必填，不支持 `!` 标记
+- `param *` 必须出现在所有 `param <N>` 之后，每个 `command_body` 中最多出现一次
 - `param * : List T` 显式写出 `List`，语义为零个或多个相同类型的参数
 - 不同类型的位置参数必须分别映射为 `param <N>`，`param *` 要求所有元素同类型
 
@@ -113,6 +193,8 @@ output <parser_name>           // 引用已定义的 parser
 output default                 // 内置解析器，返回 Stream String
 output json                    // 内置解析器，返回 Stream JsonValue
 ```
+
+`output` 引用的 `parser_name` 必须在文件前面的 `parser_decl` 中已定义，否则编译期报错。`default` 和 `json` 为保留关键字，不可用作自定义 `parser` 名称。
 
 #### `bin`——命令路径
 
