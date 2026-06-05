@@ -31,7 +31,21 @@
 
 `.cmd.kun` 文件是以 `command` 声明开头、使用 Kun 语法编写命令定义的专用文件。每个文件对应一个主命令（如 `git`、`docker`、`kubectl`），其中所有命令函数共享同一个 `bin`。
 
-### 文件结构与声明顺序
+`.cmd.kun` 是面向命令函数提供者的文件格式。提供者编写 `.cmd.kun` 定义命令的签名、参数和输出解析逻辑。使用者（Kun 脚本/模块开发者）导入编译后的命令函数，面对的是编译器生成的类型和签名——两者在使用层面相互独立。
+
+### 声明顺序
+
+`.cmd.kun` 文件内的声明必须按以下顺序排列，违反顺序为编译期错误：
+
+```
+① command 声明（文件第一个非注释行）
+② import 语句
+③ type 定义
+④ 内部函数（含 parser 函数）
+⑤ 导出命令函数
+```
+
+### 文件结构与示例
 
 ```kun
 // command 声明（文件第一个非注释行）
@@ -57,7 +71,14 @@ import Validator with (range, regex, not)
 type CommitEntry = { hash : String, author : String, message : String }
 type StatusEntry = { file : Path, status : String }
 
-// 用户定义 LogOptions 积类型，编译器自动附加隐式字段
+// 内部函数：parseLogLine/parseStatusLine 未在 export 中列出，是内部函数
+parseLogLine : String -> Result CommitEntry String
+
+parseStatusLine : String -> Result StatusEntry String
+
+// 导出命令函数：编译器自动附加隐式字段并封装安全层
+
+// log 命令——用户定义 LogOptions 积类型
 type LogOptions =
   { maxCount : ?Int
   , branch : ?String
@@ -79,22 +100,23 @@ log = \{ maxCount, branch } ->
         Nil -> identity
       )
 
+// status 命令——无额外选项，使用空 Options Record
+// 编译器通过扩展积类型自动注入隐式字段
 type StatusOptions =
   {}
 
-// status 命令（无额外选项）
 status : StatusOptions -> Command StatusEntry
 status = \{} ->
   createStreamCommand parseStatusLine
     |> withPath Path.cwd Read
     |> withArgs ["status"]
 
+// remote_add 命令——含用户输入参数（用 withUnsafeArg 标记）
 type RemoteAddOptions =
   { name : String
   , url : String
   }
 
-// remote_add 命令（含用户输入参数）
 remote_add : RemoteAddOptions -> Command String
 remote_add = \{ name, url } ->
   createDocumentCommand raw
@@ -103,10 +125,6 @@ remote_add = \{ name, url } ->
     |> withUnsafeArg name
     |> withUnsafeArg url
 
-parseLogLine : String -> Result CommitEntry String
-
-parseStatusLine : String -> Result StatusEntry String
-```
 
 ### 调用方使用
 
@@ -158,7 +176,9 @@ withArg       : String -> Command a -> Command a
 // 批量追加参数
 withArgs      : List String -> Command a -> Command a
 
-// 追加 flag（自动处理 --flag value 形式）
+// 追加 flag
+//   第二个参数为 Nil → 布尔开关（如 --verbose）
+//   第二个参数为 String → 带值 flag（如 -n 50）
 withFlag      : String -> ?String -> Command a -> Command a
 
 // 追加用户输入参数（Unsafe 标记，编译期警告 + 运行时隔离）
@@ -249,10 +269,12 @@ log = \{ maxCount, branch } ->
 
 1. 验证返回类型为 `Command T`
 2. 收集所有 `withPath` 调用 → 路径摘要（用于 Landlock）
-3. 生成完整的 Options Record 类型——通过**扩展积类型**在用户传入的 Options Record 上自动附加隐式字段
-4. 将命令函数重新封装，解构隐式字段与用户选项，通过 `InternalCommand.run` 执行
-5. `InternalCommand.run` **覆盖** `Command` 上的隐式字段值，防止命令函数内部的注入攻击
-6. 封装后返回类型从 `Command T` 提升为 `IO (Result (Stream (Result T String)) IOError)` 或 `IO (Result T IOError)`
+3. 生成完整的 Options Record 类型——通过**扩展积类型**在用户传入的 Options Record 上自动附加隐式字段。用户定义 `LogOptions = { maxCount : ?Int, branch : ?String }`，编译器生成 `LogOptions = { LogOptions_ | runAs : ?RunAs, ... }`（对外导出的 `LogOptions` 是扩展后的类型，原始的 `LogOptions_` 被重命名隐藏）
+4. 将命令函数重新封装：识别隐式字段 (`runAs`/`env`/`stdin`/`stdout`/`stderr`/`fd`)，通过 `{runAs, ..opts} = cmdOpts` 从调用方传入的完整 Record 中剥离出用户选项 `opts` 传给原始命令函数，隐式字段传给 `InternalCommand.run`
+5. `InternalCommand.run` **覆盖** `Command` 上的 bin/runAs/env 值，防止命令函数内部的注入攻击（无论命令函数怎么设置，最终被覆盖）
+6. 封装后返回类型从 `Command T` 提升：
+   - 行流模式：`IO (Result (Stream (Result T String)) IOError)`——外层 `Result` 表示进程执行结果，内层 `Result` 表示每行解析结果
+   - 文档模式：`IO (Result T IOError)`——解析失败映射为 `IOError`
 
 ### 封装原理
 
@@ -349,7 +371,7 @@ log = \cmdOpts ->
 
 ### `InternalCommand.run` 的安全覆盖
 
-`InternalCommand` 是 Kun 内部模块，不能被外部调用。`run_` 负责安全检查 + fork-exec，`run1`/`run2` 分别处理行流/文档模式的输出解析：
+`InternalCommand` 是 Kun 内部模块，不能被外部调用。`run_` 负责安全检查 + fork-exec，`run1`/`run2` 分别处理行流/文档模式的输出解析。`andThen`/`mapErr` 是 `Result` 模块的组合子（见 `standard-library.md`）：
 
 ```kun
 // 内部安全检查与执行（返回原始 stdout 流）
@@ -593,7 +615,7 @@ kun cmd init git
       └── 类型注解（用户需补充）
 ```
 
-生成的 `.cmd.kun` 是草稿，用户需审核后补充输出解析器（`LineStream`/`Document`）和自定义类型。自动推导是**开发辅助工具**，非运行时通路。
+生成的 `.cmd.kun` 是草稿，用户需审核后补充输出解析器（`createStreamCommand`/`createDocumentCommand`）和自定义类型。自动推导是**开发辅助工具**，非运行时通路。
 
 ## 签名与注册中心
 
@@ -667,8 +689,8 @@ type FdSpec
 | `runAs` | `?RunAs` | 执行用户身份，通过 `process.run-as` 能力控制 |
 | `env` | `?(Map String String)` | 子进程环境变量，缺省继承当前进程环境 |
 | `stdin` | `?OrPath` | 标准输入来源 |
-| `stdout` | `?OrPath` | 标准输出目标 |
-| `stderr` | `?OrStdioMode` | 标准错误目标 |
+| `stdout` | `?OrPath` | 标准输出目标。`Nil` → 通过管道捕获（默认，用于返回类型解析）；`FdSource n` → 重定向到指定 fd；`PathSource p` → 写入文件 |
+| `stderr` | `?OrStdioMode` | 标准错误目标。`Nil` → 继承父进程 stderr（默认）；`Pipe` → 管道捕获；`Inherit` → 显式继承；其余同 `stdout` |
 | `fd` | `?(Map Int FdSpec)` | 额外文件描述符重定向，缺省空 Map |
 
 其中 `Fd`、`OrPath`、`OrStdioMode` 类型：
