@@ -219,10 +219,11 @@ with caps
   process.run-as = [ByName "root", ById 1000]   // 允许切换到的用户
 
 main =
-  ls { path0 = p"/root", runAs = ByName "root" }   // ✅ 按用户名
-  ls { path0 = p"/tmp" }                              // ✅ 缺省当前用户
-  ls { runAs = ById 65534 }                           // ✅ 按 UID
-  ls { runAs = ByName "mysql" }                       // ❌ "mysql" 不在 process.run-as 中
+  do
+    ls { path0 = p"/root", runAs = ByName "root" }   // ✅ 按用户名
+    ls { path0 = p"/tmp" }                              // ✅ 缺省当前用户
+    ls { runAs = ById 65534 }                           // ✅ 按 UID
+    ls { runAs = ByName "mysql" }                       // ❌ "mysql" 不在 process.run-as 中
 ```
 
 - `runAs` 缺省 `Nil`（当前进程用户）

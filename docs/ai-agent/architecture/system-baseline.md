@@ -126,7 +126,8 @@ main =
 
 去糖后的运行时表示：
 
-```kun
+```c
+// IO do 记法去糖后的运行时表示（伪代码，底层表示而非 Kun 语法）
 main = (readFile p"/tmp/a") >>= \x ->
         (readFile p"/tmp/b") >>= \y ->
         print (x ++ y)
@@ -151,7 +152,8 @@ loadConfig = \path ->
 
 去糖后：
 
-```kun
+```c
+// IO do in 去糖后的运行时表示（伪代码，底层表示而非 Kun 语法）
 loadConfig = \path ->
   readFile path >>= \content ->
   let
@@ -208,14 +210,12 @@ struct Stream {
 
 Stream 构造与消费的两阶段分离：
 
-```kun
-// 构造阶段：打开文件，返回 IO (Result (Stream String) IOError)
-// 此处 Stream 的 state 包含文件描述符，next 包含 readline 逻辑
-lines <-! Stream.readLines p"/tmp/log.txt"
-
-// 消费阶段：iter 循环调用 lines 的 next 函数
-// 每次调用 next 从文件读取一行
-iter print lines
+```c
+// Stream 两阶段分离（注释说明，非可执行代码）
+// 构造阶段：<-! 在 do 块内解包 IO (Result ...)
+// lines : Stream String
+// 消费阶段：iter 对 Stream 逐元素操作
+// iter print lines
 ```
 
 ## 错误诊断

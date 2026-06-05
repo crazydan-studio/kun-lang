@@ -391,7 +391,7 @@ updateName = \r ->
 // 调用 getName : { a | name : String } -> String
 getName { name = "Kun", version = "0.1" }
 
-// 生成约束：{ name : String | a } = { name : String, version : String }
+// 生成约束：{ a | name : String } = { name : String, version : String }
 // 行合一后：a = { version : String }
 ```
 
