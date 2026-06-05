@@ -334,7 +334,7 @@ type Uid
 可为函数类型定义别名：
 
 ```kun
-type LongFunc = String -> Int -> Result {v: Int, l: String} String
+type LongFunc = String -> Int -> Result { v : Int, l : String } String
 ```
 
 `type` 后直接跟类型名和类型定义，无 `alias` 关键字。不支持为其他非函数类型定义别名（类型别名在导入时指定）。
@@ -1017,9 +1017,9 @@ main = \args ->
 
 启动命令与参数映射：
 
-```kun
-kun script.kun foo bar    // args = ["foo", "bar"]
-kun script.kun            // args = []
+```bash
+kun script.kun foo bar    # args = ["foo", "bar"]
+kun script.kun            # args = []
 ```
 
 ### 命名参数

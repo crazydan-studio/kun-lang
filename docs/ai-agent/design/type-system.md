@@ -71,7 +71,8 @@ Type Universe
 模式匹配收窄：
 
 ```kun
-let x : ?String = ...
+x : ?String
+x = someFunctionReturningOptional
 
 case x of
   Nil -> "none"        // Nil 分支

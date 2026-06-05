@@ -139,7 +139,7 @@ countByLevel = \entries ->
 createDefaultConfig : Path -> Config
 createDefaultConfig = \logDir ->
   let
-    cfg =
+    cfg = Config
       { logDir   = logDir
       , minLevel = Info
       , output   = Path.join logDir "report.txt"

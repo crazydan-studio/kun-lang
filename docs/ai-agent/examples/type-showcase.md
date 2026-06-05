@@ -68,7 +68,7 @@ type JsonValue
 type Command t
   = Shell String
   | Function t
-  | Pipeline (Command Any, Command t)
+  | Pipeline (Command a, Command t)
 
 // ============================================================
 // 4. 类型标注与函数类型（Elm 风格）
@@ -121,7 +121,7 @@ b : Bool
 b = identity true
 
 // 复合类型实例化
-firstElem : ?Int
+firstElem : Int
 firstElem = identity 42
 
 // ============================================================

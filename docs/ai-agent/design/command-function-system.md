@@ -453,7 +453,7 @@ run2 = \bin opts cmd ->
         stdout
           |> Stream.collect
           |> cmd.parser
-          |> mapErr (\msg -> IOError.Other "parse failed: {msg}")
+          |> mapErr (\msg -> IOError.Other (f"parse failed: {msg}"))
       )
 ```
 
@@ -581,7 +581,7 @@ type DirEntry =
 walkDir :
   { root : Path
   , depth : ?Int
-  , followSymlinks : Bool = false
+  , followSymlinks : Bool
   , runAs : ?RunAs
   }
   -> IO (Result (Stream DirEntry) IOError)
