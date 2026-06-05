@@ -37,8 +37,8 @@
 // ① command 声明（文件第一个非注释行）
 // with 后紧跟二进制名，需在 PATH 中可被搜索到
 command Git with "git" export
-  ( status, log, remote_add
-  , StatusEntry, CommitEntry )
+  ( log, status, remote_add
+  , CommitEntry, StatusEntry )
 
 // ② import（可导入任意非 IO 函数，不可导入其他 .cmd.kun）
 import Command with
@@ -47,25 +47,21 @@ import Command with
   , withPath, withUnsafeArg, withEnv
   , exitcode, ExitCodeResult(..) )
 import Stream with (..)
-import Parser with (rawText, parseStatusLine, parseLogLine)
+import Parser with (rawText, parseLogLine, parseStatusLine)
 import Validator with (range, regex, not)
 
 // ④ type 定义（可选，与 export 列表中的类型对应）
-type StatusEntry = { file : Path, status : String }
 type CommitEntry = { hash : String, author : String, message : String }
+type StatusEntry = { file : Path, status : String }
 
-// ⑤ 辅助函数（可选，不导出，纯 Kun 代码）
-makeBase = \args ->
-  withArgs args
+// ⑤ 命令函数（导出）
+// log 是主示例——用户定义 LogOptions 积类型，编译器自动附加隐式字段
+type LogOptions =
+  { maxCount : ?Int
+  , branch : ?String
+  }
 
-// ⑥ 命令函数（导出，以 Kun 函数定义）
-status : {} -> Command (Stream StatusEntry)
-status = \{} ->
-  withOutput (LineStream parseStatusLine)
-    |> withPath Path.cwd Read
-    |> withArgs ["status"]
-
-log : { maxCount : ?Int, branch : ?String } -> Command (Stream CommitEntry)
+log : LogOptions -> Command (Stream CommitEntry)
 log = \{ maxCount, branch } ->
   withOutput (LineStream parseLogLine)
     |> withPath Path.cwd Read
@@ -79,6 +75,14 @@ log = \{ maxCount, branch } ->
            Nil -> identity
        )
 
+// status 命令（无额外选项）
+status : {} -> Command (Stream StatusEntry)
+status = \{} ->
+  withOutput (LineStream parseStatusLine)
+    |> withPath Path.cwd Read
+    |> withArgs ["status"]
+
+// remote_add 命令（含用户输入参数）
 remote_add : { name : String, url : String } -> Command String
 remote_add = \{ name, url } ->
   withOutput rawText
@@ -99,8 +103,11 @@ with caps
 
 main =
   do
-    entries <-! Git.status {}
-    // entries : Stream Git.StatusEntry
+    commits <-! Git.log { maxCount = Just 50, branch = Just "main" }
+    // commits : Stream Git.CommitEntry
+    // Git.log 的实际签名由编译器封装为：
+    //   log : LogOptions_ -> IO (Result (Stream CommitEntry) IOError)
+    // 其中 LogOptions_ = { LogOptions | runAs : ?RunAs, env : ... }
 ```
 
 命令函数调用与普通函数调用完全一致。导入什么名字就使用什么名字，没有内置规则或隐式转换。
@@ -152,8 +159,8 @@ type Command a =
   }
 
 type OutputMode a
-  = LineStream (Stream String -> Result a String)   // 行流：逐行解析
-  | Document (String -> Result a String)             // 文档：完整输出一次解析
+  = LineStream (Stream String -> a)   // 行流：逐行解析，Parser 仅返回数据类型
+  | Document (String -> a)             // 文档：完整输出一次解析，Parser 仅返回数据类型
 
 type AccessMode = Read | Write | ReadWrite
 
@@ -171,7 +178,14 @@ type ExitCodeResult
 
 ### 输出预设
 
+Parser 函数只返回解析后的数据类型，不处理 IO 或 Result：
+
 ```kun
+// Parser 签名（仅返回解析后的数据类型）
+parseLogLine    : String -> CommitEntry                    // 行流：每行解析为一个 CommitEntry
+parseStatusLine : String -> StatusEntry                    // 行流：每行解析为一个 StatusEntry
+parseJsonDoc    : String -> JsonValue                      // 文档：完整输出解析为 JsonValue
+
 // 内置 OutputMode 便利值（定义在 Parser 模块中）
 rawText    : OutputMode String                           // 原始文本（文档模式）
 rawLines   : OutputMode (Stream String)                  // 原始行（行流模式）
@@ -184,15 +198,15 @@ jsonLines  : OutputMode (Stream JsonValue)               // JSON 行流模式
 退出码映射是 Builder 调用链的一部分，通过 `exitcode` 设置在 `Command` 值中：
 
 ```kun
-status : {} -> Command (Stream StatusEntry)
-status = \{} ->
-  withOutput (LineStream parseStatusLine)
+log : LogOptions -> Command (Stream CommitEntry)
+log = \{ maxCount, branch } ->
+  withOutput (LineStream parseLogLine)
     |> withPath Path.cwd Read
-    |> withArg "status"
+    |> withArg "log"
     |> exitcode
       { 0 = OkResult
-      , 1 = OkEmpty          // git status 在空仓库返回 1 但输出为空
-      , _ = ErrResult "git status failed: exit {code}"
+      , 1 = OkEmpty          // git log 无匹配时返回 1，输出为空
+      , _ = ErrResult "git log failed: exit {code}"
       }
 ```
 
@@ -221,25 +235,94 @@ status = \{} ->
 
 1. 验证返回类型为 `Command (Stream T)` 或 `Command T`
 2. 收集所有 `withPath` 调用 → 路径摘要（用于 Landlock）
-3. 生成 Options Record 类型（注入隐式字段）
-4. 将命令函数重新封装，通过 `InternalCommand.run` 执行
-5. 封装后返回类型从 `Command (Stream T)` 提升为 `IO (Result (Stream T) IOError)`
+3. 生成完整的 Options Record 类型——通过**扩展积类型**在用户传入的 Options Record 上自动附加隐式字段
+4. 将命令函数重新封装，解构隐式字段与用户选项，通过 `InternalCommand.run` 执行
+5. `InternalCommand.run` **覆盖** `Command` 上的隐式字段值，防止命令函数内部的注入攻击
+6. 封装后返回类型从 `Command (Stream T)` 提升为 `IO (Result (Stream T) IOError)`
 
-封装过程：
+### 封装原理
+
+```
+用户传入完整选项（含隐式字段 + 用户选项）
+  │
+  ├── 解构 {runAs, env, stdin, stdout, stderr, fd, ..opts}
+  │     ├── 隐式字段 → 传给 withRunAs/withEnv 覆盖 Command
+  │     └── 用户选项 opts → 传给原始命令函数
+  │
+  ▼
+原始命令函数使用 opts 构造 Command
+  │     (opts 中无 runAs/env 等，无法注入恶意值)
+  │
+  ▼
+withRunAs/withEnv 覆盖 Command 上的隐式字段
+  │     (无论命令函数内部怎么设置，最终被覆盖)
+  │
+  ▼
+InternalCommand.run 执行沙箱 + 输出解析
+```
+
+### 封装示例：`log` 命令
 
 ```kun
-// 用户编写
+// 用户编写 log 命令函数（LogOptions 仅包含用户选项）
+type LogOptions =
+  { maxCount : ?Int
+  , branch : ?String
+  }
+
+log : LogOptions -> Command (Stream CommitEntry)
+log = \{ maxCount, branch } ->
+  withOutput (LineStream parseLogLine)
+    |> withArg "log"
+    |> ( case maxCount of
+           n -> withFlag "-n" n
+           Nil -> identity
+       )
+    |> ( case branch of
+           b -> withArg b
+           Nil -> identity
+       )
+
+// 编译器生成等价代码
+cmd_bin = "git"
+
+// 通过扩展积类型生成完整 Options 类型：
+//   用户 LogOptions + 隐式字段（runAs/env/stdin/stdout/stderr/fd）
+type LogOptions_
+  = { LogOptions
+  | runAs : ?RunAs
+  , env : ?(Map String String)
+  , stdin : ?(Fd OrPath)
+  , stdout : ?(Fd OrPath)
+  , stderr : ?(Fd OrPath OrStdioMode)
+  , fd : Map Int FdSpec
+  }
+
+// 编译器封装的导出函数
+log : LogOptions_ -> IO (Result (Stream CommitEntry) IOError)
+log = \{ runAs, env, stdin, stdout, stderr, fd, ..opts } ->
+  // opts 是 LogOptions，剥离了隐式字段
+  // 传给原始命令函数——opts 中不包含 runAs/env 等，无法注入
+  log_ opts
+    // 隐式字段在 ExternalCommand.run 内部覆盖 Command 的对应值
+    |> withRunAs runAs
+    |> withEnv env
+    |> InternalCommand.run cmd_bin
+```
+
+### 封装示例：`status` 命令（无用户选项）
+
+```kun
+// 用户编写（无参数命令）
 status : {} -> Command (Stream StatusEntry)
 status = \{} ->
   withOutput (LineStream parseStatusLine)
     |> withArg "status"
 
-// 编译器生成等价代码
-cmd_bin = "git"
-
+// 编译器生成
 type StatusOptions =
   { runAs : ?RunAs
-  , env : ?Map String String
+  , env : ?(Map String String)
   , stdin : ?(Fd OrPath)
   , stdout : ?(Fd OrPath)
   , stderr : ?(Fd OrPath OrStdioMode)
@@ -247,24 +330,32 @@ type StatusOptions =
   }
 
 status : StatusOptions -> IO (Result (Stream StatusEntry) IOError)
-status = \{ runAs, env, stdin, stdout, stderr, fd, .._ } ->
+status = \{ runAs, env, stdin, stdout, stderr, fd } ->
   status_ {}
     |> withRunAs runAs
     |> withEnv env
     |> InternalCommand.run cmd_bin
 ```
 
-`InternalCommand` 是 Kun 内部模块，不能被外部调用：
+### `InternalCommand.run` 的安全覆盖
+
+`InternalCommand` 是 Kun 内部模块，不能被外部调用。`run` 函数负责最后的安全检查，并在输出解析前强制覆盖 `Command` 上的隐式字段：
 
 ```kun
 run : String -> Command a -> IO (Result a IOError)
 run = \bin cmd ->
-  // process.run 白名单检查
-  // capability_check（withPath 收集的路径）
-  // Namespace 配置（PID + Network）
-  // seccomp 通用 profile + conditional
-  // Landlock 路径级白名单
-  // fork-exec + 输出解析
+  // 1. process.run 白名单检查
+  // 2. capability_check（withPath 收集的路径）
+  // 3. 强制覆盖隐式字段（防止命令函数内部设置恶意值）
+  cmd = cmd
+    |> withRunAs (cmd.runAs)     // 用封装层传入的值，忽略命令函数内部分配的值
+    |> withEnv (cmd.env)          // 同上
+  // 4. Namespace 配置（PID + Network）
+  // 5. seccomp 通用 profile + conditional
+  // 6. Landlock 路径级白名单
+  // 7. fork-exec + 输出解析
+  //    解析过程中 Parser 返回的数据类型错误（如 JSON 解析失败）
+  //    视为 IOError，与退出码错误统一为 Err Result
 ```
 
 ## 安全栈
@@ -459,7 +550,11 @@ git/
 
 ## 隐式字段
 
-编译器自动在所有 Options Record 中注入以下字段：
+编译器通过**扩展积类型**在用户的 Options Record 上自动附加隐式字段。用户定义 `LogOptions = { maxCount : ?Int, branch : ?String }`，编译器生成 `LogOptions_ = { LogOptions | runAs : ?RunAs, ... }`。
+
+对于无参数命令（即用户的 Options Record 为 `{}`），编译器直接生成纯隐式字段类型。
+
+隐式字段列表：
 
 ```kun
 type FdSpec
