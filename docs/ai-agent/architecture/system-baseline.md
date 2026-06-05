@@ -288,7 +288,7 @@ struct PermissionError {
 
 ### `ValidationError`
 
-参数验证阶段的错误，发生在 CDF 定义的校验约束不满足时：
+参数验证阶段的错误，发生在 Validator 定义的校验约束不满足时：
 
 ```c
 struct ValidationError {
@@ -363,11 +363,11 @@ Kun 脚本中的命令调用
         │
         ├── 内置命令 → 直接执行（Zig 函数调用）
         │
-        ├── CDF 适配命令 → dlopen → C ABI 调用
+        ├── `.cmd.kun` 适配命令 → dlopen → C ABI 调用
         │
         ├── 未知命令（可适配）→ ptrace 适配层 → stub 注入
         │
-        └── 未知命令（不可适配）→ 命令不可用（需编写 CDF）
+        └── 未知命令（不可适配）→ 命令不可用（需编写 `.cmd.kun`）
 ```
 
 ### 命令发现策略
@@ -388,7 +388,7 @@ Kun 脚本中的命令调用
 // 通用入口函数签名
 int32_t command_entry(const CommandArgs* args, CommandResult* result);
 
-// 参数结构体（AOT 编译时根据 CDF 确定精确结构）
+// 参数结构体（AOT 编译时根据命令签名确定精确结构）
 typedef struct {
     uint64_t count;              // 参数个数
     CommandArg fields[];         // 参数数组，每个元素为 tagged union
@@ -427,7 +427,7 @@ typedef struct {
 ```
 序列化格式：
 ┌─────────────────────────────────────────┐
-│  Signature Hash (SHA-256, 32 bytes)     │  ← 验证参数结构与 CDF 一致
+│  Signature Hash (SHA-256, 32 bytes)     │  ← 验证参数结构与命令签名一致
 ├─────────────────────────────────────────┤
 │  Argument Count (uint64_t)              │
 ├─────────────────────────────────────────┤
@@ -449,7 +449,7 @@ typedef struct {
 命令名 "ls"
     │
     ▼
-查找 CDF 缓存 → 找到签名定义
+查找命令缓存 → 找到签名定义
     │
     ▼
 计算签名哈希 → 查找已加载的共享库
@@ -925,7 +925,7 @@ IO 操作的统一模式：
 
 #### 文件描述符安全
 
-所有运行时管理的文件描述符（Primitive 函数打开的文件、Stream 状态机中的 fd、signalfd、timerfd 等）在创建时必须设置 `FD_CLOEXEC`（通过 `O_CLOEXEC` 标志或创建后调用 `fcntl(F_SETFD, FD_CLOEXEC)`）。这确保 CDF 命令函数执行的子进程不会继承运行时管理的 fd，防止子进程绕过 `capability_check` 访问已打开的文件。
+所有运行时管理的文件描述符（Primitive 函数打开的文件、Stream 状态机中的 fd、signalfd、timerfd 等）在创建时必须设置 `FD_CLOEXEC`（通过 `O_CLOEXEC` 标志或创建后调用 `fcntl(F_SETFD, FD_CLOEXEC)`）。这确保命令函数执行的子进程不会继承运行时管理的 fd，防止子进程绕过 `capability_check` 访问已打开的文件。
 
 例外：标准流（stdin 0、stdout 1、stderr 2）不设 CLOEXEC——子进程需要继承标准流以支持管道和重定向。
 
@@ -1040,9 +1040,9 @@ void* readlines_next(void* state_ptr) {
 │   ├── Landlock LSM（路径级控制，需内核 5.13+）
 │   └── 容器环境检测（无法 namespace 时降级，依赖容器自有隔离）
 └── 命令级安全
-    ├── CDF 导出能力名称用于 Seccomp 规则生成
+    ├── 命令签名导出能力名称用于 Seccomp 规则生成
     ├── 二进制完整性校验（SHA-256 哈希）
-    ├── CDF 密码学签名（Ed25519）
+    ├── `.cmd.kun` 密码学签名（Ed25519）
     └── 信任分级策略（trusted / verified / sandboxed / denied）
 ```
 
