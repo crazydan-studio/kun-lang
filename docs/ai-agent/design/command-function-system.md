@@ -70,7 +70,7 @@ log = \{ maxCount, branch } ->
     |> withArg "log"
     |> (
       case maxCount of
-        n -> withFlag "-n" n
+        n -> withFlag "-n" (toString n)
         Nil -> identity
       )
     |> (
@@ -99,7 +99,7 @@ remote_add : RemoteAddOptions -> Command String
 remote_add = \{ name, url } ->
   createDocumentCommand raw
     |> withPath Path.cwd Read
-    |> withArgs ["remote", "add", name, url]
+    |> withArgs ["remote", "add"]
     |> withUnsafeArg name
     |> withUnsafeArg url
 
@@ -178,7 +178,7 @@ type Command a =
   , args : List CmdArg
   , paths : List (Path, AccessMode)
   , runAs : ?RunAs
-  , env : Map String String
+  , env : ?(Map String String)
   , exitCodes : ExitCodeMap
   }
 
@@ -290,13 +290,13 @@ type LogOptions =
   , branch : ?String
   }
 
-log : LogOptions -> Command (Stream (Result CommitEntry String))
+log : LogOptions -> Command CommitEntry
 log = \{ maxCount, branch } ->
-  createDocumentCommand parseLogLine
+  createStreamCommand parseLogLine
     |> withArg "log"
     |> (
         case maxCount of
-          n -> withFlag "-n" n
+          n -> withFlag "-n" (toString n)
           Nil -> identity
       )
     |> (
@@ -320,18 +320,18 @@ cmd_bin = "git"
 type LogOptions_ =
   { ...  // 与用户定义的结构完全一致
   }
-log_ : LogOptions_ -> Command (Stream (Result CommitEntry String))
+log_ : LogOptions_ -> Command CommitEntry
 
 // 通过扩展积类型生成完整 Options 类型：
 //   用户 LogOptions_ + 隐式字段（runAs/env/stdin/stdout/stderr/fd）
 type LogOptions
   = { LogOptions_
   | runAs : ?RunAs
-  , env : Map String String
+  , env : ?(Map String String)
   , stdin : ?OrPath
   , stdout : ?OrPath
   , stderr : ?OrStdioMode
-  , fd : Map Int FdSpec
+  , fd : ?(Map Int FdSpec)
   }
 
 // 编译器封装的导出函数
@@ -349,53 +349,31 @@ log = \cmdOpts ->
 
 ### `InternalCommand.run` 的安全覆盖
 
-`InternalCommand` 是 Kun 内部模块，不能被外部调用。`run` 函数负责最后的安全检查，并在输出解析前强制覆盖 `Command` 上的隐式字段：
+`InternalCommand` 是 Kun 内部模块，不能被外部调用。`run_` 负责安全检查 + fork-exec，`run1`/`run2` 分别处理行流/文档模式的输出解析：
 
 ```kun
-// 运行行流命令函数
-run1 :
+// 内部安全检查与执行（返回原始 stdout 流）
+run_ :
   String
   -> { o
       | runAs : ?RunAs
-      , env : Map String String
+      , env : ?(Map String String)
       , stdin : ?OrPath
       , stdout : ?OrPath
       , stderr : ?OrStdioMode
-      , fd : Map Int FdSpec
+      , fd : ?(Map Int FdSpec)
     }
   -> Command a
-  -> IO (Result (Stream (Result a String)) IOError)
-run1 = \bin opts cmd ->
-  // 1. cmd.type 必须为 StreamCommand，否则返回 IOError
-  // 2. 调用 run_ 得到输出流
-  // 3. 做行流输出解析（解析器为 cmd.parser），并返回 Stream (Result a String)
-
-// 运行文档命令函数
-run2 :
-  String
-  -> { o
-      | runAs : ?RunAs
-      , env : Map String String
-      , stdin : ?OrPath
-      , stdout : ?OrPath
-      , stderr : ?OrStdioMode
-      , fd : Map Int FdSpec
-    }
-  -> Command a
-  -> IO (Result a IOError)
-run2 = \bin opts cmd ->
-  // 1. cmd.type 必须为 DocumentCommand，否则返回 IOError
-  // 2. 调用 run_ 得到输出流
-  // 3. 做文档输出解析（解析器为 cmd.parser），并返回 Result a IOError
-
+  -> IO (Result (Stream String) IOError)
 run_ = \bin opts cmd ->
   // 1. 强制覆盖隐式字段（防止命令函数内部设置恶意值）
+  //    opts 中的值来自调用方，命令函数内部分配的值被丢弃
   let
     newCmd =
       { cmd
-      | bin = bin        // 用封装层传入的值，忽略命令函数内部分配的值
-      , runAs = runAs    // 同上
-      , env = env        // 同上
+      | bin = bin
+      , runAs = opts.runAs
+      , env = opts.env
       }
   in
     // 2. process.run 白名单检查
@@ -403,8 +381,56 @@ run_ = \bin opts cmd ->
     // 4. Namespace 配置（PID + Network）
     // 5. seccomp 通用 profile + conditional
     // 6. Landlock 路径级白名单
-    // 7. fork-exec
-    // 8. 返回输出流
+    // 7. fork-exec → 返回原始 stdout Stream String
+
+// 运行行流命令函数：run_ → 逐行解析 → Stream (Result a String)
+run1 :
+  String
+  -> { o
+      | runAs : ?RunAs
+      , env : ?(Map String String)
+      , stdin : ?OrPath
+      , stdout : ?OrPath
+      , stderr : ?OrStdioMode
+      , fd : ?(Map Int FdSpec)
+    }
+  -> Command a
+  -> IO (Result (Stream (Result a String)) IOError)
+run1 = \bin opts cmd ->
+  if cmd.type /= StreamCommand then
+    Err (IOError.Other "expected StreamCommand")
+  else
+    run_ bin opts cmd
+      |> andThen (\stdout ->
+        stdout
+          |> Stream.map cmd.parser
+          |> Ok
+      )
+
+// 运行文档命令函数：run_ → 完整收集 → 一次解析 → Result a
+run2 :
+  String
+  -> { o
+      | runAs : ?RunAs
+      , env : ?(Map String String)
+      , stdin : ?OrPath
+      , stdout : ?OrPath
+      , stderr : ?OrStdioMode
+      , fd : ?(Map Int FdSpec)
+    }
+  -> Command a
+  -> IO (Result a IOError)
+run2 = \bin opts cmd ->
+  if cmd.type /= DocumentCommand then
+    Err (IOError.Other "expected DocumentCommand")
+  else
+    run_ bin opts cmd
+      |> andThen (\stdout ->
+        stdout
+          |> Stream.collect
+          |> cmd.parser
+          |> mapErr (\msg -> IOError.Other "parse failed: {msg}")
+      )
 ```
 
 ## 安全栈
@@ -639,11 +665,11 @@ type FdSpec
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `runAs` | `?RunAs` | 执行用户身份，通过 `process.run-as` 能力控制 |
-| `env` | `?Map String String` | 子进程环境变量，缺省继承当前进程环境 |
+| `env` | `?(Map String String)` | 子进程环境变量，缺省继承当前进程环境 |
 | `stdin` | `?OrPath` | 标准输入来源 |
 | `stdout` | `?OrPath` | 标准输出目标 |
 | `stderr` | `?OrStdioMode` | 标准错误目标 |
-| `fd` | `Map Int FdSpec` | 额外文件描述符重定向 |
+| `fd` | `?(Map Int FdSpec)` | 额外文件描述符重定向，缺省空 Map |
 
 其中 `Fd`、`OrPath`、`OrStdioMode` 类型：
 
