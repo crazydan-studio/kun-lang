@@ -55,6 +55,7 @@ Type Universe
 |------|------|
 | `T`（无 `?`） | **不可**为 Nil。`let x : String = Nil` 编译期报错 |
 | `?T` | **可**为 Nil。`let x : ?String = Nil` 合法 |
+| `?(T1 T2)` | 对多词类型使用括号包裹，如 `?(Result T E)` 表示 `Result T E` 可为 Nil。**不支持 `?Result T E` 形式**——`?` 的作用域不明确 |
 | `Nil` 字面量 | 唯一值为 `Nil`，类型为 `?a`（多态） |
 | Record 字段 | 未提供的字段自动为 `Nil` |
 | 和类型字段 | 字段类型默认不可 Nil，`?` 需显式标注 |
@@ -201,6 +202,8 @@ if x /= Nil then
 - 表示文件系统路径
 - 与 `String` 语义上区分（但运行时同用 `[]u8`）
 - 字面量使用 `p"..."` 前缀：`p"/tmp/foo"`、`p"./foo"`
+- 支持操作：`++` (拼接)，`p"/etc" ++ p"kun" ++ p"config"` → `p"/etc/kun/config"`（自动处理分隔符）
+- 支持操作：`parent : Path -> Path`、`fileName : Path -> String`
 
 ```kun
 // 路径操作是纯字符串语义，不依赖文件类型

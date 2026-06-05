@@ -276,9 +276,10 @@ value'  : Int                           // 用户约定的"立即求值"变体
 Kun 使用 **Elm 风格**的空格分隔泛型参数，不使用尖括号：
 
 ```kun
-List Int                    // 单参数
-?String                     // Nilable
-Result String IOError       // 多参数
+List Int                      // 单参数
+?String                       // Nilable
+Result String IOError         // 多参数
+?(Result FileType IOError)    // Nilable + 多词类型用括号包裹
 IO (Result FileType IOError)  // 嵌套泛型用括号分组
 ```
 
@@ -440,6 +441,7 @@ name = value
 p = p"/tmp/foo"
 (x, y, z) = tuple
 { name, version } = record
+{ a, ..rest } = config       // 解构 a，剩余字段作为 Record 绑定到 rest
 [x, y, ..rest] = list
 { x as x1, y as y1 } = point
 ```
@@ -674,9 +676,12 @@ do
 { name = "Kun", version = "0.1" }    // 创建
 record.name                           // 字段访问
 { record | version = "0.2" }          // 更新（不可变复制+修改）
+{a, ..rest} = config                  // 解构，剩余字段作为 Record 绑定到 rest
 
 {x as x1, y as y1} = point            // 解构带别名
 ```
+
+`{a, ..rest} = config` 将 Record 中的字段 `a` 解构出来，剩余字段作为新的 Record 绑定到 `rest`。剩余字段类型与原始 Record 去除 `a` 字段后的结构等价。`..rest` 必须出现在解构模式的末尾。
 
 ### 行多态 Record 类型
 
@@ -887,7 +892,7 @@ firstThree = \[a, b, c] -> (a, b, c)
 | 一元 | `-`, `not` | 右结合 |
 | 乘除 | `*`, `/`, `%` | 左结合 |
 | 加减 | `+`, `-` | 左结合 |
-| 拼接 | `++` | 左结合 |
+| 拼接 | `++` | 左结合 | 适用于 `String`（`"a" ++ "b"`）、`Bytes`（`0x01 ++ 0x02`）、`Path`（`p"/etc" ++ p"config"`） |
 | 比较 | `==`, `/=`, `<`, `>`, `<=`, `>=` | 无结合 |
 | 逻辑与 | `&&` | 左结合（短路） |
 | 逻辑或 | `\|\|` | 左结合（短路） |
