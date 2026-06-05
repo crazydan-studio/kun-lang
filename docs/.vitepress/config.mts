@@ -220,7 +220,8 @@ function sidebarDesign() {
         { text: '功能清单', link: '/ai-agent/design/feature-inventory' },
         { text: '安全角色与权限', link: '/ai-agent/design/roles-and-permissions' },
         { text: '供应链安全', link: '/ai-agent/design/supply-chain-security' },
-        { text: '命令签名系统', link: '/ai-agent/design/command-signature-system' },
+        { text: '命令函数系统', link: '/ai-agent/design/command-function-system' },
+        { text: '命令签名系统（已废弃）', link: '/ai-agent/design/command-signature-system' },
       ],
     },
   ]
@@ -297,6 +298,8 @@ function sidebarWorking() {
           { text: '能力安全系统设计审计（第二轮）', link: '/ai-agent/discussions/discussion-design-review-round2' },
           { text: '命令函数设计', link: '/ai-agent/discussions/discussion-command-function-design' },
           { text: 'CDF→Kun 代码生成', link: '/ai-agent/discussions/discussion-cdf-code-generation' },
+          { text: '行多态与扩展积类型', link: '/ai-agent/discussions/discussion-row-polymorphism' },
+          { text: '.cmd.kun 替代 CDF', link: '/ai-agent/discussions/discussion-cmdkun-replacement' },
         ],
       },
       {
@@ -315,6 +318,13 @@ function sidebarWorking() {
           { text: '审计执行指南', link: '/ai-agent/audits/00-audit-execution-guide' },
           { text: '类型系统完备性审计', link: '/ai-agent/audits/audit-type-system-completeness' },
           { text: '能力安全系统闭合审计', link: '/ai-agent/audits/audit-capability-redesign-closure' },
+          { text: '第2轮修复验证与深度审计', link: '/ai-agent/audits/audit-round2-verification-and-deep' },
+          { text: '第3轮深度审计', link: '/ai-agent/audits/audit-round3-depth-analysis' },
+          { text: '第4轮综合审计', link: '/ai-agent/audits/audit-round4-comprehensive' },
+          { text: '第5轮终审扫尾', link: '/ai-agent/audits/audit-round5-final-sweep' },
+          { text: '第6轮最终确认', link: '/ai-agent/audits/audit-round6-final-confirmation' },
+          { text: '第7轮非核心文档审计', link: '/ai-agent/audits/audit-round7-noncore-docs' },
+          { text: '第8轮元问题审计', link: '/ai-agent/audits/audit-round8-meta-issues' },
         ],
       },
       {
