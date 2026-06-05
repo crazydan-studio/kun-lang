@@ -33,63 +33,79 @@
 
 ### 文件结构与声明顺序
 
-```kun-cmd
-// ① command 声明（文件第一个非注释行）
+```kun
+// command 声明（文件第一个非注释行）
 // with 后紧跟二进制名，需在 PATH 中可被搜索到
 command Git with "git" export
   ( log, status, remote_add
-  , CommitEntry, StatusEntry )
+  , CommitEntry, StatusEntry
+  , LogOptions
+  )
 
-// ② import（可导入任意非 IO 函数，不可导入其他 .cmd.kun）
+// import（可导入任意非 IO 函数，不可导入其他 .cmd.kun）
 import Command with
-  ( Command, OutputMode(..)
-  , withOutput, withArg, withArgs, withFlag
+  ( Command
+  , createStreamCommand, createDocumentCommand
+  , withArg, withArgs, withFlag
   , withPath, withUnsafeArg, withEnv
-  , exitcode, ExitCodeResult(..) )
+  )
 import Stream with (..)
-import Parser with (rawText, parseLogLine, parseStatusLine)
+import Parser with (raw, json)
 import Validator with (range, regex, not)
 
-// ④ type 定义（可选，与 export 列表中的类型对应）
+// type 定义
 type CommitEntry = { hash : String, author : String, message : String }
 type StatusEntry = { file : Path, status : String }
 
-// ⑤ 命令函数（导出）
-// log 是主示例——用户定义 LogOptions 积类型，编译器自动附加隐式字段
+// 用户定义 LogOptions 积类型，编译器自动附加隐式字段
 type LogOptions =
   { maxCount : ?Int
   , branch : ?String
   }
 
-log : LogOptions -> Command (Stream CommitEntry)
+log : LogOptions -> Command CommitEntry
 log = \{ maxCount, branch } ->
-  withOutput (LineStream parseLogLine)
+  createStreamCommand parseLogLine
     |> withPath Path.cwd Read
     |> withArg "log"
-    |> ( case maxCount of
-           n -> withFlag "-n" n
-           Nil -> identity
-       )
-    |> ( case branch of
-           b -> withArg b
-           Nil -> identity
-       )
+    |> (
+      case maxCount of
+        n -> withFlag "-n" n
+        Nil -> identity
+      )
+    |> (
+      case branch of
+        b -> withArg b
+        Nil -> identity
+      )
+
+type StatusOptions =
+  {}
 
 // status 命令（无额外选项）
-status : {} -> Command (Stream StatusEntry)
+status : StatusOptions -> Command StatusEntry
 status = \{} ->
-  withOutput (LineStream parseStatusLine)
+  createStreamCommand parseStatusLine
     |> withPath Path.cwd Read
     |> withArgs ["status"]
 
+type RemoteAddOptions =
+  { name : String
+  , url : String
+  }
+
 // remote_add 命令（含用户输入参数）
-remote_add : { name : String, url : String } -> Command String
+remote_add : RemoteAddOptions -> Command String
 remote_add = \{ name, url } ->
-  withOutput rawText
+  createDocumentCommand raw
     |> withPath Path.cwd Read
     |> withArgs ["remote", "add", name, url]
     |> withUnsafeArg name
     |> withUnsafeArg url
+
+parseLogLine : String -> Result CommitEntry String
+
+parseStatusLine : String -> Result StatusEntry String
 ```
 
 ### 调用方使用
@@ -104,10 +120,11 @@ with caps
 main =
   do
     commits <-! Git.log { maxCount = 50, branch = "main" }
-    // commits : Stream Git.CommitEntry
+    // commits : Stream (Result Git.CommitEntry String)
     // Git.log 的实际签名由编译器封装为：
-    //   log : LogOptions_ -> IO (Result (Stream CommitEntry) IOError)
-    // 其中 LogOptions_ = { LogOptions | runAs : ?RunAs, env : ... }
+    //   log : LogOptions -> IO (Result (Stream (Result CommitEntry String)) IOError)
+    // 其中 LogOptions = { LogOptions_ | runAs : ?RunAs, env : ... }
+    //     LogOptions_ 是在 Git.cmd.kun 中的原始定义
 ```
 
 命令函数调用与普通函数调用完全一致。导入什么名字就使用什么名字，没有内置规则或隐式转换。
@@ -116,41 +133,48 @@ main =
 
 ```kun
 module Command export
-  ( Command, OutputMode(..)
-  , withOutput, withArg, withArgs, withFlag
+  ( Command
+  , CommandType(..)
+  , ExitCodeResult(..)
+  , createDocumentCommand, createStreamCommand
+  , withArg, withArgs, withFlag
   , withPath, withUnsafeArg, withEnv, withRunAs
-  , exitcode, ExitCodeResult(..) )
+  , withExitcode
+  )
 
-// 构造 Command 并确定输出的数据类型
-withOutput    : OutputMode a -> Command a
+// 构造文档输出 Command
+createDocumentCommand  : (String -> Result a String) -> Command a
+createDocumentCommand = \parser ->
+  { type = DocumentCommand, parser = parser }
+
+// 构造行流输出 Command
+createStreamCommand    : (String -> Result a String) -> Command a
+createStreamCommand = \parser ->
+  { type = StreamCommand, parser = parser }
 
 // 追加参数（Safe 标记）
-withArg       : Command a -> String -> Command a
+withArg       : String -> Command a -> Command a
 
 // 批量追加参数
-withArgs      : Command a -> List String -> Command a
+withArgs      : List String -> Command a -> Command a
 
 // 追加 flag（自动处理 --flag value 形式）
-withFlag      : Command a -> String -> ?String -> Command a
+withFlag      : String -> ?String -> Command a -> Command a
 
 // 追加用户输入参数（Unsafe 标记，编译期警告 + 运行时隔离）
-withUnsafeArg : Command a -> String -> Command a
+withUnsafeArg : String -> Command a -> Command a
 
 // 声明文件访问路径（用于 Landlock + capability_check）
-withPath      : Command a -> Path -> AccessMode -> Command a
-
-// 设置环境变量
-withEnv       : Command a -> Map String String -> Command a
-
-// 设置运行用户
-withRunAs     : Command a -> RunAs -> Command a
+withPath      : Path -> AccessMode -> Command a -> Command a
 
 // 设置退出码映射
-exitcode      : Command a -> ExitCodeMap -> Command a
+withExitcode  : Int -> ExitCodeResult -> Command a -> Command a
 
 type Command a =
   { bin : ?String
-  , output : OutputMode a
+  , type : CommandType
+  , parser : String -> Result a String
+  //
   , args : List CmdArg
   , paths : List (Path, AccessMode)
   , runAs : ?RunAs
@@ -158,9 +182,9 @@ type Command a =
   , exitCodes : ExitCodeMap
   }
 
-type OutputMode a
-  = LineStream (Stream String -> a)   // 行流：逐行解析，Parser 仅返回数据类型
-  | Document (String -> a)             // 文档：完整输出一次解析，Parser 仅返回数据类型
+type CommandType
+  = StreamCommand     // 行流：逐行解析
+  | DocumentCommand   // 文档：完整输出一次解析
 
 type AccessMode = Read | Write | ReadWrite
 
@@ -178,19 +202,12 @@ type ExitCodeResult
 
 ### 输出预设
 
-Parser 函数只返回解析后的数据类型，不处理 IO 或 Result：
+Parser 函数只返回解析后的数据类型，不处理 IO：
 
 ```kun
-// Parser 签名（仅返回解析后的数据类型）
-parseLogLine    : String -> CommitEntry                    // 行流：每行解析为一个 CommitEntry
-parseStatusLine : String -> StatusEntry                    // 行流：每行解析为一个 StatusEntry
-parseJsonDoc    : String -> JsonValue                      // 文档：完整输出解析为 JsonValue
-
-// 内置 OutputMode 便利值（定义在 Parser 模块中）
-rawText    : OutputMode String                           // 原始文本（文档模式）
-rawLines   : OutputMode (Stream String)                  // 原始行（行流模式）
-jsonDoc    : OutputMode JsonValue                        // JSON 文档模式
-jsonLines  : OutputMode (Stream JsonValue)               // JSON 行流模式
+// Parser 签名（仅返回解析后的数据类型，直接使用函数类型）
+raw : s -> Result s String                  // 原始输入保持不变
+json : String -> Result JsonValue String    // 转换为 JSON
 ```
 
 ### 退出码处理
@@ -198,16 +215,13 @@ jsonLines  : OutputMode (Stream JsonValue)               // JSON 行流模式
 退出码映射是 Builder 调用链的一部分，通过 `exitcode` 设置在 `Command` 值中：
 
 ```kun
-log : LogOptions -> Command (Stream CommitEntry)
+log : LogOptions -> Command CommitEntry
 log = \{ maxCount, branch } ->
-  withOutput (LineStream parseLogLine)
+  createStreamCommand parseLogLine
     |> withPath Path.cwd Read
     |> withArg "log"
-    |> exitcode
-      { 0 = OkResult
-      , 1 = OkEmpty          // git log 无匹配时返回 1，输出为空
-      , _ = ErrResult "git log failed: exit {code}"
-      }
+    |> withExitcode 0 OkResult
+    |> withExitcode 1 OkEmpty    // git log 无匹配时返回 1，输出为空
 ```
 
 缺省行为（未调用 `exitcode` 时）：
@@ -233,28 +247,28 @@ log = \{ maxCount, branch } ->
 
 编译器处理 `.cmd.kun` 时，对每个导出命令函数执行以下封装：
 
-1. 验证返回类型为 `Command (Stream T)` 或 `Command T`
+1. 验证返回类型为 `Command T`
 2. 收集所有 `withPath` 调用 → 路径摘要（用于 Landlock）
 3. 生成完整的 Options Record 类型——通过**扩展积类型**在用户传入的 Options Record 上自动附加隐式字段
 4. 将命令函数重新封装，解构隐式字段与用户选项，通过 `InternalCommand.run` 执行
 5. `InternalCommand.run` **覆盖** `Command` 上的隐式字段值，防止命令函数内部的注入攻击
-6. 封装后返回类型从 `Command (Stream T)` 提升为 `IO (Result (Stream T) IOError)`
+6. 封装后返回类型从 `Command T` 提升为 `IO (Result (Stream (Result T String)) IOError)` 或 `IO (Result T IOError)`
 
 ### 封装原理
 
 ```
 用户传入完整选项（含隐式字段 + 用户选项）
   │
-  ├── 解构 {runAs, env, stdin, stdout, stderr, fd, ..opts}
-  │     ├── 隐式字段 → 传给 withRunAs/withEnv 覆盖 Command
-  │     └── 用户选项 opts → 传给原始命令函数
+  ├── 解构 {runAs, env, stdin, stdout, stderr, fd, ..opts} = cmdOpts
+  │     ├── 用户选项 opts → 传给原始命令函数
+  │     └── 隐式字段 cmdOpts → 传给 InternalCommand.run
   │
   ▼
 原始命令函数使用 opts 构造 Command
   │     (opts 中无 runAs/env 等，无法注入恶意值)
   │
   ▼
-withRunAs/withEnv 覆盖 Command 上的隐式字段
+Record 更新覆盖 Command 上的隐式字段
   │     (无论命令函数内部怎么设置，最终被覆盖)
   │
   ▼
@@ -263,78 +277,74 @@ InternalCommand.run 执行沙箱 + 输出解析
 
 ### 封装示例：`log` 命令
 
+用户编写的 log 命令函数：
+
 ```kun
-// 用户编写 log 命令函数（LogOptions 仅包含用户选项）
+command Git with "git" export
+  ( LogOptions
+  , log
+  )
+
 type LogOptions =
   { maxCount : ?Int
   , branch : ?String
   }
 
-log : LogOptions -> Command (Stream CommitEntry)
+log : LogOptions -> Command (Stream (Result CommitEntry String))
 log = \{ maxCount, branch } ->
-  withOutput (LineStream parseLogLine)
+  createDocumentCommand parseLogLine
     |> withArg "log"
-    |> ( case maxCount of
-           n -> withFlag "-n" n
-           Nil -> identity
-       )
-    |> ( case branch of
-           b -> withArg b
-           Nil -> identity
-       )
+    |> (
+        case maxCount of
+          n -> withFlag "-n" n
+          Nil -> identity
+      )
+    |> (
+        case branch of
+          b -> withArg b
+          Nil -> identity
+      )
+```
 
-// 编译器生成等价代码
+编译器生成等价代码：
+
+```kun
+module Git export
+  ( LogOptions
+  , log
+  )
+
 cmd_bin = "git"
 
+// 用户定义的 Options 和函数名均更名补上 _ 作为其后缀
+type LogOptions_ =
+  { ...  // 与用户定义的结构完全一致
+  }
+log_ : LogOptions_ -> Command (Stream (Result CommitEntry String))
+
 // 通过扩展积类型生成完整 Options 类型：
-//   用户 LogOptions + 隐式字段（runAs/env/stdin/stdout/stderr/fd）
-type LogOptions_
-  = { LogOptions
+//   用户 LogOptions_ + 隐式字段（runAs/env/stdin/stdout/stderr/fd）
+type LogOptions
+  = { LogOptions_
   | runAs : ?RunAs
-  , env : ?(Map String String)
-  , stdin : ?(Fd OrPath)
-  , stdout : ?(Fd OrPath)
-  , stderr : ?(Fd OrPath OrStdioMode)
+  , env : Map String String
+  , stdin : ?OrPath
+  , stdout : ?OrPath
+  , stderr : ?OrStdioMode
   , fd : Map Int FdSpec
   }
 
 // 编译器封装的导出函数
-log : LogOptions_ -> IO (Result (Stream CommitEntry) IOError)
-log = \{ runAs, env, stdin, stdout, stderr, fd, ..opts } ->
-  // opts 是 LogOptions，剥离了隐式字段
-  // 传给原始命令函数——opts 中不包含 runAs/env 等，无法注入
-  log_ opts
-    // 隐式字段在 ExternalCommand.run 内部覆盖 Command 的对应值
-    |> withRunAs runAs
-    |> withEnv env
-    |> InternalCommand.run cmd_bin
-```
-
-### 封装示例：`status` 命令（无用户选项）
-
-```kun
-// 用户编写（无参数命令）
-status : {} -> Command (Stream StatusEntry)
-status = \{} ->
-  withOutput (LineStream parseStatusLine)
-    |> withArg "status"
-
-// 编译器生成
-type StatusOptions =
-  { runAs : ?RunAs
-  , env : ?(Map String String)
-  , stdin : ?(Fd OrPath)
-  , stdout : ?(Fd OrPath)
-  , stderr : ?(Fd OrPath OrStdioMode)
-  , fd : Map Int FdSpec
-  }
-
-status : StatusOptions -> IO (Result (Stream StatusEntry) IOError)
-status = \{ runAs, env, stdin, stdout, stderr, fd } ->
-  status_ {}
-    |> withRunAs runAs
-    |> withEnv env
-    |> InternalCommand.run cmd_bin
+log : LogOptions -> IO (Result (Stream (Result CommitEntry String)) IOError)
+log = \cmdOpts ->
+  let
+    { runAs, env, stdin, stdout, stderr, fd, ..opts } = cmdOpts
+  in
+    // opts 是 LogOptions_，剥离了隐式字段
+    // 传给原始命令函数——opts 中不包含 runAs/env 等，无法注入
+    log_ opts
+      // 隐式字段在 ExternalCommand.run 内部覆盖 Command 的对应值
+      |> InternalCommand.run2 cmd_bin cmdOpts
 ```
 
 ### `InternalCommand.run` 的安全覆盖
@@ -342,20 +352,59 @@ status = \{ runAs, env, stdin, stdout, stderr, fd } ->
 `InternalCommand` 是 Kun 内部模块，不能被外部调用。`run` 函数负责最后的安全检查，并在输出解析前强制覆盖 `Command` 上的隐式字段：
 
 ```kun
-run : String -> Command a -> IO (Result a IOError)
-run = \bin cmd ->
-  // 1. process.run 白名单检查
-  // 2. capability_check（withPath 收集的路径）
-  // 3. 强制覆盖隐式字段（防止命令函数内部设置恶意值）
-  cmd = cmd
-    |> withRunAs (cmd.runAs)     // 用封装层传入的值，忽略命令函数内部分配的值
-    |> withEnv (cmd.env)          // 同上
-  // 4. Namespace 配置（PID + Network）
-  // 5. seccomp 通用 profile + conditional
-  // 6. Landlock 路径级白名单
-  // 7. fork-exec + 输出解析
-  //    解析过程中 Parser 返回的数据类型错误（如 JSON 解析失败）
-  //    视为 IOError，与退出码错误统一为 Err Result
+// 运行行流命令函数
+run1 :
+  String
+  -> { o
+      | runAs : ?RunAs
+      , env : Map String String
+      , stdin : ?OrPath
+      , stdout : ?OrPath
+      , stderr : ?OrStdioMode
+      , fd : Map Int FdSpec
+    }
+  -> Command a
+  -> IO (Result (Stream (Result a String)) IOError)
+run1 = \bin opts cmd ->
+  // 1. cmd.type 必须为 StreamCommand，否则返回 IOError
+  // 2. 调用 run_ 得到输出流
+  // 3. 做行流输出解析（解析器为 cmd.parser），并返回 Stream (Result a String)
+
+// 运行文档命令函数
+run2 :
+  String
+  -> { o
+      | runAs : ?RunAs
+      , env : Map String String
+      , stdin : ?OrPath
+      , stdout : ?OrPath
+      , stderr : ?OrStdioMode
+      , fd : Map Int FdSpec
+    }
+  -> Command a
+  -> IO (Result a IOError)
+run2 = \bin opts cmd ->
+  // 1. cmd.type 必须为 DocumentCommand，否则返回 IOError
+  // 2. 调用 run_ 得到输出流
+  // 3. 做文档输出解析（解析器为 cmd.parser），并返回 Result a IOError
+
+run_ = \bin opts cmd ->
+  // 1. 强制覆盖隐式字段（防止命令函数内部设置恶意值）
+  let
+    newCmd =
+      { cmd
+      | bin = bin        // 用封装层传入的值，忽略命令函数内部分配的值
+      , runAs = runAs    // 同上
+      , env = env        // 同上
+      }
+  in
+    // 2. process.run 白名单检查
+    // 3. capability_check（withPath 收集的路径）
+    // 4. Namespace 配置（PID + Network）
+    // 5. seccomp 通用 profile + conditional
+    // 6. Landlock 路径级白名单
+    // 7. fork-exec
+    // 8. 返回输出流
 ```
 
 ## 安全栈
@@ -439,31 +488,53 @@ seccomp-BPF 过滤规则由命令的 Builder 调用链自动推导：
 
 ### 覆盖范围
 
-| 类别 | 命令 | 映射参数 |
-|------|------|---------|
-| 文件信息 | `ls` | `path`、`all`、`recursive`、`sortBy` |
-| 文件信息 | `stat` | `path` |
-| 文件信息 | `du` | `path`、`maxDepth`、`apparentSize` |
-| 文件信息 | `df` | `path`、`type` |
-| 文件操作 | `cp`/`mv`/`rm`/`mkdir` | 核心参数 + 行为参数 |
-| 权限操作 | `chmod`/`chown`/`ln`/`readlink`/`realpath` | 核心参数 + 行为参数 |
-| 系统信息 | `ps` | `all`、`user`、`pid` |
-| 系统信息 | `free`/`uname`/`uptime`/`lscpu` | 无参数 |
-| 内容搜索 | `grep` | `pattern`、`path`、`recursive`、`caseInsensitive`、`invert`、`maxCount` |
-| 数据库检索 | `locate` | `pattern` |
-| 目录遍历 | `walkDir` | `root`、`depth`、`followSymlinks` |
+命令以实现方式分类：
 
-**不映射**（由标准库覆盖）：`sed`、`awk`、`sort`、`uniq`、`cut`、`tr`、`head`、`tail`、`cat`、`wc`、`tee`、`echo`、`printf`、`xargs`、`which`、`cd`、`sudo`、`su`
+| 类别 | 命令 | 实现方式 | 映射参数 |
+|------|------|---------|---------|
+| 文件信息 | `ls` | **内建 Primitive** | `path`、`all`、`recursive`、`sortBy` |
+| 文件信息 | `stat` | **内建 Primitive** | `path` |
+| 文件信息 | `du` | **内建 Primitive** | `path`、`maxDepth`、`apparentSize` |
+| 文件信息 | `df` | **内建 Primitive** | `path`、`type` |
+| 文件操作 | `cp`/`mv`/`rm`/`mkdir` | **内建 Primitive** | 核心参数 + 行为参数 |
+| 权限操作 | `chmod`/`chown`/`ln`/`readlink`/`realpath` | **内建 Primitive** | 核心参数 + 行为参数 |
+| 系统信息 | `ps` | **内建 Primitive** | `all`、`user`、`pid` |
+| 系统信息 | `free`/`uname`/`uptime`/`lscpu` | **内建 Primitive** | 无参数 |
+| 内容搜索 | `grep` | **内建 Primitive** | `pattern`、`path`、`recursive`、`caseInsensitive`、`invert`、`maxCount` |
+| 数据库检索 | `locate` | **内建 Primitive** | `pattern` |
+| 目录遍历 | `walkDir` | **内建 Primitive** | `root`、`depth`、`followSymlinks` |
+| 目录遍历 | `find` | **不映射** | —（`walkDir` + `filter` 覆盖） |
+| 归档压缩 | `tar` | **`.cmd.kun`** | `mode`、`archive`、`files`、`compress`、`strip` |
+| 压缩 | `gzip`/`xz`/`zstd` | **`.cmd.kun`** | `mode`、`target`、`level` |
+| 归档包 | `zip`/`unzip` | **`.cmd.kun`** | `mode`、`archive`、`files`、`password` |
+| 网络连接信息 | `ss` | **`.cmd.kun`** | `tcp`、`udp`、`listening`、`process` |
+| 网络交互 | `curl`/`wget` | **`.cmd.kun`** | 优先标准库 `Http` 模块 |
+| DNS | `dig` | **`.cmd.kun`** | `domain`、`type`、`server` |
+| 网络连通性 | `ping` | **`.cmd.kun`** | `host`、`count`、`interval`、`timeout` |
+| 远程同步 | `rsync`/`scp` | **`.cmd.kun`** | `source`、`destination`、`recursive`、`compress` |
+| 版本控制 | `git` | **`.cmd.kun`** | 子命令各自核心 + 筛选参数 |
+| 容器 | `docker` | **`.cmd.kun`** | 子命令各自核心 + 行为参数 |
+| 容器编排 | `kubectl` | **`.cmd.kun`** | `resource`、`name`、`namespace`、`label` |
+
+**不映射**（由 Kun 标准库和语言特性覆盖）：`sed`、`awk`、`sort`、`uniq`、`cut`、`tr`、`head`、`tail`、`cat`、`wc`、`tee`、`echo`、`printf`、`xargs`、`which`、`cd`、`sudo`、`su`
 
 ### `walkDir` 设计
 
 ```kun
-type DirEntry = { path : Path, fileType : FileType, size : Int, mtime : DateTime }
+type DirEntry =
+  { path : Path
+  , fileType : FileType
+  , size : Int
+  , mtime : DateTime
+  }
 
-walkDir : { root : Path, depth : ?Int
-          , followSymlinks : Bool
-          , runAs : ?RunAs
-           } -> IO (Result (Stream DirEntry) IOError)
+walkDir :
+  { root : Path
+  , depth : ?Int
+  , followSymlinks : Bool
+  , runAs : ?RunAs
+  }
+  -> IO (Result (Stream DirEntry) IOError)
 ```
 
 过滤在外部通过 `filter` 完成：
@@ -492,7 +563,7 @@ kun cmd init git
   │
   └── 生成 git.cmd.kun 骨架
       ├── command Git with "git" export (...)
-      ├── 子命令函数骨架（withOutput rawText + withArgs）
+      ├── 子命令函数骨架（createDocumentCommand textDoc + withArgs）
       └── 类型注解（用户需补充）
 ```
 
@@ -550,7 +621,7 @@ git/
 
 ## 隐式字段
 
-编译器通过**扩展积类型**在用户的 Options Record 上自动附加隐式字段。用户定义 `LogOptions = { maxCount : ?Int, branch : ?String }`，编译器生成 `LogOptions_ = { LogOptions | runAs : ?RunAs, ... }`。
+编译器通过**扩展积类型**在用户的 Options Record 上自动附加隐式字段。编译器将用户定义的类型更名后（如 `LogOptions_ = { maxCount : ?Int, branch : ?String }`），再生成附加了隐式字段的类型，如 `LogOptions = { LogOptions_ | runAs : ?RunAs, ... }`。
 
 对于无参数命令（即用户的 Options Record 为 `{}`），编译器直接生成纯隐式字段类型。
 
@@ -569,9 +640,9 @@ type FdSpec
 |------|------|------|
 | `runAs` | `?RunAs` | 执行用户身份，通过 `process.run-as` 能力控制 |
 | `env` | `?Map String String` | 子进程环境变量，缺省继承当前进程环境 |
-| `stdin` | `?(Fd OrPath)` | 标准输入来源 |
-| `stdout` | `?(Fd OrPath)` | 标准输出目标 |
-| `stderr` | `?(Fd OrPath OrStdioMode)` | 标准错误目标 |
+| `stdin` | `?OrPath` | 标准输入来源 |
+| `stdout` | `?OrPath` | 标准输出目标 |
+| `stderr` | `?OrStdioMode` | 标准错误目标 |
 | `fd` | `Map Int FdSpec` | 额外文件描述符重定向 |
 
 其中 `Fd`、`OrPath`、`OrStdioMode` 类型：
@@ -607,11 +678,13 @@ runAs  → setuid 切换
 // 导出函数 + 类型
 command Git with "git" export
   ( status, log, remote_add
-  , StatusEntry, CommitEntry )
+  , StatusEntry, CommitEntry
+  )
 
 module MyModule export
   ( process, processAll
-  , Config, Result )
+  , Config, Result
+  )
 ```
 
 类型必须在文件内有定义（`type Xxx = ...`）或从外部导入后再次导出。函数和类型的导出顺序无关——编译器识别符号的种类。

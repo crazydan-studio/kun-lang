@@ -935,6 +935,24 @@ module Result export (Result(Ok))           // 仅导出 Ok 变体
 
 未导出的 ADT 变体在导入方**不可引用**——既不能用于构造值也不能用于模式匹配。编译器对尝试使用未导出变体的代码报"符号未找到"。
 
+### `command` 声明
+
+`.cmd.kun` 文件以 `command` 声明开头，定义命令函数模块及其关联的二进制文件。语法与 `module` 声明一致：
+
+```kun
+// command <Name> with "<bin>" export (<symbols>)
+command Git with "git" export
+  ( log, status, remote_add
+  , CommitEntry, StatusEntry
+  , LogOptions
+  )
+```
+
+- `Name` — 模块名（大写开头），导入时通过 `import Cmd.Name` 引用
+- `"<bin>"` — 关联的二进制文件名，需在 PATH 中可被搜索到
+- `export (...)` — 导出的符号列表，支持同时导出函数和类型
+- 声明必须在文件第一个非注释行
+
 ### 导入
 
 导入有三种互斥的风格：**模块别名**（`as`）、**精选导入**（`with (symbols)`）和**全量导入**（`with (..)`），不可组合使用。
