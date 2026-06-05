@@ -188,9 +188,13 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - `walkDir` 只负责遍历，过滤在外部通过 `filter` + lambda 表达，无需系统 `find` 的 `-name -type -size` 语法：
 
   ```kun
-  walkDir { root = p"/var/log" }
-    |> filter (\e -> e.name |> endsWith ".log")
-    |> filter (\e -> e.fileType == RegularFile)
+  main =
+    do
+      entries <-! walkDir { root = p"/var/log" }
+      entries
+        |> filter (\e -> toString e.path |> endsWith ".log")
+        |> filter (\e -> e.fileType == RegularFile)
+        |> toList
   ```
 
 ### `IOError`
@@ -636,24 +640,5 @@ iter   : (a -> IO Unit) -> Stream a -> IO Unit
 ```kun
 filterMap : (a -> ?b) -> Stream a -> Stream b
 
-`filterMap Result.ok : Stream (Result t e) -> Stream t` — 过滤掉所有 `Err` 元素，保留 `Ok` 内容。
-
-### 示例
-
-```kun
-import Stream
-import Path
-
-main =
-  do
-    result <- Stream.readLinesSafe p"/tmp/access.log"
-    case result of
-      Ok lines ->
-        lines
-          // 跳过读失败的行
-          |> filterMap Result.ok
-          |> filter (contains "ERROR")
-          |> take 100
-          |> iter print
-      Err e -> print f"cannot open: {e}"
+// filterMap Result.ok : Stream (Result t e) -> Stream t — 过滤掉所有 Err 元素，保留 Ok 内容
 ```

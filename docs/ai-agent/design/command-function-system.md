@@ -87,13 +87,13 @@ log = \{ maxCount, branch } ->
     |> withArg "log"
     |> (
       case maxCount of
-        n -> withFlag "-n" (toString n)
         Nil -> identity
+        n -> withFlag "-n" (toString n)
       )
     |> (
       case branch of
-        b -> withArg b
         Nil -> identity
+        b -> withArg b
       )
 
 // status 命令——无额外选项，使用空 Options Record
@@ -320,13 +320,13 @@ log = \{ maxCount, branch } ->
     |> withArg "log"
     |> (
         case maxCount of
-          n -> withFlag "-n" (toString n)
           Nil -> identity
+          n -> withFlag "-n" (toString n)
       )
     |> (
         case branch of
-          b -> withArg b
           Nil -> identity
+          b -> withArg b
       )
 ```
 
@@ -422,13 +422,15 @@ run1 :
   -> IO (Result (Stream (Result a String)) IOError)
 run1 = \bin opts cmd ->
   if cmd.type /= StreamCommand then
-    Err (IOError.Other "expected StreamCommand")
+    IO.pure (Err (IOError.Other "expected StreamCommand"))
   else
     run_ bin opts cmd
-      |> andThen (\stdout ->
-        stdout
-          |> Stream.map cmd.parser
-          |> Ok
+      |> IO.flatMap (\result ->
+        result
+          |> Result.andThen (\stdout ->
+            stdout |> Stream.map cmd.parser |> Ok
+          )
+          |> IO.pure
       )
 
 // 运行文档命令函数：run_ → 完整收集 → 一次解析 → Result a
@@ -446,14 +448,18 @@ run2 :
   -> IO (Result a IOError)
 run2 = \bin opts cmd ->
   if cmd.type /= DocumentCommand then
-    Err (IOError.Other "expected DocumentCommand")
+    IO.pure (Err (IOError.Other "expected DocumentCommand"))
   else
     run_ bin opts cmd
-      |> andThen (\stdout ->
-        stdout
-          |> Stream.collect
-          |> cmd.parser
-          |> mapErr (\msg -> IOError.Other (f"parse failed: {msg}"))
+      |> IO.flatMap (\result ->
+        result
+          |> Result.andThen (\stdout ->
+            stdout
+              |> Stream.collect
+              |> cmd.parser
+              |> mapErr (\msg -> IOError.Other (f"parse failed: {msg}"))
+          )
+          |> IO.pure
       )
 ```
 
@@ -590,9 +596,13 @@ walkDir :
 过滤在外部通过 `filter` 完成：
 
 ```kun
-walkDir { root = p"/var/log" }
-  |> filter (\e -> e.name |> endsWith ".log")
-  |> filter (\e -> e.fileType == RegularFile)
+main =
+  do
+    entries <-! walkDir { root = p"/var/log" }
+    entries
+      |> filter (\e -> toString e.path |> endsWith ".log")
+      |> filter (\e -> e.fileType == RegularFile)
+      |> toList
 ```
 
 ## 自动推导（scaffolding）
