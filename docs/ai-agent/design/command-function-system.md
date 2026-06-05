@@ -367,7 +367,7 @@ log = \cmdOpts ->
     // opts 是 LogOptions_，剥离了隐式字段
     // 传给原始命令函数——opts 中不包含 runAs/env 等，无法注入
     log_ opts
-      // 隐式字段在 ExternalCommand.run 内部覆盖 Command 的对应值
+      // 隐式字段在 InternalCommand.run1 内部覆盖 Command 的对应值
       |> InternalCommand.run1 cmd_bin cmdOpts
 ```
 

@@ -784,7 +784,7 @@ Kun 已内建 `Regex` 类型和正则引擎，因此文本搜索类命令（`gre
 // 系统 find: find /var/log -name "*.log" -type f -size +100M
 // Kun walkDir + filter:
 walkDir { root = p"/var/log" }
-  |> filter (\e -> e.name |> endsWith ".log")
+  |> filter (\e -> toString e.path |> endsWith ".log")
   |> filter (\e -> e.fileType == RegularFile)
   |> filter (\e -> e.size > 100 * MB)
 ```
@@ -794,7 +794,7 @@ walkDir { root = p"/var/log" }
 type DirEntry = { path : Path, fileType : FileType, size : Int, mtime : DateTime }
 
 walkDir : { root : Path, depth : ?Int
-          , followSymlinks : Bool = false
+          , followSymlinks : Bool
           , runAs : ?RunAs
            } -> IO (Result (Stream DirEntry) IOError)
 ```
