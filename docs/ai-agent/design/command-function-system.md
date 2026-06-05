@@ -183,6 +183,12 @@ withUnsafeArg : String -> Command a -> Command a
 // 声明文件访问路径（用于 Landlock + capability_check）
 withPath      : Path -> AccessMode -> Command a -> Command a
 
+// 设置环境变量
+withEnv       : ?(Map String String) -> Command a -> Command a
+
+// 设置运行用户
+withRunAs     : ?RunAs -> Command a -> Command a
+
 // 设置退出码映射
 withExitcode  : Int -> ExitCodeResult -> Command a -> Command a
 
@@ -362,7 +368,7 @@ log = \cmdOpts ->
     // 传给原始命令函数——opts 中不包含 runAs/env 等，无法注入
     log_ opts
       // 隐式字段在 ExternalCommand.run 内部覆盖 Command 的对应值
-      |> InternalCommand.run2 cmd_bin cmdOpts
+      |> InternalCommand.run1 cmd_bin cmdOpts
 ```
 
 ### `InternalCommand.run` 的安全覆盖
@@ -575,7 +581,7 @@ type DirEntry =
 walkDir :
   { root : Path
   , depth : ?Int
-  , followSymlinks : Bool
+  , followSymlinks : Bool = false
   , runAs : ?RunAs
   }
   -> IO (Result (Stream DirEntry) IOError)

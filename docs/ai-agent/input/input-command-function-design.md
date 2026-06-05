@@ -123,14 +123,13 @@ withOutput    : OutputMode a -> Command a
 withArg       : Command a -> String -> Command a
 withUnsafeArg : Command a -> String -> Command a
 withArgs      : Command a -> List String -> Command a
-withPath      : Command a -> Path -> AccessMode -> Command a
+withPath      : Path -> AccessMode -> Command a -> Command a
 
 type Command a =
   { bin : ?String
   , output : OutputMode a
   , runAs : ?RunAs
   , envs : ?Map String String
-  , ...
   }
 
 type OutputMode a
