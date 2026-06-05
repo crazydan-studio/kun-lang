@@ -18,9 +18,9 @@
 | 维度 | 当前值 |
 |---|---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令签名系统设计（定型）、安全模型设计（定型） |
-| Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/design/command-signature-system.md`、`docs/ai-agent/design/roles-and-permissions.md` |
+| Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/design/command-function-system.md`、`docs/ai-agent/design/roles-and-permissions.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | CDF 全面重构（同前）；语法操作符修订（`=?`→`=!`/`!=`→`/=`）；List 展开 `*`→`..`；Maybe→`?T` 清理；`--`→`//` 注释语法修正；行多态与扩展积类型设计；全面审计（8 轮/49 项问题修复）；标准库 API 盲点补充（`sleep`/`Random`/`TempFile`/`TempDir`/定时器/退出码）；README 修正 |
+| 最近完成 | 废弃 CDF 方案，改用 `.cmd.kun` + Builder API（`design/command-function-system.md`）；全 Kun 语法、Landlock 安全、版本化注册中心；CDF 全面重构（同前）；语法操作符修订（`=?`→`=!`/`!=`→`/=`）；List 展开 `*`→`..`；Maybe→`?T` 清理；`--`→`//` 注释语法修正；行多态与扩展积类型设计；全面审计（8 轮/49 项问题修复）；标准库 API 盲点补充（`sleep`/`Random`/`TempFile`/`TempDir`/定时器/退出码）；README 修正 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -52,6 +52,7 @@
 | 2026-06-02 | 五轮设计审计与修复 | 审计+修复 | ✅ 全部 owner docs | ✅ 使用 closure-audit-prompt、document-audit-prompt | `implement` 直接执行 |
 | 2026-06-04 | CDF 全面重构与命令函数系统重设计 | 设计+重构 | ✅ 全部 owner docs | ❌ 未检查 | `plan-first` → `implement`（先写 plan 后执行） |
 | 2026-06-04 | 语法打磨 + 多轮全面审计 + 标准库盲点补充 | 维护+审计 | ✅ 全部 owner docs | ✅ document-audit-prompt、closure-audit-prompt、multi-dimensional-audit-prompt | `implement` 直接执行 |
+| 2026-06-04 | `.cmd.kun` + Builder API 替代 CDF 方案设计 | 设计 | ✅ command-signature-system、command-function-system | ❌ 未检查 | `plan-first` → 实际直接实施 |
 
 ## AI 阻塞条件
 

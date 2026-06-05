@@ -1,4 +1,7 @@
-# 命令签名系统设计
+# ~~命令签名系统设计~~ 已废弃
+
+> **本设计已废弃**。CDF（Command Description File）方案已被 `.cmd.kun` + Builder API 方案完全替代。
+> 新设计见 `command-function-system.md`。本文件保留仅作历史参考，不应用于新开发。
 
 ## 定位
 

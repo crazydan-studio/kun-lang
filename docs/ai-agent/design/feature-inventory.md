@@ -39,32 +39,23 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为带 Record 参数和结构化返回类型的安全函数，支持内建 Primitive 和 CDF（Command Description File，命令描述文件）→Kun 代码生成两种实现方式 |
-| CDF→Kun 代码生成 | ✅ 设计定型 | CDF 在编译期转译为 Kun 模块，自动生成 Options Record、函数签名、argv 构造和输出解析器调用 |
-| 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/walkDir 等）以 Zig 内建实现，进程内执行、无子进程开销、类型精确 |
-| runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，类型为 `?RunAs`（`ByName`/`ById`），通过 `process.run-as` 能力控制 |
-| 输出结构化 | ✅ 设计定型 | 内建 Primitive 直接返回结构化类型；CDF 命令通过 `parser` 纯函数解析输出，支持 `default`/`json` 内置解析器和自定义解析器 |
-| Validator 验证器系统 | ✅ 设计定型 | `Validator t` 纯函数类型，支持 `all`/`any`/`not` 组合器和内置验证器（`range`/`include`/`exclude`/`length`/`regex`） |
-| 内置签名库 | ✅ 设计定型 | 仅映射 Kun 无法原生获取的外部命令（ls/du/ps/grep/find/curl 等） |
-| 签名自动推断 | ✅ 设计定型 | 优先通过 man 手册获取帮助信息，回退到 --help/-h；支持子命令识别与独立签名建立；自动缓存到用户级 CDF 目录 |
-| 项目级自定义签名 | ✅ 设计定型 | 项目目录中提供自定义签名 |
-| `run` 命令入口 | ✅ 设计定型 | `run""` 为命令执行的一等语法，通过 `process.run` 白名单控制可执行命令 |
-| `exitcode` 退出码声明 | ✅ 设计定型 | 命令函数内部消化退出码，返回 `Result (Stream T) IOError`；支持 `Ok` / `Ok empty` / `Err` 映射 |
-| `process.run` 能力 | ✅ 设计定型 | 白名单机制控制 `run` 可执行的命令，默认拒绝 |
-| 自动升级管道 | ✅ 设计定型 | `run` 调用自动触发签名查找 + auto-infer，T4 → T3 → T2 逐级透明升级 |
-| 分级可用性模型 | ✅ 设计定型 | T4 `run`（process.run 白名单）→ T3 auto-infer → T2 CDF → T1 内建，从下至上渐进升级 |
-| 内联验证器 | ✅ 设计定型 | `with` 子句直接写验证器表达式，无需事先声明 `validator` |
-| `.` 分隔子命令调用 | ✅ 设计定型 | `git.remote.add` 而非 `git_remote_add`，接近实际 CLI 语法 |
-| 自动 CDF 生成工具 | ✅ 设计定型 | `kun cdf init <command>` 自动从 man/--help 生成 CDF 骨架 |
-| CDF 注册中心 | ✅ 设计定型 | 社区分发 CDF 文件的包管理器，支持安装/搜索/版本管理 |
-| CDF-less 受限模式 | ✅ 设计定型 | 显式 opt-in 的降级执行，返回 `Stream String`，审计日志强制记录 |
-| `List T` 重复选项 | ✅ 设计定型 | `option env "-e" : List String` 声明可重复标志，生成 `env : List String`，argv 展开为 `-e v1 -e v2` |
-| 环境变量注入 | ✅ 设计定型 | `env : Map String String` 隐式字段，注入子进程环境变量 |
-| fd 重定向 | ✅ 设计定型 | `stdin`/`stdout`/`stderr` 隐式字段，支持文件路径和 `Pipe`/`Inherit` 模式 |
-| xargs 模式 | ✅ 设计定型 | `Stream.toList` + `|>` 管道自然覆盖，无需独立 xargs 命令 |
-| `FdSpec` fd 重定向 | ✅ 设计定型 | `fd : Map Int FdSpec` 隐式字段，支持 ReadFromPath/WriteToPath/ReadFromStr/InheritFrom/RedirectTo |
-| 超长参数自动分片 | ✅ 设计定型 | `param * : List T` 或 `option x : List T` 超出 `execve` 限制时自动分片执行 + 隐式合并 stdout |
-| 行流/文档输出模式 | ✅ 设计定型 | `output <name>` 行流（逐行解析） vs `output <name>-doc` 文档模式（完整输出一次解析）；支持 `text-doc` / `json-doc` 内置文档解析器 |
+| 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为类型安全函数。通过 `.cmd.kun` + Builder API 定义，全 Kun 语法，无需独立 DSL |
+| `.cmd.kun` 文件格式 | ✅ 设计定型 | `command Xxx with "<bin>" export (...)` 声明，纯 Kun 语法构造 argv |
+| Builder API | ✅ 设计定型 | `withOutput`/`withArg`/`withFlag`/`withArgs`/`withUnsafeArg`/`withPath`/`withEnv`/`withRunAs`/`exitcode` |
+| 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/walkDir 等）以 Zig 内建实现，调用方式与命令函数一致 |
+| runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，类型为 `?RunAs`，通过 `process.run-as` 能力控制 |
+| 输出结构化 | ✅ 设计定型 | `OutputMode` ADT（`LineStream`/`Document`）+ Parser 标准库 |
+| 退出码处理 | ✅ 设计定型 | `exitcode` Builder 链式设置，`ExitCodeMap` 自定义映射，缺省 0→Ok/非0→Err |
+| 安全栈 | ✅ 设计定型 | `process.run` 白名单 + `capability_check` + Namespace + seccomp 推导 + Landlock（5.13+） |
+| 审计日志 | ✅ 设计定型 | 所有命令执行自动记录，含允许/拒绝结果，持久化到 `~/.kun/audit/` |
+| 自动推导（scaffolding） | ✅ 设计定型 | `kun cmd init <command>` 从 man/--help 生成 `.cmd.kun` 骨架，开发辅助工具 |
+| 签名与注册中心 | ✅ 设计定型 | Ed25519 签名 + 注册中心版本化管理（`kun cmd install/search/publish`） |
+| 编译器封装 | ✅ 设计定型 | 14 条编译期验证规则，自动注入隐式字段 + `InternalCommand.run` |
+| 隐式字段 | ✅ 设计定型 | `runAs`/`env`/`stdin`/`stdout`/`stderr`/`fd` 自动注入 |
+| fd 重定向 | ✅ 设计定型 | `FdSpec` ADT（ReadFromPath/WriteToPath/ReadFromStr/InheritFrom/RedirectTo） |
+| 超长参数自动分片 | ✅ 设计定型 | `List` 参数超出 `execve` 限制时自动分片 + 隐式合并 stdout |
+| 环境变量注入 | ✅ 设计定型 | `env : ?Map String String` 隐式字段 |
+| `run` 命令入口 | ✅ 设计定型 | `run""` 保留为无 `.cmd.kun` 命令的低优先级入口 |
 
 ### 运行时
 

@@ -17,4 +17,5 @@
 | [命令函数设计](discussion-command-function-design.md) | 结构化输出、exec 移除、runAs 隐式参数、Record 参数、process.exec 完全移除 | 2026-06-02 |
 | [CDF→Kun 代码生成设计](discussion-cdf-code-generation.md) | CDF 编译期代码生成、validator/pure/parser 设计、param 语义、option type 直接命名 | 2026-06-03 |
 | [行多态与扩展积类型](discussion-row-polymorphism.md) | 行变量与行合一、`{ a \| name : String }` 统一语法、编译期字段展开、无子类型兼容性 | 2026-06-04 |
+| [`.cmd.kun` + Builder API 替代 CDF](discussion-cmdkun-replacement.md) | 废弃 CDF，`.cmd.kun` 完全替代方案——全 Kun 语法、Builder API、Landlock 安全、版本化注册中心 | 2026-06-04 |
 | [设计审计第二轮确认](discussion-design-review-round2.md) | 12 个审计跟进项（R1-R3 高严重度漏洞确认修复、TOCTOU 缓解方案、subprocess 权限建议） | 2026-06-04 |
