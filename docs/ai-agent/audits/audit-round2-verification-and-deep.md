@@ -84,8 +84,8 @@
   - `andThen : (a -> Result b e) -> Result a e -> Result b e`（即 `>>=`）
   - `mapError : (e -> f) -> Result a e -> Result a f`
   - `withDefault : a -> Result a e -> a`
-  - `toMaybe : Result a e -> ?a`
-  - `fromMaybe : e -> ?a -> Result a e`
+  - `ok : Result a e -> ?a`           // Result 转为 ?T，Err 对应 Nil
+  - `toResult : e -> ?a -> Result a e` // ?T 转为 Result，Nil 对应 Err
 - **影响**: `Result` 是 Kun 错误处理的核心类型，缺少组合子意味着用户只能通过 `case` 模式匹配手动展开，代码冗长且易出错
 - **修复建议**: 在 `design/standard-library.md` 新增 `Result` 模块一节，定义上述组合子
 

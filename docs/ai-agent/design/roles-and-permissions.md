@@ -219,13 +219,13 @@ with caps
   process.run-as = [ByName "root", ById 1000]   // 允许切换到的用户
 
 main =
-  ls { path0 = p"/root", runAs = Just (ByName "root") }   // ✅ 按用户名
-  ls { path0 = p"/tmp" }                                     // ✅ 缺省当前用户
-  ls { runAs = Just (ById 65534) }                           // ✅ 按 UID
-  ls { runAs = Just (ByName "mysql") }                       // ❌ "mysql" 不在 process.run-as 中
+  ls { path0 = p"/root", runAs = ByName "root" }   // ✅ 按用户名
+  ls { path0 = p"/tmp" }                              // ✅ 缺省当前用户
+  ls { runAs = ById 65534 }                           // ✅ 按 UID
+  ls { runAs = ByName "mysql" }                       // ❌ "mysql" 不在 process.run-as 中
 ```
 
-- `runAs` 缺省 `Nothing`（当前进程用户）
+- `runAs` 缺省 `Nil`（当前进程用户）
 - 目标为 `ByName name`（用户名）或 `ById id`（数字 UID）
 - 运行时通过 `setuid()`/`seteuid()` 切换用户，需进程有足够 OS 权限（root 或 CAP_SETUID）
 - 此能力不替代 `sudo`——进程的 OS 权限决定了能否成功切换

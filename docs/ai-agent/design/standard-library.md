@@ -277,9 +277,9 @@ default : Signal -> IO Unit                          // 恢复默认行为
     process.run-as = [ByName "root", ById 1000]
 
   main =
-    ls { runAs = Just (ByName "nobody") }   // ✅ 按用户名
-    ls { runAs = Just (ById 65534) }         // ✅ 按 UID
-    ls { runAs = Nothing }                    // ✅ 缺省当前用户
+    ls { runAs = ByName "nobody" }   // ✅ 按用户名
+    ls { runAs = ById 65534 }         // ✅ 按 UID
+    ls { runAs = Nil }                // ✅ 缺省当前用户
   ```
 
 ### `IpAddress`

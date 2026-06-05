@@ -103,7 +103,7 @@ with caps
 
 main =
   do
-    commits <-! Git.log { maxCount = Just 50, branch = Just "main" }
+    commits <-! Git.log { maxCount = 50, branch = "main" }
     // commits : Stream Git.CommitEntry
     // Git.log 的实际签名由编译器封装为：
     //   log : LogOptions_ -> IO (Result (Stream CommitEntry) IOError)

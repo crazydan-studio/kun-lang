@@ -308,7 +308,7 @@ param env : Map String String with (behavior, cli: {"-e", <k>=<v>})
 ```kun
 // docker run --detach --restart=always -e DB_HOST=prod -p 80:8080 nginx
 docker.run { image = "nginx", detach = true,
-             restart = Just Restart.Always,
+             restart = Restart.Always,
              env = Map.fromList [("DB_HOST", "prod")],
              port = [PortMapping { host = 80, container = 8080 }] }
 ```
@@ -506,7 +506,7 @@ git.remote.add { } "origin" "https://github.com/user/repo.git"
 //   无 --fetch 映射——fetch 属于 behavior 分类，只在必要时声明
 
 // log 子命令——只映射影响结果集的参数
-git.log { maxCount = Just 50, branch = Just "main" }
+git.log { maxCount = 50, branch = "main" }
 // → git log -n 50 main
 //   无 --oneline/--graph/--format/--decorate——显示格式不映射
 ```
@@ -691,12 +691,12 @@ type OrStdioMode
 ```kun
 // 带环境变量注入和输出重定向的命令
 git.log { env = Map.fromList [("GIT_DIR", "/repo/.git")]
-        , stdout = Just (Path p"/tmp/git.log")
-        , maxCount = Just 50 }
+        , stdout = Path p"/tmp/git.log"
+        , maxCount = 50 }
 // → GIT_DIR=/repo/.git git log -n 50 > /tmp/git.log
 
 // 管道模式
-git.log { stderr = Just StdioMode.Pipe, maxCount = Just 10 }
+git.log { stderr = StdioMode.Pipe, maxCount = 10 }
   |> handleStderr
 // → git log -n 10 2>&1 管道到 handleStderr
 
