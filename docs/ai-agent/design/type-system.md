@@ -70,6 +70,59 @@ withArg : String -> Command mode a -> Command mode a
 - 编译器通过函数签名中的具体幻影类型（`Command Stream a` vs `Command Document a`）做编译期分支选择，无运行时开销
 - 与积类型（Record）的关系：幻影类型不是积类型，它不包含任何字段。积类型是 `{ name : String, ... }` 结构。当幻影类型作为 `Command mode a` 的 `mode` 参数时，它仅出现在类型参数位置，不影响 `Command` 的字段定义
 
+#### 幻影类型的导入、导出与模式匹配
+
+**导出**：幻影类型本质上是一个零变体 ADT，导出规则与普通类型一致：
+
+```kun
+module Command export
+  ( Command
+  , Stream, Document   // 作为类型名导出，供外部在类型标注中使用
+  , createStreamCommand, createDocumentCommand
+  , ...
+  )
+```
+
+`Stream(..)` 或 `Stream(StreamVariant)` 在此处无意义——因为幻影类型没有变体可以导出。`Stream`（仅类型名）导入方可引用该类型名即可用于类型标注：
+
+```kun
+// 导入方仅引用类型名，用于函数签名
+import Command with
+  ( Command, Stream, Document
+  , createStreamCommand, ...
+  )
+
+makeStreamCmd : (String -> Result a String) -> Command Stream a
+```
+
+**模式匹配**：幻影类型没有变体，因此**不能**在 `case` 中匹配其值。以下代码是编译错误：
+
+```kun
+// ❌ 编译错误：Stream 没有变体，无法 case 匹配
+case mode of
+  _ -> ...
+```
+
+幻影类型的"分支选择"通过**类型签名**在编译期完成，而非运行时的模式匹配：
+
+```kun
+// ✅ 编译期分支：编译器通过函数签名中的具体类型选择实现
+//   函数签名用 Command Stream a → 编译器选择行流处理路径
+//   函数签名用 Command Document a → 编译器选择文档处理路径
+run1 : String -> { ... } -> Command Stream a -> IO (Stream (Result a String))
+run2 : String -> { ... } -> Command Document a -> IO (Result a IOError)
+```
+
+编译器在处理调用时，根据实参类型的具体幻影类型 `Stream`/`Document`，在生成的代码中选择 `run1` 或 `run2`。这与重载解析类似——但通过类型参数选择而非函数名选择。
+
+**零变体 ADT 的特殊性**：`type X` 声明了一个没有构造器的类型。在 Kun 中：
+- `case x of ...` — **不允许**，因为没有变体可以匹配
+- `let x : X = ...` — 无法赋值，因为没有值可以创建
+- `f : X -> Int` — 函数无法被调用（无法传入参数），但可用于类型参数位置
+- `f : List X -> Int` — 列表恒为空，可作为零值标记
+
+因此，幻影类型的使用被自然限制在类型参数位置，不可能被误用为运行时值。
+
 ### 类型分类
 
 ```
