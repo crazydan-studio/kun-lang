@@ -164,14 +164,26 @@ type Document
 // 构造文档输出 Command（标记为 Document 模式）
 createDocumentCommand : (String -> Result a String) -> Command Document a
 createDocumentCommand = \parser ->
-  { bin = Nil, parser = parser, args = [], paths = [],
-    runAs = Nil, env = Nil, exitCodes = #{} }
+  { bin = Nil
+  , parser = parser
+  , args = []
+  , paths = []
+  , runAs = Nil
+  , env = Nil
+  , exitCodes = #{}
+  }
 
 // 构造行流输出 Command（标记为 Stream 模式）
 createStreamCommand : (String -> Result a String) -> Command Stream a
 createStreamCommand = \parser ->
-  { bin = Nil, parser = parser, args = [], paths = [],
-    runAs = Nil, env = Nil, exitCodes = #{} }
+  { bin = Nil
+  , parser = parser
+  , args = []
+  , paths = []
+  , runAs = Nil
+  , env = Nil
+  , exitCodes = #{}
+  }
 
 // 追加参数（Safe 标记）
 withArg       : String -> Command mode a -> Command mode a
@@ -315,15 +327,15 @@ log = \{ maxCount, branch } ->
   createStreamCommand parseLogLine
     |> withArg "log"
     |> (
-        case maxCount of
-          Nil -> identity
-          n -> withFlag "-n" (toString n)
-      )
+      case maxCount of
+        Nil -> identity
+        n -> withFlag "-n" (toString n)
+    )
     |> (
-        case branch of
-          Nil -> identity
-          b -> withArg b
-      )
+      case branch of
+        Nil -> identity
+        b -> withArg b
+    )
 ```
 
 编译器生成等价代码：
@@ -364,8 +376,8 @@ log = \cmdOpts ->
     // opts 是 LogOptions_，剥离了隐式字段
     // 传给原始命令函数——opts 中不包含 runAs/env 等，无法注入
     log_ opts
-      // 隐式字段在 InternalCommand.run 内部覆盖 Command 的对应值
-      |> InternalCommand.run cmd_bin cmdOpts
+      // 隐式字段在 InternalCommand.run1 内部覆盖 Command 的对应值
+      |> InternalCommand.run1 cmd_bin cmdOpts
 ```
 
 ### `InternalCommand.run` 的安全覆盖
@@ -418,16 +430,20 @@ run_ = \bin opts cmd ->
 // 行流模式：命令签名含 Command Stream a
 // → InternalCommand.run1（逐行解析）
 log = \cmdOpts ->
-  let { runAs, env, ..opts } = cmdOpts
-  in log_ opts
-    |> InternalCommand.run1 cmd_bin cmdOpts
+  let
+    { runAs, env, ..opts } = cmdOpts
+  in
+    log_ opts
+      |> InternalCommand.run1 cmd_bin cmdOpts
 
 // 文档模式：命令签名含 Command Document a
 // → InternalCommand.run2（完整收集后一次解析）
 remote_add = \cmdOpts ->
-  let { runAs, env, ..opts } = cmdOpts
-  in remote_add_ opts
-    |> InternalCommand.run2 cmd_bin cmdOpts
+  let
+    { runAs, env, ..opts } = cmdOpts
+  in
+    remote_add_ opts
+      |> InternalCommand.run2 cmd_bin cmdOpts
 ```
 
 `InternalCommand.run1`/`run2` 封装了 `run_` + 输出解析的逻辑复用（幻影类型保证编译期模式正确性，无需运行时类型检查）：
