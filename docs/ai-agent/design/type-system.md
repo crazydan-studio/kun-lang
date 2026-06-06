@@ -33,6 +33,43 @@ Kun 采用两级种类系统：
 
 所有完整应用的类型构造器（如 `List Int`）归约到种类 `Type`。
 
+#### 幻影类型（Phantom Type）
+
+幻影类型是没有变体和值的 ADT，仅用作类型参数标记。它在运行时零开销——没有值可以被创建，纯粹在编译期用于类型级标记。
+
+```kun
+type Stream       // 零变体 ADT，不能创建运行时值
+type Document     // 同上
+
+type Command mode a =
+  { parser : String -> Result a String
+  , args : List CmdArg
+  , ...
+  }
+
+// 不同幻影类型标记不同的"模式"
+createStreamCommand  : (String -> Result a String) -> Command Stream a
+createDocumentCommand : (String -> Result a String) -> Command Document a
+
+// Builder 函数对所有 mode 通用（幻影类型参数不参与运行时）
+withArg : String -> Command mode a -> Command mode a
+```
+
+幻影类型与普通类型参数的区别：
+
+| 维度 | 普通类型参数 | 幻影类型参数 |
+|------|------------|-------------|
+| 用途 | 承载运行时值 | 编译期标记 |
+| 参与值定义 | 是（如 `List a` 中 `a` 是元素类型） | 否（`Command mode a` 中 `mode` 不影响字段） |
+| 运行时表示 | 类型擦除后仍有值层信息 | 完全零开销——无值可创建 |
+| 典型应用 | 泛型容器 | 类型级状态机、标记模式（如行流/文档） |
+
+使用注意：
+- 幻影类型声明 `type X` 是无变体 ADT，**不能**通过 `X { ... }` 或 `X value` 创建值。如果误用 `type X = X Int`（带变体），它就不再是幻影类型，而是一个普通的 newtype
+- 幻影类型在 `case` 模式匹配中不需要穷举——因为没有变体可以匹配
+- 编译器通过函数签名中的具体幻影类型（`Command Stream a` vs `Command Document a`）做编译期分支选择，无运行时开销
+- 与积类型（Record）的关系：幻影类型不是积类型，它不包含任何字段。积类型是 `{ name : String, ... }` 结构。当幻影类型作为 `Command mode a` 的 `mode` 参数时，它仅出现在类型参数位置，不影响 `Command` 的字段定义
+
 ### 类型分类
 
 ```
