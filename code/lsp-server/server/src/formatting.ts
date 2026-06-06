@@ -5,7 +5,7 @@ import {
   formatIndent,
   detectSemicolons,
   checkCommentStyle,
-} from '@kun/lsp-shared'
+} from '@kun-lang/shared'
 
 export function formatDocument(document: TextDocument): TextEdit[] {
   const text = document.getText()

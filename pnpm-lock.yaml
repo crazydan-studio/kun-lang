@@ -8,19 +8,11 @@ importers:
 
   .: {}
 
-  code/lsp-shared:
-    devDependencies:
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-
-  tools/ai-agent: {}
-
-  tools/ai-agent/plugin:
+  code/lsp-server/plugin:
     dependencies:
-      '@kun/lsp-shared':
+      '@kun-lang/shared':
         specifier: workspace:*
-        version: link:../../../code/lsp-shared
+        version: link:../shared
       vscode-languageclient:
         specifier: ^9.0.1
         version: 9.0.1
@@ -35,11 +27,11 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  tools/ai-agent/server:
+  code/lsp-server/server:
     dependencies:
-      '@kun/lsp-shared':
+      '@kun-lang/shared':
         specifier: workspace:*
-        version: link:../../../code/lsp-shared
+        version: link:../shared
       vscode-languageserver:
         specifier: ^9.0.1
         version: 9.0.1
@@ -50,6 +42,12 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.20
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  code/lsp-server/shared:
+    devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

@@ -1,14 +1,10 @@
 {
-  "name": "kun-workspace",
+  "name": "@kun-lang/lsp-workspace",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "dev": "bash tools/dev-lsp.sh",
     "start": "pnpm --filter @kun-lang/lsp-server start"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }

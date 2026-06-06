@@ -1,9 +1,9 @@
 {
-  "name": "@kun/vscode-plugin",
+  "name": "@kun-lang/vscode-plugin",
   "version": "0.1.0",
   "description": "Kun language VS Code extension with LSP support",
   "private": true,
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "publisher": "kun-lang",
   "engines": {
     "vscode": "^1.96.0"
@@ -38,13 +38,13 @@
     ]
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -b",
     "typecheck": "tsc --noEmit",
     "package": "vsce package"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
-    "@kun/lsp-shared": "workspace:*"
+    "@kun-lang/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

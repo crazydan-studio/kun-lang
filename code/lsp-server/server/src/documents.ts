@@ -1,5 +1,5 @@
 import { TextDocument } from 'vscode-languageserver-textdocument'
-import type { KunDocument } from '@kun/lsp-shared'
+import type { KunDocument } from '@kun-lang/shared'
 
 export type { KunDocument }
 

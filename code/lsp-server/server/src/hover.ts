@@ -4,7 +4,7 @@ import {
   MarkupKind,
 } from 'vscode-languageserver'
 import type { KunDocument } from './documents'
-import { KEYWORDS, BUILTIN_TYPES } from '@kun/lsp-shared'
+import { KEYWORDS, BUILTIN_TYPES } from '@kun-lang/shared'
 
 const KEYWORD_DOCS: Record<string, string> = {
   type: [

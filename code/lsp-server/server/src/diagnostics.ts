@@ -10,10 +10,10 @@ import {
   DEPRECATED_SYNTAX,
   NAMING_RULES,
   isTypeName,
-} from '@kun/lsp-shared'
-import { checkCommentStyle, detectSemicolons, checkLineWidth } from '@kun/lsp-shared'
-import { isTypeNameValid } from '@kun/lsp-shared'
-import { FORMAT_RULES } from '@kun/lsp-shared'
+} from '@kun-lang/shared'
+import { checkCommentStyle, detectSemicolons, checkLineWidth } from '@kun-lang/shared'
+import { isTypeNameValid } from '@kun-lang/shared'
+import { FORMAT_RULES } from '@kun-lang/shared'
 
 function pos(line: number, character: number): Position {
   return { line, character }
