@@ -15,16 +15,7 @@ const diagramsPluginOpts = {
 }
 let configMarkdown = (md) => {
   configureDiagramsPlugin(md, diagramsPluginOpts)
-  // Kun 语法高亮：使用 Elm 语法（语法风格接近）
   // kun-cdf 不做高亮（已废弃的 CDF DSL），回退到纯文本
-  const defaultFence = md.renderer.rules.fence
-  md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
-    const token = tokens[idx]
-    if (token.info === 'kun') {
-      token.info = 'elm'
-    }
-    return defaultFence(tokens, idx, options, env, slf)
-  }
 }
 
 if (process.env.NODE_ENV == 'production') {
@@ -59,7 +50,7 @@ export default defineConfig({
 
   markdown: {
     lineNumbers: true,
-    languages: ['elm', 'zig', 'c', 'bash', 'toml', 'xml'],
+    languages: ['zig', 'c', 'bash', 'toml', 'xml'],
     theme: {
       light: 'github-light',
       dark: 'one-dark-pro',
