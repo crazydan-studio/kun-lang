@@ -40,7 +40,7 @@
 | 功能 | 状态 | 说明 |
 |---|---|---|
 | 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为类型安全函数。通过 `.cmd.kun` + Builder API 定义，全 Kun 语法，无需独立 DSL |
-| `.cmd.kun` 文件格式 | ✅ 设计定型 | `command Xxx with "<bin>" export (...)` 声明，纯 Kun 语法构造 argv |
+| `.cmd.kun` 文件格式 | ✅ 设计定型 | `command Xxx for "<bin>" export (...)` 声明，纯 Kun 语法构造 argv |
 | Builder API | ✅ 设计定型 | `withOutput`/`withArg`/`withFlag`/`withArgs`/`withUnsafeArg`/`withPath`/`withEnv`/`withRunAs`/`exitcode` |
 | 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/walkDir 等）以 Zig 内建实现，调用方式与命令函数一致 |
 | runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，类型为 `?RunAs`，通过 `process.run-as` 能力控制 |

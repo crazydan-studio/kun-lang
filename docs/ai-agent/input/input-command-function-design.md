@@ -38,7 +38,7 @@
 ```kun-cmd
 // ① command 声明（文件第一个非注释行）
 // with 后紧跟命令名，其需要在 PATH 路径中可被搜索到
-command Git with "git" export
+command Git for "git" export
   ( git, status, remote_add
   , StatusEntry, CommitEntry )
 
@@ -222,7 +222,7 @@ run(cmd)
 |---|------|------|
 | 1 | `command` 在文件第一个非注释行 | 编译期错误 |
 | 2 | `import` 在 `command` 之后 | 编译期错误 |
-| 4 | `command Xxx with "<bin>"` 中 `<bin>` 为 basename（不含 `"/"`） | 编译期错误 |
+| 4 | `command Xxx for "<bin>"` 中 `<bin>` 为 basename（不含 `"/"`） | 编译期错误 |
 | 7 | 导出命令函数返回 `Command (Stream T)` 或 `Command (T)` | 编译期错误 |
 | 8 | 无逃逸 IO（禁止 IO 函数导入和调用，非 IO 函数不做限制） | 编译期错误 |
 | 9 | 函数参数透传 `withArg`/`withArgs` 需 `withUnsafeArg` | 编译期警告 |

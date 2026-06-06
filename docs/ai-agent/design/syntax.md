@@ -945,8 +945,8 @@ module Result export (Result(Ok))           // 仅导出 Ok 变体
 `.cmd.kun` 文件以 `command` 声明开头，定义命令函数模块及其关联的二进制文件。语法与 `module` 声明一致：
 
 ```kun
-// command <Name> with "<bin>" export (<symbols>)
-command Git with "git" export
+// command <Name> for "<bin>" export (<symbols>)
+command Git for "git" export
   ( log, status, remote_add
   , CommitEntry, StatusEntry
   , LogOptions

@@ -45,8 +45,8 @@
 
 ```kun
 // command 声明（文件第一个非注释行）
-// with 后紧跟二进制名，需在 PATH 中可被搜索到
-command Git with "git" export
+// for 后紧跟二进制名，需在 PATH 中可被搜索到
+command Git for "git" export
   ( log, status, remote_add
   , CommitEntry, StatusEntry
   , LogOptions
@@ -304,7 +304,7 @@ InternalCommand.run 执行沙箱 + 输出解析
 用户编写的 log 命令函数：
 
 ```kun
-command Git with "git" export
+command Git for "git" export
   ( LogOptions
   , log
   )
@@ -333,7 +333,7 @@ log = \{ maxCount, branch } ->
 编译器生成等价代码：
 
 ```kun
-module Git export
+module Cmd.Git export
   ( LogOptions
   , log
   )
@@ -529,7 +529,7 @@ seccomp-BPF 过滤规则由命令的 Builder 调用链自动推导：
 |---|------|------|
 | 1 | `command` 在文件第一个非注释行 | 编译期错误 |
 | 2 | `import` 在 `command` 之后 | 编译期错误 |
-| 3 | `command Xxx with "<bin>"` 中 `<bin>` 为 basename（不含 `"/"`） | 编译期错误 |
+| 3 | `command Xxx for "<bin>"` 中 `<bin>` 为 basename（不含 `"/"`） | 编译期错误 |
 | 4 | 导出命令函数返回 `Command (Stream T)` 或 `Command T` | 编译期错误 |
 | 5 | 无逃逸 IO（禁止 IO 函数导入和调用，非 IO 函数不做限制） | 编译期错误 |
 | 6 | 函数参数透传 `withArg`/`withArgs` 需 `withUnsafeArg` | 编译期警告 |
@@ -622,7 +622,7 @@ kun cmd init git
   ├── 推断参数类型（String/Int/Bool/枚举）
   │
   └── 生成 git.cmd.kun 骨架
-      ├── command Git with "git" export (...)
+      ├── command Git for "git" export (...)
       ├── 子命令函数骨架（createDocumentCommand textDoc + withArgs）
       └── 类型注解（用户需补充）
 ```
@@ -736,7 +736,7 @@ runAs  → setuid 切换
 
 ```kun
 // 导出函数 + 类型
-command Git with "git" export
+command Git for "git" export
   ( status, log, remote_add
   , StatusEntry, CommitEntry
   )
