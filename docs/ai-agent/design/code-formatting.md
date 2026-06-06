@@ -16,6 +16,60 @@ case x of
 case x of Ok v -> process v; Err _ -> handleError
 ```
 
+## 文件级声明顺序
+
+在库模块、command 模块和执行脚本中，文件开头的有效代码必须遵循以下顺序：
+
+1. **`module` / `command` 声明** — 必须是文件第一个非注释行
+2. **`import` 语句** — 紧跟 `module`/`command` 之后
+3. **脚本级 `with caps`** — 仅执行脚本需要，位于 import 之后
+
+其余代码（类型定义、函数定义、绑定等）顺序无强制要求。
+
+```kun
+// ✅ 库模块
+module MyLib export (run)
+
+import List as L
+import Path
+
+with caps
+  fs.read = [Path.cwd]
+
+run : IO Unit
+run =
+  do
+    ...
+```
+
+```kun
+// ✅ command 模块
+command Git for "git" export (status)
+
+import List as L
+
+type StatusOptions
+  = { path : Path, short : Bool }
+
+status : StatusOptions -> IO String
+status = \opts ->
+  ...
+```
+
+```kun
+// ✅ 执行脚本
+import List as L
+import Path
+
+with caps
+  fs.read = [Path.cwd]
+
+main : IO Unit
+main =
+  do
+    ...
+```
+
 ## 缩进
 
 使用 2 空格缩进，不使用 Tab。

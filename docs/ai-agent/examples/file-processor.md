@@ -10,14 +10,14 @@
 //       权限声明 / 流 / 操作符 / =! / <-! 操作符
 // ============================================================
 
-// 脚本级权限声明
-with caps
-  fs.read = [Path.cwd, p"/var/log/", p"/etc/"]
-
-// 模块导入（新语法）
+// 模块导入
 import List as L
 import Map with (get, insert)
 import Path
+
+// 脚本级权限声明
+with caps
+  fs.read = [Path.cwd, p"/var/log/", p"/etc/"]
 
 // ============================================================
 // ADT 定义
