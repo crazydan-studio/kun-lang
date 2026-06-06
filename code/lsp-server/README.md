@@ -1,41 +1,41 @@
-# Kun Language Server (LSP)
+# Kun LSP 语言服务
 
-Language Server Protocol implementation for the Kun programming language, including a VS Code extension.
+Kun 编程语言的 Language Server Protocol 实现，包含 VS Code 扩展。
 
-## Project Structure
+## 项目结构
 
 ```
 code/lsp-server/
-├── shared/                # @kun-lang/lsp-shared — Syntax rules, type definitions, AST
-├── server/                # @kun-lang/lsp-server — LSP server
-├── plugin/                # @kun-lang/lsp-plugin — VS Code extension
+├── shared/                # @kun-lang/lsp-shared — 语法规则、类型定义、AST
+├── server/                # @kun-lang/lsp-server — LSP 服务端
+├── plugin/                # @kun-lang/lsp-plugin — VS Code 扩展
 ├── tsconfig.base.json
 └── package.json
 ```
 
-## Features
+## 功能特性
 
-- **Diagnostics**: Comment validation, deprecated syntax detection, type naming, generics checking, IO binding context, semicolon detection
-- **Formatting**: 2-space indent, comment style fixes, trailing whitespace, semicolon removal
-- **Completion**: Keywords, built-in types, doc comment templates
-- **Hover**: Keyword/type/operator documentation
+- **诊断**：注释风格验证、废弃语法检测、类型命名检查、泛型检查、IO 绑定上下文检测、分号检测
+- **格式化**：2 空格缩进、注释风格修正、尾随空格清理、分号移除
+- **自动补全**：关键字、内置类型、文档注释模板
+- **悬停提示**：关键字/类型/运算符文档
 
-## Development
+## 开发
 
 ```bash
-# Install dependencies (from workspace root)
+# 安装依赖（从项目根目录执行）
 pnpm install
 
-# Build all modules
+# 构建所有模块
 cd code/lsp-server && pnpm build
 
-# Type check
+# 类型检查
 cd code/lsp-server && pnpm typecheck
 
-# Start LSP server standalone
+# 独立启动 LSP 服务端
 cd code/lsp-server && pnpm start
 ```
 
-## Build Script
+## 构建脚本
 
-`tools/lsp-dev.sh` builds all modules in the correct order (install → shared → server → plugin).
+`tools/lsp-dev.sh` 按依赖顺序构建所有模块（install → shared → server → plugin）。
