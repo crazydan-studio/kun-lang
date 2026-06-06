@@ -38,4 +38,4 @@ cd code/lsp-server && pnpm start
 
 ## Build Script
 
-`tools/dev-lsp.sh` builds all modules in the correct order.
+`tools/lsp-dev.sh` builds all modules in the correct order (install → shared → server → plugin).
