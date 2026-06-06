@@ -1,8 +1,12 @@
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, readFileSync } from 'node:fs'
 import { defineConfig } from 'vitepress'
 import { configureDiagramsPlugin, createBuildTimeDiagramsPlugin } from 'vitepress-plugin-diagrams'
-import { join } from 'node:path'
-import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const kunLang = JSON.parse(readFileSync(path.join(__dirname, 'theme/kun-grammar.json'), 'utf8'))
 
 const remoteLogoUrl = 'https://raw.githubusercontent.com/crazydan-studio/kun-lang/refs/heads/master/logo.svg'
 let logo = remoteLogoUrl
@@ -15,7 +19,6 @@ const diagramsPluginOpts = {
 }
 let configMarkdown = (md) => {
   configureDiagramsPlugin(md, diagramsPluginOpts)
-  // kun-cdf 不做高亮（已废弃的 CDF DSL），回退到纯文本
 }
 
 if (process.env.NODE_ENV == 'production') {
@@ -50,7 +53,7 @@ export default defineConfig({
 
   markdown: {
     lineNumbers: true,
-    languages: ['zig', 'c', 'bash', 'toml', 'xml'],
+    languages: [kunLang, 'zig', 'c', 'bash', 'toml', 'xml'],
     theme: {
       light: 'github-light',
       dark: 'one-dark-pro',
@@ -128,7 +131,7 @@ export default defineConfig({
     lastUpdated: { text: '最后更新于' },
 
     editLink: {
-      pattern: 'https://github.com/crazydan-studio/kun-lang/edit/main/docs/ai-agent/:path',
+      pattern: 'https://github.com/crazydan-studio/kun-lang/edit/master/docs/:path',
       text: '在 GitHub 上编辑此页',
     },
   },
