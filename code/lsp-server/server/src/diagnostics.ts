@@ -9,6 +9,7 @@ import {
   COMMENT_RULES,
   DEPRECATED_SYNTAX,
   NAMING_RULES,
+  DECLARATION_ORDER_RULES,
   isTypeName,
 } from '@kun-lang/lsp-shared'
 import { checkCommentStyle, detectSemicolons, checkLineWidth } from '@kun-lang/lsp-shared'
@@ -57,6 +58,8 @@ function warning(
 export function getDiagnostics(doc: KunDocument): Diagnostic[] {
   const diagnostics: Diagnostic[] = []
   const { lines } = doc
+
+  checkDeclarationOrder(diagnostics, lines)
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -153,6 +156,71 @@ function checkFunctionApplication(diagnostics: Diagnostic[], line: string, lineN
     diagnostics.push(
       warning('Function arguments are space-separated, not comma-separated.', lineNum, match.index!, match.index! + match[0].length),
     )
+  }
+}
+
+function checkDeclarationOrder(diagnostics: Diagnostic[], lines: string[]): void {
+  // Walk lines top-to-bottom, skip blanks and comments
+  // Track positions of each declaration type
+  let firstNonComment = -1
+  let moduleOrCommandLine = -1
+  let firstImportLine = -1
+  let firstCapsLine = -1
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
+    if (trimmed.length === 0 || trimmed.startsWith('//')) continue
+
+    if (firstNonComment === -1) firstNonComment = i
+
+    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed) ||
+        DECLARATION_ORDER_RULES.commandPattern.test(trimmed)) {
+      if (moduleOrCommandLine === -1) moduleOrCommandLine = i
+      continue
+    }
+
+    if (DECLARATION_ORDER_RULES.importPattern.test(trimmed)) {
+      if (firstImportLine === -1) firstImportLine = i
+      continue
+    }
+
+    // Only flag top-level with caps (no leading indent)
+    if (DECLARATION_ORDER_RULES.capsPattern.test(lines[i])) {
+      if (firstCapsLine === -1) firstCapsLine = i
+      continue
+    }
+  }
+
+  // Rule 1: module/command must be the first non-comment line
+  if (moduleOrCommandLine !== -1 && moduleOrCommandLine !== firstNonComment) {
+    diagnostics.push(error(
+      '`module` or `command` declaration must be the first non-comment line in the file.',
+      moduleOrCommandLine, 0, lines[moduleOrCommandLine].trimEnd().length,
+    ))
+  }
+
+  // Rule 2: import must come after module/command
+  if (moduleOrCommandLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleOrCommandLine) {
+    diagnostics.push(error(
+      '`import` statements must come after `module`/`command` declaration.',
+      firstImportLine, 0, lines[firstImportLine].trimEnd().length,
+    ))
+  }
+
+  // Rule 3: top-level with caps must come after import
+  if (firstCapsLine !== -1 && firstImportLine !== -1 && firstCapsLine < firstImportLine) {
+    diagnostics.push(error(
+      'Script-level `with caps` must come after `import` statements.',
+      firstCapsLine, 0, lines[firstCapsLine].trimEnd().length,
+    ))
+  }
+
+  // Rule 4: top-level with caps must come after module/command
+  if (firstCapsLine !== -1 && moduleOrCommandLine !== -1 && firstCapsLine < moduleOrCommandLine) {
+    diagnostics.push(error(
+      'Script-level `with caps` must come after `module`/`command` declaration.',
+      firstCapsLine, 0, lines[firstCapsLine].trimEnd().length,
+    ))
   }
 }
 

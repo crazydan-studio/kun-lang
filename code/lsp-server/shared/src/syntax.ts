@@ -99,6 +99,16 @@ export const NAMING_RULES = {
   modulePattern: /^[A-Z][a-zA-Z0-9']*$/,
 } as const
 
+export const DECLARATION_ORDER_RULES = {
+  moduleCommandFirst: true,
+  importAfterModuleCommand: true,
+  capsAfterImport: true,
+  modulePattern: /^module\s+\w+/,
+  commandPattern: /^command\s+\w+/,
+  importPattern: /^import\s+\w+/,
+  capsPattern: /^with\s+caps/,
+} as const
+
 export function isTypeName(name: string): boolean {
   return NAMING_RULES.typeNamePattern.test(name)
 }

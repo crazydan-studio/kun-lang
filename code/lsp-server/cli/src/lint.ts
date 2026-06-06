@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import {
   DEPRECATED_SYNTAX, GENERIC_RULES,
+  DECLARATION_ORDER_RULES,
   isTypeName,
 } from '@kun-lang/lsp-shared'
 import {
@@ -18,9 +19,74 @@ interface Diagnostic {
   severity: 'error' | 'warning'
 }
 
+function checkDeclarationOrderCLI(diagnostics: Diagnostic[], lines: string[]): void {
+  let firstNonComment = -1
+  let moduleOrCommandLine = -1
+  let firstImportLine = -1
+  let firstCapsLine = -1
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
+    if (trimmed.length === 0 || trimmed.startsWith('//')) continue
+
+    if (firstNonComment === -1) firstNonComment = i
+
+    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed) ||
+        DECLARATION_ORDER_RULES.commandPattern.test(trimmed)) {
+      if (moduleOrCommandLine === -1) moduleOrCommandLine = i
+      continue
+    }
+
+    if (DECLARATION_ORDER_RULES.importPattern.test(trimmed)) {
+      if (firstImportLine === -1) firstImportLine = i
+      continue
+    }
+
+    if (DECLARATION_ORDER_RULES.capsPattern.test(lines[i])) {
+      if (firstCapsLine === -1) firstCapsLine = i
+      continue
+    }
+  }
+
+  if (moduleOrCommandLine !== -1 && moduleOrCommandLine !== firstNonComment) {
+    diagnostics.push({
+      line: moduleOrCommandLine + 1,
+      message: '`module` 或 `command` 声明必须是文件第一个非注释行',
+      severity: 'error',
+    })
+  }
+
+  if (moduleOrCommandLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleOrCommandLine) {
+    diagnostics.push({
+      line: firstImportLine + 1,
+      message: '`import` 语句必须在 `module`/`command` 声明之后',
+      severity: 'error',
+    })
+  }
+
+  if (firstCapsLine !== -1 && firstImportLine !== -1 && firstCapsLine < firstImportLine) {
+    diagnostics.push({
+      line: firstCapsLine + 1,
+      message: '脚本级 `with caps` 必须在 `import` 语句之后',
+      severity: 'error',
+    })
+  }
+
+  if (firstCapsLine !== -1 && moduleOrCommandLine !== -1 && firstCapsLine < moduleOrCommandLine) {
+    diagnostics.push({
+      line: firstCapsLine + 1,
+      message: '脚本级 `with caps` 必须在 `module`/`command` 声明之后',
+      severity: 'error',
+    })
+  }
+}
+
 function runDiagnostics(content: string): Diagnostic[] {
   const diagnostics: Diagnostic[] = []
   const lines = content.split('\n')
+
+  // 0. Declaration order check
+  checkDeclarationOrderCLI(diagnostics, lines)
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
