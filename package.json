@@ -19,5 +19,8 @@
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2"
   }
 }
