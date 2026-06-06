@@ -1,0 +1,5 @@
+packages:
+  - 'code/lsp-shared'
+  - 'tools/ai-agent'
+  - 'tools/ai-agent/server'
+  - 'tools/ai-agent/plugin'

@@ -1,0 +1,13 @@
+{
+  "name": "kun-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "bash tools/ai-agent/scripts/dev.sh"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

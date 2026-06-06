@@ -1,0 +1,28 @@
+{
+  "comments": {
+    "lineComment": "//"
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "\"", "close": "\"", "notIn": ["string"] },
+    { "open": "'", "close": "'", "notIn": ["string", "comment"] }
+  ],
+  "surroundingPairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "\"", "close": "\"" },
+    { "open": "'", "close": "'" }
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^(\\s*((case|do|let|if|with|module|type|command)\\b.*|.*(=|->|of|then|else|in)\\s*$))",
+    "decreaseIndentPattern": "^\\s*(in|else|})"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@kun/ai-agent",
+  "version": "0.1.0",
+  "description": "Kun AI Agent - LSP server and VS Code extension for Kun language",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "bash scripts/dev.sh"
+  }
+}
