@@ -89,12 +89,12 @@ log = \{ maxCount, branch } ->
       case maxCount of
         Nil -> identity
         n -> withFlag "-n" (toString n)
-      )
+    )
     |> (
       case branch of
         Nil -> identity
         b -> withArg b
-      )
+    )
 
 // status 命令——无额外选项，使用空 Options Record
 // 编译器通过扩展积类型自动注入隐式字段
@@ -368,7 +368,13 @@ log = \cmdOpts ->
 
 ### `InternalCommand.run` 的安全覆盖
 
-`InternalCommand` 是 Kun 内部模块，不能被外部调用。`run_` 负责安全检查 + fork-exec，`run1`/`run2` 分别处理行流/文档模式的输出解析。`andThen`/`mapErr` 是 `Result` 模块的组合子（见 `standard-library.md`）：
+`InternalCommand` 是可被编译器封装代码直接引用的运行时 primitives，但 `.cmd.kun` 无法导入或调用。访问控制通过以下机制共同保障：
+
+1. **编译期规则**：`.cmd.kun` 的 `import` 语句由编译器特殊处理——普通 Kun 模块和 `.cmd.kun` 文件的导入路径是隔离的。`.cmd.kun` 只能导入标准库的纯函数模块，不能导入运行时 primitives 或访问 `InternalCommand`
+2. **`Command` 模块导出控制**：`InternalCommand` 虽然列在 `module Command export` 中，但编译器为 `.cmd.kun` 生成的有限导入列表中不包含此符号。`InternalCommand` 的导出仅对编译器生成的封装代码可见
+3. **编译器生成的封装代码**：是**编译期产物**，不经过 `.cmd.kun` 的导入检查。编译器在处理 `.cmd.kun` 文件时了解 `InternalCommand` 的类型签名，将其硬编码到生成的 Kun 模块中。这与 `do` 去糖、`<-!` 解包等编译期变换的机制一致——编译器有特权在生成的代码中引用内部符号，用户源码无法直接使用
+
+`run_` 负责安全检查 + fork-exec，`run1`/`run2` 分别处理行流/文档模式的输出解析。`andThen`/`mapErr` 是 `Result` 模块的组合子（见 `standard-library.md`）：
 
 ```kun
 // 内部安全检查与执行（返回原始 stdout 流）
@@ -528,7 +534,7 @@ seccomp-BPF 过滤规则由命令的 Builder 调用链自动推导：
 | 4 | 导出命令函数返回 `Command (Stream T)` 或 `Command T` | 编译期错误 |
 | 5 | 无逃逸 IO（禁止 IO 函数导入和调用，非 IO 函数不做限制） | 编译期错误 |
 | 6 | 函数参数透传 `withArg`/`withArgs` 需 `withUnsafeArg` | 编译期警告 |
-| 7 | 不可导入其他 `.cmd.kun` | 编译期错误 |
+| 7 | 不可导入其他 `.cmd.kun`；不可导入 `InternalCommand` | 编译期错误 |
 | 8 | `export` 无重复符号 | 编译期错误 |
 | 9 | `export` 中的 type 必须在文件内有定义或从外部导入 | 编译期错误 |
 | 10 | 隐式字段名不冲突（`runAs`/`env`/`stdin`/`stdout`/`stderr`/`fd`） | 编译期错误 |
