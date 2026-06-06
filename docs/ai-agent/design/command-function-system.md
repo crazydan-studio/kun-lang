@@ -57,7 +57,7 @@ import Command with
   ( Command
   , createStreamCommand, createDocumentCommand
   , withArg, withArgs, withFlag
-  , withPath, withUnsafeArg, withEnv
+  , withPath, withUnsafeArg
   )
 import Stream with (..)
 import Parser with (raw, json)
@@ -147,13 +147,14 @@ main =
 
 ```kun
 module Command export
-  ( Command
+  ( Command            // 仅导出类型名，Record 字段对外不可见
   , CommandType(..)
   , ExitCodeResult(..)
   , createDocumentCommand, createStreamCommand
   , withArg, withArgs, withFlag
-  , withPath, withUnsafeArg, withEnv, withRunAs
+  , withPath, withUnsafeArg
   , withExitcode
+  , InternalCommand    // 编译器封装代码使用，.cmd.kun 不可导入
   )
 
 // 构造文档输出 Command
@@ -182,12 +183,6 @@ withUnsafeArg : String -> Command a -> Command a
 
 // 声明文件访问路径（用于 Landlock + capability_check）
 withPath      : Path -> AccessMode -> Command a -> Command a
-
-// 设置环境变量
-withEnv       : ?(Map String String) -> Command a -> Command a
-
-// 设置运行用户
-withRunAs     : ?RunAs -> Command a -> Command a
 
 // 设置退出码映射
 withExitcode  : Int -> ExitCodeResult -> Command a -> Command a
@@ -333,7 +328,7 @@ log = \{ maxCount, branch } ->
 编译器生成等价代码：
 
 ```kun
-module Cmd.Git export
+module Git export
   ( LogOptions
   , log
   )
