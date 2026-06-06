@@ -236,7 +236,7 @@ Parser 函数只返回解析后的数据类型，不处理 IO：
 ```kun
 // Parser 签名（仅返回解析后的数据类型，直接使用函数类型）
 // raw 适用于两种模式（取决于使用的构造器）
-raw : s -> Result s String                  // 原始输入保持不变
+raw : a -> Result a String                  // 原始输入保持不变
 json : String -> Result JsonValue String    // 转换为 JSON
 ```
 

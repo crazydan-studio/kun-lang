@@ -39,6 +39,28 @@
 - Record `{a, ..rest}` 解构语法
 - `?(Result T E)` 语法规则
 
+### 5. 命令模块导出控制
+
+- Record 字段级导出语法（对称 ADT 语法：`Command(field1, field2)` / `Command(..)`）
+- `withRunAs`/`withEnv` 不导出给 `.cmd.kun`，仅 `InternalCommand` 使用
+- `InternalCommand` 编译器私有访问机制：编译期规则 + 模块导出控制 + 编译器特权
+- `command` 声明 `with` → `for`（语义更准确）
+
+### 6. 幻影类型替代 `CommandType`
+
+- `Stream`/`Document` 幻影类型替代 `CommandType` ADT
+- `Command a` → `Command mode a`
+- 编译器通过函数签名中的幻影类型选择行流/文档处理路径
+- 保留 `InternalCommand.run1`/`run2` 封装逻辑复用
+- `createStreamCommand`/`createDocumentCommand` → `asStream`/`asDocument`
+
+### 7. 幻影类型系统文档
+
+- `type-system.md`：幻影类型定义、零变体 ADT 机制
+- 导入导出规则、模式匹配限制
+- 通用场景示例（单位标记、格式标记）
+- 幻影类型 vs ADT 选用对比
+
 ## 已修改文件清单
 
 ```
@@ -54,6 +76,7 @@ docs/ai-agent/design/type-system.md
 docs/ai-agent/examples/file-processor.md
 docs/ai-agent/examples/type-showcase.md
 docs/ai-agent/input/input-command-function-design.md
+docs/ai-agent/context/project-context.md
 docs/.vitepress/config.mts
 ```
 
