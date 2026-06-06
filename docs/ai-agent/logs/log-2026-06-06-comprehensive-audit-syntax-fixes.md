@@ -61,23 +61,71 @@
 - 通用场景示例（单位标记、格式标记）
 - 幻影类型 vs ADT 选用对比
 
+### 8. 项目结构重组与 LSP 工具链
+
+- 重构 `code/lsp-server/` 模块结构：shared/server/plugin/cli 四模块
+- 模块名统一为 `@kun-lang/lsp-shared`、`@kun-lang/lsp-server`、`@kun-lang/lsp-plugin`、`@kun-lang/lsp-cli`
+- 构建产物输出到各模块 `dist/` 目录
+- `tools/kun-lint.sh`：ts-node 直调 `@kun-lang/lsp-cli` 的 CLI 检查/格式化工具
+- `pnpm workspace` 纳入 `docs/` 作为 `@kun-lang/docs`
+- 根 `package.json` 提供统一的 `docs:*`、`lsp:*` 脚本入口
+- 清除 git 历史中的 `dist/` 和 `tsbuildinfo` 文件
+- `tools/` 脚本重命名并规范化（`docs-build.sh`/`docs-dev.sh`/`lsp-dev.sh`）
+
+### 9. VitePress Kun 语法高亮（多次迭代）
+
+- 尝试 Shiki 自定义 Grammar API 加载语法文件（因 Shiki v2 兼容性未成功）
+- 改用 Elm 语法引擎做 Kun 代码高亮（语法风格接近），后因用户要求移除
+- 最终：` ```kun ` 代码块无高亮（纯文本），` ```kun-cdf ` 同样为纯文本
+- 补充代码块标签规范到 `conventions.md`
+- `markdownlint-cli` 补充到依赖，lint 检查可正常运行
+
 ## 已修改文件清单
 
 ```
-docs/ai-agent/architecture/system-baseline.md
+code/lsp-server/                          # 新建：LSP 四模块工程
+tools/kun-lint.sh                         # 新建：Kun 代码 CLI 检查/格式化
+tools/docs-build.sh                       # 重命名
+tools/docs-dev.sh                         # 重命名
+tools/lsp-dev.sh                          # 重命名
+docs/.vitepress/config.mts                # 多次修改：高亮/导航/语言注册
+docs/.vitepress/theme/kun-grammar.json    # 新建：Kun 语法定义（备用）
+docs/.vitepress/theme/styles.css          # 更新：高亮样式
+docs/package.json                         # 更新：项目名 + 依赖
+docs/ai-agent/context/conventions.md      # 更新：代码块标签规范
+docs/ai-agent/context/project-context.md  # 更新：今日任务路由
+docs/ai-agent/design/syntax.md            # 更新
+docs/ai-agent/design/type-system.md       # 更新
 docs/ai-agent/design/command-function-system.md
 docs/ai-agent/design/command-signature-system.md
 docs/ai-agent/design/feature-inventory.md
 docs/ai-agent/design/roles-and-permissions.md
 docs/ai-agent/design/standard-library.md
 docs/ai-agent/design/supply-chain-security.md
-docs/ai-agent/design/syntax.md
-docs/ai-agent/design/type-system.md
 docs/ai-agent/examples/file-processor.md
 docs/ai-agent/examples/type-showcase.md
+docs/ai-agent/architecture/system-baseline.md
+docs/ai-agent/architecture/module-boundaries.md
+docs/ai-agent/architecture/project-vision.md
 docs/ai-agent/input/input-command-function-design.md
-docs/ai-agent/context/project-context.md
-docs/.vitepress/config.mts
+package.json / pnpm-workspace.yaml        # 更新：workspace 配置
+.gitignore                                # 更新：排除 dist/
+```
+
+## 项目结构
+
+```
+/workspace/
+├── code/
+│   └── lsp-server/           # LSP 工程
+│       ├── shared/            # @kun-lang/lsp-shared
+│       ├── server/            # @kun-lang/lsp-server
+│       ├── plugin/            # @kun-lang/lsp-plugin (VS Code)
+│       └── cli/               # @kun-lang/lsp-cli (kun-lint)
+├── docs/                      # @kun-lang/docs (VitePress)
+├── tools/                     # 构建/开发脚本
+├── package.json
+└── pnpm-workspace.yaml
 ```
 
 ## 下一步计划

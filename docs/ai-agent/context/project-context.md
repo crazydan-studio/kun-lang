@@ -56,6 +56,8 @@
 | 2026-06-06 | 全面清理 CDF 过时引用 + 多轮语法检查 + `.cmd.kun` 设计完善 | 审计+修复 | ✅ 全部 owner docs | ✅ document-audit-prompt、multi-dimensional-audit-prompt | `implement` 直接执行 |
 | 2026-06-06 | 幻影类型系统设计 + 命令模块导出控制 + `asStream`/`asDocument` 重命名 | 设计+重构 | ✅ type-system、command-function-system、syntax | ✅ document-audit-prompt | `implement` 直接执行 |
 | 2026-06-06 | 宿主语言评估（Zig vs Rust vs Go）确认 Zig、创建 zig-patterns.md、版本锁定 | 分析+配置 | ✅ project-context、system-baseline | ✅ document-audit-prompt、zig-patterns | `implement` 直接执行 |
+| 2026-06-06 | LSP 工具链重构（code/lsp-server/ 四模块）+ CLI 工具 + pnpm workspace 整合 + VitePress 高亮尝试 | 重构+配置 | ✅ 全部 owner docs | ✅ document-audit-prompt | `implement` 直接执行 |
+| 2026-06-06 | VitePress 代码高亮多轮迭代 + 代码块标签规范 + markdownlint 修复 | 维护 | ✅ config.mts、conventions.md | ✅ document-audit-prompt | `implement` 直接执行 |
 
 ## AI 阻塞条件
 
