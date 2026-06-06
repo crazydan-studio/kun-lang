@@ -5,10 +5,20 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "dev": "bash tools/dev-lsp.sh",
-    "start": "pnpm --filter @kun-lang/lsp-server start"
+    "docs:dev": "pnpm --filter @kun-lang/docs dev",
+    "docs:build": "pnpm --filter @kun-lang/docs build",
+    "docs:preview": "pnpm --filter @kun-lang/docs preview",
+    "docs:lint": "pnpm --filter @kun-lang/docs lint",
+    "docs:lint:fix": "pnpm --filter @kun-lang/docs lint:fix",
+    "lsp:build": "pnpm --filter @kun-lang/lsp-server build",
+    "lsp:start": "pnpm --filter @kun-lang/lsp-server start",
+    "lsp:typecheck": "pnpm --filter @kun-lang/lsp-server typecheck",
+    "lsp:plugin:build": "pnpm --filter @kun-lang/vscode-plugin build",
+    "lsp:shared:build": "pnpm --filter @kun-lang/shared build",
+    "dev": "pnpm --filter @kun-lang/lsp-server build && pnpm --filter @kun-lang/vscode-plugin build"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
   }
 }
