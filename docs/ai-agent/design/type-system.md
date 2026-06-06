@@ -123,6 +123,73 @@ run2 : String -> { ... } -> Command Document a -> IO (Result a IOError)
 
 因此，幻影类型的使用被自然限制在类型参数位置，不可能被误用为运行时值。
 
+### 通用场景示例
+
+#### 标记单位（防止类型混淆）
+
+```kun
+type Meters
+type Seconds
+
+type Distance = ?Meters              // ❌ 错误：Meters 没有值，Distance 永远为 Nil
+type Velocity = ?(Meters, Seconds)   // ❌ 错误：同上
+
+// ✅ 正确用法：作为类型参数标记
+type Measurement a = { value : Float, unit : a }
+//                       ↑ 运行时值   ↑ 编译期标记
+
+// 构造不同单位的测量值
+dist  : Measurement Meters
+dist  = { value = 100.0, unit = ??? }    // ❌ 不能给 unit 赋值（Meters 无值）
+
+// ✅ 正确做法：unit 不作为 Record 字段，仅通过类型参数标记
+type Measurement a = { value : Float }
+
+dist : Measurement Meters
+dist = { value = 100.0 }                 // ✅ Meters 仅用于类型签名
+
+time : Measurement Seconds
+time = { value = 9.58 }
+
+// 对比：不同类型的测量值在函数签名中区分
+addDist : Measurement Meters -> Measurement Meters -> Measurement Meters
+addDist = \x y -> { value = x.value + y.value }
+
+// ✅ 以下会编译报错，防止单位混淆：
+// addDist dist time   ❌ Seconds 不能传给期望 Meters 的参数
+```
+
+#### 标记序列格式
+
+```kun
+type JsonString
+type XmlString
+
+parseJson : String -> Result JsonString String
+parseXml  : String -> Result XmlString String
+
+// 对不同格式的字符串应用不同的处理
+processJson : JsonString -> IO Unit
+processXml  : XmlString -> IO Unit
+
+// 类型系统确保不会混淆格式
+// processJson (parseXml content)  ❌ 编译错误：XmlString ≠ JsonString
+// processXml (parseJson content)  ❌ 编译错误
+```
+
+#### 何时使用幻影类型 vs ADT
+
+幻影类型适合"只影响类型安全、不影响运行时行为"的场景。如果需要**运行时根据标记做不同处理**，应使用 ADT：
+
+| 场景 | 推荐方案 | 原因 |
+|------|---------|------|
+| 防止单位混淆（Meters vs Feet） | 幻影类型 | 运行时行为相同，只是数值 |
+| 标记模式（行流 vs 文档） | 幻影类型 | 编译器在生成代码时根据类型选择处理路径 |
+| 需要运行时分支（OK vs Error） | ADT（`Result`） | 需要在 `case` 中匹配变体 |
+| 需要不同的字段结构 | ADT（变体可带不同字段） | 每个变体可以有独立的 Record 字段 |
+
+**规律**：如果两个"变体"共享相同的字段结构，但你想在类型层面区分它们 → 用幻影类型。如果字段结构不同，或需要运行时 `case` 匹配 → 用 ADT。
+
 ### 类型分类
 
 ```
