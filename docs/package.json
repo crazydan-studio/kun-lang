@@ -8,8 +8,8 @@
     "dev": "vitepress dev",
     "build": "vitepress build",
     "preview": "vitepress preview",
-    "lint": "markdownlint ../*.md ../docs/**/*.md -c ../.markdownlint.json",
-    "lint:fix": "markdownlint ../*.md ../docs/**/*.md -c ../.markdownlint.json --fix"
+    "lint": "markdownlint ../*.md ../docs/**/*.md -c ../.markdownlint.json -r ../.markdownlint/rules/no-html-entity-pipe.cjs",
+    "lint:fix": "markdownlint ../*.md ../docs/**/*.md -c ../.markdownlint.json -r ../.markdownlint/rules/no-html-entity-pipe.cjs --fix"
   },
   "devDependencies": {
     "@miletorix/vitepress-image-viewer": "^1.3.2",

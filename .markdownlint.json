@@ -6,5 +6,6 @@
   "MD033": false,
   "MD040": false,
   "MD041": false,
-  "MD046": false
+  "MD046": false,
+  "customRules": [".markdownlint/rules/no-html-entity-pipe.cjs"]
 }
