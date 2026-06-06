@@ -412,46 +412,51 @@ run_ = \bin opts cmd ->
     // 7. fork-exec → 返回原始 stdout Stream String
 ```
 
-编译器在封装代码中根据用户签名选择处理路径：
+编译器在封装代码中根据用户签名中的幻影类型选择调用 `InternalCommand.run1`（行流）或 `InternalCommand.run2`（文档）：
 
 ```kun
-// 用户签名含 Command Stream a → 编译器生成行流路径
-//    log_ opts            : Command Stream CommitEntry
-//    InternalCommand.run  : ... -> Command Stream a -> ...（编译器选用）
-//    → 逐行解析: Stream.map cmd.parser → Stream (Result a String)
+// 行流模式：命令签名含 Command Stream a
+// → InternalCommand.run1（逐行解析）
+log = \cmdOpts ->
+  let { runAs, env, ..opts } = cmdOpts
+  in log_ opts
+    |> InternalCommand.run1 cmd_bin cmdOpts
 
-// 用户签名含 Command Document a → 编译器生成文档路径
-//    remote_add_ opts     : Command Document String
-//    → 完整收集: Stream.collect → cmd.parser → Result a
+// 文档模式：命令签名含 Command Document a
+// → InternalCommand.run2（完整收集后一次解析）
+remote_add = \cmdOpts ->
+  let { runAs, env, ..opts } = cmdOpts
+  in remote_add_ opts
+    |> InternalCommand.run2 cmd_bin cmdOpts
 ```
 
-编译器生成的封装代码等价于：
+`InternalCommand.run1`/`run2` 封装了 `run_` + 输出解析的逻辑复用（幻影类型保证编译期模式正确性，无需运行时类型检查）：
 
 ```kun
-// 行流模式（Command Stream a）：
-log = \cmdOpts ->
-  let { ..opts } = cmdOpts
-  in
-    run_ cmd_bin cmdOpts (log_ opts)
-      |> IO.flatMap (\result ->
-        result |> Result.andThen (\stdout ->
-          stdout |> Stream.map cmd.parser |> Ok
-        )
+// 行流路径：run_ → 逐行解析 → Stream (Result a String)
+run1 : String -> { o | ... } -> Command Stream a
+   -> IO (Result (Stream (Result a String)) IOError)
+run1 = \bin opts cmd ->
+  run_ bin opts cmd
+    |> IO.flatMap (\result ->
+      result |> Result.andThen (\stdout ->
+        stdout |> Stream.map cmd.parser |> Ok
       )
+    )
 
-// 文档模式（Command Document a）：
-remote_add = \cmdOpts ->
-  let { ..opts } = cmdOpts
-  in
-    run_ cmd_bin cmdOpts (remote_add_ opts)
-      |> IO.flatMap (\result ->
-        result |> Result.andThen (\stdout ->
-          stdout
-            |> Stream.collect
-            |> cmd.parser
-            |> mapErr (\msg -> IOError.Other (f"parse failed: {msg}"))
-        )
+// 文档路径：run_ → 完整收集 → 一次解析 → Result a
+run2 : String -> { o | ... } -> Command Document a
+   -> IO (Result a IOError)
+run2 = \bin opts cmd ->
+  run_ bin opts cmd
+    |> IO.flatMap (\result ->
+      result |> Result.andThen (\stdout ->
+        stdout
+          |> Stream.collect
+          |> cmd.parser
+          |> mapErr (\msg -> IOError.Other (f"parse failed: {msg}"))
       )
+    )
 ```
 
 ## 安全栈
