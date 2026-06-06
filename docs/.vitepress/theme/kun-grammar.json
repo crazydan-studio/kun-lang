@@ -1,0 +1,66 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Kun",
+  "scopeName": "source.kun",
+  "fileTypes": ["kun", "cmd.kun"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#literals" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#operators" },
+    { "include": "#strings" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.kun", "match": "//.*$" }
+      ]
+    },
+    "literals": {
+      "patterns": [
+        { "name": "string.quoted.double.kun.path", "match": "p\"[^\"]*\"" },
+        { "name": "string.quoted.double.kun.regex", "match": "r\"[^\"]*\"" },
+        { "name": "string.quoted.double.kun.interpolated", "match": "f\"[^\"]*\"" },
+        { "name": "string.quoted.double.kun.multiline", "begin": "\"\"\"", "end": "\"\"\"" },
+        { "name": "string.quoted.double.kun.interpolated-multiline", "begin": "f\"\"\"", "end": "\"\"\"" },
+        { "name": "constant.numeric.integer.kun", "match": "\\b[0-9][0-9_]*[u]?\\b" },
+        { "name": "constant.numeric.float.kun", "match": "\\b[0-9][0-9_]*\\.[0-9][0-9_]*([eE][+-]?[0-9]+)?\\b" },
+        { "name": "constant.numeric.hex.kun", "match": "\\b0[xXoObB][0-9a-fA-F][0-9a-fA-F_]*\\b" },
+        { "name": "constant.language.boolean.kun", "match": "\\b(true|false)\\b" }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        { "name": "keyword.control.kun", "match": "\\b(case|of|if|then|else|do|in|let|when|with|caps)\\b" },
+        { "name": "keyword.declaration.kun", "match": "\\b(type|module|import|as|export|command|for)\\b" },
+        { "name": "keyword.operator.kun", "match": "(=|!|<|>)\\b" },
+        { "name": "storage.modifier.kun", "match": "\\b(pub|mut)\\b" }
+      ]
+    },
+    "types": {
+      "patterns": [
+        { "name": "entity.name.type.kun", "match": "\\b(Int|Nat|Float|Bool|String|Bytes|Char|Regex|Duration|Path|Unit|List|Map|Set|Stream|Result|IO)\\b" },
+        { "name": "entity.name.type.kun", "match": "\\b[A-Z][a-zA-Z0-9]*\\b" }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        { "name": "keyword.operator.binding.kun", "match": "=!|<-!|<-|=" },
+        { "name": "keyword.operator.pipe.kun", "match": "\\|>|<\\|" },
+        { "name": "keyword.operator.comparison.kun", "match": "==|/=|<=|>=|<|>" },
+        { "name": "keyword.operator.arrow.kun", "match": "->" },
+        { "name": "keyword.operator.logic.kun", "match": "&&|\\|\\||not" },
+        { "name": "keyword.operator.concat.kun", "match": "\\+\\+" },
+        { "name": "keyword.operator.math.kun", "match": "\\+|-|\\*|/|%" },
+        { "name": "keyword.operator.range.kun", "match": "\\.\\." }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        { "name": "string.quoted.double.kun", "match": "\"([^\"]|\\\")*\"" },
+        { "name": "string.quoted.single.kun", "match": "'[^']*'" }
+      ]
+    }
+  }
+}

@@ -1,6 +1,9 @@
 import { writeFileSync } from 'node:fs'
 import { defineConfig } from 'vitepress'
 import { configureDiagramsPlugin, createBuildTimeDiagramsPlugin } from 'vitepress-plugin-diagrams'
+import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import grammar from './theme/kun-grammar.json' with { type: 'json' }
 
 const remoteLogoUrl = 'https://raw.githubusercontent.com/crazydan-studio/kun-lang/refs/heads/master/logo.svg'
 let logo = remoteLogoUrl
@@ -43,7 +46,16 @@ export default defineConfig({
 
   markdown: {
     lineNumbers: true,
-    languages: ['zig', 'c', 'bash', 'toml', 'xml'],
+    languages: [
+      {
+        name: 'kun',
+        scopeName: 'source.kun',
+        displayName: 'Kun',
+        aliases: ['cmd.kun'],
+        grammar: () => Promise.resolve(grammar),
+      },
+      'zig', 'c', 'bash', 'toml', 'xml',
+    ],
     theme: {
       light: 'github-light',
       dark: 'one-dark-pro',
