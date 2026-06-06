@@ -3,7 +3,7 @@ node_modules/
 .pnpm-store/
 
 # Build output
-docs/.vitepress/dist/
+dist/
 docs/.vitepress/cache/
 
 # VitePress
