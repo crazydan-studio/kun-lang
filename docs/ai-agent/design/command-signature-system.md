@@ -1076,8 +1076,6 @@ option "port" 'p' : Int with (range 1 65535)
 | seccomp 管理器 | 根据命令参数类型和名称生成 seccomp-BPF 规则 |
 | 结果反序列化器 | 根据 CDF output 定义解析返回值 |
 
-
-
 ## CDF 源代码管理
 
 ### git 集成
@@ -1136,4 +1134,3 @@ kubectl/
 | 0.3.0 | 2026-06-04 | **能力导向重构**：CDF 格式从 CLI 选项声明（`option x "-x" : T`）重构为能力参数声明（`param x : T with (cli: "-x")`），CLI 映射下移为可选实现细节；新增参数分类系统（essential/filter/behavior）；auto-inference 只推断能力参数；`process.run` 白名单默认拒绝；新增[能力映射指南](capability-mapping-guide.md) |
 | 0.2.0 | 2026-06-04 | 分级可用性模型（T1-T4）、内联验证器、`.` 分隔子命令调用、CDF 注册中心、自动生成工具 |
 | 0.1.0 | 2026-05-31 | CDF 文件格式、参数定义、输出类型、行为声明、签名自动推断、内置签名库、运行时集成 |
-

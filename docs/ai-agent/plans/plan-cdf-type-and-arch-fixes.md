@@ -56,6 +56,7 @@ type CmdResult t = { stdout : t, exitCode : ExitCode }
 - 非零退出码不映射为 `Err`——放入 `exitCode` 字段
 - 进程启动失败映射为 `Err IOError`
 - 输出解析失败在流中逐行标记，不导致整个命令失败
+
 ```
 
 统一所有命令签名：`IO (Result (CmdResult (Stream T)) IOError)`，移除 `List IOError`。

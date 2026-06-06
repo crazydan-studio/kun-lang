@@ -52,7 +52,7 @@ ls { path = p"/tmp", all = true }
 | `sed`、`awk`、`sort`、`uniq`、`cut`、`tr` | ❌ | `String.replace`、`List.sort`、`Stream.filter` 等 |
 | `cat`、`wc`、`tee` | ❌ | `readFile`、`Stream.length`、`writeFile` |
 | `sudo`、`su` | ❌ | `runAs` 隐式参数 |
-| `xargs` | ❌ | `Stream.toList` + `|>` 管道 |
+| `xargs` | ❌ | `Stream.toList` + `\|>` 管道 |
 | `curl`、`wget` | ❌（作为 `.cmd.kun`） | `Http.get` / `Http.post`（标准库） |
 | `gzip`、`xz`、`zstd` | ❌（作为 `.cmd.kun`） | 若标准库提供压缩 API 则不映射 |
 
@@ -116,8 +116,11 @@ ls { path = p"/tmp", all = true }
 | `locate` | 搜索文件数据库 | `pattern`(essential) | `-i`、`-c`、`-l`、`-q`、`--regex`、`-b`、`-e`、`--existing` |
 
 ### 归档压缩（`.cmd.kun` 实现）
+
 ### 网络工具（`.cmd.kun` 实现）
+
 ### 版本控制（`.cmd.kun` 实现）
+
 ### 容器工具（`.cmd.kun` 实现）
 
 | 命令 | 能力 | 映射参数 | 不映射参数 |

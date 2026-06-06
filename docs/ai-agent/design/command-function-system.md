@@ -120,7 +120,7 @@ remote_add = \{ name, url } ->
     |> withArgs ["remote", "add"]
     |> withUnsafeArg name
     |> withUnsafeArg url
-
+```
 
 ### 调用方使用
 

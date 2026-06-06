@@ -161,7 +161,7 @@ run = \bin opts cmd ->
 ```
 
 > 注意，若有在命令内预配置 env 的情况，则可以放松对 `envs` 的处理，支持合并预置环境变量和用户指定的环境变量，但系统敏感的环境变量需始终排除。
-> 
+>
 > 完整设计见 `design/command-function-system.md`，包括：Builder API 完整签名、退出码链式设置、审计日志、seccomp 推导、Landlock 路径级安全、自动推导（`kun cmd init`）、签名与注册中心版本化管理、内建 Primitive 覆盖范围、编译期验证规则。
 
 编译后的命令函数等同于：

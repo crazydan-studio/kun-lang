@@ -52,7 +52,7 @@
 | `option x "-x" : List T` | 重复选项，argv 展开 `-x v1 -x v2` |
 | `env` 隐式字段 | `Map String String` 注入子进程环境变量 |
 | `stdin`/`stdout`/`stderr` 隐式字段 | fd 重定向支持 Path/Pipe/Inherit |
-| xargs 模式 | `Stream.toList` + `|>` 管道自然覆盖 |
+| xargs 模式 | `Stream.toList` + `\|>` 管道自然覆盖 |
 | `FdSpec` fd 重定向 | `fd : Map Int FdSpec` 支持 ReadFromPath/WriteToPath/ReadFromStr/InheritFrom/RedirectTo |
 | 超长参数自动分片 | 超出 2MB 自动分裂执行 + 隐式合并 stdout |
 

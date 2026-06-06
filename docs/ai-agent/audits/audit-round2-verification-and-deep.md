@@ -45,14 +45,14 @@
 | 检查项 | 结果 | 说明 |
 |--------|------|------|
 | `Fd` 类型定义 | ✅ 修复正确 | L666: `type Fd = Fd Int`，简洁正确 |
-| `OrPath` 类型定义 | ✅ 修复正确 | L668-670: `FdSource Fd | PathSource Path`，语义完整 |
-| `OrStdioMode` 类型定义 | ✅ 修复正确 | L672-676: `OrPathMode OrPath | Pipe | Inherit`，覆盖三种标准流模式 |
+| `OrPath` 类型定义 | ✅ 修复正确 | L668-670: `FdSource Fd \| PathSource Path`，语义完整 |
+| `OrStdioMode` 类型定义 | ✅ 修复正确 | L672-676: `OrPathMode OrPath \| Pipe \| Inherit`，覆盖三种标准流模式 |
 
 ### 7. `design/feature-inventory.md`
 
 | 检查项 | 结果 | 说明 |
 |--------|------|------|
-| 管道操作符状态 | ✅ 修复正确 | L82: `|>`/`<|`/`>>`/`<<` 均为 ✅ 设计定型 |
+| 管道操作符状态 | ✅ 修复正确 | L82: `\|>`、`<\|`、`>>`、`<<` 均为 ✅ 设计定型 |
 | 高阶函数状态 | ✅ 修复正确 | L84: map/filter/fold 等均为 ✅ 设计定型 |
 
 ### 8. `design/roles-and-permissions.md`
@@ -68,7 +68,7 @@
 | 整数溢出说明 | ✅ 修复正确 | L105-109: debug 模式 Panic，release 模式可关闭（静默回绕），明确溢出是值域问题 |
 | capability_check 时机说明 | ✅ 修复正确 | L235-241: 发生在运行时 IO 原语内部，非类型检查期间 |
 
-**修复验证结论：9/9 ✅ 全部修复正确**
+### 修复验证结论：9/9 ✅ 全部修复正确
 
 ---
 
@@ -148,8 +148,9 @@
 - **问题**: 文档定义了两条规则：
   - 多个脚本级 `with caps` 块 = **并集**（L68）
   - 模块函数 `with caps` 与调用者 = **交集**（L403）
-  
+
   但未定义**函数内嵌套 `with caps ... do`** 的交集行为。例如：
+
   ```kun
   with caps
     fs.read = [p"/a/"]
@@ -159,6 +160,7 @@
     do
       ...
   ```
+
   内层 `with caps` 是取并集（`[p"/a/", p"/a/b/"]`）还是交集（`[p"/a/b/"]`）？文档指向交集语义（scope_stack push/pop），但未显式说明
 - **影响**: 实现歧义——不同开发者可能实现不同的嵌套语义
 - **修复建议**: 在 `design/roles-and-permissions.md` 中显式说明：嵌套 `with caps ... do` 块的有效能力集 = 当前作用域 ∩ 内层声明（即始终取交集收窄，不可扩权）
