@@ -18,7 +18,7 @@
 | 泛型 | ✅ 设计定型 | 无约束参数化多态（简单泛型） |
 | 效应类型 | ✅ 设计定型 | IO 边界标记，纯函数 vs 副作用 |
 | 类型等价 | ✅ 设计定型 | 结构等价，无子类型 |
-| 参数验证器 | 📋 设计中 | range、length、regex、enum、custom，链式组合 |
+| 参数验证器 | ✅ 设计定型 | Validator t 纯函数类型，支持 all/any/not 组合器和内置验证器（range/include/exclude/length/regex） |
 
 ### 标准库类型
 
@@ -41,7 +41,7 @@
 |---|---|---|
 | 命令函数抽象 | ✅ 设计定型 | 将 Linux 命令抽象为类型安全函数。通过 `.cmd.kun` + Builder API 定义，全 Kun 语法，无需独立 DSL |
 | `.cmd.kun` 文件格式 | ✅ 设计定型 | `command Xxx for "<bin>" export (...)` 声明，纯 Kun 语法构造 argv |
-| Builder API | ✅ 设计定型 | `withOutput`/`withArg`/`withFlag`/`withArgs`/`withUnsafeArg`/`withPath`/`withEnv`/`withRunAs`/`exitcode` |
+| Builder API | ✅ 设计定型 | `asStream`/`asDocument` 构造器；`withArg`/`withFlag`/`withArgs`/`withUnsafeArg`/`withPath`/`withExitcode` 链式构建；`withEnv`/`withRunAs` 由编译器封装代码内部使用 |
 | 内建 Primitive 命令 | ✅ 设计定型 | 简单命令（ls/stat/du/df/cp/mv/rm/chmod/chown/mkdir/ln/readlink/free/uname/lscpu/uptime/ps/locate/walkDir 等）以 Zig 内建实现，调用方式与命令函数一致 |
 | runAs 运行用户 | ✅ 设计定型 | 命令函数隐式 `runAs` 参数，类型为 `?RunAs`，通过 `process.run-as` 能力控制 |
 | 输出结构化 | ✅ 设计定型 | `OutputMode` ADT（`LineStream`/`Document`）+ Parser 标准库 |
@@ -64,7 +64,7 @@
 | dlopen 命令加载 | 📋 设计中 | 直接加载命令二进制的入口函数 |
 | 结构化参数传递 | 📋 设计中 | 以结构化数据而非 argv 传递参数 |
 | ptrace 透明适配层 | 📋 设计中 | 适配未标准化的命令 |
-| 命令可用性约束 | ✅ 设计定型 | T4 `run`（`process.run` 白名单限制）→ T1 内建；`.cmd.kun` 命令函数为一级方案 |
+| 命令可用性约束 | ✅ 设计定型 | 内建 Primitive / `.cmd.kun` 命令函数 / `run""` 逃逸入口三级通路 |
 
 ### 管道与组合
 
@@ -121,7 +121,7 @@
 | List 解构与展开 | ✅ 设计定型 | `[a, ..rest] = list` 解构，`[..la, 0, ..lb]` 展开 |
 | 模式匹配 | ✅ 设计定型 | 新形式：`[a, ..rest]`（List）、`{x as x1, y}`（Record 别名）、`(1, y)`（元组） |
 | 解构赋值 | ✅ 设计定型 | 元组/Record（含 `as` 别名）/List 解构 |
-| 行多态 Record 类型 | 📋 设计中 | `{ a \| name : String }` 行多态，`{ Base \| field : T }` 扩展积类型 |
+| 行多态 Record 类型 | ✅ 设计定型 | `{ a \| name : String }` 行多态，`{ Base \| field : T }` 扩展积类型。幻影类型（`type Stream`/`type Document`）用于编译期类型标记 |
 | 模块系统 | ✅ 设计定型 | `module ... export` 声明，`import ... with (...)` 导入，`Result(..)` 变体导入/导出 |
 | REPL 交互环境 | 📋 设计中 | 结构化 REPL，语法高亮，错误报告 |
 | 点调用 | ✅ 设计定型 | 仅限积类型字段投影和元组索引，无方法调用 |
