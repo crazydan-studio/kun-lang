@@ -186,6 +186,7 @@ function sidebarContext() {
         { text: '代码库地图', link: '/ai-agent/context/codebase-map' },
         { text: '真理源与优先级', link: '/ai-agent/context/source-of-truth-and-precedence' },
         { text: '约定规范', link: '/ai-agent/context/conventions' },
+        { text: 'Zig 模式指南', link: '/ai-agent/context/zig-patterns' },
       ],
     },
   ]
