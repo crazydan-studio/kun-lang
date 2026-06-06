@@ -4,7 +4,7 @@ import {
   InsertTextFormat,
   Position,
 } from 'vscode-languageserver'
-import { KEYWORDS, BUILTIN_TYPES } from '@kun-lang/shared'
+import { KEYWORDS, BUILTIN_TYPES } from '@kun-lang/lsp-shared'
 import type { KunDocument } from './documents'
 
 const KEYWORD_COMPLETIONS: CompletionItem[] = KEYWORDS.map(kw => {

@@ -7,13 +7,13 @@ echo "===> [lsp-dev] 安装依赖..."
 cd "$ROOT_DIR"
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
-echo "===> [lsp-dev] 构建 @kun-lang/shared..."
+echo "===> [lsp-dev] 构建 @kun-lang/lsp-shared..."
 pnpm lsp:shared:build
 
 echo "===> [lsp-dev] 构建 @kun-lang/lsp-server..."
 pnpm lsp:build
 
-echo "===> [lsp-dev] 构建 @kun-lang/vscode-plugin..."
+echo "===> [lsp-dev] 构建 @kun-lang/lsp-plugin..."
 pnpm lsp:plugin:build
 
 echo "===> [lsp-dev] 完成！"

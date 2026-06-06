@@ -1,5 +1,5 @@
 {
-  "name": "@kun-lang/vscode-plugin",
+  "name": "@kun-lang/lsp-plugin",
   "version": "0.1.0",
   "description": "Kun language VS Code extension with LSP support",
   "private": true,
@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
-    "@kun-lang/shared": "workspace:*"
+    "@kun-lang/lsp-shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

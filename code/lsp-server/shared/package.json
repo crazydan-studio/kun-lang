@@ -1,5 +1,5 @@
 {
-  "name": "@kun-lang/shared",
+  "name": "@kun-lang/lsp-shared",
   "version": "0.1.0",
   "description": "Shared library for Kun LSP: syntax rules, type definitions, AST structures",
   "private": true,

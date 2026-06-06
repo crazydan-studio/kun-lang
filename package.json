@@ -13,8 +13,8 @@
     "lsp:build": "pnpm --filter @kun-lang/lsp-server build",
     "lsp:start": "pnpm --filter @kun-lang/lsp-server start",
     "lsp:typecheck": "pnpm --filter @kun-lang/lsp-server typecheck",
-    "lsp:plugin:build": "pnpm --filter @kun-lang/vscode-plugin build",
-    "lsp:shared:build": "pnpm --filter @kun-lang/shared build"
+    "lsp:plugin:build": "pnpm --filter @kun-lang/lsp-plugin build",
+    "lsp:shared:build": "pnpm --filter @kun-lang/lsp-shared build"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -6,9 +6,9 @@ Language Server Protocol implementation for the Kun programming language, includ
 
 ```
 code/lsp-server/
-├── shared/                # @kun-lang/shared — Syntax rules, type definitions, AST
+├── shared/                # @kun-lang/lsp-shared — Syntax rules, type definitions, AST
 ├── server/                # @kun-lang/lsp-server — LSP server
-├── plugin/                # @kun-lang/vscode-plugin — VS Code extension
+├── plugin/                # @kun-lang/lsp-plugin — VS Code extension
 ├── tsconfig.base.json
 └── package.json
 ```

@@ -10,7 +10,7 @@ importers:
 
   code/lsp-server/plugin:
     dependencies:
-      '@kun-lang/shared':
+      '@kun-lang/lsp-shared':
         specifier: workspace:*
         version: link:../shared
       vscode-languageclient:
@@ -29,7 +29,7 @@ importers:
 
   code/lsp-server/server:
     dependencies:
-      '@kun-lang/shared':
+      '@kun-lang/lsp-shared':
         specifier: workspace:*
         version: link:../shared
       vscode-languageserver:
