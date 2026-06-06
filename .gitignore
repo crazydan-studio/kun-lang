@@ -27,3 +27,4 @@ Thumbs.db
 code/.zig-cache/
 code/zig-out/
 code/zig-cache/
+**/tsconfig.tsbuildinfo
