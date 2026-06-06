@@ -1,5 +1,5 @@
 {
-  "name": "@kun-lang/lsp-workspace",
+  "name": "@kun-lang/lsp",
   "version": "0.1.0",
   "private": true,
   "scripts": {
