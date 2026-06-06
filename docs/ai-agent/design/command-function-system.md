@@ -80,7 +80,7 @@ type LogOptions =
   , branch : ?String
   }
 
-log : LogOptions -> Command CommitEntry
+log : LogOptions -> Command Stream CommitEntry
 log = \{ maxCount, branch } ->
   createStreamCommand parseLogLine
     |> withPath Path.cwd Read
@@ -101,7 +101,7 @@ log = \{ maxCount, branch } ->
 type StatusOptions =
   {}
 
-status : StatusOptions -> Command StatusEntry
+status : StatusOptions -> Command Stream StatusEntry
 status = \{} ->
   createStreamCommand parseStatusLine
     |> withPath Path.cwd Read
@@ -113,7 +113,7 @@ type RemoteAddOptions =
   , url : String
   }
 
-remote_add : RemoteAddOptions -> Command String
+remote_add : RemoteAddOptions -> Command Document String
 remote_add = \{ name, url } ->
   createDocumentCommand raw
     |> withPath Path.cwd Read
@@ -148,7 +148,7 @@ main =
 ```kun
 module Command export
   ( Command            // 仅导出类型名，Record 字段对外不可见
-  , CommandType(..)
+  , Stream, Document   // 幻影类型：标记行流/文档模式
   , ExitCodeResult(..)
   , createDocumentCommand, createStreamCommand
   , withArg, withArgs, withFlag
@@ -157,51 +157,51 @@ module Command export
   , InternalCommand    // 编译器封装代码使用，.cmd.kun 不可导入
   )
 
-// 构造文档输出 Command
-createDocumentCommand  : (String -> Result a String) -> Command a
-createDocumentCommand = \parser ->
-  { type = DocumentCommand, parser = parser }
+// 幻影类型——无运行时值，仅用于类型参数标记模式
+type Stream
+type Document
 
-// 构造行流输出 Command
-createStreamCommand    : (String -> Result a String) -> Command a
+// 构造文档输出 Command（标记为 Document 模式）
+createDocumentCommand : (String -> Result a String) -> Command Document a
+createDocumentCommand = \parser ->
+  { bin = Nil, parser = parser, args = [], paths = [],
+    runAs = Nil, env = Nil, exitCodes = #{} }
+
+// 构造行流输出 Command（标记为 Stream 模式）
+createStreamCommand : (String -> Result a String) -> Command Stream a
 createStreamCommand = \parser ->
-  { type = StreamCommand, parser = parser }
+  { bin = Nil, parser = parser, args = [], paths = [],
+    runAs = Nil, env = Nil, exitCodes = #{} }
 
 // 追加参数（Safe 标记）
-withArg       : String -> Command a -> Command a
+withArg       : String -> Command mode a -> Command mode a
 
 // 批量追加参数
-withArgs      : List String -> Command a -> Command a
+withArgs      : List String -> Command mode a -> Command mode a
 
 // 追加 flag
 //   第二个参数为 Nil → 布尔开关（如 --verbose）
 //   第二个参数为 String → 带值 flag（如 -n 50）
-withFlag      : String -> ?String -> Command a -> Command a
+withFlag      : String -> ?String -> Command mode a -> Command mode a
 
 // 追加用户输入参数（Unsafe 标记，编译期警告 + 运行时隔离）
-withUnsafeArg : String -> Command a -> Command a
+withUnsafeArg : String -> Command mode a -> Command mode a
 
 // 声明文件访问路径（用于 Landlock + capability_check）
-withPath      : Path -> AccessMode -> Command a -> Command a
+withPath      : Path -> AccessMode -> Command mode a -> Command mode a
 
 // 设置退出码映射
-withExitcode  : Int -> ExitCodeResult -> Command a -> Command a
+withExitcode  : Int -> ExitCodeResult -> Command mode a -> Command mode a
 
-type Command a =
+type Command mode a =
   { bin : ?String
-  , type : CommandType
   , parser : String -> Result a String
-  //
   , args : List CmdArg
   , paths : List (Path, AccessMode)
   , runAs : ?RunAs
   , env : ?(Map String String)
   , exitCodes : ExitCodeMap
   }
-
-type CommandType
-  = StreamCommand     // 行流：逐行解析
-  | DocumentCommand   // 文档：完整输出一次解析
 
 type AccessMode = Read | Write | ReadWrite
 
@@ -223,6 +223,7 @@ Parser 函数只返回解析后的数据类型，不处理 IO：
 
 ```kun
 // Parser 签名（仅返回解析后的数据类型，直接使用函数类型）
+// raw 适用于两种模式（取决于使用的构造器）
 raw : s -> Result s String                  // 原始输入保持不变
 json : String -> Result JsonValue String    // 转换为 JSON
 ```
@@ -232,7 +233,7 @@ json : String -> Result JsonValue String    // 转换为 JSON
 退出码映射是 Builder 调用链的一部分，通过 `exitcode` 设置在 `Command` 值中：
 
 ```kun
-log : LogOptions -> Command CommitEntry
+log : LogOptions -> Command Stream CommitEntry
 log = \{ maxCount, branch } ->
   createStreamCommand parseLogLine
     |> withPath Path.cwd Read
@@ -309,7 +310,7 @@ type LogOptions =
   , branch : ?String
   }
 
-log : LogOptions -> Command CommitEntry
+log : LogOptions -> Command Stream CommitEntry
 log = \{ maxCount, branch } ->
   createStreamCommand parseLogLine
     |> withArg "log"
@@ -339,7 +340,7 @@ cmd_bin = "git"
 type LogOptions_ =
   { ...  // 与用户定义的结构完全一致
   }
-log_ : LogOptions_ -> Command CommitEntry
+log_ : LogOptions_ -> Command Stream CommitEntry
 
 // 通过扩展积类型生成完整 Options 类型：
 //   用户 LogOptions_ + 隐式字段（runAs/env/stdin/stdout/stderr/fd）
@@ -354,6 +355,7 @@ type LogOptions
   }
 
 // 编译器封装的导出函数
+// 编译器识别签名中的 Command Stream ... 标记，选择行流处理路径
 log : LogOptions -> IO (Result (Stream (Result CommitEntry String)) IOError)
 log = \cmdOpts ->
   let
@@ -362,8 +364,8 @@ log = \cmdOpts ->
     // opts 是 LogOptions_，剥离了隐式字段
     // 传给原始命令函数——opts 中不包含 runAs/env 等，无法注入
     log_ opts
-      // 隐式字段在 InternalCommand.run1 内部覆盖 Command 的对应值
-      |> InternalCommand.run1 cmd_bin cmdOpts
+      // 隐式字段在 InternalCommand.run 内部覆盖 Command 的对应值
+      |> InternalCommand.run cmd_bin cmdOpts
 ```
 
 ### `InternalCommand.run` 的安全覆盖
@@ -372,12 +374,13 @@ log = \cmdOpts ->
 
 1. **编译期规则**：`.cmd.kun` 的 `import` 语句由编译器特殊处理——普通 Kun 模块和 `.cmd.kun` 文件的导入路径是隔离的。`.cmd.kun` 只能导入标准库的纯函数模块，不能导入运行时 primitives 或访问 `InternalCommand`
 2. **`Command` 模块导出控制**：`InternalCommand` 虽然列在 `module Command export` 中，但编译器为 `.cmd.kun` 生成的有限导入列表中不包含此符号。`InternalCommand` 的导出仅对编译器生成的封装代码可见
-3. **编译器生成的封装代码**：是**编译期产物**，不经过 `.cmd.kun` 的导入检查。编译器在处理 `.cmd.kun` 文件时了解 `InternalCommand` 的类型签名，将其硬编码到生成的 Kun 模块中。这与 `do` 去糖、`<-!` 解包等编译期变换的机制一致——编译器有特权在生成的代码中引用内部符号，用户源码无法直接使用
+3. **编译器生成的封装代码**：是**编译期产物**，不经过 `.cmd.kun` 的导入检查。编译器处理 `.cmd.kun` 时根据函数返回类型中的 `Command Stream a` 或 `Command Document a`（幻影类型标记）自动选择对应的行流/文档处理路径
 
-`run_` 负责安全检查 + fork-exec，`run1`/`run2` 分别处理行流/文档模式的输出解析。`andThen`/`mapErr` 是 `Result` 模块的组合子（见 `standard-library.md`）：
+`run_` 负责安全检查 + fork-exec，返回原始 stdout 流。编译器根据幻影类型在封装代码中组合 `run_` 与解析逻辑：
 
 ```kun
 // 内部安全检查与执行（返回原始 stdout 流）
+// 幻影类型 mode 使 run_ 对所有模式通用
 run_ :
   String
   -> { o
@@ -388,7 +391,7 @@ run_ :
       , stderr : ?OrStdioMode
       , fd : ?(Map Int FdSpec)
     }
-  -> Command a
+  -> Command mode a
   -> IO (Result (Stream String) IOError)
 run_ = \bin opts cmd ->
   // 1. 强制覆盖隐式字段（防止命令函数内部设置恶意值）
@@ -407,60 +410,47 @@ run_ = \bin opts cmd ->
     // 5. seccomp 通用 profile + conditional
     // 6. Landlock 路径级白名单
     // 7. fork-exec → 返回原始 stdout Stream String
+```
 
-// 运行行流命令函数：run_ → 逐行解析 → Stream (Result a String)
-run1 :
-  String
-  -> { o
-      | runAs : ?RunAs
-      , env : ?(Map String String)
-      , stdin : ?OrPath
-      , stdout : ?OrPath
-      , stderr : ?OrStdioMode
-      , fd : ?(Map Int FdSpec)
-    }
-  -> Command a
-  -> IO (Result (Stream (Result a String)) IOError)
-run1 = \bin opts cmd ->
-  if cmd.type /= StreamCommand then
-    IO.pure (Err (IOError.Other "expected StreamCommand"))
-  else
-    run_ bin opts cmd
+编译器在封装代码中根据用户签名选择处理路径：
+
+```kun
+// 用户签名含 Command Stream a → 编译器生成行流路径
+//    log_ opts            : Command Stream CommitEntry
+//    InternalCommand.run  : ... -> Command Stream a -> ...（编译器选用）
+//    → 逐行解析: Stream.map cmd.parser → Stream (Result a String)
+
+// 用户签名含 Command Document a → 编译器生成文档路径
+//    remote_add_ opts     : Command Document String
+//    → 完整收集: Stream.collect → cmd.parser → Result a
+```
+
+编译器生成的封装代码等价于：
+
+```kun
+// 行流模式（Command Stream a）：
+log = \cmdOpts ->
+  let { ..opts } = cmdOpts
+  in
+    run_ cmd_bin cmdOpts (log_ opts)
       |> IO.flatMap (\result ->
-        result
-          |> Result.andThen (\stdout ->
-            stdout |> Stream.map cmd.parser |> Ok
-          )
-          |> IO.pure
+        result |> Result.andThen (\stdout ->
+          stdout |> Stream.map cmd.parser |> Ok
+        )
       )
 
-// 运行文档命令函数：run_ → 完整收集 → 一次解析 → Result a
-run2 :
-  String
-  -> { o
-      | runAs : ?RunAs
-      , env : ?(Map String String)
-      , stdin : ?OrPath
-      , stdout : ?OrPath
-      , stderr : ?OrStdioMode
-      , fd : ?(Map Int FdSpec)
-    }
-  -> Command a
-  -> IO (Result a IOError)
-run2 = \bin opts cmd ->
-  if cmd.type /= DocumentCommand then
-    IO.pure (Err (IOError.Other "expected DocumentCommand"))
-  else
-    run_ bin opts cmd
+// 文档模式（Command Document a）：
+remote_add = \cmdOpts ->
+  let { ..opts } = cmdOpts
+  in
+    run_ cmd_bin cmdOpts (remote_add_ opts)
       |> IO.flatMap (\result ->
-        result
-          |> Result.andThen (\stdout ->
-            stdout
-              |> Stream.collect
-              |> cmd.parser
-              |> mapErr (\msg -> IOError.Other (f"parse failed: {msg}"))
-          )
-          |> IO.pure
+        result |> Result.andThen (\stdout ->
+          stdout
+            |> Stream.collect
+            |> cmd.parser
+            |> mapErr (\msg -> IOError.Other (f"parse failed: {msg}"))
+        )
       )
 ```
 
@@ -531,7 +521,7 @@ seccomp-BPF 过滤规则由命令的 Builder 调用链自动推导：
 | 1 | `command` 在文件第一个非注释行 | 编译期错误 |
 | 2 | `import` 在 `command` 之后 | 编译期错误 |
 | 3 | `command Xxx for "<bin>"` 中 `<bin>` 为 basename（不含 `"/"`） | 编译期错误 |
-| 4 | 导出命令函数返回 `Command (Stream T)` 或 `Command T` | 编译期错误 |
+| 4 | 导出命令函数返回 `Command Stream T` 或 `Command Document T`（须带幻影类型标记） | 编译期错误 |
 | 5 | 无逃逸 IO（禁止 IO 函数导入和调用，非 IO 函数不做限制） | 编译期错误 |
 | 6 | 函数参数透传 `withArg`/`withArgs` 需 `withUnsafeArg` | 编译期警告 |
 | 7 | 不可导入其他 `.cmd.kun`；不可导入 `InternalCommand` | 编译期错误 |
