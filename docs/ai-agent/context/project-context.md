@@ -53,8 +53,8 @@
 | 2026-06-04 | CDF 全面重构与命令函数系统重设计 | 设计+重构 | ✅ 全部 owner docs | ❌ 未检查 | `plan-first` → `implement`（先写 plan 后执行） |
 | 2026-06-04 | 语法打磨 + 多轮全面审计 + 标准库盲点补充 | 维护+审计 | ✅ 全部 owner docs | ✅ document-audit-prompt、closure-audit-prompt、multi-dimensional-audit-prompt | `implement` 直接执行 |
 | 2026-06-04 | `.cmd.kun` + Builder API 替代 CDF 方案设计 | 设计 | ✅ command-signature-system、command-function-system | ❌ 未检查 | `plan-first` → 实际直接实施 |
-| 2026-06-05 | 全面清理 CDF 过时引用 + 多轮语法检查 + `.cmd.kun` 设计完善 | 审计+修复 | ✅ 全部 owner docs | ✅ document-audit-prompt、multi-dimensional-audit-prompt | `implement` 直接执行 |
-| 2026-06-05 | 幻影类型系统设计 + 命令模块导出控制 + `asStream`/`asDocument` 重命名 | 设计+重构 | ✅ type-system、command-function-system、syntax | ✅ document-audit-prompt | `implement` 直接执行 |
+| 2026-06-06 | 全面清理 CDF 过时引用 + 多轮语法检查 + `.cmd.kun` 设计完善 | 审计+修复 | ✅ 全部 owner docs | ✅ document-audit-prompt、multi-dimensional-audit-prompt | `implement` 直接执行 |
+| 2026-06-06 | 幻影类型系统设计 + 命令模块导出控制 + `asStream`/`asDocument` 重命名 | 设计+重构 | ✅ type-system、command-function-system、syntax | ✅ document-audit-prompt | `implement` 直接执行 |
 
 ## AI 阻塞条件
 
