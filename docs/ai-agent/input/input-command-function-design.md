@@ -35,7 +35,7 @@
 
 ### 2.2 文件结构与声明顺序
 
-```kun-cmd
+```kun
 // ① command 声明（文件第一个非注释行）
 // with 后紧跟命令名，其需要在 PATH 路径中可被搜索到
 command Git for "git" export

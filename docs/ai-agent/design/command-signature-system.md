@@ -218,7 +218,7 @@ identifier     = ( letter | '_' ) , { letter | digit | '_' } ;
 
 #### 校验器和解析器（根命令层级，无缩进）
 
-```kun-cdf
+```kun
 // 校验器——纯函数，仅对值本身做校验（格式、范围、正则等）
 // 不可涉及 IO（如文件存在性检查）
 validator portRange = all [range 1 65535, not (\p -> p == 666)]
@@ -316,7 +316,7 @@ docker.run { image = "nginx", detach = true,
 
 **内联验证器**：
 
-```kun-cdf
+```kun
 param port : Int with (behavior, cli: {"-p", <value>}, range 1 65535)
 param format : String with (filter, cli: {"-f", <value>}, include ["json", "csv"])
 param branch : String with (filter, cli: positional 0, regex r"^[a-z]+$")
@@ -324,7 +324,7 @@ param branch : String with (filter, cli: positional 0, regex r"^[a-z]+$")
 
 #### `output`——输出解析器引用
 
-```kun-cdf
+```kun
 output <parser_name>           // 行流模式：引用已定义的 parser，类型为 Stream (Result T String)
 output default                 // 行流模式：默认解析器，返回 Stream String
 output json                    // 行流模式：逐行 JSON 解析器，返回 Stream JsonValue
@@ -353,7 +353,7 @@ exitcode * = Err <expr>              // 通配：其他未声明码
 
 #### `bin`——命令路径
 
-```kun-cdf
+```kun
 command myTool "my-tool"                    // 函数名 myTool，二进制 my-tool
   bin p"/usr/local/bin/my-tool"             // 绝对路径
   bin p"./tools/my-tool"                    // 相对路径（相对于 CDF 所在目录，不可超出）
@@ -368,7 +368,7 @@ command git                                 // 函数名 = 二进制名 = "git"
 
 CDF 文件必须以版本注释开头，用于格式兼容性识别：
 
-```kun-cdf
+```kun
 // kun-cdf-v1
 ```
 
@@ -376,7 +376,7 @@ CDF 文件必须以版本注释开头，用于格式兼容性识别：
 
 #### 完整 CDF 示例
 
-```kun-cdf
+```kun
 // kun-cdf-v1
 // git.cdf
 parser statusFormat : Stream (Result StatusEntry String) = MyParser.parseStatus
@@ -1058,7 +1058,7 @@ param * : List String 传入 100 万条目
 
 参数验证器在序列化参数前执行：
 
-```kun-cdf
+```kun
 option "port" 'p' : Int with (range 1 65535)
 // 用户传入 -p 99999
 // → 验证失败：ValidationError { validator: "range", constraint: "1..65535", actual: "99999" }

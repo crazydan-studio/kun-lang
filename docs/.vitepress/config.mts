@@ -53,18 +53,6 @@ export default defineConfig({
         displayName: 'Kun',
         grammar: () => Promise.resolve(grammar),
       },
-      {
-        name: 'kun-cdf',
-        scopeName: 'source.kun',
-        displayName: 'Kun CDF',
-        grammar: () => Promise.resolve(grammar),
-      },
-      {
-        name: 'kun-cmd',
-        scopeName: 'source.kun',
-        displayName: 'Kun CMD',
-        grammar: () => Promise.resolve(grammar),
-      },
       'zig', 'c', 'bash', 'toml', 'xml',
     ],
     theme: {
