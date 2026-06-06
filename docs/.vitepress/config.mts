@@ -41,7 +41,7 @@ if (process.env.NODE_ENV == 'production') {
 export default defineConfig({
   lang: 'zh-CN',
   title: 'Kun（鲲）',
-  description: 'Kun（鲲）—— 面向 Linux 的函数式脚本语言，项目文档',
+  description: 'Kun（鲲）—— 面向 Linux 的函数式脚本语言',
   head: [['link', { rel: 'icon', type: 'image/svg+xml', href: logo }]],
 
   markdown: {
