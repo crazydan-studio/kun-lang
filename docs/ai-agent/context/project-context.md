@@ -9,7 +9,7 @@
 | 当前版本 | 0.1.0 |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
 | 里程碑 | 语言设计定型与核心解释器原型 |
-| 宿主语言 | Zig |
+| 宿主语言 | Zig（锁定 0.13.0） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
 
@@ -28,7 +28,7 @@
 
 | 层 | 技术栈 |
 |---|---|
-| 语言实现 | Zig（宿主语言） |
+| 语言实现 | Zig 0.13.0（宿主语言，版本锁定） |
 | 运行时 | dlopen/dlsym 直接加载命令二进制 |
 | 安全模型 | Linux namespace 沙箱 + 能力安全 |
 | 文档构建 | VitePress + pnpm |
@@ -55,6 +55,7 @@
 | 2026-06-04 | `.cmd.kun` + Builder API 替代 CDF 方案设计 | 设计 | ✅ command-signature-system、command-function-system | ❌ 未检查 | `plan-first` → 实际直接实施 |
 | 2026-06-06 | 全面清理 CDF 过时引用 + 多轮语法检查 + `.cmd.kun` 设计完善 | 审计+修复 | ✅ 全部 owner docs | ✅ document-audit-prompt、multi-dimensional-audit-prompt | `implement` 直接执行 |
 | 2026-06-06 | 幻影类型系统设计 + 命令模块导出控制 + `asStream`/`asDocument` 重命名 | 设计+重构 | ✅ type-system、command-function-system、syntax | ✅ document-audit-prompt | `implement` 直接执行 |
+| 2026-06-06 | 宿主语言评估（Zig vs Rust vs Go）确认 Zig、创建 zig-patterns.md、版本锁定 | 分析+配置 | ✅ project-context、system-baseline | ✅ document-audit-prompt、zig-patterns | `implement` 直接执行 |
 
 ## AI 阻塞条件
 
