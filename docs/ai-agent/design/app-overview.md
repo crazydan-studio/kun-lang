@@ -57,26 +57,13 @@ run"kubectl" ["get", "pods"]      // 返回 Stream String
 
 ### 自动升级模型
 
-```
-run"kubectl" ["get", "pods"]
-  │
-  ├── process.run 白名单检查
-  │   ├── 通过 → 继续
-  │   └── 拒绝 → PermissionError
-  │
-  ├── T1 有内置 Primitive？ → 精确结构化返回
-  ├── T2 有 .cdf 文件？     → 精确结构化返回 + 签名验证
-  ├── T3 auto-infer 成功？  → 缓存 CDF 草稿，中等安全
-  └── T4 无升级路径        → 仅 process.run 白名单允许时执行
-                            → 基础沙箱 + Stream String
-```
+命令函数分为两类，通过不同的导入路径访问：
 
-| 级别 | 条件 | 安全级别 | 返回值 |
-|------|------|---------|--------|
-| **T1 内建** | 运行时内置 Primitive | 完整沙箱 + seccomp | 精确结构化 |
-| **T2 CDF** | 有 `.cdf` 文件 | 完整 + 签名验证 | 精确结构化 |
-| **T3 自动推断** | auto-infer 成功 | 中等（seccomp + 沙箱） | 可能为 Stream String |
-| **T4 `run`** | `process.run` 白名单允许 + 无升级路径 | 白名单 + 基础沙箱 + 审计日志 | Stream String |
+| 类型 | 定义方式 | 返回值 | 安全检查 |
+|------|---------|--------|---------|
+| **内建 Primitive** | Zig 内建实现 | `IO (Result (Stream T) IOError)` | 完整沙箱 + seccomp |
+| **`.cmd.kun` 命令函数** | `.cmd.kun` 文件 + Builder API | `IO (Result (Stream T) IOError)` | 签名验证 + 沙箱 + Landlock |
+| **`run""`** | 无签名，原始 CLI | `Stream String` | `process.run` 白名单 + 基础沙箱 |
 
 ### `run` 语法
 
@@ -166,7 +153,7 @@ run"<command>" []                          // 无参数
 
 ## 供应链安全
 
-Kun 通过 CDF 行为契约、二进制完整性校验、密码学签名、seccomp 系统调用过滤、单命令沙箱隔离和信任分级策略构成多层供应链防御体系。详细设计请参见 [供应链安全](supply-chain-security.md)。
+Kun 通过 `.cmd.kun` 签名、二进制完整性校验、密码学签名、seccomp 系统调用过滤、单命令沙箱隔离和信任分级策略构成多层供应链防御体系。详细设计请参见 [供应链安全](supply-chain-security.md)。
 
 ## 与容器化方案的对比
 

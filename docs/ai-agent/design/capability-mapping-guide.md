@@ -53,8 +53,8 @@ ls { path = p"/tmp", all = true }
 | `cat`、`wc`、`tee` | ❌ | `readFile`、`Stream.length`、`writeFile` |
 | `sudo`、`su` | ❌ | `runAs` 隐式参数 |
 | `xargs` | ❌ | `Stream.toList` + `|>` 管道 |
-| `curl`、`wget` | ❌（映射为 CDF） | `Http.get` / `Http.post`（标准库） |
-| `gzip`、`xz`、`zstd` | ❌（映射为 CDF） | 若标准库提供压缩 API 则不映射 |
+| `curl`、`wget` | ❌（作为 `.cmd.kun`） | `Http.get` / `Http.post`（标准库） |
+| `gzip`、`xz`、`zstd` | ❌（作为 `.cmd.kun`） | 若标准库提供压缩 API 则不映射 |
 
 ### 原则 5：输出驱动 —— 先定义返回类型，再倒推最少参数
 
@@ -69,7 +69,7 @@ ls { path = p"/tmp", all = true }
 
 每个能力参数属于以下三类之一：
 
-| 分类 | CDF 标签 | 说明 | 示例 |
+| 分类 | `.cmd.kun` 处理 | 说明 | 示例 |
 |------|---------|------|------|
 | **核心** | `essential` | 结果的基本定位参数。通常为 path、target 等 | `ls` 的 `path`、`cp` 的 `src`/`dst`、`grep` 的 `pattern` |
 | **筛选** | `filter` | 缩小或扩大结果集的参数 | `ls` 的 `all`/`recursive`、`ps` 的 `user`、`git log` 的 `maxCount`/`since` |
@@ -115,32 +115,10 @@ ls { path = p"/tmp", all = true }
 | `grep` | 搜索文本 | `pattern`(essential)、`path`(essential)、`recursive`(behavior)、`caseInsensitive`(behavior)、`invert`(behavior)、`maxCount`(filter) | `--color`、`-n`、`-l`、`-H`、`--line-number`、`-b`、`-o`、`-s`、`--binary-files` |
 | `locate` | 搜索文件数据库 | `pattern`(essential) | `-i`、`-c`、`-l`、`-q`、`--regex`、`-b`、`-e`、`--existing` |
 
-### 归档压缩（CDF 映射，非 Primitive）
-
-| 命令 | 能力 | 映射参数 | 不映射参数 |
-|------|------|---------|-----------|
-| `tar` | 打包/解包归档 | `mode`(essential: create/extract/list)、`archive`(essential)、`files`(essential)、`compress`(behavior: gzip/xz/zstd/none)、`strip`(behavior) | `-v`、`--checkpoint`、`--exclude-vcs`、`--totals`、`-h`、`--atime-preserve`、`--no-same-permissions` |
-| `gzip` | 压缩/解压文件 | `mode`(essential: compress/decompress)、`target`(essential)、`level`(behavior: 1-9) | `-v`、`-k`、`-f`、`-c`、`--rsyncable`、`--name`、`--fast` |
-| `zip`/`unzip` | 打包/解包 ZIP | `mode`(essential)、`archive`(essential)、`files`(essential)、`password`(behavior) | `-q`、`-v`、`-T`、`-X`、`-o`、`-f`、`-u`、`-l`、`-t` |
-
-### 网络工具（CDF 映射）
-
-| 命令 | 能力 | 映射参数 | 不映射参数 |
-|------|------|---------|-----------|
-| `ss` | 查询套接字 | `tcp`(filter)、`udp`(filter)、`listening`(filter)、`process`(behavior) | `-a`、`-l`、`-p`、`-e`、`-i`、`-m`、`-o`、`-s`、`-n`、`-r`、`-4`、`-6`、`-t`、`-u` |
-| `dig` | DNS 查询 | `domain`(essential)、`type`(filter: A/AAAA/MX/NS 等)、`server`(behavior) | `+short`、`+noall`、`+answer`、`+authority`、`+additional`、`+stats`、`-4`、`-6`、`-p`、`-b` |
-| `ping` | 网络连通性测试 | `host`(essential)、`count`(filter)、`interval`(behavior)、`timeout`(behavior) | `-4`、`-6`、`-D`、`-i`、`-n`、`-q`、`-R`、`-s`、`-v`、`-w`、`-W` |
-
-### 版本控制（CDF 映射）
-
-| 命令 | 能力 | 映射参数 | 不映射参数 |
-|------|------|---------|-----------|
-| `git.status` | 获取工作区状态 | 无（始终返回完整状态） | `-s`、`--porcelain`、`--ignored`、`-u`、`--column`、`--short`、`--branch` |
-| `git.log` | 获取提交历史 | `maxCount`(filter)、`branch`(filter)、`author`(filter)、`since`(filter)、`until`(filter)、`path`(filter) | `--oneline`、`--graph`、`--decorate`、`--format`、`--abbrev-commit`、`--no-merges`、`--dense`、`-p` |
-| `git.diff` | 获取差异 | `path`(filter)、`staged`(behavior)、`base`(filter)、`target`(filter) | `--stat`、`--numstat`、`--shortstat`、`--name-only`、`-w`、`--ignore-space-change`、`--color-words`、`-U` |
-| `git.branch` | 管理分支 | `mode`(essential: list/create/delete)、`name`(filter)、`all`(filter) | `-v`、`-a`、`-r`、`--merged`、`--no-merged`、`-d`、`-D`、`-m`、`-M`、`--color` |
-
-### 容器工具（CDF 映射）
+### 归档压缩（`.cmd.kun` 实现）
+### 网络工具（`.cmd.kun` 实现）
+### 版本控制（`.cmd.kun` 实现）
+### 容器工具（`.cmd.kun` 实现）
 
 | 命令 | 能力 | 映射参数 | 不映射参数 |
 |------|------|---------|-----------|
@@ -168,16 +146,9 @@ CLI 命令：ls -la --sort=time /var/log
    - recursive：是否递归子目录（filter）
    - sortBy：排序方式名/时间/大小（filter）
                                     ↓
-4. CDF 声明：
-   command ls
-     param path  : Path with (essential, cli: positional 0)
-     param all   : Bool with (filter, cli: ["-a"])
-     param recursive : Bool with (filter, cli: ["-R"])
-     param sortBy : ?SortBy with (filter, cli: case SortBy of
-                                     Name -> "--sort=name"
-                                     Size -> "--sort=size"
-                                     Time -> "--sort=time")
-     output DirEntry
+4. `.cmd.kun` 实现（概念示例）：
+   // 实际以纯 Kun 语法 + Builder API 定义
+   // 参数映射关系不变：essential → 必填字段，filter → 可选字段
 ```
 
 ### 示例 2：`ps`
@@ -198,12 +169,17 @@ CLI 命令：ps aux --sort=-%mem
    - pid：限定特定 PID（filter）
    排序不映射——返回后用户在 Kun 层排序
                                     ↓
-4. CDF 声明：
-   command ps
-     param all  : Bool  with (filter, cli: ["-e"])
-     param user : ?Uid  with (filter, cli: {-u <value>})
-     param pid  : ?Pid  with (filter, cli: {-p <value>})
-     output ProcessInfo
+4. `.cmd.kun` 实现：
+   command Ps for "ps" export (ProcessInfo, ps)
+
+   type ProcessInfo = { ... }
+
+   ps : { all : Bool, user : ?Uid, pid : ?Pid } -> Command Stream ProcessInfo
+   ps = \{ all, user, pid } ->
+     asStream parseProcessLine
+       |> ( if all then withFlag "-e" Nil else identity )
+       |> ( case user of Nil -> identity; u -> withFlag "-u" (toString u) )
+       |> ( case pid of Nil -> identity; p -> withFlag "-p" (toString p) )
 ```
 
 ### 示例 3：`docker.run`
@@ -226,20 +202,11 @@ CLI 命令：docker run -d --restart=always --memory=512m -e DB_HOST=prod nginx
    - port：端口映射（behavior）
    - volume：卷挂载（behavior）
                                     ↓
-4. CDF 声明：
-   command docker_run
-     param image   : String with (essential, cli: positional 0)
-     param command : List String with (essential, cli: positional *)
-     param detach  : Bool with (behavior, cli: ["-d"])
-     param restart : ?RestartPolicy with (behavior, cli: {"--restart", <value>})
-     param memory  : ?Memory with (behavior, cli: {"--memory", <value>})
-     param env     : Map String String with (behavior, cli: {"-e", <k>=<v>})
-     param port    : List PortMapping with (behavior, cli: {"-p", <src>:<dst>})
-     param volume  : List VolumeMount with (behavior, cli: {"-v", <src>:<dst>})
-     output text-doc
+4. `.cmd.kun` 实现（概念示例）：
+   // 实际以纯 Kun 语法 + Builder API 定义
 ```
 
-## 何时用 Primitive vs CDF
+## 何时用 Primitive vs `.cmd.kun`
 
 ```kun
 // Primitive（Zig 实现，进程内执行）
@@ -265,7 +232,7 @@ grep       // reuse regex engine (进程内)
 locate     // read mlocate.db
 walkDir    // fts_open
 
-// CDF（子进程执行）
+// `.cmd.kun` 执行（子进程）
 // 适用条件：复杂协议/算法、外部库依赖、低频率操作
 ss         // netlink 协议
 dig        // DNS 协议

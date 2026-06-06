@@ -214,7 +214,7 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - 与 `Errno` 的关系：`IOError` 是面向用户的语义封装，`Errno` 是底层 POSIX 码
 - 转换函数：`toIOError : Errno -> IOError`（将 POSIX 码映射为语义化错误）
 - 语义场景：文件操作、网络操作、进程管理等系统调用的错误报告
-- `CommandFailed` 用于命令函数（CDF/`run`）的执行失败，包含命令名、退出码和 stderr 输出
+- `CommandFailed` 用于命令函数（`.cmd.kun`/`run`）的执行失败，包含命令名、退出码和 stderr 输出
 
 ### `DateTime`
 
@@ -313,7 +313,7 @@ default : Signal -> IO Unit                          // 恢复默认行为
 
 ### 定位
 
-CDF 参数运行时验证的统一类型。验证器将值转换为 `Result`，验证失败时返回错误原因。
+命令函数参数运行时验证的统一类型。验证器将值转换为 `Result`，验证失败时返回错误原因。
 
 ### 类型
 
@@ -364,12 +364,13 @@ myPortValidator = \port ->
 portCheck = all [range 1 65535, not (\p -> p == 666)]
 ```
 
-### CDF 中使用
+### 命令函数中使用
 
-```
-option port "-p" : Int with (all [range 1 65535])
-option size "-s" : String with (all [regex r"^\d+$", length 1 32])
-param 0 : Path with (nameCheck)
+```kun
+// Validator 在命令函数的 Builder 链中集成
+// 在 .cmd.kun 中调用 validator 进行参数校验
+// portCheck : Validator Int
+// nameCheck : Validator String
 ```
 
 ## `List` — 列表操作
