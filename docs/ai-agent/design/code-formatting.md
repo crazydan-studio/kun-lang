@@ -2,6 +2,20 @@
 
 > 参考：Elm 格式化规范
 
+## 语句分隔
+
+Kun **不支持**分号（`;`）作为语句分隔符。每条语句必须独占一行。`case` 分支也各自独立为行。
+
+```kun
+// ✅ 正确
+case x of
+  Ok v -> process v
+  Err _ -> handleError
+
+// ❌ 错误
+case x of Ok v -> process v; Err _ -> handleError
+```
+
 ## 缩进
 
 使用 2 空格缩进，不使用 Tab。

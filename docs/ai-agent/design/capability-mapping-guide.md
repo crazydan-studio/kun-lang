@@ -178,8 +178,12 @@ CLI 命令：ps aux --sort=-%mem
    ps = \{ all, user, pid } ->
      asStream parseProcessLine
        |> ( if all then withFlag "-e" Nil else identity )
-       |> ( case user of Nil -> identity; u -> withFlag "-u" (toString u) )
-       |> ( case pid of Nil -> identity; p -> withFlag "-p" (toString p) )
+        |> ( case user of
+               Nil -> identity
+               u -> withFlag "-u" (toString u) )
+        |> ( case pid of
+               Nil -> identity
+               p -> withFlag "-p" (toString p) )
 ```
 
 ### 示例 3：`docker.run`
