@@ -3,7 +3,6 @@ import { defineConfig } from 'vitepress'
 import { configureDiagramsPlugin, createBuildTimeDiagramsPlugin } from 'vitepress-plugin-diagrams'
 import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
-import grammar from './theme/kun-grammar.json' with { type: 'json' }
 
 const remoteLogoUrl = 'https://raw.githubusercontent.com/crazydan-studio/kun-lang/refs/heads/master/logo.svg'
 let logo = remoteLogoUrl
@@ -16,6 +15,15 @@ const diagramsPluginOpts = {
 }
 let configMarkdown = (md) => {
   configureDiagramsPlugin(md, diagramsPluginOpts)
+  // Kun 语法高亮：使用 Elm 语法（语法风格接近）
+  const defaultFence = md.renderer.rules.fence
+  md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
+    const token = tokens[idx]
+    if (token.info === 'kun' || token.info === 'kun-cmd' || token.info === 'kun-cdf') {
+      token.info = 'elm'
+    }
+    return defaultFence(tokens, idx, options, env, slf)
+  }
 }
 
 if (process.env.NODE_ENV == 'production') {
@@ -34,7 +42,11 @@ if (process.env.NODE_ENV == 'production') {
     ...diagramsPluginOpts,
   })
 
-  configMarkdown = configureMarkdown
+  const baseConfig = configMarkdown
+  configMarkdown = (md) => {
+    configureMarkdown(md)
+    baseConfig(md)
+  }
   vitePlugins.push(vitePlugin())
 }
 
@@ -46,15 +58,7 @@ export default defineConfig({
 
   markdown: {
     lineNumbers: true,
-    languages: [
-      {
-        name: 'kun',
-        scopeName: 'source.kun',
-        displayName: 'Kun',
-        grammar: () => Promise.resolve(grammar),
-      },
-      'zig', 'c', 'bash', 'toml', 'xml',
-    ],
+    languages: ['elm', 'zig', 'c', 'bash', 'toml', 'xml'],
     theme: {
       light: 'github-light',
       dark: 'one-dark-pro',
