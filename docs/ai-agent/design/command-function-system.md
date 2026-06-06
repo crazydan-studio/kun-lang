@@ -55,7 +55,7 @@ command Git for "git" export
 // import（可导入任意非 IO 函数，不可导入其他 .cmd.kun）
 import Command with
   ( Command
-  , createStreamCommand, createDocumentCommand
+  , asStream, asDocument
   , withArg, withArgs, withFlag
   , withPath, withUnsafeArg
   )
@@ -82,7 +82,7 @@ type LogOptions =
 
 log : LogOptions -> Command Stream CommitEntry
 log = \{ maxCount, branch } ->
-  createStreamCommand parseLogLine
+  asStream parseLogLine
     |> withPath Path.cwd Read
     |> withArg "log"
     |> (
@@ -103,7 +103,7 @@ type StatusOptions =
 
 status : StatusOptions -> Command Stream StatusEntry
 status = \{} ->
-  createStreamCommand parseStatusLine
+  asStream parseStatusLine
     |> withPath Path.cwd Read
     |> withArgs ["status"]
 
@@ -115,7 +115,7 @@ type RemoteAddOptions =
 
 remote_add : RemoteAddOptions -> Command Document String
 remote_add = \{ name, url } ->
-  createDocumentCommand raw
+  asDocument raw
     |> withPath Path.cwd Read
     |> withArgs ["remote", "add"]
     |> withUnsafeArg name
@@ -150,7 +150,7 @@ module Command export
   ( Command            // 仅导出类型名，Record 字段对外不可见
   , Stream, Document   // 幻影类型：标记行流/文档模式
   , ExitCodeResult(..)
-  , createDocumentCommand, createStreamCommand
+  , asStream, asDocument
   , withArg, withArgs, withFlag
   , withPath, withUnsafeArg
   , withExitcode
@@ -162,8 +162,8 @@ type Stream
 type Document
 
 // 构造文档输出 Command（标记为 Document 模式）
-createDocumentCommand : (String -> Result a String) -> Command Document a
-createDocumentCommand = \parser ->
+asDocument : (String -> Result a String) -> Command Document a
+asDocument = \parser ->
   { bin = Nil
   , parser = parser
   , args = []
@@ -174,8 +174,8 @@ createDocumentCommand = \parser ->
   }
 
 // 构造行流输出 Command（标记为 Stream 模式）
-createStreamCommand : (String -> Result a String) -> Command Stream a
-createStreamCommand = \parser ->
+asStream : (String -> Result a String) -> Command Stream a
+asStream = \parser ->
   { bin = Nil
   , parser = parser
   , args = []
@@ -247,7 +247,7 @@ json : String -> Result JsonValue String    // 转换为 JSON
 ```kun
 log : LogOptions -> Command Stream CommitEntry
 log = \{ maxCount, branch } ->
-  createStreamCommand parseLogLine
+  asStream parseLogLine
     |> withPath Path.cwd Read
     |> withArg "log"
     |> withExitcode 0 OkResult
@@ -324,7 +324,7 @@ type LogOptions =
 
 log : LogOptions -> Command Stream CommitEntry
 log = \{ maxCount, branch } ->
-  createStreamCommand parseLogLine
+  asStream parseLogLine
     |> withArg "log"
     |> (
       case maxCount of
@@ -635,11 +635,11 @@ kun cmd init git
   │
   └── 生成 git.cmd.kun 骨架
       ├── command Git for "git" export (...)
-      ├── 子命令函数骨架（createDocumentCommand textDoc + withArgs）
+      ├── 子命令函数骨架（asDocument textDoc + withArgs）
       └── 类型注解（用户需补充）
 ```
 
-生成的 `.cmd.kun` 是草稿，用户需审核后补充输出解析器（`createStreamCommand`/`createDocumentCommand`）和自定义类型。自动推导是**开发辅助工具**，非运行时通路。
+生成的 `.cmd.kun` 是草稿，用户需审核后补充输出解析器（`asStream`/`asDocument`）和自定义类型。自动推导是**开发辅助工具**，非运行时通路。
 
 ## 签名与注册中心
 

@@ -48,8 +48,8 @@ type Command mode a =
   }
 
 // 不同幻影类型标记不同的"模式"
-createStreamCommand  : (String -> Result a String) -> Command Stream a
-createDocumentCommand : (String -> Result a String) -> Command Document a
+asStream  : (String -> Result a String) -> Command Stream a
+asDocument : (String -> Result a String) -> Command Document a
 
 // Builder 函数对所有 mode 通用（幻影类型参数不参与运行时）
 withArg : String -> Command mode a -> Command mode a
@@ -78,7 +78,7 @@ withArg : String -> Command mode a -> Command mode a
 module Command export
   ( Command
   , Stream, Document   // 作为类型名导出，供外部在类型标注中使用
-  , createStreamCommand, createDocumentCommand
+  , asStream, asDocument
   , ...
   )
 ```
@@ -89,7 +89,7 @@ module Command export
 // 导入方仅引用类型名，用于函数签名
 import Command with
   ( Command, Stream, Document
-  , createStreamCommand, ...
+  , asStream, ...
   )
 
 makeStreamCmd : (String -> Result a String) -> Command Stream a
