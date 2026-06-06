@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-CLI_TS="$ROOT_DIR/code/lsp-server/shared/src/cli.ts"
+LINT_TS="$ROOT_DIR/code/lsp-server/cli/src/lint.ts"
 
 if [ $# -lt 1 ]; then
   echo "用法: tools/kun-lint.sh <check|format> <file>..."
@@ -18,4 +18,4 @@ if [ $# -lt 1 ]; then
 fi
 
 cd "$ROOT_DIR"
-pnpm --filter @kun-lang/lsp-shared exec ts-node "$CLI_TS" "$@"
+pnpm --filter @kun-lang/lsp-cli exec ts-node "$LINT_TS" "$@"

@@ -1,16 +1,16 @@
 import * as fs from 'fs'
 import {
-  DEPRECATED_SYNTAX, COMMENT_RULES, GENERIC_RULES,
-  LET_IN_RULES, CASE_OF_RULES, IF_THEN_ELSE_RULES,
-  DO_RULES, RECORD_RULES, PIPE_RULES,
-  NAMING_RULES, IMPORT_EXPORT_RULES,
-  isTypeName, isBuiltinType,
-} from './syntax'
-import { NILABLE_RULES, EARLY_RETURN_RULES, IO_RULES, NAMING_CONVENTIONS } from './types'
+  DEPRECATED_SYNTAX, GENERIC_RULES,
+  isTypeName,
+} from '@kun-lang/lsp-shared'
 import {
   FORMAT_RULES, detectSemicolons, checkLineWidth,
-  checkCommentStyle, formatIndent,
-} from './formatter'
+  checkCommentStyle,
+} from '@kun-lang/lsp-shared'
+import {
+  NILABLE_RULES, EARLY_RETURN_RULES, IO_RULES,
+  NAMING_CONVENTIONS,
+} from '@kun-lang/lsp-shared'
 
 interface Diagnostic {
   line: number
@@ -91,7 +91,6 @@ function runDiagnostics(content: string): Diagnostic[] {
     const ioOperators = [IO_RULES.bindOperator, IO_RULES.bindWithEarlyReturn]
     const foundOp = ioOperators.find(op => line.includes(op))
     if (foundOp) {
-      // Check if we're inside a do block by looking at surrounding lines
       const doCount = lines.slice(0, i + 1).filter(l => l.trim().startsWith('do')).length
       const inCount = lines.slice(0, i + 1).filter(l => l.trim() === 'in' || l.trim().startsWith('in ')).length
       if (doCount <= inCount) {
@@ -110,10 +109,8 @@ function runDiagnostics(content: string): Diagnostic[] {
 function formatContent(content: string): string {
   let result = content
 
-  // Remove trailing whitespace from each line
   result = result.split('\n').map(line => line.trimEnd()).join('\n')
 
-  // Fix comment style: -- → //, # → //
   result = result.split('\n').map(line => {
     const trimmed = line.trimStart()
     const indent = line.slice(0, line.length - trimmed.length)
@@ -126,7 +123,6 @@ function formatContent(content: string): string {
     return line
   }).join('\n')
 
-  // Remove semicolons
   result = result.split('\n').map(line => {
     const commentIdx = line.indexOf('//')
     if (commentIdx >= 0) {
@@ -136,10 +132,7 @@ function formatContent(content: string): string {
     return line.replace(/;\s*$/, '')
   }).join('\n')
 
-  // Ensure trailing newline
   if (!result.endsWith('\n')) result += '\n'
-
-  // Deduplicate consecutive blank lines
   result = result.replace(/\n{3,}/g, '\n\n')
 
   return result
@@ -171,8 +164,7 @@ function cmdCheck(files: string[]): number {
     try {
       const content = fs.readFileSync(file, 'utf-8')
       const diagnostics = runDiagnostics(content)
-      const fileLabel = file.replace(/^.*\/code\/lsp-server\/shared\//, '')
-      if (printDiagnostics(diagnostics, fileLabel) > 0) exitCode = 1
+      if (printDiagnostics(diagnostics, file) > 0) exitCode = 1
     } catch (e: any) {
       console.error(`❌ ${file}: ${e.message}`)
       exitCode = 1
@@ -206,12 +198,12 @@ function printUsage(): void {
 Kun 语言代码检查与格式化工具
 
 用法:
-  ts-node cli.ts check <file>...   检查语法/类型/过时模式
-  ts-node cli.ts format <file>...  格式化代码
+  kun-lint check <file>...    检查语法/类型/过时模式
+  kun-lint format <file>...   格式化代码
 
 示例:
-  ts-node cli.ts check app.kun lib.kun
-  ts-node cli.ts format app.kun
+  kun-lint check app.kun lib.kun
+  kun-lint format app.kun
 `)
 }
 

@@ -1,4 +1,5 @@
 packages:
+  - 'code/lsp-server/cli'
   - 'code/lsp-server/shared'
   - 'code/lsp-server/server'
   - 'code/lsp-server/plugin'
