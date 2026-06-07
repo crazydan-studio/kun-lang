@@ -379,6 +379,9 @@ Kun 脚本中的命令调用
 
 无论 Primitive 还是 `.cmd.kun` 命令，均按从最佳方案到保底方案逐级应用安全控制（capability_check → seccomp → Landlock → Namespace）。安全控制层层叠加而非互斥。
 
+> **设计决策：为何不使用 ptrace 做命令执行？**
+> ptrace 每个 syscall 拦截需 2 次 `ptrace()` + 2 次 `waitpid()` + 寄存器读写，一个简单命令（如 `ls`）约 100-300 次 syscall，总开销是 fork-exec 的 **10-100 倍**。安全目标已由 seccomp-BPF（内核态 1 次 BPF 判断，零模式切换）覆盖，且 seccomp 的默认拒绝模型比 ptrace 的逐次拦截更强。早期设计中的 ptrace 适配层已由 `run""` + `process.run` 白名单替代。
+
 ### 命令发现策略
 
 命令加载器按以下优先级查找命令：
