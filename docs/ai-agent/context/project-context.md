@@ -59,6 +59,10 @@
 | 2026-06-06 | LSP 工具链重构（code/lsp-server/ 四模块）+ CLI 工具 + pnpm workspace 整合 + VitePress 高亮尝试 | 重构+配置 | ✅ 全部 owner docs | ✅ document-audit-prompt | `implement` 直接执行 |
 | 2026-06-06 | VitePress 代码高亮多轮迭代 + 代码块标签规范 + markdownlint 修复 | 维护 | ✅ config.mts、conventions.md | ✅ document-audit-prompt | `implement` 直接执行 |
 | 2026-06-07 | AGENTS.md 完整性修订（补齐全目录索引 + 跨文档一致性修复 10 项） | 文档+修复 | ✅ AGENTS.md、context/、process/、skills/ | ✅ writing-conventions、closure-audit | `implement` 直接执行 |
+| 2026-06-07 | 架构与设计文档全面分析评审（12 份文档/5500 行交叉分析） | 分析+审计 | ✅ system-baseline、type-system、syntax、command-function-system、roles-and-permissions | ✅ document-audit、multi-dimensional-audit | `implement` 直接执行 |
+| 2026-06-07 | PermissionError 重构（移除独立类型，折叠为 IOError.PermissionDenied Record） | 重构 | ✅ standard-library、roles-and-permissions、system-baseline | ✅ closure-audit | `implement` 直接执行 |
+| 2026-06-07 | 示例代码未定义函数修复 + Path 模块文档化 | 修复 | ✅ syntax、standard-library、examples | ✅ writing-conventions | `implement` 直接执行 |
+| 2026-06-07 | 目录索引完整性检查补齐（5 个目录/16 项） | 文档 | ✅ 全部 index.md | ✅ writing-conventions | `implement` 直接执行 |
 
 ## AI 阻塞条件
 

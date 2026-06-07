@@ -19,3 +19,4 @@
 | [行多态与扩展积类型](discussion-row-polymorphism.md) | 行变量与行合一、`{ a \| name : String }` 统一语法、编译期字段展开、无子类型兼容性 | 2026-06-04 |
 | [`.cmd.kun` + Builder API 替代 CDF](discussion-cmdkun-replacement.md) | 废弃 CDF，`.cmd.kun` 完全替代方案——全 Kun 语法、Builder API、Landlock 安全、版本化注册中心 | 2026-06-04 |
 | [设计审计第二轮确认](discussion-design-review-round2.md) | 12 个审计跟进项（R1-R3 高严重度漏洞确认修复、TOCTOU 缓解方案、subprocess 权限建议） | 2026-06-04 |
+| [String 操作与 Path 模块函数归属](discussion-string-path-typing.md) | String 操作均为类型函数（String.xxx），Path 模块包含 join/parent/fileName/extension | 2026-06-07 |
