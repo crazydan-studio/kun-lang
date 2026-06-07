@@ -309,7 +309,7 @@ type IOError
   | PermissionDenied Path
   | AlreadyExists Path
   | Unsupported String
-  | CommandFailed { command : String, exitCode : Int, stderr : String }
+  | CommandFailed { command : String, exitCode : ExitCode, stderr : String }
   | Other String
 ```
 
@@ -318,11 +318,14 @@ type IOError
 ```c
 struct CommandError {
     char*    command_name;     // 命令名
-    int32_t  exit_code;        // 进程退出码（-1 表示未正常退出）
+    int32_t  exit_code;        // 进程退出码（-1 表示被信号终止）
     char*    stderr_output;    // stderr 内容（可能为空）
     char*    source_file;      // 源码文件
     uint32_t source_line;      // 源码行号
 };
+// Kun 用户空间表现为 IOError.CommandFailed { command, exitCode : ExitCode, stderr }
+// - exit_code 0..255 → ExitCode（WEXITSTATUS）
+// - exit_code = -1（信号终止） → ExitCode.generalError
 ```
 
 ### 错误传播模型
@@ -355,29 +358,41 @@ Error Structure ← Error Kind + Context
 
 ### 整体架构
 
+命令执行采用**分层择优**策略：从最合适的方案逐级尝试到兜底方案，各方案间非互斥。
+
 ```
 Kun 脚本中的命令调用
         │
         ▼
   命令加载器
         │
-        ├── 内置命令 → 直接执行（Zig 函数调用）
+        ├── Primitive（内置命令）─── 直接 Zig 函数调用
+        │                             不经过子进程
         │
-        ├── `.cmd.kun` 适配命令 → dlopen → C ABI 调用
+        ├── `.cmd.kun` 适配命令 ─── dlopen C ABI 调用（优先）
+        │                             或 fork-exec 子进程（保底）
+        │                             均通过 InternalCommand 封装安全层
         │
-        ├── 未知命令（可适配）→ ptrace 适配层 → stub 注入
+        ├── `run""` 兜底 ────────── fork-exec 子进程
+        │                             受 process.run 白名单控制
         │
-        └── 未知命令（不可适配）→ 命令不可用（需编写 `.cmd.kun`）
+        └── 无法适配 ────────────── 命令不可用（需编写 `.cmd.kun`）
 ```
+
+**分层说明**：
+1. **Primitive（内建）** — 核心命令（ls、cp、grep 等）编译在运行时二进制中，直接 Zig 函数调用，不走子进程。不存在"系统命令"概念，完全由 Kun 运行时接管
+2. **`.cmd.kun` 命令** — 有 `.cmd.kun` 描述文件的命令，通过 `InternalCommand` 封装执行。加载子程序优先尝试 dlopen C ABI 调用；若二进制不含 C ABI 入口，降级为 fork-exec 子进程
+3. **`run""`** — 无 `.cmd.kun` 的命令兜底入口，受 `process.run` 白名单控制，最基本沙箱保护
+
+无论 Primitive 还是 `.cmd.kun` 命令，均按从最佳方案到保底方案逐级应用安全控制（capability_check → seccomp → Landlock → Namespace）。安全控制层层叠加而非互斥。
 
 ### 命令发现策略
 
 命令加载器按以下优先级查找命令：
 
 1. **内置命令**：运行时预置的核心命令（ls、cat、grep 等），编译在运行时二进制中
-2. **`.cmd.kun` 命令**：有 `.cmd.kun` 描述文件的命令，可通过 dlopen 直接加载
-3. **ptrace 适配命令**：无线程但可通过 ptrace 拦截+stub 注入适配的命令
-4. **命令可用性**：无法适配的命令可用 `run""` 执行（受 `process.run` 白名单控制）
+2. **`.cmd.kun` 命令**：有 `.cmd.kun` 描述文件的命令，优先尝试 dlopen，失败时 fork-exec
+3. **`run""`**：无 `.cmd.kun` 的命令通过 `process.run` 白名单控制，兜底执行
 命令查找路径：内置表 → `.cmd.kun` 缓存 → PATH 环境变量搜索
 
 ### C ABI 函数签名约定
@@ -1018,7 +1033,7 @@ void* readlines_next(void* state_ptr) {
 - **`run""`**：无 `.cmd.kun` 命令的兜底入口，受 `process.run` 白名单控制
 - **参数验证器**：`range`、`length`、`regex`、`enum`、`custom`，支持链式组合
 
-命令签名系统的完整设计将在后续独立文档中展开。
+命令函数系统的完整设计见 [命令函数系统](../design/command-function-system.md)。
 
 ## 安全模型
 
@@ -1046,7 +1061,13 @@ void* readlines_next(void* state_ptr) {
     └── 信任分级策略（trusted / verified / sandboxed / denied）
 ```
 
-`capability_check` 是唯一的硬防线，对所有 Kun IO 原语强制执行。沙箱提供纵深防御但已知有局限（见 `roles-and-permissions.md` 沙箱节）。
+各安全层按从最佳方案到保底方案逐级叠加，非互斥选择：
+1. **capability_check（硬防线）** — 所有 Kun IO 原语入口强制检查，不可关闭
+2. **seccomp-BPF** — 基于 Builder 调用链生成系统调用过滤规则，叠加于 capability_check 之上
+3. **Landlock LSM** — 路径级控制（内核 5.13+），叠加于 seccomp 之上
+4. **Namespace 沙箱** — 进程级隔离，在以上所有层之上提供最终兜底
+
+沙箱提供纵深防御但已知有局限（见 `roles-and-permissions.md` 沙箱节）。
 
 ## 版本历史
 
