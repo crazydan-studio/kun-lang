@@ -37,7 +37,7 @@ Step 7: 文档同步 —— project-context / backlog / 上下文文档
 
 ## 验证方法
 
-- `cd docs && pnpm lint:md` —— Markdown 语法检查通过
+- `cd docs && pnpm lint` —— Markdown 语法检查通过
 - `cd docs && pnpm build` —— VitePress 构建通过
 - PlantUML 图表正确渲染（build 生成 SVG）
 - 审计者审查设计一致性与完整性

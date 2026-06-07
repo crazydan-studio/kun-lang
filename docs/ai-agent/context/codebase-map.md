@@ -37,4 +37,4 @@
 | 依赖管理 | `pnpm`（在 `docs/` 下） |
 | 构建 | `cd docs && pnpm build` |
 | 预览 | `cd docs && pnpm dev` |
-| Markdown 检查 | `cd docs && pnpm lint:md` |
+| Markdown 检查 | `cd docs && pnpm lint` |

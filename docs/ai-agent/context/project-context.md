@@ -41,7 +41,7 @@
 | 安装依赖 | `cd docs && pnpm install` |
 | 构建文档 | `cd docs && pnpm build` |
 | 本地预览 | `cd docs && pnpm dev` |
-| 检查 Markdown 语法 | `cd docs && pnpm lint:md` |
+| 检查 Markdown 语法 | `cd docs && pnpm lint` |
 | 单元测试 | 待定 |
 
 ## 最近任务路由
@@ -58,6 +58,7 @@
 | 2026-06-06 | 宿主语言评估（Zig vs Rust vs Go）确认 Zig、创建 zig-patterns.md、版本锁定 | 分析+配置 | ✅ project-context、system-baseline | ✅ document-audit-prompt、zig-patterns | `implement` 直接执行 |
 | 2026-06-06 | LSP 工具链重构（code/lsp-server/ 四模块）+ CLI 工具 + pnpm workspace 整合 + VitePress 高亮尝试 | 重构+配置 | ✅ 全部 owner docs | ✅ document-audit-prompt | `implement` 直接执行 |
 | 2026-06-06 | VitePress 代码高亮多轮迭代 + 代码块标签规范 + markdownlint 修复 | 维护 | ✅ config.mts、conventions.md | ✅ document-audit-prompt | `implement` 直接执行 |
+| 2026-06-07 | AGENTS.md 完整性修订（补齐全目录索引 + 跨文档一致性修复 10 项） | 文档+修复 | ✅ AGENTS.md、context/、process/、skills/ | ✅ writing-conventions、closure-audit | `implement` 直接执行 |
 
 ## AI 阻塞条件
 

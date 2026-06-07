@@ -112,7 +112,7 @@
 ### Step 7: 验证
 
 ```bash
-pnpm lint:md && pnpm build && git commit
+pnpm lint && pnpm build && git commit
 ```
 
 ## 关键设计决策

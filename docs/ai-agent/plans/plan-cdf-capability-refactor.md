@@ -129,7 +129,7 @@ Step 7 (verify) ────── 全部完成后
 ## 验证方法
 
 - VitePress 构建通过（`cd docs && pnpm build`）
-- Markdown lint 通过（`cd docs && pnpm lint:md`）
+- Markdown lint 通过（`cd docs && pnpm lint`）
 - 全局搜索旧格式模式（`option.*"-`、`零前置`、`写出来就能跑`）确认清理
 
 ## 风险评估

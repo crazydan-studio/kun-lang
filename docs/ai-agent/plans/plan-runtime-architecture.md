@@ -119,7 +119,7 @@
 
 ## 验证方法
 
-1. **构建验证**: `cd /workspace/docs && pnpm lint:md && pnpm build`
+1. **构建验证**: `cd docs && pnpm lint && pnpm build`
 2. **一致性审查**: 逐项对照 `docs/ai-agent/design/syntax.md` 确认所有代码示例语法正确（无 `<>`、`--`、`::`、`=>` 等废弃语法）
 3. **类型表示审查**: 逐项对照 `docs/ai-agent/design/type-system.md` 确认运行时类型表示与类型系统设计一致
 4. **标准库审查**: 逐项对照 `docs/ai-agent/design/standard-library.md` 确认标准库集成部分与 API 签名一致
