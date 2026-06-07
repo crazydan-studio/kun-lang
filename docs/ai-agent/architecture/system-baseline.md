@@ -253,21 +253,9 @@ struct TypeError {
   提示：字符串拼接请使用 ++ 操作符
 ```
 
-### `PermissionError`
+### `PermissionDenied`
 
-权限检查阶段的错误，发生在能力管理器拒绝操作时：
-
-```c
-struct PermissionError {
-    char*    resource_type;     // 资源类型（"file"、"network"、"process" 等）
-    char*    resource_path;     // 资源路径或标识
-    char*    capability_name;   // 所需能力名称
-    char*    source_file;       // 源码文件
-    uint32_t source_line;       // 源码行号
-    char*    deny_reason;       // 拒绝原因详细说明
-    char*    suggestion;        // 修改建议（with caps 声明语法模板）
-};
-```
+权限检查阶段的运行时错误，表现为 `IOError.PermissionDenied`。由能力管理器在 `capability_check` 失败时生成。无独立 C 中间类型——诊断上下文直接嵌入 Kun Record 变体。
 
 示例消息格式：
 
@@ -279,7 +267,7 @@ struct PermissionError {
   │  ───────┬───────
   │         ╰── 对文件 /etc/shadow 的读取权限被拒绝
   │
-  需要能力: fs.read("/etc/shadow")
+  需要能力：fs.read /etc/shadow
   提示：请在脚本头部添加权限声明
 
     with caps
@@ -306,7 +294,12 @@ struct ValidationError {
 ```kun
 type IOError
   = NotFound Path
-  | PermissionDenied Path
+  | PermissionDenied
+      { namespace : String
+      , action    : String
+      , target    : String
+      , reason    : String
+      }
   | AlreadyExists Path
   | Unsupported String
   | CommandFailed { command : String, exitCode : ExitCode, stderr : String }
@@ -351,7 +344,7 @@ Error Structure ← Error Kind + Context
 ```
 
 - 编译期错误（`TypeError`）直接输出到 stderr，进程退出码 1
-- 运行时错误（`PermissionError`、`IOError` 等）通过 `Result T E` 类型传递给用户代码
+- 运行时错误（`IOError`）通过 `Result T IOError` 类型传递给用户代码
 - 未处理的运行时错误传播到顶层时，运行时自动格式化并输出到 stderr，退出码依据错误类型确定
 
 ## 命令加载机制

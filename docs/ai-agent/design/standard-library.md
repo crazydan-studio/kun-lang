@@ -204,7 +204,12 @@ default : Signal -> IO Unit                          // 恢复默认行为
   ```kun
   type IOError
     = NotFound Path
-    | PermissionDenied Path
+    | PermissionDenied
+        { namespace : String
+        , action    : String
+        , target    : String
+        , reason    : String
+        }
     | AlreadyExists Path
     | Unsupported String
     | CommandFailed { command : String, exitCode : ExitCode, stderr : String }

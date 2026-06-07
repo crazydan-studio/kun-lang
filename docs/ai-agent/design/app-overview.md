@@ -118,7 +118,7 @@ run"<command>" []                          // 无参数
 
 ### 权限异常报告
 
-当脚本尝试访问未被授权的资源时，Kun 抛出结构化的 `PermissionError`，包含：
+当脚本尝试访问未被授权的资源时，Kun 抛出 `IOError.PermissionDenied`，包含：
 
 - 被拒绝的资源类型和路径
 - 所需能力的名称

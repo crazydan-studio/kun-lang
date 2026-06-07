@@ -86,7 +86,7 @@ readConfig =
 - 能力声明附加在 `do` 块上，与 `do` 在同一缩进层级。
 - 带 `with caps` 的 `do` 块仍然是单个表达式。
 - `with caps` 可以附加到任意嵌套层级的 `do` 块上。
-- 嵌套 `with caps` 时，内层能力集为外层能力集与内层声明的**交集**。交集为空时运行时触发 `PermissionError`。
+- 嵌套 `with caps` 时，内层能力集为外层能力集与内层声明的**交集**。交集为空时运行时触发 `IOError.PermissionDenied`。
 - 每个表达式最多只能有一个 `with caps`（多个出现为编译期错误）。
 
 ### 能力声明 = 权限契约
@@ -301,7 +301,7 @@ IO 操作 → 路径规范化（Path 类型解析 .. 和相对路径，确保能
           │     ├── YES → 允许，记录审计日志（result: "allowed"）
           │     │
           │     └── NO  → 记录审计日志（result: "denied"），
-          │                抛出 PermissionError（含修改建议）
+          │                抛出 IOError.PermissionDenied（含修改建议）
 ```
 
 路径规范化步骤确保：`p"/etc/../var/log/messages"` 在能力检查前被规范化为 `/var/log/messages`，防止路径穿越绕过能力检查。`Path` 类型的规范化在能力检查路径中**总是**发生——既在脚本级 `with caps` 声明解析时，也在运行时 IO 原语的 `capability_check` 调用前。
@@ -518,32 +518,33 @@ kun --cap-log deploy.kun
 
 ## 权限异常报告
 
-当脚本尝试访问未被授权的能力时，抛出结构化的 `PermissionError`。
+当脚本尝试访问未被授权的能力时，运行时表现为 `IOError.PermissionDenied` 变体：
 
-### PermissionError 结构
-
-| 字段 | 说明 |
-|------|------|
-| `resource_type` | 请求的资源类型（文件、网络、环境变量等） |
-| `resource_path` | 具体的资源标识（文件路径、URL、变量名等） |
-| `required_capability` | 所需的能力（格式：`namespace.action`） |
-| `source_location` | 触发异常的源码位置（文件名、行号、列号） |
-| `reason` | 权限被拒绝的原因 |
-| `suggestion` | 针对性的修改建议，包含精确的 `with caps` 语法模板 |
+```kun
+type IOError
+  = PermissionDenied
+      { namespace : String    // 能力命名空间：fs / net / process / env
+      , action    : String    // 能力动作：read / write / run / http
+      , target    : String    // 被拒绝访问的资源标识
+      , reason    : String    // 拒绝原因说明
+      }
+  | ...   // 其他 IOError 变体
+```
 
 ### 异常报告示例
 
+输出格式统一使用运行时标准模板（含源码位置标注）：
+
 ```
-错误：PermissionError
-
-  尝试访问的资源：文件 /etc/shadow
-  资源类型：文件系统读取
-  所需能力：fs.read /etc/shadow
-  源码位置：deploy.kun:42:5
-  拒绝原因：脚本未声明对路径 "/etc/shadow" 的读取权限
-
-修改建议：
-  在脚本头部添加以下能力声明：
+权限错误 [E002]: 权限不足
+  ┌─ deploy.kun:42:5
+  │
+42 │  readFile p"/etc/shadow"
+  │  ───────┬───────
+  │         ╰── 对文件 /etc/shadow 的读取权限被拒绝
+  │
+  需要能力：fs.read /etc/shadow
+  提示：请在脚本头部添加权限声明
 
     with caps
       fs.read = [p"/etc/shadow"]
@@ -555,16 +556,15 @@ kun --cap-log deploy.kun
 ```
 
 ```
-错误：PermissionError
-
-  尝试访问的资源：https://api.example.com/data
-  资源类型：网络请求
-  所需能力：net.http api.example.com
-  源码位置：fetch.kun:8:3
-  拒绝原因：脚本未声明任何网络访问权限
-
-修改建议：
-  在脚本头部添加以下能力声明：
+权限错误 [E002]: 权限不足
+  ┌─ fetch.kun:8:3
+  │
+ 8  │  fetch "https://api.example.com/data"
+  │  ───────────────┬───────────────
+  │                 ╰── 对 https://api.example.com/data 的网络请求被拒绝
+  │
+  需要能力：net.http api.example.com
+  提示：请在脚本头部添加权限声明
 
     with caps
       net.http = ["api.example.com"]
@@ -576,16 +576,15 @@ kun --cap-log deploy.kun
 ```
 
 ```
-错误：PermissionError
-
-  尝试访问的资源：环境变量 HOME
-  资源类型：环境变量读取
-  所需能力：env.read HOME
-  源码位置：utils.kun:15:12
-  拒绝原因：脚本未声明任何环境变量访问权限
-
-修改建议：
-  在脚本头部添加以下能力声明：
+权限错误 [E002]: 权限不足
+  ┌─ utils.kun:15:12
+  │
+15 │  env "HOME"
+  │  ─────┬─────
+  │       ╰── 对环境变量 HOME 的读取权限被拒绝
+  │
+  需要能力：env.read HOME
+  提示：请在脚本头部添加权限声明
 
     with caps
       env.read = ["HOME"]

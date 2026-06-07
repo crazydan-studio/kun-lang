@@ -1152,7 +1152,7 @@ readConfig =
 ```kun
 main =
   do
-    readFile Path.cwd   // 若未声明 fs.read → 运行时 PermissionError
+    readFile Path.cwd   // 若未声明 fs.read → 运行时 IOError.PermissionDenied
 ```
 
 ## Stream
