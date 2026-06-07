@@ -374,7 +374,7 @@ Kun 脚本中的命令调用
 
 **分层说明**：
 1. **Primitive（内建）** — 核心命令（ls、cp、grep 等）编译在运行时二进制中，直接 Zig 函数调用，不走子进程。不存在"系统命令"概念，完全由 Kun 运行时接管
-2. **`.cmd.kun` 命令** — 有 `.cmd.kun` 描述文件的命令，通过 `InternalCommand` 封装执行。加载子程序优先尝试 dlopen C ABI 调用；若二进制不含 C ABI 入口，降级为 fork-exec 子进程
+2. **`.cmd.kun` 命令** — 有 `.cmd.kun` 描述文件的命令，通过 `InternalCommand` 封装执行。MVP 使用 fork-exec 子进程 + 管道捕获 stdout/stderr（如 `command-function-system.md` 所述）。dlopen C ABI 调用作为**未来优化目标**（0.2+），需要运行时嵌入适配器编译能力
 3. **`run""`** — 无 `.cmd.kun` 的命令兜底入口，受 `process.run` 白名单控制，最基本沙箱保护
 
 无论 Primitive 还是 `.cmd.kun` 命令，均按从最佳方案到保底方案逐级应用安全控制（capability_check → seccomp → Landlock → Namespace）。安全控制层层叠加而非互斥。
@@ -387,11 +387,13 @@ Kun 脚本中的命令调用
 命令加载器按以下优先级查找命令：
 
 1. **内置命令**：运行时预置的核心命令（ls、cat、grep 等），编译在运行时二进制中
-2. **`.cmd.kun` 命令**：有 `.cmd.kun` 描述文件的命令，优先尝试 dlopen，失败时 fork-exec
+2. **`.cmd.kun` 命令**：有 `.cmd.kun` 描述文件的命令。MVP 走 fork-exec 子进程；规划中的 dlopen C ABI 调用为 0.2+ 优化
 3. **`run""`**：无 `.cmd.kun` 的命令通过 `process.run` 白名单控制，兜底执行
 命令查找路径：内置表 → `.cmd.kun` 缓存 → PATH 环境变量搜索
 
-### C ABI 函数签名约定
+### C ABI 函数签名约定（未来优化：0.2+）
+
+> 本章节描述了 dlopen 直接调用模式下的 C ABI 约定。MVP 版本全部走 fork-exec 子进程，本章节为**未来 AOT 优化目标**（通过 Zig 内置编译能力生成适配 .so），当前不做实现。
 
 命令的 C ABI 入口函数遵循以下签名约定：
 

@@ -431,36 +431,7 @@ Kun 类型系统**不包含子类型关系**：
 - Record 无宽度子类型化和深度子类型化
 - 函数类型无逆变/协变
 
-### 行多态（Row Polymorphism）
-
-Kun 通过**行多态**实现 Record 类型的泛化，允许函数接受"至少包含某些字段"的 Record。行多态不是子类型——它是参数化多态在 Record 字段上的应用。
-
-#### 基本语法
-
-```kun
-getName : { a | name : String } -> String
-getName = \{ name } ->
-  name
-
-// 调用：接受任何包含 name: String 的 Record
-getName { name = "Kun" }                    // → "Kun"
-getName { name = "Kun", version = "0.1" }   // → "Kun"
-```
-
-`{ a | name : String }` 读作"一个 Record 类型，包含 `name : String` 字段，剩余字段的类型变量为 `a`"。
-
-#### 与无子类型原则的关系
-
-| 维度 | 子类型 | 行多态 |
-|------|--------|--------|
-| 机制 | 隐式向上转型 | 类型变量替换 |
-| 安全性 | 协变/逆变问题 | 类型安全，无变体问题 |
-| 推断 | 需单独的子类型约束求解 | 标准合一扩展 |
-| 运行时 | 可能需要类型擦除/装箱 | 零开销 |
-
-行多态通过类型变量在调用点被具体类型替换，是编译期的精确匹配——而非隐式向上转型。因此行多态不与"无子类型"原则冲突。
-
-#### 扩展积类型
+### 扩展积类型（Extensible Records）
 
 基于已有 Record 类型声明扩展类型，编译期展开为完整字段：
 
@@ -475,16 +446,48 @@ type GitCommitOptions =
 ```
 
 约束：
-- 基类型必须是有名 Record 类型（`type T = { ... }`），不可为行变量
+- 基类型必须是有名 Record 类型（`type T = { ... }`）
 - 字段名冲突时扩展字段覆盖基类型字段
 - 不支持多继承
+- 扩展积类型仅用于类型定义，不可用于行变量（无 `{ a | name : String }` 语法）
 
-#### 与 Record 更新的交互
+#### Record 类型与函数
 
-行多态保证输入 Record 的剩余字段类型不变地传递到输出：
+函数接受 Record 参数时，必须使用精确的 Record 类型（不支持"只要包含某些字段"的泛化）：
 
 ```kun
-updateName : { a | name : String } -> { a | name : String }
+getName : { name : String } -> String
+getName = \{ name } ->
+  name
+
+// 需要精确匹配
+getName { name = "Kun" }                    // → "Kun"
+// getName { name = "Kun", version = "0.1" }  // ❌ 编译错误：类型不匹配
+```
+
+如需在函数间传递包含额外字段的 Record，使用扩展积类型预先定义：
+
+```kun
+type Base = { name : String }
+type NamedWithVersion = { Base | version : String }
+
+getName : Base -> String
+getName = \{ name } -> name
+
+process : NamedWithVersion -> String
+process = \r ->
+  let
+    name = getName r   // ✅ OK：Base 在 NamedWithVersion 中完整包含
+  in
+    f"{name} v{r.version}"
+```
+
+#### Record 更新
+
+Record 更新要求操作数具有精确已知的 Record 类型：
+
+```kun
+updateName : { name : String } -> { name : String }
 updateName = \r ->
   { r | name = "new name" }
 ```
@@ -529,12 +532,12 @@ updateName = \r ->
 | 模式匹配 | 穷举性检查，分支类型合一 |
 | If 表达式 | 条件必须为 `Bool`，分支类型合一 |
 | Record 字面量 | `τ = { f1: τ1, f2: τ2, ... }`，提取字段类型 |
-| 字段访问 `.name` | `τ_record = { name: τ_res \| a }`，引入行变量 |
-| Record 更新 `{ r \| f = v }` | `τ_input = { f: τ_val \| a }` 且 `τ_output = { f: τ_val \| a }`，行变量贯穿 |
+| 字段访问 `.name` | `τ_record` 必须包含 `name` 字段，`τ_res` 为该字段类型 |
+| Record 更新 `{ r \| f = v }` | `τ_input` 与 `τ_output` 结构相同，仅字段 `f` 类型为 `τ_val` |
 
 ### 阶段 2: 合一
 
-标准 Martelli-Montanari 合一算法，扩展支持**行合一**（row unification）：
+标准 Martelli-Montanari 合一算法：
 
 1. 从约束集中取一条等式 `τ₁ = τ₂`
 2. 应用当前替换到 `τ₁` 和 `τ₂`
@@ -543,24 +546,7 @@ updateName = \r ->
 5. 成功 → 将新替换加入到全局替换
 6. 重复直到约束集为空
 
-行合一是标准合一的扩展，处理 Record 类型与行变量的合一：
-
-```kun
-// 调用 getName : { a | name : String } -> String
-getName { name = "Kun", version = "0.1" }
-
-// 生成约束：{ a | name : String } = { name : String, version : String }
-// 行合一后：a = { version : String }
-```
-
-行合一的核心规则：
-
-| 左侧类型 | 右侧类型 | 合一结果 |
-|---------|---------|---------|
-| `{ f: τ_f \| a }` | `{ f: τ_f, g: τ_g \| b }` | `a = { g: τ_g \| b }`（提取匹配字段，剩余归入行变量） |
-| `{ f: τ_1 \| a }` | `{ f: τ_2 \| b }` | 先合一 `τ_1 = τ_2`，再合一 `a = b` |
-| `{ \| a }`（空） | 任意 Record | `a =` 该 Record 类型 |
-| `{ \| a }` | `{ \| b }` | `a = b` |
+Record 类型的合一是结构化的：两个 Record 类型当且仅当字段名集合相同且对应字段类型可合一时才可合一。扩展积类型在参与合一前已编译期展开为完整字段集。
 
 ### 类型错误报告
 
@@ -633,7 +619,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 | 版本 | 变更 |
 |------|------|
-| 0.3.0 | 行多态：行变量、行合一、`{ a \| name : String }` 语法、扩展积类型 `{ Base \| field : T }` |
+| 0.2.1 | 扩展积类型 `{ Base \| field : T }`，移除行变量（`{ a \| name : String }`）以降低类型检查器实现复杂度 |
 | 0.2.0 | Nilable 类型 `?T` 替代 `Maybe`，新增 `?.` 可选链和 `??` Nil 合并操作符 |
 | 0.1.0 | MVP 基础类型 + `Maybe`/`Result` + HM 推断 + 简单参数化多态 + `IO` 效应标记 |
 
