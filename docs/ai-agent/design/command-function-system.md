@@ -293,7 +293,7 @@ log = \{ maxCount, branch } ->
   │
   ├── 解构 {runAs, env, stdin, stdout, stderr, fd, ..opts} = cmdOpts
   │     ├── 用户选项 opts → 传给原始命令函数
-  │     └── 隐式字段 cmdOpts → 传给 InternalCommand.run
+  │     └── 隐式字段 → 构造 InternalRunOpts → 传给 InternalCommand.run
   │
   ▼
 原始命令函数使用 opts 构造 Command
@@ -388,26 +388,29 @@ log = \cmdOpts ->
 2. **`Command` 模块导出控制**：`InternalCommand` 虽然列在 `module Command export` 中，但编译器为 `.cmd.kun` 生成的有限导入列表中不包含此符号。`InternalCommand` 的导出仅对编译器生成的封装代码可见
 3. **编译器生成的封装代码**：是**编译期产物**，不经过 `.cmd.kun` 的导入检查。编译器处理 `.cmd.kun` 时根据函数返回类型中的 `Command Stream a` 或 `Command Document a`（幻影类型标记）自动选择对应的行流/文档处理路径
 
-`run_` 负责安全检查 + fork-exec，返回原始 stdout 流。编译器根据幻影类型在封装代码中组合 `run_` 与解析逻辑：
+编译器封装代码在执行安全层前，将用户传入的完整选项 Record 解构为**隐式字段**（`runAs`/`env`/`stdin`/`stdout`/`stderr`/`fd`）和**用户选项**两部分。`InternalCommand` 的运行时入口只接收隐式字段（使用具体类型 `InternalRunOpts`），不依赖行多态：
 
 ```kun
+// 隐式字段的具体类型，无需行变量
+type InternalRunOpts =
+  { runAs : ?RunAs
+  , env : ?(Map String String)
+  , stdin : ?OrPath
+  , stdout : ?OrPath
+  , stderr : ?OrStdioMode
+  , fd : ?(Map Int FdSpec)
+  }
+
 // 内部安全检查与执行（返回原始 stdout 流）
 // 幻影类型 mode 使 run_ 对所有模式通用
 run_ :
   String
-  -> { o
-      | runAs : ?RunAs
-      , env : ?(Map String String)
-      , stdin : ?OrPath
-      , stdout : ?OrPath
-      , stderr : ?OrStdioMode
-      , fd : ?(Map Int FdSpec)
-    }
+  -> InternalRunOpts
   -> Command mode a
   -> IO (Result (Stream String) IOError)
 run_ = \bin opts cmd ->
   // 1. 强制覆盖隐式字段（防止命令函数内部设置恶意值）
-  //    opts 中的值来自调用方，命令函数内部分配的值被丢弃
+  //    opts 中的值来自封装代码解构后传入，仅含隐式字段
   let
     newCmd =
       { cmd
@@ -424,33 +427,37 @@ run_ = \bin opts cmd ->
     // 7. fork-exec → 返回原始 stdout Stream String
 ```
 
-编译器在封装代码中根据用户签名中的幻影类型选择调用 `InternalCommand.run1`（行流）或 `InternalCommand.run2`（文档）：
+编译器封装代码在调用前将完整 Record 解构，仅传递隐式字段给 `InternalCommand`：
 
 ```kun
 // 行流模式：命令签名含 Command Stream a
-// → InternalCommand.run1（逐行解析）
+// → 封装代码解构后调用 run1
 log = \cmdOpts ->
   let
-    { runAs, env, ..opts } = cmdOpts
+    { runAs, env, stdin, stdout, stderr, fd, ..opts } = cmdOpts
   in
     log_ opts
-      |> InternalCommand.run1 cmd_bin cmdOpts
+      |> InternalCommand.run1 cmd_bin
+        { runAs = runAs, env = env, stdin = stdin
+        , stdout = stdout, stderr = stderr, fd = fd }
 
 // 文档模式：命令签名含 Command Document a
-// → InternalCommand.run2（完整收集后一次解析）
+// → 封装代码解构后调用 run2
 remote_add = \cmdOpts ->
   let
-    { runAs, env, ..opts } = cmdOpts
+    { runAs, env, stdin, stdout, stderr, fd, ..opts } = cmdOpts
   in
     remote_add_ opts
-      |> InternalCommand.run2 cmd_bin cmdOpts
+      |> InternalCommand.run2 cmd_bin
+        { runAs = runAs, env = env, stdin = stdin
+        , stdout = stdout, stderr = stderr, fd = fd }
 ```
 
-`InternalCommand.run1`/`run2` 封装了 `run_` + 输出解析的逻辑复用（幻影类型保证编译期模式正确性，无需运行时类型检查）：
+`InternalCommand.run1`/`run2` 接受 `InternalRunOpts` 并转发给 `run_`：
 
 ```kun
 // 行流路径：run_ → 逐行解析 → Stream (Result a String)
-run1 : String -> { o | ... } -> Command Stream a
+run1 : String -> InternalRunOpts -> Command Stream a
    -> IO (Result (Stream (Result a String)) IOError)
 run1 = \bin opts cmd ->
   run_ bin opts cmd
@@ -461,7 +468,7 @@ run1 = \bin opts cmd ->
     )
 
 // 文档路径：run_ → 完整收集 → 一次解析 → Result a
-run2 : String -> { o | ... } -> Command Document a
+run2 : String -> InternalRunOpts -> Command Document a
    -> IO (Result a IOError)
 run2 = \bin opts cmd ->
   run_ bin opts cmd
