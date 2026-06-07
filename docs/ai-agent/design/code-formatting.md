@@ -176,7 +176,7 @@ result =
 ```kun
 parseLine = \line ->
   let
-    parts = split "|" line
+    parts = String.split "|" line
   in
     if length parts < 4 then
       Err UnknownFormat
@@ -240,7 +240,7 @@ readConfig : Path -> IO (Result Config Error)
 readConfig = \path ->
   do
     content <- readFile path
-    lines  = split "\n" content
+    lines  = String.split "\n" content
     minLvl =! parseLevel "INFO"
   in
     Ok (createDefaultConfig logDir)
@@ -460,7 +460,7 @@ readConfig : Path -> IO (Result Config Error)
 readConfig = \path ->
   do
     content <- readFile path
-    lines   = split "\n" content
+    lines   = String.split "\n" content
     logDir  = p"/var/log/myapp"
     minLvl  =! parseLevel "INFO"
   in

@@ -77,7 +77,7 @@ parseLevel = \s ->
 parseLine : String -> Result LogEntry ProcessError
 parseLine = \line ->
   let
-    parts = split "|" line
+    parts = String.split "|" line
   in
     if length parts < 4 then
       Err UnknownFormat
@@ -156,7 +156,7 @@ readConfig : Path -> IO (Result Config ProcessError)
 readConfig = \path ->
   do
     content <- readFile path       // <- 从 IO 中解包
-    lines  = split "\n" content    // 纯函数解析
+    lines  = String.split "\n" content    // 纯函数解析
     logDir = p"/var/log/myapp"
     // =! 解包 Result，Err 自动传播
     minLvl =! parseLevel (L.head lines |> maybe "INFO" identity)
@@ -247,7 +247,7 @@ main =
 
     // 读取文件
     content <- readFile logPath
-    lines = split "\n" content
+    lines = String.split "\n" content
 
     // 解析并过滤
     parsed = lines |> L.filterMap parseLine

@@ -228,7 +228,7 @@ main : IO Unit
 main =
   do
     // 构造 SocketAddr（IpAddress.parse 返回 Result IpAddress String）
-    addr = Tcp (IpAddress.parse "10.0.1.5" |> unwrapOr panic) (Port.fromInt 8080)
+    addr = Tcp (IpAddress.parse "10.0.1.5" |> Result.withDefault panic) (Port.fromInt 8080)
 
     printTimestamp
     status <- checkService addr

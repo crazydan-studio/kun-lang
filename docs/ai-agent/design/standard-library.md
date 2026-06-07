@@ -192,7 +192,7 @@ default : Signal -> IO Unit                          // 恢复默认行为
     do
       entries <-! walkDir { root = p"/var/log" }
       entries
-        |> filter (\e -> toString e.path |> endsWith ".log")
+        |> filter (\e -> toString e.path |> String.endsWith ".log")
         |> filter (\e -> e.fileType == RegularFile)
         |> toList
   ```
@@ -253,6 +253,35 @@ default : Signal -> IO Unit                          // 恢复默认行为
 - 预定义常量：`ExitCode.success`（0）、`ExitCode.generalError`（1）、`ExitCode.commandNotFound`（127）
 - 脚本退出码：`main : IO Unit` 隐式返回 `ExitCode.success`（0），`main : IO ExitCode` 允许脚本自定义退出码。未处理的 `Err` 传播到顶层时自动以 `ExitCode.generalError`（1）退出
 - 语义场景：命令执行结果判断、进程退出值传递、管道错误传播、脚本自定义退出码
+
+### `Path`
+
+- 文件系统路径类型，运行时表示为 `[]u8`（UTF-8 路径切片）
+- 内置类型，无需 `import Path` 即可在类型标注中使用，但 `Path` 模块中的函数需导入：
+
+```kun
+import Path
+```
+
+- 常量和函数：
+
+| 名称 | 类型 | 说明 |
+|------|------|------|
+| `cwd` | `Path` | 当前工作目录，脚本启动时冻结 |
+| `parent` | `Path -> Path` | 父目录路径 |
+| `fileName` | `Path -> String` | 文件名（含扩展名） |
+| `extension` | `Path -> String` | 文件扩展名 |
+| `join` | `Path -> String -> Path` | 拼接路径段 |
+
+```kun
+Path.cwd                                          // 当前目录
+Path.parent p"/tmp/foo/bar.txt"                   // → p"/tmp/foo"
+Path.fileName p"/tmp/foo/bar.txt"                 // → "bar.txt"
+Path.extension p"/tmp/foo/bar.txt"                // → ".txt"
+Path.join Path.cwd "subdir"                       // → p"<cwd>/subdir"
+```
+
+- 语义场景：文件操作路径管理、路径段拼接、父目录定位、文件扩展名提取
 
 ### `Uid` / `Gid`
 

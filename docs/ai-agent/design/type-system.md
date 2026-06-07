@@ -291,7 +291,7 @@ if x /= Nil then
 #### `String`
 
 - 不可变 UTF-8 编码文本
-- 支持操作：`++` (拼接), `length`, `slice`, `contains`, `startsWith`, `endsWith`, `split`, `join`, `trim`, `toUpper`, `toLower`, `replace`
+- 支持操作（通过 `String` 模块调用）：`++` (拼接), `length`, `slice`, `contains`, `startsWith`, `endsWith`, `split`, `join`, `trim`, `toUpper`, `toLower`, `replace`
 - 索引访问：`str[i]` 返回 `Char`
 - 使用双引号 `"..."`，支持转义序列；多行字符串用 `"""` 包裹
 - 插值字符串使用 `f"..."` 前缀
