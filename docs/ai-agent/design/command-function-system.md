@@ -588,34 +588,7 @@ seccomp-BPF 过滤规则由命令的 Builder 调用链自动推导：
 
 ### `walkDir` 设计
 
-```kun
-type DirEntry =
-  { path : Path
-  , fileType : FileType
-  , size : Int
-  , mtime : DateTime
-  }
-
-walkDir :
-  { root : Path
-  , depth : ?Int
-  , followSymlinks : Bool
-  , runAs : ?RunAs
-  }
-  -> IO (Result (Stream DirEntry) IOError)
-```
-
-过滤在外部通过 `filter` 完成：
-
-```kun
-main =
-  do
-    entries <-! walkDir { root = p"/var/log" }
-    entries
-      |> filter (\e -> toString e.path |> endsWith ".log")
-      |> filter (\e -> e.fileType == RegularFile)
-      |> toList
-```
+`walkDir` 的完整类型签名及使用示例见 [标准库设计](../design/standard-library.md#direntry)（`DirEntry` / `walkDir` 为标准库类型与函数，签名结构体现了 Primitive 命令的输出模式）。
 
 ## 自动推导（scaffolding）
 

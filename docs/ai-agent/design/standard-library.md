@@ -207,7 +207,7 @@ default : Signal -> IO Unit                          // 恢复默认行为
     | PermissionDenied Path
     | AlreadyExists Path
     | Unsupported String
-    | CommandFailed { command : String, exitCode : Int, stderr : String }
+    | CommandFailed { command : String, exitCode : ExitCode, stderr : String }
     | Other String
   ```
 
