@@ -11,6 +11,7 @@
 | [codebase-map.md](codebase-map.md) | 代码库地图：入口点与脆弱文件 |
 | [conventions.md](conventions.md) | 项目约定：命名、格式、工作流规范 |
 | [source-of-truth-and-precedence.md](source-of-truth-and-precedence.md) | 真理源定义与文档优先级 |
+| [zig-patterns.md](zig-patterns.md) | Zig 模式指南：Arena、分配器、字符串、错误处理 |
 
 ## 优先级
 

@@ -16,3 +16,5 @@
 | [脚本入口与参数传递](input-entry-point-and-args.md) | 项目维护者 | 2026-05-30 |
 | [语法细节打磨](input-syntax-polish.md) | 项目维护者 | 2026-05-30 |
 | [能力语法与安全模型重新设计](input-capability-syntax-redesign.md) | 项目维护者 | 2026-06-01 |
+| [命令函数系统完整方案](input-command-function-design.md) | 项目维护者 | 2026-06-04 |
+| [语法打磨与全面审计](input-syntax-polish-and-audit.md) | 项目维护者 | 2026-06-07 |

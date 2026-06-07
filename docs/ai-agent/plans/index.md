@@ -20,3 +20,7 @@
 |------|------|------|
 | [类型系统核心设计](plan-type-system-core-design.md) | 类型系统设计 + 标准库 + 语法设计 + 文档同步 | 已完成 |
 | [能力安全系统重新设计](plan-capability-redesign.md) | 能力声明语法、零默认能力、二级粒度、CDF 移除能力 | 已完成（事后补写） |
+| [CDF 能力导向重构](plan-cdf-capability-refactor.md) | CDF 格式重构、能力参数建模、安全层对齐 | 已完成 |
+| [CDF 类型层与架构层修复](plan-cdf-type-and-arch-fixes.md) | CmdResult 定义、错误类型一致、process.exec 移除 | 已完成 |
+| [运行时架构设计](plan-runtime-architecture.md) | 运行时生命周期、执行模型、模块边界 | 已完成 |
+| [语法全面调整](plan-syntax-overhaul.md) | 20 项语法变更、15 个文件同步 | 已完成 |
