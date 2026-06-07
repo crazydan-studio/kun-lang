@@ -19,3 +19,4 @@
 | [第 6 轮最终确认](audit-round6-final-confirmation.md) | 零残留问题确认 | 2026-06-04 |
 | [第 7 轮非核心文档审计](audit-round7-noncore-docs.md) | 非核心文档 + 跨文档引用 | 2026-06-04 |
 | [第 8 轮元问题审计](audit-round8-meta-issues.md) | 元问题（README/版本/标签/索引） | 2026-06-04 |
+| [AGENTS.md 修订闭合审计](audit-agents-md-revision-closure.md) | AGENTS.md 完整性修订及 10 项修复验证 | 2026-06-07 |
