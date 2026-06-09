@@ -57,7 +57,7 @@
 | `Nat` 类型 | `Int` + 运行时范围检查 | 减少类型系统复杂度，移除 `42u` 字面量 |
 | `Stream`（函数指针 `{state, next, destroy}`） | `Stream` 作为 tagged union，将双层间接调用降为单层；`map`/`take` 等纯参数操作可通过 Zig comptime 融合为单循环，`filter` 等闭包操作至少消除了双层间接调用 | 消除闭包链开销，实现简单 |
 | `=!` / `<-!` 早返回 | 命令默认 panic（结构化错误信息），显式错误处理用 `Cmd.<bin>?` 后缀 | 安全默认 vs 类型体操 |
-| `stdin` 关键字 | `Cmd.stdin : String -> Command -> Command` 普通函数 | 减少关键字 |
+| `stdin` 关键字 | `Cmd.withStdin : String -> Command -> Command` 普通函数 | 减少关键字 |
 | `module` / `export` 在可执行脚本中 | 可执行脚本不声明 `module`，直接定义 `main : Unit` | 简化最小脚本的启动摩擦 |
 
 > 注：移除上述组件后，以下现有文档细节也一并失效——`syntax.md:38` 的 `Nat` 字面量 `42u`；`standard-library.md` 中函数签名里的 `IO` 类型标记（`now : IO DateTime`、`sleep : Duration -> IO Unit` 等）改为无 IO 标记的 `Std` 模块签名；`project-vision.md:39` 的 dlopen 实现策略；`code-formatting.md` 文件级声明顺序中的 `with caps` 和 `command` 声明。
@@ -67,10 +67,9 @@
 #### 语法
 
 ```kun
-Cmd.<bin> [#{ envVars }] [{ options }] [posArgs...]
+Cmd.<bin> [{ options }] [posArgs...]
 ```
 
-- `#{ "KEY" = "value" }`（Map String String）→ 子进程环境变量，完全替换继承的白名单
 - `{ field = value }`（Record）→ 命令选项，camelCase 字段名自动映射为 kebab-case flag
 - 其余表达式 → 位置参数，按顺序追加到 argv 末尾
 
@@ -87,83 +86,82 @@ Cmd.<bin> [#{ envVars }] [{ options }] [posArgs...]
 | `{ humanReadable = true }` | `--human-readable` | — |
 | `Bool = false` | 省略不传 | — |
 | `Int` / `String` / `Path` | `--key value` | — |
-
-> 映射规则：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（如 `readonly`、`stdout`、`oneline`）不做连字符拆分，直接映射为 `--readonly`、`--stdout`、`--oneline`。单字符键根据大小写映射为 `-l`（小写）或 `-X`（大写）。
 | `List a` | `--key v1 --key v2`（每个元素一个 flag 重复） | `Cmd.docker.run { publish = ["80:80", "443:443"] }` |
 | `Nil` | 省略不传 | — |
 
-#### 边界场景与 `Cmd.Option.raw`
+> 映射规则：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（如 `readonly`、`stdout`、`oneline`）不做连字符拆分，直接映射为 `--readonly`、`--stdout`、`--oneline`。单字符键根据大小写映射为 `-l`（小写）或 `-X`（大写）。
 
-默认映射覆盖约 95% 的命令选项，余下 5% 不适合 camelCase→kebab-case 的边界。`Cmd.Option.raw` 按原样追加 argv token，不做任何转换：
+#### 边界场景与 `Cmd.withRawOpt`
+
+默认映射覆盖约 95% 的命令选项，余下 5% 不适合 camelCase→kebab-case 的边界。`Cmd.withRawOpt` 按原样追加 argv token，不做任何转换：
 
 ```kun
-Cmd.Option.raw : String -> ?String -> Command -> Command
+Cmd.withRawOpt : String -> ?String -> Command -> Command
 // key:   argv token（原样照搬，不 camelCase 映射）
 // value: Nil → 单个 token（布尔 flag）；String → 两个 token（flag + 值）
 ```
 
 使用场景：
 
-| 场景 | Record 映射不可用的原因 | raw 解决 |
+| 场景 | Record 映射不可用的原因 | 解决 |
 |------|----------------------|-------------|
-| 数字开头 flag（`--2fa`） | Kun 标识符不能以数字开头 | `Cmd.Option.raw "--2fa" Nil` |
-| 非标准命名（`--nocolor`） | camelCase 映射会拆为 `--no-color` | `Cmd.Option.raw "--nocolor" Nil` |
-| 等号连接（`--format=%h`） | 默认空格分隔，某些命令严格要求 `=` | `Cmd.Option.raw "--format" "%h"`（值含 `=`→手动处理）或 `Cmd.Option.raw "--format=%h" Nil` |
-| 含 `=` 的值（`--define=FOO=bar`） | 值本身含 `=`，不能走空格分隔 | `Cmd.Option.raw "--define" "FOO=bar"` |
-| `-Wl,-rpath,/usr/lib` | 单 token 内逗号分隔子选项 | `Cmd.Option.raw "-Wl,-rpath,/usr/lib" Nil` |
-| 老旧命令的非标准语法 | 完全自定义 mapping | 链式追加 raw |
-| `-vvv` 重复 flag（ssh 等） | 无法用 Record 表达重复次数 | `Cmd.Option.raw "-vvv" Nil` |
+| 数字开头 flag（`--2fa`） | Kun 标识符不能以数字开头 | `Cmd.withRawOpt "--2fa" Nil` |
+| 非标准命名（`--nocolor`） | camelCase 映射会拆为 `--no-color` | `Cmd.withRawOpt "--nocolor" Nil` |
+| 等号连接（`--format=%h`） | 默认空格分隔，某些命令严格要求 `=` | `Cmd.withRawOpt "--format" "%h"`（值含 `=`→手动处理）或 `Cmd.withRawOpt "--format=%h" Nil` |
+| 含 `=` 的值（`--define=FOO=bar`） | 值本身含 `=`，不能走空格分隔 | `Cmd.withRawOpt "--define" "FOO=bar"` |
+| `-Wl,-rpath,/usr/lib` | 单 token 内逗号分隔子选项 | `Cmd.withRawOpt "-Wl,-rpath,/usr/lib" Nil` |
+| 老旧命令的非标准语法 | 完全自定义 mapping | 链式追加 `Cmd.withRawOpt` |
+| `-vvv` 重复 flag（ssh 等） | 无法用 Record 表达重复次数 | `Cmd.withRawOpt "-vvv" Nil` |
 
-安全分析：`Cmd.Option.raw` 生成的 token 通过 `exec(binary, argv)` 直接传递——**不经过 Shell**。`;`、`|`、`$(...)` 等 Shell 元字符在 exec 层面是普通字符。key 应为编译期常量，value 可为运行时变量（`Cmd.Option.raw "--output" userPath`）。raw 的 token 在 `--` 分隔符之前（作为选项），位置参数在 `--` 之后——选项与位置参数的边界不被混淆。
+安全分析：`Cmd.withRawOpt` 生成的 token 通过 `exec(binary, argv)` 直接传递——**不经过 Shell**。`;`、`|`、`$(...)` 等 Shell 元字符在 exec 层面是普通字符。key 应为编译期常量，value 可为运行时变量（`Cmd.withRawOpt "--output" userPath`）。withRawOpt 的 token 在 `--` 分隔符之前（作为选项），位置参数在 `--` 之后——选项与位置参数的边界不被混淆。
 
 argv 生成顺序：
 
 ```
-Record 选项 → raw 追加 → -- 分隔符 → 位置参数
+Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 ```
 
 完整示例：
 
 ```kun
-// gcc 编译：Record 自动映射 + raw 兜底
-// args: options → raw 追加 → -- 分隔符 → 位置参数
-// positiona args 必须在 options 之后，|> 链只影响 Command 修饰
+// gcc 编译：Record 自动映射 + Cmd.withRawOpt 兜底
 Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp" "util.cpp"
-  |> Cmd.Option.raw "-D" "FOO=bar"            // raw: -D FOO=bar
-  |> Cmd.Option.raw "-I" "/usr/local/include"  // raw: -I /usr/local/include
+  |> Cmd.withRawOpt "-D" "FOO=bar"
+  |> Cmd.withRawOpt "-I" "/usr/local/include"
 // → g++ -Wall -o a.out -D FOO=bar -I /usr/local/include -- main.cpp util.cpp
 
 // 非标准命名命令
 Cmd["oldtool"] {}
-  |> Cmd.Option.raw "--nocolor" Nil
-  |> Cmd.Option.raw "--2fa" Nil
+  |> Cmd.withRawOpt "--nocolor" Nil
+  |> Cmd.withRawOpt "--2fa" Nil
 // → oldtool --nocolor --2fa
 
 // git log 的 --format 接受空格和等号两种形式
 Cmd.git.log { maxCount = 10 }
-  |> Cmd.Option.raw "--format" "%h %s"
+  |> Cmd.withRawOpt "--format" "%h %s"
 // → git log --max-count 10 --format "%h %s"（空格分隔，双 token）
 
 // 若特定命令严格拒绝空格、仅接受 =，使用单 token 形式：
 Cmd.git.log { maxCount = 10 }
-  |> Cmd.Option.raw "--format=%h %s" Nil
+  |> Cmd.withRawOpt "--format=%h %s" Nil
 // → git log --max-count 10 "--format=%h %s"（等号，单 token）
 ```
 
 #### 环境变量
 
+缺省子进程继承干净白名单（`PATH`、`HOME`、`USER`、`TERM`、`LANG`、`PWD`、`SHELL`、`TZ`）。通过 `Cmd.withEnv` 修饰 Command 逐命令覆盖，与 `Cmd.withStdin` / `Cmd.withRawOpt` 保持一致的链式风格：
+
 ```kun
-// 缺省：干净白名单（PATH/HOME/USER/TERM/LANG/PWD/SHELL/TZ）
+// 缺省：干净白名单
 Cmd.ls { long = true }
 
-// 逐命令覆盖
-Cmd.node
-  #{ "NODE_ENV" = "production" }
-  { maxOldSpaceSize = 4096 }
-  "server.js"
+// 逐命令覆盖——完全替换继承的白名单
+Cmd.node { maxOldSpaceSize = 4096 } "server.js"
+  |> Cmd.withEnv #{ "NODE_ENV" = "production" }
 
-// 极端安全：空环境
-Cmd.untrusted_tool #{ } {}
+// 空环境
+Cmd.untrusted_tool {}
+  |> Cmd.withEnv #{ }
 
 // CLI 全局策略：
 //   kun --env=inherit  → 完全继承
@@ -180,7 +178,7 @@ Cmd.git.commit { m = "Init" }
 Cmd.docker.container.ls { all = true }
 ```
 
-`Cmd.git.log` 中的 `.` 链："docker.container.ls" 作为一个整体——运行时在 PATH 中搜索 `docker`，然后传递子命令 `container` `ls` 作为 argv 前置参数：`exec("docker", ["container", "ls", "--all"])`。
+`Cmd.<bin>` 的 `.` 链将后续段作为子命令逐级展开为 argv 的前置参数——运行时在 PATH 中搜索主命令二进制，其余段按序追加。例如 `Cmd.docker.container.ls { all = true }` → `exec("docker", ["container", "ls", "--all"])`。
 
 #### 特殊字符命令名的兜底语法
 
@@ -219,12 +217,17 @@ log 返回 Command
 
 ```kun
 // ~/.kun/cmd/Git.kun
-module Cmd.Git export (log, LogOptions, parseCommitEntry)
+module Cmd.Git export
+  ( log
+  , LogOptions
+  , parseCommitEntry
+  )
 
 type LogOptions = { maxCount : ?Int, oneline : Bool }
 
 log : LogOptions -> Command
-log = \opts -> Cmd.git.log opts      // 内部调用裸命令，类型安全
+log = \opts ->
+  Cmd.git.log opts      // 内部调用裸命令，类型安全
 
 // 可选：输出解析器（纯函数，无 IO）
 parseCommitEntry : String -> Result CommitEntry String
@@ -287,7 +290,7 @@ Cmd.pipe?
     case r1 of
       Ok data ->
         Cmd.grep { pattern = "y" }
-          |> Cmd.stdin (Stream.string data)
+          |> Cmd.withStdin (Stream.string data)
       Err e   -> // 处理 cat 失败
   ```
 
@@ -327,40 +330,43 @@ Cmd.pipe
   |> Stream.lines
   |> Stream.toList
 
-// 回 OS 管道：显式 Cmd.stdin 函数
+// 回 OS 管道：显式 Cmd.withStdin 函数
 fileList =
   Cmd.find {}
     |> Stream.string
 
 Cmd.tar { c = true, f = "archive.tar" }
-  |> Cmd.stdin fileList
+  |> Cmd.withStdin fileList
 ```
 
-`Cmd.stdin` 为 `Command` 注入 stdin 输入。它是**编译器内置函数**（非普通 Kun 函数，不支持重载），编译器在调用点根据第一个参数的具体类型生成对应代码：
+`Cmd.withStdin` 为 `Command` 注入 stdin 输入。它是**编译器内置函数**（非普通 Kun 函数，不支持重载），编译器在调用点根据第一个参数的具体类型生成对应代码：
 
 ```kun
 // 字符串 stdin — 内容完整读入内存后一次写入子进程 stdin pipe
-Cmd.stdin : String -> Command -> Command
+Cmd.withStdin : String -> Command -> Command
 
 // 流式 stdin — 逐 chunk 从 Stream 拉取并写入子进程 stdin pipe，内存友好
-Cmd.stdin : Stream Bytes -> Command -> Command
+Cmd.withStdin : Stream Bytes -> Command -> Command
 ```
 
-标准用法——`Cmd.stdin` 与 `|>` 链组合：
+标准用法——`Cmd.withStdin` 与 `|>` 链组合：
 
 ```kun
 do
   // 字符串 stdin（小数据量）
   Cmd.mysql { u = "root" }
-    |> Cmd.stdin """
+    |> Cmd.withStdin """
       CREATE DATABASE mydb;
       GRANT ALL ON mydb.* TO 'user'@'localhost';
       """
 
   // 流式 stdin（大文件——从磁盘惰性读取，逐 chunk 写入 psql）
   fileStream = File.readBytes p"/var/backups/dump.sql.gz"
-  Cmd.pipe [Cmd.gunzip {}, Cmd.psql { d = "mydb" }]
-    |> Cmd.stdin fileStream
+  Cmd.pipe
+    [ Cmd.gunzip {}
+    , Cmd.psql { d = "mydb" }
+    ]
+    |> Cmd.withStdin fileStream
 
   // 流式 stdin（来自管道——上一命令的 stdout 直接作为下一命令的 stdin）
   Cmd.pipe
@@ -369,20 +375,31 @@ do
     ]
 ```
 
-流式 stdin 的行为：`Cmd.stdin` 接收 `Stream Bytes` 后，在 Command 执行时，逐 chunk 从 Stream 拉取字节并写入子进程的 stdin pipe，写入完成后关闭写端（子进程收到 EOF）。若子进程提前退出（EPIPE），关闭 stdin 写入并正常收集退出码。
+流式 stdin 的行为：`Cmd.withStdin` 接收 `Stream Bytes` 后，在 Command 执行时，逐 chunk 从 Stream 拉取字节并写入子进程的 stdin pipe，写入完成后关闭写端（子进程收到 EOF）。若子进程提前退出（EPIPE），关闭 stdin 写入并正常收集退出码。当 `Cmd.withStdin` 修饰 `Cmd.pipe` 管道链时，stdin 写入链中**第一个命令**的子进程。
+
+`Cmd.withEnv` 作用于 `Cmd.pipe` 管道链时，环境变量传播至链中**所有命令**（共享执行上下文）。如需逐命令差异化环境，在各自 Command 上单独修饰：
+
+```kun
+Cmd.pipe
+  [ Cmd.cmd1 {}
+      |> Cmd.withEnv #{ "A" = "1" }
+  , Cmd.cmd2 {}
+      |> Cmd.withEnv #{ "B" = "2" }
+  ]
+```
 
 `Cmd.mergeStderr : Command -> Command` 将子进程的 stderr 合并到 stdout pipe 中——等价于 Bash 的 `2>&1`。典型场景：日志聚合脚本中同时捕获正常输出和错误输出进行统一过滤。
 
 #### `Command` 类型
 
-`Command` 是 Kun 编译器内置的 opaque 类型——Command 值携带子进程执行所需的全部信息（二进制名、子命令、环境变量、选项、位置参数、stdin、stderr 行为），仅由 `Cmd.<bin>` 构造并经由 `Cmd.Option.raw` / `Cmd.stdin` / `Cmd.mergeStderr` 等函数修饰。Command 值不可直接读写字段。
+`Command` 是 Kun 编译器内置的 opaque 类型——Command 值携带子进程执行所需的全部信息（二进制名、子命令、环境变量、选项、位置参数、stdin、stderr 行为），仅由 `Cmd.<bin>` 构造并经由 `Cmd.withEnv` / `Cmd.withRawOpt` / `Cmd.withStdin` / `Cmd.mergeStderr` 等函数修饰。
 
 ```kun
 // Cmd.<bin> — 构造 Command 值（不立即执行）
-Cmd.<bin> : #{ envVars }? -> { options }? -> posArgs... -> Command
+Cmd.<bin> : { options }? -> posArgs... -> Command
 
 // Cmd.<bin>? — 构造并立即执行，返回 Result
-Cmd.<bin>? : #{ envVars }? -> { options }? -> posArgs... -> Result (Stream String) CommandError
+Cmd.<bin>? : { options }? -> posArgs... -> Result (Stream String) CommandError
 
 // Cmd.pipe — 构造 OS 管道链的复合 Command
 Cmd.pipe : List Command -> Command
@@ -390,13 +407,16 @@ Cmd.pipe : List Command -> Command
 // Cmd.pipe? — 构造并立即执行管道链，返回 Result
 Cmd.pipe? : List Command -> Result (Stream String) CommandError
 
-// Cmd.Option.raw — 追加原始 argv token（修饰 Command，不执行）
-Cmd.Option.raw : String -> ?String -> Command -> Command
+// Cmd.withEnv — 设置子进程环境变量（修饰 Command，不执行）
+Cmd.withEnv : Map String String -> Command -> Command
 
-// Cmd.stdin — 注入 stdin（编译器内置，根据实参类型分发）
-//   字符串模式: Cmd.stdin : String -> Command -> Command
-//   流式模式:   Cmd.stdin : Stream Bytes -> Command -> Command
-Cmd.stdin : <builtin>
+// Cmd.withRawOpt — 追加原始 argv token（修饰 Command，不执行）
+Cmd.withRawOpt : String -> ?String -> Command -> Command
+
+// Cmd.withStdin — 注入 stdin（编译器内置，根据实参类型分发）
+//   字符串模式: Cmd.withStdin : String -> Command -> Command
+//   流式模式:   Cmd.withStdin : Stream Bytes -> Command -> Command
+Cmd.withStdin : <builtin>
 
 // Cmd.mergeStderr — 合并 stderr 到 stdout（修饰 Command，不执行）
 // 仅作用于单个 Command；Cmd.pipe 链中对中间命令使用时，该命令的 stderr 合并到其 stdout，流向管道下一级
@@ -420,13 +440,13 @@ Command 执行的契约:
   动作:   fork → chdir 到逻辑 CWD（子进程内） → setrlimit → install seccomp → exec → waitpid
   返回:   Stream String（场景①②）或 Result (Stream String) CommandError（场景③）
   argv 序列化:
-    Record 选项 → raw 追加 → -- 分隔符 → 位置参数
+    Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
     -- 在选项 Record 存在且位置参数非空时自动插入
     若选项 Record 不存在（纯位置参数调用），不插入 --
   stdout: 通过 pipe 捕获，返回为 Stream String
   stderr: 见「错误处理」章节 stderr 行为矩阵
   stdin:
-    - 若通过 Cmd.stdin 注入 → 序列化写入子进程 stdin pipe 后关闭写端
+    - 若通过 Cmd.withStdin 注入 → 序列化写入子进程 stdin pipe 后关闭写端
     - 若处于 Cmd.pipe 管道链中 → 来自前一命令的 stdout pipe（stdin fd 直接继承）
     - 否则 → stdin 继承父进程（通常为 /dev/null 或外部管道）
 ```
@@ -486,11 +506,11 @@ do
 
 `File.read` 没有 `File.read?` — 它没有"执行模式"可切换（不存在延迟执行阶段），始终立即执行并返回 `Result`。`Cmd.<bin>?` 的 `?` 控制的是 Command 的**执行模式**（panic vs Result），不是"会不会失败"——这是 `?` 不扩展到同步 syscall 函数的原因。
 
-`Cmd.stdin` 与 Kun 原生多行字符串 `"""..."""` 组合可覆盖 Bash here-document 场景，无需新增语法：
+`Cmd.withStdin` 与 Kun 原生多行字符串 `"""..."""` 组合可覆盖 Bash here-document 场景，无需新增语法：
 
 ```kun
 Cmd.mysql { u = "root" }
-  |> Cmd.stdin """
+  |> Cmd.withStdin """
     CREATE DATABASE mydb;
     GRANT ALL ON mydb.* TO 'user'@'localhost';
     """
@@ -608,7 +628,7 @@ countFiles = \dir ->
   │             ───────────
   │             ╰── "some-option" 含非标识符字符，不能用作 Record 字段名
   │
-  修复: 使用 Cmd.Option.raw "--some-option" Nil 映射非标准 flag 名称
+  修复: 使用 Cmd.withRawOpt "--some-option" Nil 映射非标准 flag 名称
 ```
 
 ### 七、错误处理：默认 panic + 可选 Result
@@ -1188,9 +1208,8 @@ deploy = \cfg ->
     else
       IO.println "skipping backup"
 
-    Cmd.rsync
-      #{ "RSYNC_PASSWORD" = Env.getenv "RSYNC_PWD" ?? "" }
-      { archive = true, compress = true, delete = true }
+    Cmd.rsync { archive = true, compress = true, delete = true }
+      |> Cmd.withEnv #{ "RSYNC_PASSWORD" = Env.getenv "RSYNC_PWD" ?? "" }
       cfg.source cfg.target
 
     Cmd.systemctl { reload = "myapp" }
@@ -1209,7 +1228,13 @@ main : Unit
 main =
   do
     IO.println "starting..."
-    lock = Process.pid |> Int.toString |> (\pid -> f"/var/run/app.{pid}.lock")
+    lock =
+      Process.pid
+      |> Int.toString
+      |> (\pid ->
+        f"/var/run/app.{pid}.lock"
+      )
+
     File.touch lock
     defer (File.remove lock)
     defer (IO.println "cleanup complete")
@@ -1233,14 +1258,15 @@ main : Unit
 main =
   do
     // 构建
-    Cmd.npm #{ "NODE_ENV" = "production" } { install = true }
+    Cmd.npm { install = true }
+      |> Cmd.withEnv #{ "NODE_ENV" = "production" }
     Cmd.npm { run = "build" }
 
     // Docker 构建和推送
     Cmd.docker.build
-      #{ "DOCKER_HOST" = "tcp://builder:2375" }
       { tag = "myapp:latest", file = "Dockerfile" }
       "."
+      |> Cmd.withEnv #{ "DOCKER_HOST" = "tcp://builder:2375" }
 
     Cmd.docker.push {} "myapp:latest"
 ```
@@ -1271,17 +1297,17 @@ main =
 |------|--------|--------|
 | 效应追踪 | `IO T` 类型包装器 + HM 扩展 | AST 标记 + call-site lambda 检查（不扩散到类型签名） |
 | 命令调用 | `.cmd.kun` DSL + Builder API + 幻影类型 | `Cmd.<bin>` + Record 选项 + 自动模块发现（`~/.kun/cmd/`） |
-| 命令选项映射 | 手动 `withArg`/`withFlag` 链式调用 | camelCase → kebab-case 自动映射 + `Cmd.Option.raw` 兜底 |
+| 命令选项映射 | 手动 `withArg`/`withFlag` 链式调用 | camelCase → kebab-case 自动映射 + `Cmd.withRawOpt` 兜底 |
 | 错误处理 | `=!`/`<-!` 早返回 + `Result` 强制处理 | panic 默认 + `Cmd.<bin>?` 后缀返回 Result |
 | 安全模型 | `with caps` 脚本内声明 | CLI `--allow-path` / `--allow-net` / `--force` |
 | 安全实现 | 分层但依赖 Landlock | Landlock 优先 + mount namespace 兜底 + rlimit + seccomp 规则定义 + 降级决策矩阵 |
 | Stream | `{ state, next, destroy }` 函数指针链 | tagged union（双层间接→单层），comptime 融合 |
 | 资源清理 | 无 | `defer` 语句 + panic unwind 完整语义 |
-| 环境变量 | `env` 隐式字段 + 能力系统 | `#{ }` Map + CLI `--env=` + 始终剔除列表 |
+| 环境变量 | `env` 隐式字段 + 能力系统 | `Cmd.withEnv` 链式修饰 + CLI `--env=` + 始终剔除列表 |
 | 结构化数据 | `.cmd.kun` + Builder API + 幻影类型 | 自动模块发现（选项类型）+ `Parser.JSON` / `Parser.Record` + 模块提供纯解析函数 |
 | 超时与重试 | 无 | `Cmd.timeout` + `Cmd.retry` |
 | 可执行脚本 | `module Main export (main)` | 无模块声明，直接定义 `main : Unit` |
-| stdin/stderr 控制 | `<-` 解包 + IO 包装 | `Cmd.stdin` / `Cmd.mergeStderr` 普通函数 |
+| stdin/stderr 控制 | `<-` 解包 + IO 包装 | `Cmd.withStdin` / `Cmd.mergeStderr` 普通函数 |
 | 特殊字符命令名 | `.cmd.kun` 文件定义 | `Cmd["any-name"]` / `Cmd["a"]["b"]` 转义 |
 | 关键词数量 | `with caps`, `do`, `<-`, `<-!`, `=!`, 等 | `do`, `defer` |
 | 预估代码量 | ~50,000+ 行 Zig | ~20,000-25,000 行 Zig |
