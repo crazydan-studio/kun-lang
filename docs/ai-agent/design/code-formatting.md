@@ -18,61 +18,63 @@ case x of Ok v -> process v; Err _ -> handleError
 
 ## 文件级声明顺序
 
-在库模块、command 模块和执行脚本中，文件开头的有效代码必须遵循以下顺序：
+文件分为两类：库模块（有 `module` 声明）和可执行脚本（无 `module` 声明）。
 
-1. **`module` / `command` 声明** — 必须是文件第一个非注释行
-2. **`import` 语句** — 紧跟 `module`/`command` 之后
-3. **脚本级 `with caps`** — 仅执行脚本需要，位于 import 之后
+### 库模块
 
-其余代码（类型定义、函数定义、绑定等）顺序无强制要求。
+文件第一个非注释行必须是 `module` 声明，紧接 `import` 语句，之后是其余代码：
 
 ```kun
 // ✅ 库模块
-module MyLib export (run)
+module MyLib export (run, helper)
 
-import List as L
+import List
 import Path
 
-with caps
-  fs.read = [Path.cwd]
-
-run : IO Unit
-run =
+run : Path -> Unit
+run = \dir ->
   do
     ...
 ```
 
-```kun
-// ✅ command 模块
-command Git for "git" export (status)
+### 可执行脚本
 
-import List as L
-
-type StatusOptions
-  = { path : Path, short : Bool }
-
-status : StatusOptions -> IO String
-status = \opts ->
-  ...
-```
+文件**不声明 `module`**，必须定义 `main` 函数。`import` 语句为文件首部，之后是其余代码：
 
 ```kun
-// ✅ 执行脚本
-import List as L
+// ✅ 可执行脚本
+import List
 import Path
 
-with caps
-  fs.read = [Path.cwd]
-
-main : IO Unit
+main : Unit
 main =
   do
     ...
 ```
 
+其余代码（类型定义、函数定义、绑定等）顺序无强制要求。
+
 ## 缩进
 
 使用 2 空格缩进，不使用 Tab。
+
+各语境的缩进量（相对于父级上下文）：
+
+| 上下文 | 缩进 |
+|--------|------|
+| 顶层定义 | 0 |
+| `module export` 导出列表 | +2 |
+| `type` 变体 `=` / `\|` | +2 |
+| ADT 变体中的 Record 字段 | +4（从 `\|` 算 +2） |
+| 函数体 / Lambda 体 | +2 |
+| `do` 块内语句 | +2（从 `do` 算） |
+| `if` / `case` 分支模式 | +2（从 `if`/`case` 算） |
+| `if` / `case` 分支体（多行） | +4（从 `if`/`case` 算） |
+| `\|>` 链续行 | 与管线起始端对齐 |
+| `Cmd.pipe` 命令列表项 | +2 |
+| 多行 Cmd 参数（`#{}`/`{}`/位置参数） | +2 |
+| `defer` | 与所在块内语句同级 |
+| `in`（`do in` / `let in`） | 与 `do` / `let` 对齐 |
 
 ## 行宽
 
@@ -80,7 +82,7 @@ main =
 
 ## 函数定义
 
-`\` 与参数列表和 `=` 在同一行：
+类型标注与值定义分离，各占一行。`\` 与参数列表同行，`->` 后换行：
 
 ```kun
 add : Int -> Int -> Int
@@ -103,7 +105,7 @@ sumCoordinates = \{x, y} -> x + y
 firstThree = \[a, b, c] -> a + b + c
 ```
 
-多参数 Lambda 换行时，`->` 在参数行末尾，函数体缩进：
+多参数 Lambda 换行时，函数体缩进。体为 `do` 块时 `do` 与 Lambda 体同级缩进：
 
 ```kun
 process = \x y ->
@@ -111,6 +113,26 @@ process = \x y ->
     z = x + y
   in
     z * (x + y)
+
+deploy : Config -> Unit
+deploy = \cfg ->
+  do
+    Std.println "deploying..."
+    Cmd.rsync { archive = true } cfg.source cfg.target
+```
+
+`do in` 形式用于执行副作用后返回纯值，`in` 与 `do` 对齐：
+
+```kun
+countFiles : Path -> Int
+countFiles = \dir ->
+  do
+    entries =
+      Cmd.ls { all = true } dir
+        |> Stream.lines
+        |> Stream.toList
+  in
+    List.length entries
 ```
 
 ## 控制流
@@ -215,7 +237,7 @@ result =
 
 ### `do` / `do in`
 
-`do` 在新行开始，`in` 在独立行：
+`do` 在新行开始，`in` 在独立行，与 `do` 对齐：
 
 ```kun
 // 无返回值
@@ -233,71 +255,81 @@ main =
     result
 ```
 
-`do` 块内每一行操作独立：
+`do` 块内使用 `=` 绑定值，语句间无空行：
 
 ```kun
-readConfig : Path -> IO (Result Config Error)
+readConfig : Path -> Result Config Error
 readConfig = \path ->
   do
-    content <- readFile path
+    content = File.read path
     lines  = String.split "\n" content
-    minLvl =! parseLevel "INFO"
+    logDir = p"/var/log/myapp"
   in
     Ok (createDefaultConfig logDir)
 ```
 
-### `with caps`
-
-`with caps` 块用于声明能力，独立成行，配置项缩进 2 空格：
-
-```kun
-with caps
-  fs.read = [Path.cwd, p"/tmp/"]
-  fs.write = fs.read
-```
-
-脚本级 `with caps` 与函数体之间空 1 行：
-
-```kun
-with caps
-  fs.read = [Path.cwd]
-
-main =
-  do
-    ...
-```
-
-函数内 `with caps` 与 `do` 同一缩进层级：
-
-```kun
-readConfig =
-  with caps
-    fs.read = [p"/etc/config"]
-  do
-    readFile p"/etc/config"
-```
-
-`with caps` 块不允许为空。
+`do` 块内的 `if` / `case` 分支自动继承效应上下文，可直接调用 `Cmd.*`，无需显式嵌套 `do`。嵌套 `do` 仅用于分支需要独立 `defer` 作用域时。
 
 ## 管道
 
-每个管道操作独立一行，`|>` 在行首：
+### `|>` 进程内管道
+
+每个管道步骤独立一行，`|>` 与管线起始端对齐：
 
 ```kun
-// 正确
+// ✅ 正确
 result =
-  list
+  stream
     |> filter predicate
     |> map transform
     |> fold (+) 0
 
-// 错误
-result = list |> filter predicate |> map transform |> fold (+) 0
+// ❌ 错误：全部挤在一行
+result = stream |> filter predicate |> map transform |> fold (+) 0
 ```
 
-## Record
+`|>` 链从 Cmd 起始时，`|>` 缩进与 Cmd 名对齐：
 
-### 创建/更新
+```kun
+do
+  entries =
+    Cmd.ls { all = true } dir
+      |> Stream.lines
+      |> Stream.take 100
+      |> Stream.toList
+```
+
+### `Cmd.pipe` OS 管道
+
+`Cmd.pipe` 独占一行，命令列表每项一行，逗号前置：
+
+```kun
+Cmd.pipe
+  [ Cmd.ps { a = true }
+  , Cmd.grep { pattern = "nginx" }
+  , Cmd.head { n = "10" }
+  ]
+
+Cmd.pipe?
+  [ Cmd.find { name = "*.log" }
+  , Cmd.xargs { r = "grep ERROR" }
+  ]
+```
+
+`Cmd.pipe` 的结果可继续接入 `|>` 链：
+
+```kun
+Cmd.pipe
+  [ Cmd.ps {}
+  , Cmd.grep {}
+  ]
+  |> Stream.lines
+  |> Stream.toList
+```
+
+## Record / Map
+
+### 创建
 
 单行：
 
@@ -305,7 +337,7 @@ result = list |> filter predicate |> map transform |> fold (+) 0
 point = { x = 1, y = 2 }
 ```
 
-多行时每个字段独立一行，右括号缩进与左括号对齐：
+多行时每个字段独立一行，逗号前置，右括号与左括号对齐：
 
 ```kun
 config =
@@ -313,6 +345,21 @@ config =
   , version = "0.1"
   , debug = false
   }
+```
+
+### Map 字面量
+
+Map 使用 `#{ }` 语法，格式化规则与 Record 相同：
+
+```kun
+// 单行
+env = #{ "HOME" = "/root" }
+
+// 多行
+opts =
+  #{ "NODE_ENV" = "production"
+   , "DEBUG"    = "true"
+   }
 ```
 
 ### 解构
@@ -334,13 +381,15 @@ describePoint = \p ->
 
 ## List / 容器
 
+### 字面量
+
 单行：
 
 ```kun
 list = [1, 2, 3]
 ```
 
-多行时每个元素独立一行，右括号与左括号对齐：
+多行时每个元素独立一行，逗号前置：
 
 ```kun
 list =
@@ -350,20 +399,57 @@ list =
   ]
 ```
 
-范围字面量 `[start..end]` 写在一行内，不允许多行拆分：
+范围字面量 `[start..end]` 写在一行内：
 
 ```kun
 list = [1..1000]
 ```
 
+### Cmd.pipe 命令列表
+
+命令列表中的每个 Command 独占一行，逗号前置：
+
+```kun
+Cmd.pipe
+  [ Cmd.cat p"/var/log/app.log"
+  , Cmd.grep { pattern = "ERROR" }
+  , Cmd.head { n = "100" }
+  ]
+```
+
 ## ADT 定义
 
-变体竖排，`=` 与第一个变体在同一行：
+变体竖排，`=` 与第一个变体同行，`|` 与 `=` 对齐：
 
 ```kun
 type Result t e
   = Ok t
   | Err e
+```
+
+变体带无名字段时同行：
+
+```kun
+type ExitCode
+  = Success
+  | GeneralError
+  | NotFound String
+```
+
+变体带 Record 字段时，`{` 在 `|` 下方缩进，字段换行：
+
+```kun
+type CommandError
+  = NotFound String
+  | CommandFailed
+      { command  : String
+      , exitCode : Int
+      , stderr   : String
+      }
+  | PipeFailed
+      { commands : List String
+      , failedAt : Int
+      }
 ```
 
 ## 类型标注
@@ -381,7 +467,177 @@ add = \x y -> x + y
 fetchData
   : SocketAddr
   -> Path
-  -> IO (Result String IOError)
+  -> Result String CommandError
+```
+
+## 模块声明
+
+### 库模块
+
+`module Xxx export` 独占一行，导出列表换行缩进，逗号前置：
+
+```kun
+module Parser.JSON export
+  ( JsonValue
+  , JsonValue(..)
+  , fromString
+  , toString
+  )
+```
+
+导出列表仅 1-2 项时可同行：
+
+```kun
+module Config export (Config, defaultConfig)
+```
+
+### 可执行脚本
+
+可执行脚本**不声明 `module`**，直接以 `import` 或 `main` 开头。
+
+## Cmd 调用
+
+### 单行
+
+参数少时全部同行，`#{}`（Map）在 `{}`（选项 Record）之前，位置参数在最后：
+
+```kun
+Cmd.ls { long = true }
+Cmd.git.log { maxCount = 50 } "main"
+Cmd.cat? p"/etc/maybe_missing"
+Cmd.untrusted_tool #{ } {}
+```
+
+### 多行
+
+参数多时，Cmd 名独占一行，各参数块换行缩进 2，块之间无空行：
+
+```kun
+Cmd.node
+  #{ "NODE_ENV" = "production" }
+  { maxOldSpaceSize = 4096 }
+  "server.js"
+
+Cmd.rsync
+  { archive = true, compress = true }
+  srcPath dstPath
+```
+
+`#{}` 可省略（使用默认白名单），`{}` 可为空 `{}`。
+
+### `|>` 链接
+
+Cmd 后可通过 `|>` 链式追加 `Cmd.Option.raw` 或注入 stdin：
+
+```kun
+Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
+  |> Cmd.Option.raw "-I" "/usr/local/include"
+
+Cmd.mysql { u = "root" }
+  |> Cmd.stdin """
+    CREATE DATABASE mydb;
+    """
+  |> Cmd.exec
+```
+
+### 特殊字符命令名
+
+含 `-`、`.`、`+` 或数字开头的命令使用 `Cmd["..."]` 转义：
+
+```kun
+Cmd["ntfs-3g"] { force = true } "/dev/sda1"
+Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
+Cmd["a-b.c"]["d-a"] { flag = true }
+```
+
+## do 块内多行绑定与管道
+
+`do` 块内的多行赋值，`=` 独占一行，右侧值体缩进 2：
+
+```kun
+do
+  entries =
+    Cmd.ls { all = true } dir
+      |> Stream.lines
+      |> Stream.take 100
+      |> Stream.toList
+  Std.println f"found {List.length entries} items"
+```
+
+`do` 块内语句之间**无空行**。
+
+## Lambda 作为高阶函数参数
+
+### 简单 Lambda（体为纯表达式）
+
+同行：
+
+```kun
+stream |> Stream.filter (\l -> String.contains "ERROR" l)
+```
+
+### Lambda 体为 `do` 块
+
+函数名和 Lambda 各自换行，闭括号与参数紧随或换行：
+
+```kun
+List.iter
+  (\item ->
+    do
+      Std.println f"processing {item.name}"
+      Cmd.process {} item.path
+  )
+  items
+
+Signal.on
+  SIGTERM
+  (\sig ->
+    do
+      Std.exit 0
+  )
+```
+
+## defer
+
+`defer` 与所在块内语句同级缩进，延迟表达式使用 `()` 包裹：
+
+```kun
+do
+  tmp = TempFile.create
+  defer (File.remove tmp)
+  defer (Std.println "cleanup complete")
+
+  Cmd.ffmpeg {} "input.mp4" tmp
+```
+
+多个 `defer` 按 LIFO 逆序执行。`defer` 适合"尽力清理"逻辑，不适合"必须成功"的操作。
+
+## `do` 块内 if/case 分支效应上下文
+
+外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支，可直接调用 `Cmd.*`：
+
+```kun
+do
+  if condition then
+    Std.println "doing work..."
+    Cmd.tool {} target
+  else
+    Std.println "skipping"
+    Std.exit 1
+
+  Cmd.cleanup {}
+```
+
+嵌套 `do` 仅在分支需要独立 `defer` 作用域时使用：
+
+```kun
+do
+  if needsBackup then
+    do
+      defer (File.remove tmpBackup)
+      Cmd.tar {} sourcePath tmpBackup
+  else
+    Std.println "skipping backup"
 ```
 
 ## 注释
@@ -424,45 +680,48 @@ aLongVariableName = someFunction withMany args
 
 ## 空白行
 
-- 顶层声明之间空 1 行
+- 顶层声明（`type` / 函数 / `main`）之间空 1 行
+- 同一定义的内部各行之间不空行
+- `do` 块内连续语句之间不空行
+- `if` / `case` 分支之间不空行
 - 函数体内的逻辑段落之间可空 1 行
-- 缩进级别不变时连续的空行不超过 1 行
 - 文件末尾留 1 个空行
 
 ## 完整示例
 
 ```kun
-type Color
-  = Red
-  | Green
-  | Blue
+type LogEntry =
+  { timestamp : String
+  , level     : String
+  , message   : String
+  }
 
-parseLevel : String -> Result LogLevel String
-parseLevel = \s ->
-  case s of
-    "DEBUG" -> Ok Debug
-    "INFO"  -> Ok Info
-    "WARN"  -> Ok Warn
-    "ERROR" -> Ok Error
-    _       -> Err f"unknown level: {s}"
+parseLine : String -> Result LogEntry String
+parseLine = \line ->
+  case String.split " " line of
+    [ts, lvl, ..rest] ->
+      Ok { timestamp = ts, level = lvl, message = String.join " " rest }
+    _ ->
+      Err f"invalid line: {line}"
 
-processLargeFile : Path -> IO Unit
-processLargeFile = \path ->
+main : Unit
+main =
   do
-    lines <-! Stream.readLines path
-    lines
-      |> filter (contains "ERROR")
-      |> map parseLine
-      |> filterMap Result.ok
-      |> iter (\entry -> print entry.message)
+    entries =
+      Cmd.pipe
+        [ Cmd.cat p"/var/log/app.log"
+        , Cmd.grep { pattern = "ERROR" }
+        , Cmd.head { n = "100" }
+        ]
+        |> Stream.lines
+        |> Stream.parseMap parseLine
+        |> Stream.toList
 
-readConfig : Path -> IO (Result Config Error)
-readConfig = \path ->
-  do
-    content <- readFile path
-    lines   = String.split "\n" content
-    logDir  = p"/var/log/myapp"
-    minLvl  =! parseLevel "INFO"
-  in
-    Ok (createDefaultConfig logDir)
+    Std.println f"found {List.length entries} errors"
+    List.iter
+      (\entry ->
+        do
+          Std.println f"[{entry.timestamp}] {entry.message}"
+      )
+      entries
 ```
