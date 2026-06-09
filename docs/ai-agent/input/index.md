@@ -19,3 +19,4 @@
 | [命令函数系统完整方案](input-command-function-design.md) | 项目维护者 | 2026-06-04 |
 | [语法打磨与全面审计](input-syntax-polish-and-audit.md) | 项目维护者 | 2026-06-07 |
 | [架构重设计方案](input-architecture-redesign.md) | 项目维护者 | 2026-06-08 |
+| [架构重设计方案评估](input-architecture-redesign-evaluation.md) | 项目维护者（AI Agent 评估） | 2026-06-08 |
