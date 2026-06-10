@@ -400,7 +400,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 | 版本 | 变更 |
 |------|------|
-| 0.3.0 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base | field : T }`）；效应跟踪改为 AST 标记方案 |
+| 0.3.0 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base \| field : T }`）；效应跟踪改为 AST 标记方案 |
 | 0.2.1 | 扩展积类型 `{ Base \| field : T }`，移除行变量以降低类型检查器实现复杂度 |
 | 0.2.0 | Nilable 类型 `?T` 替代 `Maybe`，新增 `?.` 可选链和 `??` Nil 合并操作符 |
 | 0.1.0 | MVP 基础类型 + `Maybe`/`Result` + HM 推断 + 简单参数化多态 + `IO` 效应标记 |
