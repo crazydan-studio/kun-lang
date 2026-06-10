@@ -257,25 +257,6 @@ Kun 类型系统**不包含子类型关系**：
 - Record 无宽度子类型化和深度子类型化
 - 函数类型无逆变/协变
 
-### 扩展积类型（Extensible Records）
-
-基于已有 Record 类型声明扩展类型，编译期展开为完整字段：
-
-```kun
-type CmdOptions = { runAs : ?UserId }
-
-type GitCommitOptions =
-  { CmdOptions
-  | message : String
-  }
-// 编译期等价于：{ runAs : ?UserId, message : String }
-```
-
-约束：
-- 基类型必须是有名 Record 类型（`type T = { ... }`）
-- 字段名冲突时扩展字段覆盖基类型字段
-- 不支持多继承
-
 #### Record 类型与函数
 
 函数接受 Record 参数时，必须使用精确的 Record 类型（不支持"只要包含某些字段"的泛化）：
@@ -288,23 +269,6 @@ getName = \{ name } ->
 // 需要精确匹配
 getName { name = "Kun" }                    // → "Kun"
 // getName { name = "Kun", version = "0.1" }  // ❌ 编译错误：类型不匹配
-```
-
-如需在函数间传递包含额外字段的 Record，使用扩展积类型预先定义：
-
-```kun
-type Base = { name : String }
-type NamedWithVersion = { Base | version : String }
-
-getName : Base -> String
-getName = \{ name } -> name
-
-process : NamedWithVersion -> String
-process = \r ->
-  let
-    name = getName r   // ✅ OK：Base 在 NamedWithVersion 中完整包含
-  in
-    f"{name} v{r.version}"
 ```
 
 #### Record 更新
@@ -369,7 +333,7 @@ updateName = \r ->
 5. 成功 → 将新替换加入到全局替换
 6. 重复直到约束集为空
 
-Record 类型的合一是结构化的：两个 Record 类型当且仅当字段名集合相同且对应字段类型可合一时才可合一。扩展积类型在参与合一前已编译期展开为完整字段集。
+Record 类型的合一是结构化的：两个 Record 类型当且仅当字段名集合相同且对应字段类型可合一时才可合一。
 
 ### 类型错误报告
 
@@ -436,7 +400,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 | 版本 | 变更 |
 |------|------|
-| 0.3.0 | 移除 `Nat`、`IO T` 效应类型、幻影类型；效应跟踪改为 AST 标记方案 |
+| 0.3.0 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base | field : T }`）；效应跟踪改为 AST 标记方案 |
 | 0.2.1 | 扩展积类型 `{ Base \| field : T }`，移除行变量以降低类型检查器实现复杂度 |
 | 0.2.0 | Nilable 类型 `?T` 替代 `Maybe`，新增 `?.` 可选链和 `??` Nil 合并操作符 |
 | 0.1.0 | MVP 基础类型 + `Maybe`/`Result` + HM 推断 + 简单参数化多态 + `IO` 效应标记 |

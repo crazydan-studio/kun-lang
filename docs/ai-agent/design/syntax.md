@@ -647,22 +647,6 @@ record.name                           // 字段访问
 
 `{a, ..rest} = config` 将 Record 中的字段 `a` 解构出来，剩余字段作为新的 Record 绑定到 `rest`。剩余字段类型与原始 Record 去除 `a` 字段后的结构等价。`..rest` 必须出现在解构模式的末尾。
 
-### 扩展积类型
-
-基于已有 Record 类型声明扩展类型，编译期展开为完整字段：
-
-```kun
-type CmdOptions = { runAs : ?UserId }
-
-type GitCommitOptions =
-  { CmdOptions
-  | message : String
-  }
-// 展开后：{ runAs : ?UserId, message : String }
-```
-
-基类型必须是有名 Record 类型（`type T = { ... }`），字段名冲突时扩展字段覆盖基类型字段。
-
 ### 索引访问
 
 ```kun
@@ -906,8 +890,9 @@ Kun 脚本的执行入口按以下规则确定：
 | 条件 | 行为 |
 |------|------|
 | 定义 `main : List String -> Unit` | 从 `main` 启动，传入命令行参数。退出码为 0 |
+| 定义 `main` (无类型标注) | 编译器自动按 `List String -> Unit` 类型检查 |
 | 未定义 `main` | 编译错误：可执行脚本缺少 `main` 入口 |
-| `main` 签名不合法 | 编译错误：入口函数签名只能为 `List String -> Unit` |
+| `main` 签名不合法 | 类型标注不为 `List String -> Unit` 时编译错误 |
 
 可执行脚本文件**不能声明 `module`**。库模块文件有 `module` 声明，不可独立执行。
 
