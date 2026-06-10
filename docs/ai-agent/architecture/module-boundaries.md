@@ -8,35 +8,31 @@ kun-lang/
 │   ├── 词法分析器（Lexer）
 │   ├── 语法分析器（Parser）
 │   ├── 类型检查器（Type Checker）
+│   ├── 效应检查器（Effect Checker）— AST 标记
 │   └── AST（抽象语法树）
 ├── 运行时（Runtime）
-│   ├── 命令加载器（dlopen/dlsym）
-│   ├── 结构化参数序列化
-│   └── 结果反序列化
-├── 命令函数系统
-│   ├── `.cmd.kun` 编译器（编译期代码生成 + 封装）
-│   ├── 内建 Primitive 库
-│   ├── `InternalCommand` 安全执行（process.run 检查 + 沙箱）
-│   └── 参数验证器
+│   ├── Command 构造器（Cmd.<bin>）
+│   ├── Command 执行器（fork-exec + pipe 捕获）
+│   └── Stream 状态机（tagged union）
+├── 命令调用系统
+│   ├── Cmd.<bin> 语法入口
+│   ├── camelCase → kebab-case 自动映射
+│   ├── 类型化模块自动发现（~/.kun/cmd/）
+│   ├── Cmd.withEnv / Cmd.withStdin / Cmd.withRawOpt / Cmd.mergeStderr
+│   └── Cmd.pipe OS 管道链
 ├── 安全子系统
-│   ├── 权限声明解析
-│   │   ├── 脚本级权限解析
-│   │   └── 作用域权限解析（with caps）
-│   ├── 能力管理器
-│   ├── Namespace 沙箱
-│   ├── 容器环境检测
-│   ├── 命令级安全
-│   │   ├── Landlock 路径级控制
-│   │   ├── 二进制完整性校验（SHA-256）
-│   │   ├── `.cmd.kun` 密码学签名验证（Ed25519）
-│   │   ├── Seccomp 过滤规则生成（基于 Builder 调用链）
-│   │   ├── 单命令沙箱隔离
-│   │   └── 信任分级策略
+│   ├── CLI 安全参数解析（--allow-path、--allow-net、--no-sandbox）
+│   ├── Landlock 路径/端口级控制（内核 6.7+ 首选）
+│   ├── Mount namespace 兜底隔离（内核 3.8+）
+│   ├── seccomp-BPF 系统调用过滤（最低降级）
+│   ├── rlimit 资源限制
+│   └── 环境变量安全过滤
 ├── 标准库
 │   ├── 数据类型（List、Map、Set、Stream 等）
 │   ├── 管道与高阶函数
 │   ├── 模式匹配
-│   └── IO 操作
+│   ├── IO 操作
+│   └── 文件操作（File.* — 进程内 syscall）
 └── REPL
     ├── 交互式环境
     ├── 语法高亮
@@ -47,23 +43,23 @@ kun-lang/
 
 ### 解释器核心
 
-负责将 Kun 源代码解析为 AST 并进行类型检查。包含词法分析、语法分析、类型推断和类型检查。这是编译器的前端部分，不涉及任何 IO 或系统调用。
+负责将 Kun 源代码解析为 AST 并进行类型检查。包含词法分析、语法分析、类型推断和类型检查。效应检查器扫描 `do` 块，将含 `do` 块的函数标记为效应函数。这是编译器的前端部分，不涉及任何 IO 或系统调用。
 
 ### 运行时
 
-负责执行编译后的代码。通过 `dlopen`/`dlsym` 加载命令二进制文件，以结构化数据方式传递参数。
+负责执行编译后的代码。通过 fork-exec 机制执行外部命令，以 pipe 捕获 stdout/stderr。Command 值延迟执行，在 `|>` 隐式触发或 `do` 块语句边界自动 fork-exec。
 
-### 命令函数系统
+### 命令调用系统
 
-负责将 Linux 命令的能力抽象为类型安全函数。`.cmd.kun` 文件使用纯 Kun 语法 + Builder API 构造命令行参数，编译器自动封装安全层。内建 Primitive 库提供常见命令的 Zig 内建实现。`InternalCommand` 提供白名单检查、沙箱和输出解析。参数验证器在运行时对参数值进行额外验证。详见[命令函数系统](../design/command-function-system.md)。
+负责将 Linux 命令的能力抽象为类型安全调用。`Cmd.<bin>` 语法构造 Command 值，camelCase 字段名自动映射为 kebab-case CLI flag。类型化模块自动发现机制在编译时检查选项类型一致性。`Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` 修饰 Command 值。`Cmd.pipe` 将多个 Command 组合为 OS 管道链。
 
 ### 安全子系统
 
-实现多层安全模型。解析二级权限声明（脚本级、表达式级），管理能力生命周期，基于 Linux namespace 创建沙箱环境，并检测容器化环境以避免嵌套命名空间。当权限检查失败时，生成 `IOError.PermissionDenied` 异常。在命令级安全层面，通过 Landlock LSM 实现路径级控制，通过 SHA-256 哈希校验命令二进制完整性，通过 Ed25519 签名验证 `.cmd.kun` 来源可信性，基于 Builder 调用链自动推导 seccomp-BPF 系统调用过滤规则，对高风险命令提供独立 namespace 沙箱隔离，并根据信任分级策略自动调整安全措施的严格程度。
+实现多层安全模型。从 CLI 参数解析安全策略（`--allow-path`、`--allow-net` 等），运行时在 fork 子进程后安装 Landlock（首选）/ mount namespace（兜底）/ seccomp（降级）安全层。rlimit 限制 CPU、内存、文件描述符和子进程数。环境变量白名单过滤 + 始终剔除列表。
 
 ### 标准库
 
-提供内置的数据类型和函数。包括列表、映射、集合、流等数据结构，管道和高阶函数组合工具，模式匹配机制，以及结构化的 IO 操作管理。
+提供内置的数据类型和函数。包括列表、映射、集合、流等数据结构，管道和高阶函数组合工具，模式匹配机制，以及结构化的 IO 和文件操作。
 
 ### REPL
 
@@ -73,12 +69,12 @@ kun-lang/
 
 ```
 REPL → 解释器核心 → 运行时
-                        ↓
-解释器核心 ← 命令函数系统
-                        ↓
-            安全子系统 ← 运行时
-                        ↓
-                   标准库 ← 运行时
+                      ↓
+解释器核心 ← 命令调用系统
+                      ↓
+           安全子系统 ← 运行时
+                      ↓
+                 标准库 ← 运行时
 ```
 
-解释器核心依赖命令函数系统进行类型检查；运行时依赖安全子系统进行权限控制和沙箱管理；标准库由运行时加载并提供给用户代码使用；REPL 是解释器核心的交互式包装。
+解释器核心依赖命令调用系统的类型化模块进行类型检查；运行时依赖安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用；REPL 是解释器核心的交互式包装。
