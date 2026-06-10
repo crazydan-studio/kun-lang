@@ -115,6 +115,10 @@ filterByLevel = \minLevel entries ->
 // 管道 + Lambda 多参数
 // ============================================================
 
+// identity 辅助函数
+identity : a -> a
+identity = \x -> x
+
 // 统计各级别数量
 countByLevel : List LogEntry -> Map LogLevel Int
 countByLevel = \entries ->
@@ -158,9 +162,7 @@ processLogFile = \logPath ->
         |> Stream.lines
         |> Stream.parseMap parseLine
         |> Stream.toList
-
     IO.println f"found {List.length entries} errors"
-
     List.iter
       (\entry ->
         do

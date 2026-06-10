@@ -13,6 +13,14 @@
 import DateTime
 import Duration
 import ExitCode
+import IpAddress with (IpAddress, Ipv4)
+import Port
+import Signal with (SIGTERM, SIGINT)
+import Pid
+import Time
+import TempFile
+import File
+import Process
 
 // ============================================================
 // ADT：监控结果
@@ -45,9 +53,14 @@ printTimestamp = \ ->
 // 命令行检查：curl + 解析
 checkService : SocketAddr -> Unit
 checkService = \addr ->
+  let
+    ip = case addr of
+      Tcp ip _ -> ip
+      Udp ip _ -> ip
+  in
   do
     start = Time.now
-    result = Cmd.curl? { silent = true } (IpAddress.toString addr)
+    result = Cmd.curl? { silent = true } (IpAddress.toString ip)
     case result of
       Ok _ ->
         end = Time.now
@@ -70,7 +83,7 @@ processEvents = \addr ->
           |> Stream.lines
           |> Stream.filter (\line -> String.contains "data:" line)
           |> Stream.take 100
-          |> Stream.iter (\event -> IO.println event)
+          |> Stream.iter (\event -> do IO.println event)
       Err e -> IO.println f"stream failed: {e}"
 
 // ============================================================
@@ -127,7 +140,7 @@ timeWindow : Duration -> Bool
 timeWindow = \window ->
   do
     current = Time.now
-    start = fromUnixSecs 1700000000
+    start = DateTime.fromUnixSecs 1700000000
     elapsed = current - start
   in
     elapsed < window
@@ -151,18 +164,13 @@ main = \_ ->
   do
     // 注册信号处理
     handleTerminate
-
     // 构造 SocketAddr
-    addr = Tcp (IpAddress.parse "10.0.1.5" |> Result.withDefault (IpAddress.parse "127.0.0.1" |> Result.withDefault panic)) (Port.fromInt 8080)
-
+    addr = Tcp (IpAddress.parse "10.0.1.5" |> Result.withDefault (Ipv4 (127, 0, 0, 1))) (Port.fromInt 8080)
     printTimestamp
-
     // 命令行检查
     checkService addr
-
     // 流式处理事件
     processEvents addr
-
     // 生成报告
     backupAndClean p"/tmp/reports"
 ```
