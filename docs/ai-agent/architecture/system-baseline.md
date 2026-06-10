@@ -232,6 +232,32 @@ Cmd.<bin> { options } [posArgs...]
   └── 运行时 fork-exec + Stream pipe 捕获
 ```
 
+### camelCase → kebab-case 选项映射规则
+
+`Cmd.<bin> { field = value }` 中的 Record 字段名自动映射为 CLI flag，规则如下：
+
+| Record 字段 | CLI flag | 规则 | 示例 |
+|------------|---------|------|------|
+| `{ maxCount = 50 }` | `--max-count 50` | 多字符 camelCase → kebab-case（大写字母触发断词） |
+| `{ oneline = true }` | `--oneline` | 全小写多字符 → 一字不拆，直接 `--` 前缀 |
+| `{ readonly = true }` | `--readonly` | 同上，不做连字符拆分 |
+| `{ l = true }` | `-l` | 单小写字符 + Bool=true → 单 token 短 flag |
+| `{ o = "a.out" }` | `-o a.out` | 单小写字符 + 非 Bool → 双 token（flag + 值） |
+| `{ X = "POST" }` | `-X POST` | 单大写字符 → 保留大小写，`-` 前缀 |
+| `{ Wall = true }` | `-Wall` | 大写 + 全小写后缀 → 视为单大写 flag 的扩展形式，`-` 前缀，不拆分 |
+| `{ D = "FOO=bar" }` | `-D FOO=bar` | 同上（gcc 宏定义场景） |
+| `{ humanReadable = true }` | `--human-readable` | 标准 camelCase 多大写断词 |
+| `Bool = false` | 省略不传 | false 值不生成 flag |
+| `Nil` | 省略不传 | Nil 值不生成 flag |
+| `List a` | `--key v1 --key v2` | 每个元素一个重复 flag |
+
+> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。首字母大写-其余小写（`Wall`、`Wextra`）视为单个 flag，不按 camelCase 断词——这是对 gcc/clang `-Wall`/`-Wextra` 等场景的特殊适配。
+
+argv 生成顺序：
+
+```
+Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
+```
 ### PATH 查找
 
 `Cmd.<bin>` 的命令查找发生在**运行时**（每次调用时解析 PATH）。编译时不检查命令是否存在。若运行时命令未找到，触发 `NotFound` panic。首次 PATH 解析成功后结果被缓存（每次 `do` 块入口刷新），后续调用无需重复搜索。

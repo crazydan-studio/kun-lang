@@ -41,8 +41,8 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| Cmd.<bin> 语法 | ✅ 设计定型 | 命令调用统一入口，Record 选项自动映射 camelCase → kebab-case |
-| Cmd["..."] 转义 | ✅ 设计定型 | 特殊字符命令名的兜底语法 |
+| `Cmd.<bin>` 语法 | ✅ 设计定型 | 命令调用统一入口，Record 选项自动映射 camelCase → kebab-case |
+| `Cmd["..."]` 转义 | ✅ 设计定型 | 特殊字符命令名的兜底语法 |
 | 类型化模块自动发现 | ✅ 设计定型 | 编译时搜索 `~/.kun/cmd/` → `$KUN_PATH/cmd/` → `<runtime>/lib/kun/cmd/` |
 | kun cmd init | ✅ 设计定型 | 从 man/--help 自动生成命令模块骨架 |
 | Cmd.pipe / Cmd.pipe? | ✅ 设计定型 | OS 管道链（pipe2 + fork），? 变体返回 Result |
@@ -54,6 +54,8 @@
 | Cmd.retry | ✅ 设计定型 | 命令重试（内部调用 Cmd.timeout） |
 | Cmd.which | ✅ 设计定型 | PATH 查找命令 |
 | Command 执行模型 | ✅ 设计定型 | 延迟执行，`\|>` 隐式触发 / do 块边界 / ? 后缀立即执行 |
+| camelCase→kebab-case 映射 | ✅ 设计定型 | 多大写断词、全小写不断词、首大写-余小写视为单 flag（`-Wall`） |
+| Cmd.withRunAs | ✅ 设计定型 | 指定命令执行用户（setuid） |
 | 预置高频命令模块 | ✅ 设计定型 | v0.1：20 个高频命令类型定义（git、docker、curl 等） |
 
 ### 运行时

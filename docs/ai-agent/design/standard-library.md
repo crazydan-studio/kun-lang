@@ -296,6 +296,7 @@ List.map : (a -> b) -> List a -> List b
 List.filter : (a -> Bool) -> List a -> List a
 List.filterMap : (a -> ?b) -> List a -> List b
 List.fold : (b -> a -> b) -> b -> List a -> b
+List.iter : (a -> Unit) -> List a -> Unit
 List.append : List a -> List a -> List a
 List.reverse : List a -> List a
 ```
@@ -303,6 +304,7 @@ List.reverse : List a -> List a
 - `head` 返回首个元素，空列表返回 `Nil`
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素，保留非 `Nil` 的值
 - `fold` 为左折叠，`fold (+) 0 [1, 2, 3]` → `6`
+- `iter` 遍历每个元素并调用回调。回调可以是纯函数或效应函数——但若回调为效应 lambda（函数体含 `do` 块或调用了效应函数），则整个 `List.iter ...` 表达式本身必须处于 `do` 块中，且效应 lambda 必须在 `do` 块内定义。纯回调无此限制
 
 ## `Map` — 映射表操作
 
@@ -584,12 +586,15 @@ Cmd.withRawOpt  : String -> ?String -> Command -> Command
 Cmd.withStdin   : String -> Command -> Command
 Cmd.withStdin   : Stream Bytes -> Command -> Command
 Cmd.mergeStderr : Command -> Command
+Cmd.withRunAs  : String -> Command -> Command
 
 // 工具
 Cmd.which   : String -> ?Path
 Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError
 Cmd.retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 ```
+
+`Cmd.withRunAs` 指定命令执行用户（如 `Cmd.withRunAs "nobody"`）。子进程通过 `setuid()` 切换，需 Kun 进程具备 OS 级权限。不指定时以当前用户执行。
 
 ## `Time` — 时间与等待
 
