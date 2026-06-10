@@ -46,8 +46,8 @@ run = \dir ->
 import List
 import Path
 
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     ...
 ```
@@ -82,19 +82,27 @@ main =
 
 ## 函数定义
 
-类型标注与值定义分离，各占一行。`\` 与参数列表同行，`->` 后换行：
+类型标注与值定义分离，各占一行。Lambda 参数同行，`->` 后换行：
 
 ```kun
+// 有参函数
 add : Int -> Int -> Int
 add = \x y ->
   x + y
+
+// 零参函数（仅 IO 效应）
+now : -> DateTime
+now = \ ->
+  do
+    clock_gettime
 ```
 
-简短表达式函数可在一行内定义：
+简短表达式可在一行内定义：
 
 ```kun
 add = \x y -> x + y
 increment = \x -> x + 1
+pid = \ -> getpid    // 零参 IO 函数，单表达式可同行
 ```
 
 Lambda 参数支持解构：
@@ -117,7 +125,7 @@ process = \x y ->
 deploy : Config -> Unit
 deploy = \cfg ->
   do
-    Std.println "deploying..."
+    IO.println "deploying..."
     Cmd.rsync { archive = true } cfg.source cfg.target
 ```
 
@@ -561,7 +569,7 @@ do
       |> Stream.lines
       |> Stream.take 100
       |> Stream.toList
-  Std.println f"found {List.length entries} items"
+  IO.println f"found {List.length entries} items"
 ```
 
 `do` 块内语句之间**无空行**。
@@ -584,7 +592,7 @@ stream |> Stream.filter (\l -> String.contains "ERROR" l)
 List.iter
   (\item ->
     do
-      Std.println f"processing {item.name}"
+      IO.println f"processing {item.name}"
       Cmd.process {} item.path
   )
   items
@@ -593,7 +601,7 @@ Signal.on
   SIGTERM
   (\sig ->
     do
-      Std.exit 0
+      Process.exit 0
   )
 ```
 
@@ -605,7 +613,7 @@ Signal.on
 do
   tmp = TempFile.create
   defer (File.remove tmp)
-  defer (Std.println "cleanup complete")
+  defer (IO.println "cleanup complete")
 
   Cmd.ffmpeg {} "input.mp4" tmp
 ```
@@ -619,11 +627,11 @@ do
 ```kun
 do
   if condition then
-    Std.println "doing work..."
+    IO.println "doing work..."
     Cmd.tool {} target
   else
-    Std.println "skipping"
-    Std.exit 1
+    IO.println "skipping"
+    Process.exit 1
 
   Cmd.cleanup {}
 ```
@@ -637,7 +645,7 @@ do
       defer (File.remove tmpBackup)
       Cmd.tar {} sourcePath tmpBackup
   else
-    Std.println "skipping backup"
+    IO.println "skipping backup"
 ```
 
 ## 注释
@@ -696,6 +704,13 @@ type LogEntry =
   , message   : String
   }
 
+currentTime : -> String
+currentTime = \ ->
+  do
+    now = Time.now
+  in
+    DateTime.format "%H:%M:%S" now
+
 parseLine : String -> Result LogEntry String
 parseLine = \line ->
   case String.split " " line of
@@ -704,8 +719,8 @@ parseLine = \line ->
     _ ->
       Err f"invalid line: {line}"
 
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     entries =
       Cmd.pipe
@@ -717,11 +732,11 @@ main =
         |> Stream.parseMap parseLine
         |> Stream.toList
 
-    Std.println f"found {List.length entries} errors"
+    IO.println f"found {List.length entries} errors at {currentTime}"
     List.iter
       (\entry ->
         do
-          Std.println f"[{entry.timestamp}] {entry.message}"
+          IO.println f"[{entry.timestamp}] {entry.message}"
       )
       entries
 ```

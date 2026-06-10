@@ -46,7 +46,7 @@ Kun 仅支持 `//` 风格的注释。没有块注释语法（`/* */`）。连续
 | Char | 单引号包裹 | `'A'`, `'\n'`, `'好'` |
 | Regex | `r"..."` 前缀 + 双引号 | `r"(?i)[a-z]+"` |
 | Duration | 整数 + 单位后缀 | `5s`, `100ms`, `2h`, `30m`, `1d`, `500us`, `200ns` |
-| Unit | 空圆括号 | `()` |
+| Unit | 无字面量 | — |
 | Path | `p"..."` 前缀 + 双引号 | `p"/tmp/foo"`, `p"./foo"`, `p"/tmp/foo.sh"` |
 
 前缀字面量（`p"..."`、`r"..."`、`f"..."`）的内容为**原始字符串**，不处理转义序列，仅双引号本身通过 `\"` 转义。这与普通字符串 `"..."`（处理 `\n`、`\t` 等转义）形成对照。
@@ -350,33 +350,29 @@ add = \x y -> x + y
 identity : a -> a
 identity = \x -> x
 
-main : IO Unit
-main =
+now : -> DateTime
+now = \ ->
+  Time.now
+
+main : List String -> Unit
+main = \_ ->
   do
-    content <- readFile p"/tmp/foo"
-    print content
+    content = File.readString p"/tmp/foo"
+    IO.print content
 ```
 
 函数类型语法：
 
 ```kun
-T1 -> T2 -> T3          // 柯里化函数
-(T1, T2) -> T3          // 元组参数（参数本身为元组）
-IO T                    // IO 包装
-List Int                // 泛型
+-> T                     // 零参函数（仅 IO 效应）
+T1 -> T2 -> T3           // 柯里化函数
+(T1, T2) -> T3           // 元组参数（参数本身为元组）
+List Int                 // 泛型
 ```
 
 规则：
 - 除非参数本身是元组类型，否则函数类型均为柯里化形式（`Int -> Int -> Int`）
-- **不支持无参函数**（不存在 `() -> T` 语法）。需接收 Unit 参数的函数应显式声明参数（如 `\_ -> body`）。无参回调的所有实际场景均已被替代机制覆盖：
-
-  | 场景 | 其他语言无参回调 | Kun 替代方案 |
-  |------|----------------|-------------|
-  | 重试/超时 | `retry(3, \() -> ioOp())` | `retry 3 ioOp` — `IO T` 本身就是 thunk，每次 `<-` 重新求值 |
-  | 定时器/事件 | `setInterval(5s, \() -> f())` | `setInterval 5s f` — 函数引用直接传递 |
-  | 延迟求值 | `defaultLazy(\() -> expensive())` | `let x = expensive() in maybe default x` — `let` 惰性绑定 |
-  | 高阶遍历 | `repeat 5 (\() -> random())` | `repeat 5 random` — `random : IO Int`，IO thunk 每次触发求值 |
-  | 资源回调 | `withFile path (\() -> ...)` | `withFile path (\f -> ...)` — 带参数回调，更精确 |
+- 零参函数类型 `-> T` 仅用于 IO 效应函数（纯零参函数退化为常量，使用 `let` 绑定）
 - 单参数免除圆括号：`Int -> Int` 而非 `(Int) -> Int`
 
 Record 类型：
@@ -407,12 +403,15 @@ myVariable      // 变量引用
 ### Lambda
 
 ```kun
-\x -> x + 1               // 单参数
-\x y -> x + y             // 多参数
-\(x, y) -> x + y          // 元组解构（参数本身为元组）
-\{x, y} -> x + y          // Record 解构
-\[x, y] -> x + y          // List 解构（最少长度 2）
+\ -> expr                  // 零参 Lambda（仅用于 IO 效应函数）
+\x -> x + 1                // 单参数
+\x y -> x + y              // 多参数
+\(x, y) -> x + y           // 元组解构（参数本身为元组）
+\{x, y} -> x + y           // Record 解构
+\[x, y] -> x + y           // List 解构（最少长度 2）
 ```
+
+零参 Lambda `\ -> expr` 仅用于函数类型为 `-> T` 的 IO 效应函数。纯函数不允许定义为零参。
 
 ### 函数应用
 
@@ -609,11 +608,11 @@ doubleThenAdd1 = add1 << double    // 等价于 \x -> add1 (double x)
 无返回值的 `do` 块：
 
 ```kun
-main : IO Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
-    content <- readFile p"/tmp/foo"
-    print content
+    content = File.readString p"/tmp/foo"
+    IO.print content
 ```
 
 有返回值的 `do` 块使用 `do in` 语法，与 `let in` 类似——IO 效应放在 `do` 和 `in` 之间，返回值放在 `in` 之后：
@@ -638,7 +637,7 @@ processAndReturn = \path ->
     result
 ```
 
-`do in` 确保 `do` 块始终为一个单一表达式（与 `let in` 确保函数体为单一表达式同理）。没有 `in` 部分的 `do` 块无返回值，类型为 `IO Unit`。
+`do in` 确保 `do` 块始终为一个单一表达式（与 `let in` 确保函数体为单一表达式同理）。没有 `in` 部分的 `do` 块无返回值，类型为 `Unit`。
 
 #### `<-` 的解包语义
 
@@ -999,20 +998,16 @@ Kun 脚本的执行入口按以下规则确定：
 
 | 条件 | 行为 |
 |------|------|
-| 定义 `main : IO Unit` | 从 `main` 启动，忽略命令行参数。退出码为 `ExitCode.success`（0） |
-| 定义 `main : IO ExitCode` | 从 `main` 启动，忽略命令行参数，返回自定义退出码 |
-| 定义 `main : List String -> IO Unit` | 从 `main` 启动，传入命令行参数。退出码为 `ExitCode.success`（0） |
-| 定义 `main : List String -> IO ExitCode` | 从 `main` 启动，传入命令行参数，返回自定义退出码 |
-| 未定义 `main`，但有顶层 IO 表达式 | 按源码顺序执行顶层 IO 表达式，退出码为 `ExitCode.success`（0） |
-| 无 `main` 且无顶层 IO 表达式 | 编译告警：无可执行入口 |
-| `main` 签名不合法 | 编译告警：入口函数签名不合法 |
+| 定义 `main : List String -> Unit` | 从 `main` 启动，传入命令行参数。退出码为 `ExitCode.success`（0） |
+| 未定义 `main` | 编译告警：无可执行入口 |
+| `main` 签名不合法 | 编译告警：入口函数签名只能为 `List String -> Unit` |
 
 ### 命令行参数
 
 脚本通过 `main` 函数的参数接收命令行参数：
 
 ```kun
-main : List String -> IO Unit
+main : List String -> Unit
 main = \args ->
   case args of
     []           -> print "no arguments"
@@ -1042,7 +1037,7 @@ import Args
 type Config
   = Config { output : ?String, verbose : Bool, input : ?Path }
 
-main : List String -> IO Unit
+main : List String -> Unit
 main = \raw ->
   case Args.parse [ Args.flag "verbose" 'v', Args.option "output" 'o' ] raw of
     Ok cfg  -> process cfg
@@ -1082,8 +1077,8 @@ case Args.parse [Args.flag "verbose" 'v', Args.option "output" 'o'] raw of
 **`main` 优先**：文件定义了 `main` 时，编译器以此作为唯一入口，忽略其他顶层 IO 表达式：
 
 ```kun
-main : IO Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     print "entry"    // 只执行此处
 ```
@@ -1111,7 +1106,7 @@ greet = print "hi"
 ```kun
 main : Int    // 告警：main 签名不合法
 main = 42
-// → warning: entry point 'main' must have type IO Unit or List String -> IO Unit, got Int
+// → warning: entry point 'main' must have type List String -> Unit, got Int
 
 // 告警：无可执行入口
 // → warning: no executable entry point found
@@ -1188,8 +1183,8 @@ Stream.range 0 100           // [0, 1, ..., 99]
 IO Stream 必须在 `do` 块中通过 `<-` / `<-!` 解包后才能消费：
 
 ```kun
-main : IO Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     lines <-! Stream.readLines p"/tmp/large.log"    // lines : Stream String
     lines

@@ -58,7 +58,7 @@
 | `Stream`（函数指针 `{state, next, destroy}`） | `Stream` 作为 tagged union，将双层间接调用降为单层；`map`/`take` 等纯参数操作可通过 Zig comptime 融合为单循环，`filter` 等闭包操作至少消除了双层间接调用 | 消除闭包链开销，实现简单 |
 | `=!` / `<-!` 早返回 | 命令默认 panic（结构化错误信息），显式错误处理用 `Cmd.<bin>?` 后缀 | 安全默认 vs 类型体操 |
 | `stdin` 关键字 | `Cmd.withStdin : String -> Command -> Command` 普通函数 | 减少关键字 |
-| `module` / `export` 在可执行脚本中 | 可执行脚本不声明 `module`，直接定义 `main : Unit` | 简化最小脚本的启动摩擦 |
+| `module` / `export` 在可执行脚本中 | 可执行脚本不声明 `module`，直接定义 `main : List String -> Unit` | 简化最小脚本的启动摩擦 |
 
 > 注：移除上述组件后，以下现有文档细节也一并失效——`syntax.md:38` 的 `Nat` 字面量 `42u`；`standard-library.md` 中函数签名里的 `IO` 类型标记（`now : IO DateTime`、`sleep : Duration -> IO Unit` 等）改为无 IO 标记的 `Std` 模块签名；`project-vision.md:39` 的 dlopen 实现策略；`code-formatting.md` 文件级声明顺序中的 `with caps` 和 `command` 声明。
 
@@ -493,18 +493,18 @@ do
 
 `Cmd.<bin>?` 同时完成"执行"和"返回 Result"——结果已消费，**不会再被 `do` 块语句边界或 `|>` 自动执行**。因此 `Cmd.cat?` 的返回值可安全绑定到变量并后续解包。
 
-##### `File.read` 等同步 syscall 与 `Cmd.<bin>` 的区别
+##### `File.readString` 等同步 syscall 与 `Cmd.<bin>` 的区别
 
-`Std` 模块和 `File` 模块中的函数（`File.read`、`File.stat`、`Sys.ls` 等）是**进程内同步 syscall**，直接调用 `open()`/`read()`/`fstat()` 等系统调用，不走 fork 子进程。它们**始终立即执行、始终返回 `Result`**，不存在 `?` 变体：
+`Std` 模块和 `File` 模块中的函数（`File.readString`、`File.readBytes`、`File.list`、`File.stat` 等）是**进程内同步 syscall**，直接调用 `open()`/`read()`/`fstat()`/`getdents64()` 等系统调用，不走 fork 子进程。它们**始终立即执行、始终返回 `Result`**，不存在 `?` 变体：
 
-| 维度 | `File.read` / `File.stat` / `Sys.ls` | `Cmd.cat`（隐式执行） | `Cmd.cat?`（显式 `?`） |
+| 维度 | `File.readString` / `File.stat` / `File.list` | `Cmd.cat`（隐式执行） | `Cmd.cat?`（显式 `?`） |
 |------|-------------------------------------|---------------------|----------------------|
 | 执行方式 | 进程内 syscall，**立即** | fork 子进程，**延迟** | fork 子进程，**立即** |
 | 返回类型 | `Result T IOError` | `Stream String` | `Result (Stream String) CommandError` |
 | 失败行为 | 始终返回 `Err` | panic | 返回 `Err` |
 | 适用场景 | 文件存在性/大小/权限检查、小文件读取等快速操作 | "遇错即停"的命令调用 | 需要区分失败原因的命令调用 |
 
-`File.read` 没有 `File.read?` — 它没有"执行模式"可切换（不存在延迟执行阶段），始终立即执行并返回 `Result`。`Cmd.<bin>?` 的 `?` 控制的是 Command 的**执行模式**（panic vs Result），不是"会不会失败"——这是 `?` 不扩展到同步 syscall 函数的原因。
+`File.readString` 没有 `File.readString?` — 它没有"执行模式"可切换（不存在延迟执行阶段），始终立即执行并返回 `Result`。`Cmd.<bin>?` 的 `?` 控制的是 Command 的**执行模式**（panic vs Result），不是"会不会失败"——这是 `?` 不扩展到同步 syscall 函数的原因。
 
 `Cmd.withStdin` 与 Kun 原生多行字符串 `"""..."""` 组合可覆盖 Bash here-document 场景，无需新增语法：
 
@@ -565,20 +565,38 @@ Stream.decodeUtf8 : Stream Bytes -> Stream String        // 字节→UTF-8文本
 
 #### 规则
 
-1. `Cmd.*` 和 Stream 终端操作只能在 `do` 块中调用
+1. 效应函数（规则 5 所列命名空间的所有函数 + Stream 终端操作 + 用户定义效应函数）只能在 `do` 块中调用
 2. 含 `do` 块的函数自动标记为效应函数（编译器 AST 标记，不扩展 HM）
 3. 效应函数调用效应函数 → 调用者也必须在 `do` 块中
 4. 纯函数（无 `do` 块）不能调用效应函数 → 编译期拒绝
-5. Lambda 含有 `Cmd.*` 或效应函数调用时，该 lambda **必须在 `do` 块内定义**。定义为效应 lambda 后可作为参数传递给纯高阶函数（调用点已在 `do` 块内，执行上下文安全）
-6. 外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支——分支中可直接调用 `Cmd.*`，无需显式嵌套 `do`。嵌套 `do` 仅在分支需要独立 `defer` 作用域时使用
-7. `Signal.on`、`List.iter`、`Stream.iter` 等接受回调的 IO 相关函数，其回调**必须为 `do` 块**——即使回调仅包含一行语句。编译器对非 `do` 块的回调参数报错
+5. 以下命名空间下的所有函数均为效应函数——其调用仅在 `do` 块或效应 Lambda 中合法：
+
+   | 命名空间 | 说明 |
+   |---------|------|
+   | `Cmd.*` | 子进程 fork/exec |
+   | `IO.*` | 控制台输入输出 |
+   | `File.*` | 文件系统读写 |
+   | `Env.*` | 环境变量访问 |
+   | `Process.*` | 进程控制 |
+   | `Time.*` | 系统时钟、等待 |
+   | `Signal.*` | 信号处理注册 |
+   | `Sys.*` | 系统信息 syscall |
+   | `TempFile.*` | 临时文件系统操作 |
+   | `Std.*` | **仅 `cd`/`cwd`**；`Std` 中不再新增效应函数 |
+
+   `Parser`、`List`、`Map`、`Set`、`String` 等模块的所有函数均为**纯函数**。用户自定义模块的效应性通过 AST 分析确定。
+
+6. Lambda 含有效应函数调用时，该 lambda **必须在 `do` 块内定义**。定义为效应 lambda 后可作为参数传递给纯高阶函数（调用点已在 `do` 块内，执行上下文安全）
+7. 外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支——分支中可直接调用 `Cmd.*`，无需显式嵌套 `do`。嵌套 `do` 仅在分支需要独立 `defer` 作用域时使用
+8. `Signal.on`、`List.iter`、`Stream.iter` 等接受回调的 IO 相关函数，其回调**必须为 `do` 块**——即使回调仅包含一行语句。编译器对非 `do` 块的回调参数报错
+9. 零参函数类型 `-> T` **仅允许用于 IO 效应函数**。纯函数不能定义为零参——零参纯函数退化为常量，应使用 `let` 绑定。编译器拒绝类型为 `-> T` 且函数体无 `do` 块的函数定义
 
 #### 语法
 
 ```kun
 // do 无 in：返回最后一个表达式的类型
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     IO.println "deploying..."
     Cmd.rsync { archive = true, verbose = true } "src/" "dst/"
@@ -593,6 +611,12 @@ countFiles = \dir ->
         |> Stream.toList
   in
     List.length entries
+
+// 零参函数：类型为 -> T，Lambda 为 \ -> 
+now : -> DateTime
+now = \ ->
+  do
+    Time.now
 ```
 
 #### 编译错误信息设计
@@ -665,12 +689,14 @@ do
       stream
         |> Stream.lines
         |> Stream.toList
-    Err (CommandFailed { exitCode, stderr }) ->
-      IO.println f"cat failed ({exitCode}): {stderr}"
-      Process.exit 1
-    Err (NotFound cmd) ->
-      IO.println f"command not found: {cmd}"
-      Process.exit 127
+    Err err ->
+      case err of
+        CommandFailed { exitCode, stderr } ->
+          IO.println f"cat failed ({exitCode}): {stderr}"
+          Process.exit 1
+        NotFound cmd ->
+          IO.println f"command not found: {cmd}"
+          Process.exit 127
 ```
 
 #### 语义化错误类型
@@ -688,7 +714,7 @@ type CommandError
       { command : String
       , signal  : Int
       }
-  | IoError String               // 管道/socket 创建失败
+  | IoError IOError              // 管道/socket 创建失败（嵌入 IOError 类型，可匹配 Errno 等）
   | PipeFailed                   // OS 管道链中某命令失败
       { commands  : List String  // 管道链中按序的命令名列表
       , failedAt  : Int          // 哪个命令失败（0-based）
@@ -733,7 +759,7 @@ panic: cat: /etc/nonexistent: No such file or directory
 
 ```kun
 Std.cd       : Path -> Unit
-Std.cwd      : Unit -> Path
+Std.cwd      : -> Path
 ```
 
 逻辑 CWD：`Std.cd` 更新运行时维护的逻辑 CWD。fork 子进程时，在 `exec` 前 `chdir` 到此值。Kun 进程的 OS CWD 始终不变。
@@ -743,7 +769,7 @@ Std.cwd      : Unit -> Path
 ```kun
 IO.print    : String -> Unit
 IO.println  : String -> Unit
-IO.readln   : Unit -> String         // 从 stdin fd 0 读取，管道输入自动可用
+IO.readln   : -> String         // 从 stdin fd 0 读取，管道输入自动可用
 ```
 
 外部管道输入（`echo "hello" | kun script.kun`）自动可用——`IO.readln` 从 stdin（fd 0）读取，脚本启动时若 `isatty(0) == 0` 则按管道/文件处理。
@@ -762,15 +788,14 @@ Env.unsetenv : String -> Unit
 
 ```kun
 Time.sleep    : Duration -> Unit
-Time.now      : Unit -> DateTime
+Time.now      : -> DateTime
 ```
 
 #### `Process` — 进程控制
 
 ```kun
 Process.exit     : Int -> Unit
-Process.pid      : Unit -> Int
-Process.args     : Unit -> List String     // 来自 CLI -- 之后的部分
+Process.pid      : -> Int
 ```
 
 #### `Cmd` — Command 工具
@@ -786,31 +811,32 @@ Cmd.retry : Int -> Duration -> Command -> Result (Stream String) CommandError
 #### `Sys` — 类型化系统命令（种子生态，syscall 实现）
 
 ```kun
-Sys.ls     : Path -> Stream { name : String, size : Int, fileType : FileType }
-Sys.stat   : Path -> Result FileStat IOError
-Sys.ps     : Unit -> Stream { pid : Pid, cmd : String }
-Sys.free   : Unit -> { total : Int, used : Int, free : Int }
+Sys.ps     : -> Stream { pid : Pid, cmd : String }
+Sys.free   : -> { total : Int, used : Int, free : Int }
 Sys.df     : Path -> { fs : String, total : Int, used : Int, avail : Int }
-Sys.grep   : { pattern : String, path : Path, recursive : ?Bool }
-              -> Stream { file : Path, line : Int, text : String }
 ```
+
+> `Sys.ls` 已被 `File.list` 替代（返回 `List Path`，再 `Stream.fromList` 即可惰性）；`Sys.stat` 已有 `File.stat`；`Sys.grep` 由 `File.list` + `Stream.filter` + regex 组合覆盖。`Sys` 仅保留无 OS 命令等价物或 syscall 特有功能——`/proc` 遍历（`ps`）、`sysinfo()`（`free`）、`statfs()`（`df`）。
 
 #### `File` — 文件操作（进程内 syscall）
 
 ```kun
-File.read      : Path -> Result String IOError                  // 小文件全文
-File.readBytes : Path -> Result (Stream Bytes) IOError            // 大文件流式
-File.write     : Path -> String -> Result Unit IOError
-File.stat      : Path -> Result FileStat IOError
-File.touch     : Path -> Result Unit IOError
-File.remove    : Path -> Result Unit IOError
+File.list        : Path -> Result (List Path) IOError              // 列出目录内容
+File.readString  : Path -> Result String IOError                   // 小文件全文
+File.readBytes   : Path -> Result (Stream Bytes) IOError           // 大文件流式
+File.writeString : Path -> String -> Result Unit IOError
+File.writeBytes  : Path -> Stream Bytes -> Result Unit IOError     // 大文件流式写入
+File.stat        : Path -> Result FileStat IOError
+File.touch       : Path -> Result Unit IOError
+File.remove      : Path -> Result Unit IOError
+File.removeDir   : Path -> Result Unit IOError
 ```
 
 #### `TempFile` — 临时文件/目录
 
 ```kun
-TempFile.create : Unit -> Result Path IOError    // mkstemp，脚本退出时自动清理
-TempDir.create  : Unit -> Result Path IOError    // mkdtemp，同上
+TempFile.create : -> Result Path IOError    // mkstemp，脚本退出时自动清理
+TempDir.create  : -> Result Path IOError    // mkdtemp，同上
 ```
 
 ### 八·附、`Parser` 标准库
@@ -871,11 +897,11 @@ import Parser.Record
 
 type Config = { host : String, port : Int, debug : Bool }
 
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     // Record ← String（需要显式类型声明驱动泛型推断）
-    raw = File.read p"/etc/app/config.json"
+    raw = File.readString p"/etc/app/config.json"
     case raw of
       Ok text ->
         parsed : Config
@@ -899,39 +925,41 @@ main =
 
 ### 九、可执行脚本入口
 
-可执行的 `.kun` 脚本**不声明 `module`**，也不导出 `main`。脚本必须定义 `main` 函数，否则编译期报错：
+可执行的 `.kun` 脚本**不声明 `module`**，也不导出 `main`。脚本必须定义 `main` 函数，否则编译期报错。`main` 的签名**只能为 `List String -> Unit`**——其他任何形式均为编译期错误。若脚本不需要处理命令行参数，使用 `\_ ->` 忽略参数：
 
 ```kun
-// ✅ 正确：无模块声明的可执行脚本
-main : Unit
-main =
-  do
-    IO.println "hello"
-
-// ✅ 正确：接受命令行参数
+// ✅ 正确：接受并处理命令行参数
 main : List String -> Unit
 main = \args ->
   do
     IO.println f"got {List.length args} arguments"
+
+// ✅ 正确：不需要参数，用 \_ 忽略
+main : List String -> Unit
+main = \_ ->
+  do
+    IO.println "hello"
 ```
 
 ```kun
 // ❌ 错误：可执行脚本中声明 module
 module Foo export (bar)    // 编译错误：可执行脚本不可声明 module
-main : Unit
+main : List String -> Unit
+main = \_ ->
+  do
+    ...
+
+// ❌ 错误：main 签名不合法
+main : Unit                // 编译错误：main 只能为 List String -> Unit
 main =
   do
     ...
 ```
 
-```kun
-// ❌ 错误：可执行脚本未定义 main
-IO.println "no main"      // 编译错误：缺少 main 函数
-```
-
 规则：
 - 可执行脚本文件中**没有 `module` 声明** → 编译器将其视为可执行脚本入口
-- 可执行脚本**必须**定义 `main : Unit` 或 `main : List String -> Unit`
+- `main` 的签名**唯一合法形式为 `List String -> Unit`**——不接受 `Unit`、`Int`、`-> Unit` 等其他签名
+- 不需要命令行参数时用 `\_ ->` 忽略参数
 - `main` 不接受外部 `import`——仅由运行时根据入口规则自动调用
 - 库模块文件**有 `module` 声明** → 不可独立执行，仅作为导入源
 - 支持 Shebang（`#!/usr/bin/env kun`），Kun 二进制启动时检查 argv[1] 是否为文件路径
@@ -942,7 +970,7 @@ CLI 参数结构：
 kun [flags] <script> [--] [script-args...]
 ```
 
-`Process.args` 返回 `--` 之后的部分（不含 `--` 本身）。示例：`kun deploy.kun -- --verbose` → `Process.args` 返回 `["--verbose"]`。
+`main` 接收 `--` 之后的部分（不含 `--` 本身）。参数通过 `List String` 传入，不存在全局 `args` 函数——避免库模块静默访问脚本 CLI 输入。
 
 ### 十、`defer`：结构化资源清理
 
@@ -1168,8 +1196,8 @@ parseLine = \line ->
     _ ->
       Err f"invalid line: {line}"
 
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     entries =
       Cmd.pipe
@@ -1208,14 +1236,15 @@ deploy = \cfg ->
     else
       IO.println "skipping backup"
 
-    Cmd.rsync { archive = true, compress = true, delete = true }
-      |> Cmd.withEnv #{ "RSYNC_PASSWORD" = Env.getenv "RSYNC_PWD" ?? "" }
+    Cmd.rsync
+      { archive = true, compress = true, delete = true }
       cfg.source cfg.target
+      |> Cmd.withEnv #{ "RSYNC_PASSWORD" = Env.getenv "RSYNC_PWD" ?? "" }
 
     Cmd.systemctl { reload = "myapp" }
 
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     deploy { source = p"./dist/", target = p"/var/www/", backup = true }
     IO.println "deploy complete"
@@ -1224,8 +1253,8 @@ main =
 ### 示例 3：带 defer 的资源清理
 
 ```kun
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     IO.println "starting..."
     lock =
@@ -1254,8 +1283,8 @@ main =
 ### 示例 4：环境变量 + 子命令
 
 ```kun
-main : Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     // 构建
     Cmd.npm { install = true }
@@ -1306,7 +1335,7 @@ main =
 | 环境变量 | `env` 隐式字段 + 能力系统 | `Cmd.withEnv` 链式修饰 + CLI `--env=` + 始终剔除列表 |
 | 结构化数据 | `.cmd.kun` + Builder API + 幻影类型 | 自动模块发现（选项类型）+ `Parser.JSON` / `Parser.Record` + 模块提供纯解析函数 |
 | 超时与重试 | 无 | `Cmd.timeout` + `Cmd.retry` |
-| 可执行脚本 | `module Main export (main)` | 无模块声明，直接定义 `main : Unit` |
+| 可执行脚本 | `module Main export (main)` | 无模块声明，直接定义 `main : List String -> Unit` |
 | stdin/stderr 控制 | `<-` 解包 + IO 包装 | `Cmd.withStdin` / `Cmd.mergeStderr` 普通函数 |
 | 特殊字符命令名 | `.cmd.kun` 文件定义 | `Cmd["any-name"]` / `Cmd["a"]["b"]` 转义 |
 | 关键词数量 | `with caps`, `do`, `<-`, `<-!`, `=!`, 等 | `do`, `defer` |
