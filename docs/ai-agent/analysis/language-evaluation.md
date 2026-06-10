@@ -2,30 +2,30 @@
 
 ## 评估背景
 
-对 Kun 语言的三个候选底层实现语言（Zig、Rust、Go）进行全面评估。Kun 是一门面向 Linux 的函数式脚本语言，当前设计文档中指定使用 Zig。
+对 Kun 语言的三个候选底层实现语言（Zig、Rust、Go）进行全面评估。Kun 是一门面向 Linux 的函数式脚本语言，架构重设计后核心需求为：fork-exec 子进程管理、Arena 分配器、HM 类型推断、Landlock/seccomp/signalfd 等 Linux syscall、编译期 Parser.Record 代码生成、无依赖单体二进制。
 
 ## 评估维度
 
 | 维度 | 权重 | 说明 |
 |------|------|------|
-| LLM 模型支持 | ×1 | 代码生成质量和工具补全支持度 |
+| LLM 模型支持 | ×1.5 | 代码生成质量和工具补全支持度（AI 辅助开发为主要工作流） |
 | 构建与运行时性能 | ×1.5 | 编译速度、运行时效率、交叉编译 |
 | 维护便捷性 | ×1 | 依赖管理、构建系统、工具链、兼容性 |
-| 对 Kun 支持的完整性 | ×3 | C ABI、Arena、syscall、无 hidden control flow |
+| 对 Kun 支持的完整性 | ×3 | syscall、Arena、comptime、C ABI、无 hidden control flow |
 | 构建产物大小/独立性 | ×2 | 二进制体积、无依赖运行时、启动时间 |
 | 构建环境支持 | ×1 | CI、IDE、安装便捷度 |
 
 ## 综合评分
 
-| 维度 | Zig | Rust | Go |
-|------|-----|------|-----|
-| 1. LLM 模型支持（×1） | 2 | 5 | 4 |
+| 维度（权重） | Zig | Rust | Go |
+|-------------|-----|------|-----|
+| 1. LLM 模型支持（×1.5） | 2.5 | 5 | 4 |
 | 2. 构建与运行时性能（×1.5） | 5 | 3 | 4 |
-| 3. 维护便捷性（×1） | 2 | 5 | 4 |
-| 4. 对 Kun 支持的完整性（×3） | 5 | 3 | 1 |
+| 3. 维护便捷性（×1） | 2.5 | 5 | 4 |
+| 4. 对 Kun 支持的完整性（×3） | 5 | 3.5 | 1 |
 | 5. 构建产物大小/独立性（×2） | 5 | 3 | 2 |
 | 6. 构建环境支持（×1） | 3 | 5 | 4 |
-| **加权总分** | **29** | **18** | **11** |
+| **加权总分** | **41.75** | **38.5** | **27.0** |
 
 ## 详细分析
 
@@ -33,61 +33,85 @@
 
 | 语言 | 评分 | 评估 |
 |------|------|------|
-| **Rust** | 5 | LLM 训练数据最丰富，GitHub 上大量高质量代码。GPT-4o/Claude/DeepSeek 对其模式极为熟悉。Copilot 补全质量最高。 |
-| **Go** | 4 | 训练数据充足，尤其并发/网络/CLI 代码。LLM 对 Go 惯用模式掌握良好。 |
-| **Zig** | 2 | 训练数据显著有限。Zig 社区小、代码量少。LLM 在 Zig 代码上常出现非惯用模式、过时 API、甚至编译不通过的代码。对 comptime、分配器模式等核心特性生成质量不稳定。 |
+| **Rust** | 5 | 训练数据最丰富，GitHub 上大量高质量代码。GPT-4o/Claude/DeepSeek 对其模式极为熟悉。proc macro、unsafe 边界、借用检查器等复杂领域也能正确生成。 |
+| **Go** | 4 | 训练数据充足，尤其 CLI/网络代码。Go 的简单性降低了 LLM 出错概率。但 ADT/sum type 模拟（interface + type switch）会让 LLM 生成冗长代码。 |
+| **Zig** | 2.5 | 到 2026 年社区增长，训练数据有所改善。但 comptime、分配器传递、error union 等核心惯用模式仍不稳定。Claude/DeepSeek 支持优于 GPT 系列。 |
 
 ### 维度 2：构建与运行时性能
 
 | 语言 | 评分 | 评估 |
 |------|------|------|
-| **Zig** | 5 | 编译速度极快，增量编译亚秒级，完整构建 < 5s。运行时性能与 C 同级，无 GC pause。Arena 分配是几条指令。交叉编译一等公民。 |
-| **Go** | 4 | 编译速度快，GC 导致尾部延迟不可预测。交叉编译极佳。 |
-| **Rust** | 3 | 编译速度慢（LLVM + 单态化），完整构建分钟级。运行时与 C 同级。交叉编译需预编译 std，设置复杂。 |
+| **Zig** | 5 | 编译亚秒级，增量编译亚秒级。运行时性能 = C，无 GC pause。Arena 分配是几条指令。交叉编译一等公民。`zig build` 单命令产出静态二进制。 |
+| **Go** | 4 | 编译速度快，GC 导致尾部延迟不可预测。但对于短生命周期脚本执行器，STW 暂停通常 < 1ms，影响可控。 |
+| **Rust** | 3 | 编译慢（LLVM + 单态化），完整构建分钟级。增量编译已显著改善。运行时性能与 C 同级。交叉编译需预编译 std，设置复杂。 |
 
 ### 维度 3：维护便捷性
 
 | 语言 | 评分 | 评估 |
 |------|------|------|
-| **Rust** | 5 | Cargo 生态最佳，错误信息业界标杆。调试工具链完善。Edition 机制保证兼容性。 |
-| **Go** | 4 | 工具链简单可靠，Go 1.x 兼容性承诺极强。调试支持良好，pprof 一流。 |
-| **Zig** | 2 | 包管理系统新生（0.11+）。Pre-1.0 频繁 breaking change。调试工具不成熟。错误信息在改善但远不及 Rust。 |
+| **Rust** | 5 | Cargo 生态最佳，rust-analyzer 业界标杆。cargo-fix/cargo-clippy 自动化维护。Edition 机制保证兼容性。 |
+| **Go** | 4 | 工具链极简可靠，Go 1.x 兼容性承诺极强。gopls LSP 成熟。 |
+| **Zig** | 2.5 | 包管理 0.11+ 引入后改善。Pre-1.0 仍有 breaking change。zls LSP 趋于稳定但不如 rust-analyzer。错误信息在改善但远不及 Rust。 |
 
 ### 维度 4：对 Kun 支持的完整性 ⭐
 
+> **架构重设计后**：fork-exec 替代 dlopen、AST 标记替代 Monadic IO、tagged union 替代函数指针 Stream、`Cmd.<bin>` 替代 Builder API。关键需求变化如下：
+
+| 需求 | Zig | Rust | Go |
+|------|-----|------|-----|
+| fork-exec + pipe 捕获 | `std.process.Child` | `std::process::Command` | `os/exec` |
+| Arena 分配器 | `std.heap.ArenaAllocator`（惯用） | `bumpalo`/`typed-arena` crate（RAII 冲突） | 与 GC 根本冲突 |
+| HM 类型推断 | comptime 泛型 + tagged union | 泛型 + enum（借用检查器摩擦） | interface{} + type switch（冗长） |
+| Landlock/seccomp/signalfd | `std.os.linux` 直接 syscall | `nix` crate 或 `unsafe` + `libc` | `golang.org/x/sys/unix` |
+| Parser.Record 代码生成 | comptime 直接（`@typeInfo`） | proc macro（复杂，编译慢） | 运行时反射（无编译期保证） |
+| ADT / sum type | tagged union（一等公民） | enum（一等公民） | 无（interface 模拟） |
+| 无 hidden control flow | ✅ | ✅（除 panic=unwind） | ❌（GC/goroutine 抢占） |
+
 | 语言 | 评分 | 评估 |
 |------|------|------|
-| **Zig** | 5 | C ABI 一等公民，Arena 分配器是惯用模式，comptime 编译期代码生成。无 hidden control flow。直接系统调用。 |
-| **Rust** | 3 | C ABI 可行但繁琐（unsafe + repr(C)）。Arena 分配器与 RAII 冲突需第三方 crate。AST 递归结构挑战借用检查器。 |
-| **Go** | 1 | cgo 性能损失大。GC 与 Arena 根本冲突（Go 1.21+ arena 实验包已标记移除）。无 ADT/sum type。无直接系统调用。 |
+| **Zig** | 5 | 上述所有需求均为惯用模式或标准库直接支持。comptime 让 Parser.Record 代码生成成为几百行模板而非独立子系统。 |
+| **Rust** | 3.5 | fork-exec 是标准库。但 Arena × RAII、AST × 借用检查器、proc macro × 编译速度——三处摩擦持续消耗开发效率。架构简化后 Rust 的可行性明显提升。 |
+| **Go** | 1 | GC × Arena 根本冲突，无 ADT/sum type 丧失类型安全核心优势。Landlock/seccomp 可通过 x/sys/unix 调用但不如 Zig 直接。 |
 
 ### 维度 5：构建产物大小/独立性
 
 | 语言 | 评分 | 评估 |
 |------|------|------|
-| **Zig** | 5 | 最小二进制 < 10KB，无运行时库依赖，启动时间亚毫秒。 |
-| **Rust** | 3 | 最小 ~300KB（strip + musl），需 musl ~100KB。 |
-| **Go** | 2 | 最小 ~2MB（含 runtime/GC/scheduler），启动 0.5-2ms。 |
+| **Zig** | 5 | 完整解释器 + HM 类型检查器 < 500KB。无运行时库依赖，启动亚毫秒。适合嵌入 Docker 镜像、CI 流水线、边缘设备。 |
+| **Rust** | 3 | 完整解释器 ~1.5MB（strip + musl + LTO）。无运行时依赖但 libc 静态链接。 |
+| **Go** | 2 | 完整解释器 ~5MB（含 runtime/GC/scheduler/reflect/net）。启动 0.5-2ms。 |
 
 ### 维度 6：构建环境支持
 
 | 语言 | 评分 | 评估 |
 |------|------|------|
-| **Rust** | 5 | GitHub Actions 一等支持。IDE 生态最佳（rust-analyzer）。 |
-| **Go** | 4 | GitHub Actions 支持良好。gopls LSP 成熟。 |
-| **Zig** | 3 | GitHub Actions 社区 action。zls LSP 在改善但仍不成熟。 |
+| **Rust** | 5 | GitHub Actions 一等支持。rustup 安装零摩擦。IDE 生态最佳。 |
+| **Go** | 4 | GitHub Actions 支持良好。安装简单（官方二进制）。 |
+| **Zig** | 3 | GitHub Actions 社区 action 可用。安装简单（单二进制）。zls LSP 趋于稳定。 |
+
+## 架构重设计的语言选择影响
+
+| 旧设计需求 | 新设计 | 对语言选择的影响 |
+|-----------|--------|-----------------|
+| dlopen/dlsym 直接调用命令二进制 | fork-exec + pipe 捕获 | **弱化 Zig 优势**：三种语言均等支持 |
+| `IO T` Monadic 效应系统 | AST 标记 | **弱化 Zig 优势**：不再需要 comptime 实现效应传播 |
+| Stream 函数指针链 | tagged union | **无影响**：更简单，三种语言均可 |
+| Builder API + 幻影类型 | `Cmd.<bin>` + Record | **弱化 Zig 优势**：不再需要 comptime 代码生成 |
+| Parser.Record 编译期代码生成 | 保持不变 | **维持 Zig 优势**：Zig comptime、Rust proc macro、Go 反射 |
 
 ## 结论
 
 **维持 Zig 为宿主语言。**
 
-### 各语言最终定性
+架构重设计后 Rust 与 Zig 的差距从原来的 29:18 缩小到 41.75:38.5。Rust 的逼近主要因为 fork-exec 替代 dlopen 后，维度 4（Kun 完整性）的差距从 5→3 缩小到 5→3.5。Go 仍不可行——GC 与 Arena 的冲突是根本性的。
 
-| 语言 | 适合度 | 结论 |
+### 风险提示与缓解措施
+
+| 风险 | 严重度 | 缓解 |
 |------|--------|------|
-| **Zig** | ✅ 最适 | 四项不可妥协约束（C ABI、Arena、直接 syscall、无依赖单体二进制）上均为唯一完美选择 |
-| **Rust** | ⚠️ 可行但有摩擦 | RAII × Arena 冲突、AST 借用检查摩擦、LLVM 编译慢、二进制大 10-30x——持续消耗开发效率 |
-| **Go** | ❌ 不适配 | GC × Arena 根本冲突、cgo 性能损失、无 ADT——关键设计决策上不可调和 |
+| LLM 对 Zig 代码生成不稳定 | **高** | 保持 `zig-patterns.md` 高频更新；示例代码库覆盖所有惯用模式；AI 生成代码强制审计 |
+| Zig pre-1.0 breaking change | 中 | 版本锁定 0.13.0；CI 显式校验版本；计划性迁移窗口 |
+| 单人维护负担 | 中 | 无依赖策略降低外部风险；Arena 分配减少内存 Bug；comptime 减少手写模板代码 |
 
 ### 版本锁定
 

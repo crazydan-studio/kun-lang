@@ -58,41 +58,59 @@ const eq = std.mem.eql(u8, "hello", "world");
 const sub = slice[start..end];
 ```
 
-## C ABI 兼容性
+## 子进程管理
 
-### 导出 C 兼容函数
+### fork-exec + pipe 捕获
+
+Kun 通过 fork-exec 执行外部命令，stdout/stderr 通过 pipe 捕获：
 
 ```zig
-// 导出给 dlopen 使用的入口函数
-export fn command_entry(args: [*c]const CommandArgs, result: [*c]CommandResult) i32 {
-    // ...
+const std = @import("std");
+
+fn execCommand(allocator: std.mem.Allocator, bin: []const u8, argv: []const []const u8) !std.process.Child {
+    var child = std.process.Child.init(argv, allocator);
+    child.stdin_behavior = .Pipe;
+    child.stdout_behavior = .Pipe;
+    child.stderr_behavior = .Pipe;
+    try child.spawn();
+    return child;
 }
 ```
 
-### C 兼容结构体
+### pipe 读取与 Stream 消费
 
 ```zig
-const CommandArgs = extern struct {
-    count: u64,
-    fields: [*]CommandArg,
-};
-
-const CommandResult = extern struct {
-    exit_code: i32,
-    stdout_data: Slice,
-    stderr_data: Slice,
-    error_tag: ErrorTag,
-};
+fn readStdout(allocator: std.mem.Allocator, child: *std.process.Child) ![]u8 {
+    const stdout = child.stdout.?;
+    const result = try stdout.reader().readAllAlloc(allocator, 1024 * 1024); // 1MB max
+    _ = try child.wait();
+    return result;
+}
 ```
 
-### dlopen/dlsym 调用
+### Landlock / seccomp 安装
+
+在 fork 后、exec 前安装安全策略：
 
 ```zig
-const handle = try std.DynLib.open("libexample.so");
-defer handle.close();
+fn installSeccomp() !void {
+    const std = @import("std");
+    const linux = std.os.linux;
 
-const func = handle.lookup(@TypeOf(entry_point), "entry_point") orelse return error.SymbolNotFound;
-const result = func(args);
+    // seccomp 过滤规则（使用 libseccomp 或直接 BPF）
+    const filter = try buildSeccompFilter(allocator, allows);
+    const rc = linux.seccomp(
+        linux.SECCOMP.SET_MODE_FILTER,
+        linux.SECCOMP.FILTER.FLAG_TSYNC,
+        @intFromPtr(&filter),
+    );
+    if (rc != 0) return error.SeccompInstallFailed;
+}
+
+fn installLandlock(rules: []const LandlockRule) !void {
+    // Landlock LSM 规则安装
+    // 使用 std.os.linux.landlock_create_ruleset / landlock_add_rule / landlock_restrict_self
+}
 ```
 
 ## 系统调用
