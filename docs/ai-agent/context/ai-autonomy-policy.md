@@ -20,8 +20,8 @@
 |---|---|---|
 | 类型系统核心 | 需要 `plan-first` 或以上 | 更新后的类型系统设计文档 |
 | 运行时安全模型 | 需要 `ask-first` | 人工明确批准 |
-| 命令签名系统 | 需要 `plan-first` | 签名设计文档与测试方案 |
-| dlopen/ptrace 机制 | 需要 `ask-first` | 安全评估报告 |
+| Cmd 命令系统 | 需要 `plan-first` | 命令系统设计文档与测试方案 |
+| Landlock/seccomp 安全子系统 | 需要 `ask-first` | 安全评估报告 |
 | 许可证文件 | 需要 `ask-first` | 人工明确批准 |
 
 ## 自治级别变更
