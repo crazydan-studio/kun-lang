@@ -74,7 +74,7 @@ export function getDiagnostics(doc: KunDocument): Diagnostic[] {
     checkTypeNaming(diagnostics, line, i)
     checkGenericBrackets(diagnostics, line, i)
     checkFunctionApplication(diagnostics, line, i)
-    checkDoBlockContext(diagnostics, line, i, lines)
+    checkEffectContext(diagnostics, line, i, lines)
   }
 
   return diagnostics
@@ -160,12 +160,9 @@ function checkFunctionApplication(diagnostics: Diagnostic[], line: string, lineN
 }
 
 function checkDeclarationOrder(diagnostics: Diagnostic[], lines: string[]): void {
-  // Walk lines top-to-bottom, skip blanks and comments
-  // Track positions of each declaration type
   let firstNonComment = -1
-  let moduleOrCommandLine = -1
+  let moduleLine = -1
   let firstImportLine = -1
-  let firstCapsLine = -1
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim()
@@ -173,9 +170,8 @@ function checkDeclarationOrder(diagnostics: Diagnostic[], lines: string[]): void
 
     if (firstNonComment === -1) firstNonComment = i
 
-    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed) ||
-        DECLARATION_ORDER_RULES.commandPattern.test(trimmed)) {
-      if (moduleOrCommandLine === -1) moduleOrCommandLine = i
+    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed)) {
+      if (moduleLine === -1) moduleLine = i
       continue
     }
 
@@ -183,56 +179,34 @@ function checkDeclarationOrder(diagnostics: Diagnostic[], lines: string[]): void
       if (firstImportLine === -1) firstImportLine = i
       continue
     }
-
-    // Only flag top-level with caps (no leading indent)
-    if (DECLARATION_ORDER_RULES.capsPattern.test(lines[i])) {
-      if (firstCapsLine === -1) firstCapsLine = i
-      continue
-    }
   }
 
-  // Rule 1: module/command must be the first non-comment line
-  if (moduleOrCommandLine !== -1 && moduleOrCommandLine !== firstNonComment) {
+  // Rule 1: module must be the first non-comment line
+  if (moduleLine !== -1 && moduleLine !== firstNonComment) {
     diagnostics.push(error(
-      '`module` or `command` declaration must be the first non-comment line in the file.',
-      moduleOrCommandLine, 0, lines[moduleOrCommandLine].trimEnd().length,
+      '`module` declaration must be the first non-comment line in the file.',
+      moduleLine, 0, lines[moduleLine].trimEnd().length,
     ))
   }
 
-  // Rule 2: import must come after module/command
-  if (moduleOrCommandLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleOrCommandLine) {
+  // Rule 2: import must come after module
+  if (moduleLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleLine) {
     diagnostics.push(error(
-      '`import` statements must come after `module`/`command` declaration.',
+      '`import` statements must come after `module` declaration.',
       firstImportLine, 0, lines[firstImportLine].trimEnd().length,
-    ))
-  }
-
-  // Rule 3: top-level with caps must come after import
-  if (firstCapsLine !== -1 && firstImportLine !== -1 && firstCapsLine < firstImportLine) {
-    diagnostics.push(error(
-      'Script-level `with caps` must come after `import` statements.',
-      firstCapsLine, 0, lines[firstCapsLine].trimEnd().length,
-    ))
-  }
-
-  // Rule 4: top-level with caps must come after module/command
-  if (firstCapsLine !== -1 && moduleOrCommandLine !== -1 && firstCapsLine < moduleOrCommandLine) {
-    diagnostics.push(error(
-      'Script-level `with caps` must come after `module`/`command` declaration.',
-      firstCapsLine, 0, lines[firstCapsLine].trimEnd().length,
     ))
   }
 }
 
-function checkDoBlockContext(
+function checkEffectContext(
   diagnostics: Diagnostic[],
   line: string,
   lineNum: number,
   allLines: string[],
 ): void {
-  // Check that `<-` and `<-!` are inside do blocks
-  const hasBind = /<-\!?\s/.test(line)
-  if (hasBind) {
+  // Check that effect function calls (Cmd.*/IO.*/File.*/etc.) are inside do blocks
+  const hasEffectCall = /\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+|Std\.(cd|cwd)/.test(line)
+  if (hasEffectCall) {
     let foundDo = false
     for (let j = lineNum; j >= 0; j--) {
       if (/^\s*do\b/.test(allLines[j])) {
@@ -241,9 +215,9 @@ function checkDoBlockContext(
       }
     }
     if (!foundDo) {
-      const bindIdx = line.search(/<-\!?\s/)
+      const idx = line.search(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+|Std\.(cd|cwd)/)
       diagnostics.push(
-        error('IO bind operator (<- / <-!) can only be used inside a do block.', lineNum, bindIdx, bindIdx + 2),
+        error('Effect functions (Cmd.*/IO.*/File.*/etc.) can only be called inside a do block.', lineNum, idx, idx + line.match(/\b\w+\.\w+/)![0].length),
       )
     }
   }

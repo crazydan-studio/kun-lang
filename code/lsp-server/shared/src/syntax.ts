@@ -1,21 +1,25 @@
 export const KEYWORDS = [
   'type', 'case', 'if', 'then', 'else', 'do', 'in', 'let',
-  'module', 'import', 'as', 'with', 'export', 'caps', 'of',
-  'when', 'command', 'for',
+  'module', 'import', 'as', 'with', 'export', 'of',
+  'when', 'defer',
 ] as const
 
 export const BUILTIN_TYPES = [
-  'Int', 'Nat', 'Float', 'Bool', 'String', 'Bytes', 'Char',
-  'Regex', 'Duration', 'Unit', 'Path', 'Result', 'List', 'Set',
-  'Map', 'Stream', 'IO',
+  'Int', 'Float', 'Bool', 'String', 'Bytes', 'Char',
+  'Regex', 'Duration', 'Path', 'Result', 'List', 'Set',
+  'Map', 'Stream',
 ] as const
 
 export const DEPRECATED_SYNTAX = [
-  // { pattern: /[^!<>]=\s*$/, message: 'Use =! for early-return Result binding instead of bare =' },
   { pattern: /\*rest\b/, message: '*rest syntax is deprecated; use ..rest instead' },
   { pattern: /\bJust\b/, message: 'Just is deprecated; Kun uses ?T (Nilable) instead of Maybe' },
   { pattern: /\bNothing\b/, message: 'Nothing is deprecated; Kun uses Nil instead' },
   { pattern: /--/, message: '-- comments are deprecated; use // instead' },
+  { pattern: /<-/, message: '<- bind operator is removed; use = instead' },
+  { pattern: /<-!/, message: '<-! early-return operator is removed; use Cmd.<bin>? instead' },
+  { pattern: /=!/, message: '=! early-return operator is removed; use Cmd.<bin>? instead' },
+  { pattern: /\bwith\s+caps\b/, message: 'with caps is deprecated; use CLI --allow-path / --allow-net instead' },
+  { pattern: /\bcommand\s+\w+\s+for\b/, message: 'command declaration is deprecated; use module declaration instead' },
 ] as const
 
 export const COMMENT_RULES = {
@@ -70,7 +74,7 @@ export const IF_THEN_ELSE_RULES = {
 export const DO_RULES = {
   doOnNewLine: true,
   inOnNewLine: true,
-  ioInDoBlock: true,
+  effectInDoBlock: true,
 } as const
 
 export const RECORD_RULES = {
@@ -89,7 +93,12 @@ export const PIPE_RULES = {
 export const IMPORT_EXPORT_RULES = {
   moduleDeclaration: /^module\s+\w+(\s+export\s+\([^)]*\))?/,
   importStyles: ['as', 'with (..)', 'with (...)'],
-  commandDeclaration: /^command\s+\w+\s+for\s+"[^"]+"/,
+} as const
+
+export const EXECUTABLE_SCRIPT_RULES = {
+  mainSignature: 'List String -> Unit',
+  allowOmittedSignature: true,
+  noModuleDeclaration: true,
 } as const
 
 export const NAMING_RULES = {
@@ -100,13 +109,10 @@ export const NAMING_RULES = {
 } as const
 
 export const DECLARATION_ORDER_RULES = {
-  moduleCommandFirst: true,
-  importAfterModuleCommand: true,
-  capsAfterImport: true,
+  moduleFirst: true,
+  importAfterModule: true,
   modulePattern: /^module\s+\w+/,
-  commandPattern: /^command\s+\w+/,
   importPattern: /^import\s+\w+/,
-  capsPattern: /^with\s+caps/,
 } as const
 
 export function isTypeName(name: string): boolean {

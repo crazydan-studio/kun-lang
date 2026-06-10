@@ -15,8 +15,8 @@ export type Comment = {
 }
 
 export type LiteralType =
-  | 'Int' | 'Nat' | 'Float' | 'Bool' | 'String'
-  | 'Bytes' | 'Char' | 'Regex' | 'Duration' | 'Unit'
+  | 'Int' | 'Float' | 'Bool' | 'String'
+  | 'Bytes' | 'Char' | 'Regex' | 'Duration'
   | 'Path'
 
 export type Literal = {
@@ -38,7 +38,6 @@ export type TypeExpr =
   | { kind: 'function'; param: TypeExpr; result: TypeExpr; range: Range }
   | { kind: 'record'; fields: RecordFieldType[]; range: Range }
   | { kind: 'nilable'; inner: TypeExpr; range: Range }
-  | { kind: 'rowPoly'; base: string; fields: RecordFieldType[]; range: Range }
   | { kind: 'tuple'; elements: TypeExpr[]; range: Range }
   | { kind: 'paren'; inner: TypeExpr; range: Range }
 
@@ -73,7 +72,8 @@ export type Expr =
   | { kind: 'let'; bindings: Binding[]; body: Expr; range: Range }
   | { kind: 'case'; expr: Expr; branches: CaseBranch[]; range: Range }
   | { kind: 'if'; condition: Expr; thenBranch: Expr; elseBranch: Expr; range: Range }
-  | { kind: 'do'; steps: DoStep[]; result?: Expr; caps?: CapsDecl; range: Range }
+  | { kind: 'do'; steps: DoStep[]; result?: Expr; range: Range }
+  | { kind: 'defer'; expr: Expr; range: Range }
   | { kind: 'pipe'; expr: Expr; steps: PipeStep[]; range: Range }
   | { kind: 'record'; fields: RecordField[]; spread?: string; range: Range }
   | { kind: 'recordAccess'; record: Expr; field: string; range: Range }
@@ -96,8 +96,9 @@ export type CaseBranch = {
 }
 
 export type DoStep =
-  | { kind: 'bind'; pattern: Pattern; expr: Expr; earlyReturn: boolean; range: Range }
+  | { kind: 'bind'; pattern: Pattern; expr: Expr; range: Range }
   | { kind: 'expr'; expr: Expr; range: Range }
+  | { kind: 'defer'; expr: Expr; range: Range }
 
 export type PipeStep = {
   func: Expr
@@ -110,19 +111,9 @@ export type RecordField = {
   range: Range
 }
 
-export type CapsDecl = {
-  caps: CapsEntry[]
-  range: Range
-}
-
-export type CapsEntry = {
-  key: string
-  value: string
-}
-
 export type TopLevelDecl = {
-  kind: 'typeDecl' | 'functionDecl' | 'moduleDecl' | 'commandDecl'
-  | 'importDecl' | 'capsDecl' | 'expression'
+  kind: 'typeDecl' | 'functionDecl' | 'moduleDecl'
+  | 'importDecl' | 'expression'
   range: Range
   name?: string
   typeAnnotation?: TypeAnnotation

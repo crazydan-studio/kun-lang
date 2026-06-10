@@ -9,8 +9,7 @@ import {
   checkCommentStyle,
 } from '@kun-lang/lsp-shared'
 import {
-  NILABLE_RULES, EARLY_RETURN_RULES, IO_RULES,
-  NAMING_CONVENTIONS,
+  NILABLE_RULES, NAMING_CONVENTIONS,
 } from '@kun-lang/lsp-shared'
 
 interface Diagnostic {
@@ -21,9 +20,8 @@ interface Diagnostic {
 
 function checkDeclarationOrderCLI(diagnostics: Diagnostic[], lines: string[]): void {
   let firstNonComment = -1
-  let moduleOrCommandLine = -1
+  let moduleLine = -1
   let firstImportLine = -1
-  let firstCapsLine = -1
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim()
@@ -31,9 +29,8 @@ function checkDeclarationOrderCLI(diagnostics: Diagnostic[], lines: string[]): v
 
     if (firstNonComment === -1) firstNonComment = i
 
-    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed) ||
-        DECLARATION_ORDER_RULES.commandPattern.test(trimmed)) {
-      if (moduleOrCommandLine === -1) moduleOrCommandLine = i
+    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed)) {
+      if (moduleLine === -1) moduleLine = i
       continue
     }
 
@@ -41,41 +38,20 @@ function checkDeclarationOrderCLI(diagnostics: Diagnostic[], lines: string[]): v
       if (firstImportLine === -1) firstImportLine = i
       continue
     }
-
-    if (DECLARATION_ORDER_RULES.capsPattern.test(lines[i])) {
-      if (firstCapsLine === -1) firstCapsLine = i
-      continue
-    }
   }
 
-  if (moduleOrCommandLine !== -1 && moduleOrCommandLine !== firstNonComment) {
+  if (moduleLine !== -1 && moduleLine !== firstNonComment) {
     diagnostics.push({
-      line: moduleOrCommandLine + 1,
-      message: '`module` 或 `command` 声明必须是文件第一个非注释行',
+      line: moduleLine + 1,
+      message: '`module` 声明必须是文件第一个非注释行',
       severity: 'error',
     })
   }
 
-  if (moduleOrCommandLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleOrCommandLine) {
+  if (moduleLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleLine) {
     diagnostics.push({
       line: firstImportLine + 1,
-      message: '`import` 语句必须在 `module`/`command` 声明之后',
-      severity: 'error',
-    })
-  }
-
-  if (firstCapsLine !== -1 && firstImportLine !== -1 && firstCapsLine < firstImportLine) {
-    diagnostics.push({
-      line: firstCapsLine + 1,
-      message: '脚本级 `with caps` 必须在 `import` 语句之后',
-      severity: 'error',
-    })
-  }
-
-  if (firstCapsLine !== -1 && moduleOrCommandLine !== -1 && firstCapsLine < moduleOrCommandLine) {
-    diagnostics.push({
-      line: firstCapsLine + 1,
-      message: '脚本级 `with caps` 必须在 `module`/`command` 声明之后',
+      message: '`import` 语句必须在 `module` 声明之后',
       severity: 'error',
     })
   }
@@ -121,7 +97,7 @@ function runDiagnostics(content: string): Diagnostic[] {
       }
     }
 
-    // 4. Semicolons — any semicolon in code (not in comments/strings)
+    // 4. Semicolons
     const codePart = line.replace(/\/\/.*$/, '').replace(/"[^"]*"/g, '')
     if (codePart.includes(';')) {
       diagnostics.push({
@@ -153,17 +129,21 @@ function runDiagnostics(content: string): Diagnostic[] {
       }
     }
 
-    // 7. IO operators in non-do context
-    const ioOperators = [IO_RULES.bindOperator, IO_RULES.bindWithEarlyReturn]
-    const foundOp = ioOperators.find(op => line.includes(op))
-    if (foundOp) {
-      const doCount = lines.slice(0, i + 1).filter(l => l.trim().startsWith('do')).length
-      const inCount = lines.slice(0, i + 1).filter(l => l.trim() === 'in' || l.trim().startsWith('in ')).length
-      if (doCount <= inCount) {
+    // 7. Effect function calls outside do blocks
+    const effectCallMatch = line.match(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+|Std\.(cd|cwd)/)
+    if (effectCallMatch) {
+      let foundDo = false
+      for (let j = i; j >= 0; j--) {
+        if (/^\s*do\b/.test(lines[j])) {
+          foundDo = true
+          break
+        }
+      }
+      if (!foundDo) {
         diagnostics.push({
           line: lineNum,
-          message: `'${foundOp}' 应在 do 块内使用`,
-          severity: 'warning',
+          message: '效应函数（Cmd.*/IO.*/File.* 等）只能在 do 块中调用',
+          severity: 'error',
         })
       }
     }

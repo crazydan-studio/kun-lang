@@ -27,7 +27,11 @@ const KEYWORD_COMPLETIONS: CompletionItem[] = KEYWORDS.map(kw => {
     },
     do: {
       snippet: 'do\n  ${1:step}',
-      doc: 'Sequential IO execution block',
+      doc: 'Sequential execution block',
+    },
+    defer: {
+      snippet: 'defer (${1:expr})',
+      doc: 'Deferred cleanup expression',
     },
     module: {
       snippet: 'module ${1:Name} export (${2:symbols})',
@@ -108,18 +112,16 @@ function getKeywordDoc(kw: string): string | undefined {
     if: 'Conditional expression',
     then: 'Then branch of if expression',
     else: 'Else branch of if expression',
-    do: 'Sequential IO execution block',
+    do: 'Sequential execution block',
     in: 'Return expression for let/do',
     let: 'Local bindings',
+    defer: 'Deferred cleanup expression',
     module: 'Module declaration',
     import: 'Import a module',
     as: 'Module alias on import',
-    with: 'Import specific symbols or declare capabilities',
+    with: 'Import specific symbols',
     export: 'Declare exported symbols in module',
-    caps: 'Capability declaration block',
     when: 'Guard clause in pattern matching',
-    command: 'Declare a command module',
-    for: 'Specify binary name in command declaration',
   }
   return docs[kw]
 }
@@ -127,7 +129,6 @@ function getKeywordDoc(kw: string): string | undefined {
 function getBuiltinTypeDoc(t: string): string | undefined {
   const docs: Record<string, string> = {
     Int: '64-bit signed integer',
-    Nat: 'Non-negative integer',
     Float: 'Double-precision floating point',
     Bool: 'Boolean (true/false)',
     String: 'UTF-8 encoded text',
@@ -135,14 +136,12 @@ function getBuiltinTypeDoc(t: string): string | undefined {
     Char: 'Unicode scalar value',
     Regex: 'Compiled regular expression',
     Duration: 'Time duration (nanosecond precision)',
-    Unit: 'Unit type (void)',
     Path: 'File system path',
     Result: 'Result type for error handling (Ok | Err)',
     List: 'Linked list',
     Set: 'Set data structure',
     Map: 'Key-value map',
     Stream: 'Lazy pull-based sequence',
-    IO: 'IO effect type',
   }
   return docs[t]
 }

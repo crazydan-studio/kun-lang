@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Kun",
   "scopeName": "source.kun",
-  "fileTypes": ["kun", "cmd.kun"],
+  "fileTypes": ["kun"],
   "patterns": [
     { "include": "#comments" },
     { "include": "#literals" },
@@ -27,7 +27,7 @@
         { "name": "string.quoted.double.kun.interpolated", "match": "f\"[^\"]*\"" },
         { "name": "string.quoted.double.kun.multiline", "begin": "\"\"\"", "end": "\"\"\"" },
         { "name": "string.quoted.double.kun.interpolated-multiline", "begin": "f\"\"\"", "end": "\"\"\"" },
-        { "name": "constant.numeric.integer.kun", "match": "\\b[0-9][0-9_]*[u]?\\b" },
+        { "name": "constant.numeric.integer.kun", "match": "\\b[0-9][0-9_]*\\b" },
         { "name": "constant.numeric.float.kun", "match": "\\b[0-9][0-9_]*\\.[0-9][0-9_]*([eE][+-]?[0-9]+)?\\b" },
         { "name": "constant.numeric.hex.kun", "match": "\\b0[xXoObB][0-9a-fA-F][0-9a-fA-F_]*\\b" },
         { "name": "constant.language.boolean.kun", "match": "\\b(true|false)\\b" }
@@ -37,15 +37,11 @@
       "patterns": [
         {
           "name": "keyword.control.kun",
-          "match": "\\b(case|of|if|then|else|do|in|let|when|with|caps)\\b"
+          "match": "\\b(case|of|if|then|else|do|in|let|when|defer)\\b"
         },
         {
           "name": "keyword.declaration.kun",
-          "match": "\\b(type|module|import|as|export|command|for)\\b"
-        },
-        {
-          "name": "keyword.operator.kun",
-          "match": "(=|!|<|>)\\b"
+          "match": "\\b(type|module|import|as|export|main)\\b"
         }
       ]
     },
@@ -53,7 +49,7 @@
       "patterns": [
         {
           "name": "support.type.kun",
-          "match": "\\b(Int|Nat|Float|Bool|String|Bytes|Char|Regex|Duration|Unit|Path|Result|List|Set|Map|Stream|IO|Nil)\\b"
+          "match": "\\b(Int|Float|Bool|String|Bytes|Char|Regex|Duration|Path|Result|List|Set|Map|Stream|Nil)\\b"
         },
         {
           "name": "entity.name.type.kun",
@@ -70,8 +66,6 @@
         { "name": "keyword.operator.kun.optional-chain", "match": "\\?\\." },
         { "name": "keyword.operator.kun.arrow", "match": "->" },
         { "name": "keyword.operator.kun.lambda", "match": "\\\\" },
-        { "name": "keyword.operator.kun.bind-io", "match": "<-!?" },
-        { "name": "keyword.operator.kun.bind-pure", "match": "=!?" },
         { "name": "keyword.operator.kun.ternary", "match": "\\?\\s*:" }
       ]
     },

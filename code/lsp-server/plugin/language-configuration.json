@@ -22,7 +22,7 @@
     { "open": "'", "close": "'" }
   ],
   "indentationRules": {
-    "increaseIndentPattern": "^(\\s*((case|do|let|if|with|module|type|command)\\b.*|.*(=|->|of|then|else|in)\\s*$))",
+    "increaseIndentPattern": "^(\\s*((case|do|let|if|module|type|defer)\\b.*|.*(=|->|of|then|else|in)\\s*$))",
     "decreaseIndentPattern": "^\\s*(in|else|})"
   }
 }
