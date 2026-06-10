@@ -415,7 +415,7 @@ myVariable      // 变量引用
 ```kun
 identity 42
 map (\x -> x * 2) list
-readFile p"/tmp/foo"
+File.readString p"/tmp/foo"
 pid 1234
 add 1 2
 ```
@@ -573,9 +573,9 @@ sqrt <| add 1 3
 `<|` 将右侧表达式的值作为参数传入左侧函数，是 `|>` 的反向形式，减少括号嵌套：
 
 ```kun
-print (sqrt (add 1 3))    // 无 <|
+IO.print (sqrt (add 1 3))    // 无 <|
 
-print    // 有 <|
+IO.print    // 有 <|
   <| sqrt
   <| add 1 3
 ```

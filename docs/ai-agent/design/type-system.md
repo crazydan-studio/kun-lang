@@ -78,7 +78,7 @@ case x of
   s   -> s             // 此分支 s 收窄为 !String（安全）
 
 if x /= Nil then
-  print x              // 此分支 x 收窄为 !String（安全）
+  IO.print x              // 此分支 x 收窄为 !String（安全）
 ```
 
 ## 基础类型

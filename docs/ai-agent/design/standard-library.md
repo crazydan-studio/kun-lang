@@ -198,7 +198,7 @@ Signal.on : Signal -> (Signal -> Unit) -> Unit  // 注册信号处理器
 ### `DateTime`
 
 - 绝对时间点，Unix 纪元以来的纳秒数（i64）
-- 通过构造器创建：`Time.now : -> DateTime`（当前系统时间）、`fromUnixSecs : Int -> DateTime`
+- 通过构造器创建：`Time.now : -> DateTime`（当前系统时间）、`DateTime.fromUnixSecs : Int -> DateTime`
 - 支持操作：`+ Duration -> DateTime`、`- Duration -> DateTime`、`- DateTime -> Duration`
 - 字段提取：`year`、`month`、`day`、`hour`、`minute`、`second`
 - 格式化和解析：`format : String -> DateTime -> String`（`%` 引导的格式符，详见语法设计）、`parse : String -> String -> Result DateTime String`
