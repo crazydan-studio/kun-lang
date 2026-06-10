@@ -4,6 +4,14 @@
 
 标准库提供用语言自身表达的实用类型和函数。不同于 `type-system.md` 中编译器固有关联的基础类型，标准库的类型可用 ADT 或 newtype 在语言层面定义，不要求编译器做特殊处理。
 
+以下内置操作属于类型系统内置，无需导入：
+
+| 类型 | 内置操作 |
+|------|---------|
+| `Float` | `neg`, `abs`, `floor`, `ceil`, `round`, `sqrt` |
+| `Int` | `neg`, `abs` |
+| `String` | `++`, `length`, `slice`, `contains`, `startsWith`, `endsWith`, `split`, `join`, `trim`, `toUpper`, `toLower`, `replace` |
+
 ## 系统类型
 
 ### `Port`
@@ -425,9 +433,10 @@ parseCli = \raw ->
 
 main : List String -> Unit
 main = \raw ->
-  case parseCli raw of
-    Ok cfg  -> IO.println f"config: {cfg.verbose} {cfg.output}"
-    Err msg -> IO.println msg
+  do
+    case parseCli raw of
+      Ok cfg  -> IO.println f"config: {cfg.verbose} {cfg.output}"
+      Err msg -> IO.println msg
 ```
 
 ## `Random` — 随机数

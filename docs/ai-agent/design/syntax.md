@@ -918,10 +918,11 @@ Kun 脚本的执行入口按以下规则确定：
 ```kun
 main : List String -> Unit
 main = \args ->
-  case args of
-    []           -> IO.println "no arguments"
-    [name]       -> IO.println f"hello, {name}"
-    [cmd, ..rest] -> IO.println f"{cmd} with {List.length rest} args"
+  do
+    case args of
+      []           -> IO.println "no arguments"
+      [name]       -> IO.println f"hello, {name}"
+      [cmd, ..rest] -> IO.println f"{cmd} with {List.length rest} args"
 ```
 
 参数规则：
@@ -948,9 +949,10 @@ type Config
 
 main : List String -> Unit
 main = \raw ->
-  case Args.parse [Args.flag "verbose" 'v', Args.option "output" 'o'] raw of
-    Ok cfg  -> process cfg
-    Err msg -> IO.println msg
+  do
+    case Args.parse [Args.flag "verbose" 'v', Args.option "output" 'o'] raw of
+      Ok cfg  -> process cfg
+      Err msg -> IO.println msg
 ```
 
 `Args` 模块的详细 API 见[标准库文档](standard-library.md#args)。

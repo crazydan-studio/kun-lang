@@ -269,7 +269,7 @@ main =
 readConfig : Path -> Result Config Error
 readConfig = \path ->
   do
-    content = File.read path
+    content = File.readString path
     lines  = String.split "\n" content
     logDir = p"/var/log/myapp"
   in
