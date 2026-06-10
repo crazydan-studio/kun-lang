@@ -726,7 +726,7 @@ map (add 1)               // 等价于 map (\x -> add 1 x)
 lines
   |> filter (contains "ERROR")
   |> map (String.slice 0 100)
-  |> iter print
+  |> iter IO.print
 ```
 
 ### List 解构与展开
