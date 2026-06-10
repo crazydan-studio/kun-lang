@@ -507,13 +507,12 @@ module Config export (Config, defaultConfig)
 
 ### 单行
 
-参数少时全部同行，`#{}`（Map）在 `{}`（选项 Record）之前，位置参数在最后：
+参数少时全部同行，选项 Record 在前，位置参数在最后：
 
 ```kun
 Cmd.ls { long = true }
 Cmd.git.log { maxCount = 50 } "main"
 Cmd.cat? p"/etc/maybe_missing"
-Cmd.untrusted_tool #{ } {}
 ```
 
 ### 多行
@@ -521,31 +520,25 @@ Cmd.untrusted_tool #{ } {}
 参数多时，Cmd 名独占一行，各参数块换行缩进 2，块之间无空行：
 
 ```kun
-Cmd.node
-  #{ "NODE_ENV" = "production" }
-  { maxOldSpaceSize = 4096 }
-  "server.js"
-
 Cmd.rsync
   { archive = true, compress = true }
   srcPath dstPath
 ```
 
-`#{}` 可省略（使用默认白名单），`{}` 可为空 `{}`。
+选项 Record 可为空 `{}`。
 
 ### `|>` 链接
 
-Cmd 后可通过 `|>` 链式追加 `Cmd.Option.raw` 或注入 stdin：
+Cmd 后可通过 `|>` 链式追加 `Cmd.withEnv`、`Cmd.withRawOpt` 或 `Cmd.withStdin`：
 
 ```kun
 Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
-  |> Cmd.Option.raw "-I" "/usr/local/include"
+  |> Cmd.withRawOpt "-I" "/usr/local/include"
 
 Cmd.mysql { u = "root" }
-  |> Cmd.stdin """
+  |> Cmd.withStdin """
     CREATE DATABASE mydb;
     """
-  |> Cmd.exec
 ```
 
 ### 特殊字符命令名
