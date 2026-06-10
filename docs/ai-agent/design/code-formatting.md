@@ -249,13 +249,13 @@ result =
 
 ```kun
 // 无返回值
-main =
+main = \_ ->
   do
     step1
     step2
 
 // 有返回值
-main =
+main = \_ ->
   do
     step1
     step2
@@ -532,7 +532,8 @@ Cmd.rsync
 Cmd 后可通过 `|>` 链式追加 `Cmd.withEnv`、`Cmd.withRawOpt` 或 `Cmd.withStdin`：
 
 ```kun
-Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
+Cmd["g++"] { o = "a.out" } "main.cpp"
+  |> Cmd.withRawOpt "-Wall" Nil
   |> Cmd.withRawOpt "-I" "/usr/local/include"
 
 Cmd.mysql { u = "root" }
@@ -547,7 +548,8 @@ Cmd.mysql { u = "root" }
 
 ```kun
 Cmd["ntfs-3g"] { force = true } "/dev/sda1"
-Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
+Cmd["g++"] { o = "a.out" } "main.cpp"
+  |> Cmd.withRawOpt "-Wall" Nil
 Cmd["a-b.c"]["d-a"] { flag = true }
 ```
 
@@ -582,20 +584,21 @@ stream |> Stream.filter (\l -> String.contains "ERROR" l)
 函数名和 Lambda 各自换行，闭括号与参数紧随或换行：
 
 ```kun
-List.iter
-  (\item ->
-    do
-      IO.println f"processing {item.name}"
-      Cmd.process {} item.path
-  )
-  items
+do
+  List.iter
+    (\item ->
+      do
+        IO.println f"processing {item.name}"
+        Cmd.process {} item.path
+    )
+    items
 
-Signal.on
-  SIGTERM
-  (\sig ->
-    do
-      Process.exit 0
-  )
+  Signal.on
+    SIGTERM
+    (\sig ->
+      do
+        Process.exit 0
+    )
 ```
 
 ## defer

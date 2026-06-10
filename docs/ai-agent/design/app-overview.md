@@ -65,7 +65,8 @@ Cmd.docker.container.ls { all = true }
 
 ```kun
 Cmd["ntfs-3g"] { force = true } "/dev/sda1"
-Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
+Cmd["g++"] { o = "a.out" } "main.cpp"
+  |> Cmd.withRawOpt "-Wall" Nil
 ```
 
 ### 类型化选项与自动模块发现

@@ -244,14 +244,12 @@ Cmd.<bin> { options } [posArgs...]
 | `{ l = true }` | `-l` | 单小写字符 + Bool=true → 单 token 短 flag |
 | `{ o = "a.out" }` | `-o a.out` | 单小写字符 + 非 Bool → 双 token（flag + 值） |
 | `{ X = "POST" }` | `-X POST` | 单大写字符 → 保留大小写，`-` 前缀 |
-| `{ Wall = true }` | `-Wall` | 大写 + 全小写后缀 → 视为单大写 flag 的扩展形式，`-` 前缀，不拆分 |
-| `{ D = "FOO=bar" }` | `-D FOO=bar` | 同上（gcc 宏定义场景） |
 | `{ humanReadable = true }` | `--human-readable` | 标准 camelCase 多大写断词 |
 | `Bool = false` | 省略不传 | false 值不生成 flag |
 | `Nil` | 省略不传 | Nil 值不生成 flag |
 | `List a` | `--key v1 --key v2` | 每个元素一个重复 flag |
 
-> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。首字母大写-其余小写（`Wall`、`Wextra`）视为单个 flag，不按 camelCase 断词——这是对 gcc/clang `-Wall`/`-Wextra` 等场景的特殊适配。
+> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。含特殊字符（`-`、`.`、`+`）或数字开头的命令名使用 `Cmd["..."]` 转义。不适合 Record 映射的 flag（如 `-Wall`、`-D`、`-Wl,...` 等）使用 `Cmd.withRawOpt` 按原样追加。
 
 argv 生成顺序：
 
@@ -298,7 +296,8 @@ do
 ```kun
 do
   Cmd["ntfs-3g"] { force = true } "/dev/sda1"
-  Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
+  Cmd["g++"] { o = "a.out" } "main.cpp"
+    |> Cmd.withRawOpt "-Wall" Nil
 ```
 
 ## 安全隔离
