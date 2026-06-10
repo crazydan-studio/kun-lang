@@ -11,10 +11,10 @@
 // ============================================================
 
 // ============================================================
-// 3. ADT 定义与和类型
+// 1. ADT 定义与和类型
 // ============================================================
 
-// 简单 ADT
+// 简单 ADT（无字段变体）
 type Color
   = Red
   | Green
@@ -22,19 +22,44 @@ type Color
 
 // Newtype（单变体）：包装已有类型为新类型
 type UserId
-  = UserId Nat
+  = UserId Int
 type GroupId
-  = GroupId Nat
+  = GroupId Int
 type Email
   = Email String
 
 // 构造器即函数
-createUser : UserName -> UserId -> Email -> { name : UserName, uid : UserId, email : Email }
+createUser : String -> UserId -> Email -> { name : String, uid : UserId, email : Email }
 createUser = \name uid email ->
   { name  = name
   , uid   = uid
   , email = email
   }
+
+// ============================================================
+// 2. ADT 全部变体字段风格
+// ============================================================
+
+// 无字段变体
+type ExitCode
+  = Success
+  | GeneralError
+
+// 无名字段变体（空格分隔）
+type ProcessError
+  = ParseFailed String
+  | FileNotFound Path
+
+// 元组字段变体
+type IpAddress
+  = Ipv4 (Int, Int, Int, Int)
+  | Ipv6 (Int, Int, Int, Int, Int, Int, Int, Int)
+
+// Record 字段变体
+type Shape
+  = Circle { radius : Float }
+  | Rect { width : Float, height : Float }
+  | Triangle { a : Float, b : Float, c : Float }
 
 // ============================================================
 // 3. 泛型 ADT（空格分隔泛型参数）
@@ -65,10 +90,9 @@ type JsonValue
   | JsonObject (Map String JsonValue)
 
 // 嵌套泛型
-type Command t
-  = Shell String
-  | Function t
-  | Pipeline (Command a, Command t)
+type Tree t
+  = Leaf t
+  | Node (Tree t, Tree t)
 
 // ============================================================
 // 4. 类型标注与函数类型（Elm 风格）
@@ -86,21 +110,23 @@ add = \x y -> x + y
 addPair : (Int, Int) -> Int
 addPair = \(x, y) -> x + y
 
-// IO 包装：IO Unit
-greet : IO Unit
-greet = print "hello"
-
 // 高阶函数：(a -> b) -> List a -> List b
 map : (a -> b) -> List a -> List b
 map = \f list -> ...
 
-// 函数返回 Record（类型别名在导入时指定，非函数类型不支持 type 定义）
+// 函数返回 Record
 createUserRecord : String -> Int -> String -> { name : String, age : Int, email : String }
 createUserRecord = \name age email ->
   { name  = name
   , age   = age
   , email = email
   }
+
+// 零参函数（仅 IO 效应）
+now : -> DateTime
+now = \ ->
+  do
+    Time.now
 
 // ============================================================
 // 5. Let-多态（Hindley-Milner 自动泛型）
@@ -128,26 +154,21 @@ firstElem = identity 42
 // 6. 显式类型转换
 // ============================================================
 
-conversions : (Int, Nat, Float, String, Bytes)
+conversions : (Int, Float, String, Bytes)
 conversions =
   let
     n  = 42       // Int
-    u  = 42u      // Nat
     f  = 3.14     // Float
 
-    // Nat <-> Int
-    n1 = toInt u        // Nat -> Int（始终安全）
-    u1 = toNat n        // Int -> Nat（负数 → Panic）
-
     // Float <-> Int
-    f1 = toFloat n       // Int -> Float
-    n2 = toInt f         // Float -> Int（截断）
+    f1 = toFloat n        // Int -> Float
+    n2 = toInt f          // Float -> Int（截断）
 
     // String <-> Bytes
-    b  = toBytes "hello"      // String -> Bytes
-    s  = toString b           // Bytes -> String
+    b  = toBytes "hello"   // String -> Bytes
+    s  = toString b        // Bytes -> String
   in
-    (n1, u1, f1, b, s)
+    (n2, f1, b, s)
 
 // ============================================================
 // 7. 模式匹配中的类型收窄
@@ -180,6 +201,7 @@ z : String       // String : Type
 // Type -> Type 种类：类型构造器
 // List     : Type -> Type
 // Result   : Type -> Type -> Type
+// Set      : Type -> Type
 
 // 完整应用归约到 Type：
 // List Int       : Type

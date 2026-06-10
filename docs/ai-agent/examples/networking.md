@@ -1,25 +1,18 @@
 # IO 与效应系统聚焦：网络服务监控
 
-覆盖：`do` 记法（深度）、`=!` / `<-!` 操作符、权限声明、`Signal`/`Port`/`Pid`/`SocketAddr`/`Stream`/`DateTime`/`Duration`、错误链、`capability` 作用域
+覆盖：`do` 块（深度）、`Cmd.pipe`/`Cmd.<bin>?`、`Signal`/`Port`/`Pid`/`SocketAddr`/`Stream`/`DateTime`/`Duration`、defer、错误链
 
 ```kun
 // ============================================================
 // networking.kun  —  网络服务监控脚本
-// 涵盖：do 记法（深层嵌套）、=! / <-! 操作符（错误传播）、
-//       权限声明、Signal/Port/Pid/SocketAddr、
-//       Stream 惰性 IO、DateTime/Duration、IOError 处理
+// 涵盖：do 块（深层嵌套）、Cmd.pipe / Cmd.<bin>?、
+//       Signal/Port/Pid/SocketAddr、
+//       Stream、DateTime/Duration、defer
 // ============================================================
 
-import DateTime with (now, fromUnixSecs)
+import DateTime
 import Duration
 import ExitCode
-
-// 脚本级权限声明（全局基线）
-with caps
-  net.http = ["api.example.com"]
-  fs.read = [Path.cwd, p"/var/log/"]
-  fs.write = [Path.cwd, p"/tmp/reports/"]
-  process.signal = []
 
 // ============================================================
 // ADT：监控结果
@@ -39,218 +32,137 @@ type MonitorResult
     }
 
 // ============================================================
-// do 记法：多层嵌套
+// do 块：多层嵌套
 // ============================================================
 
-// 基础 do：单一 IO 操作（无返回值）
-printTimestamp : IO Unit
-printTimestamp =
+// 基础 do：单一操作
+printTimestamp : -> Unit
+printTimestamp = \ ->
   do
-    nowTime <- now
-    print f"check at: {nowTime:%HH:mm:ss}"
+    nowTime = Time.now
+    IO.println f"check at: {nowTime:%HH:mm:ss}"
 
-// 多层 do in：按顺序组合，返回 HealthStatus
-checkService : SocketAddr -> IO HealthStatus
+// 命令行检查：curl + 解析
+checkService : SocketAddr -> Unit
 checkService = \addr ->
   do
-    start <- now
-    result <- httpGet addr p"/health"
-  in
+    start = Time.now
+    result = Cmd.curl? { silent = true } (IpAddress.toString addr)
     case result of
-      Ok body ->
-        do
-          end <- now
-          elapsed = end - start
-        in
-          if contains "\"status\":\"ok\"" body then
-            Up { responseTime = elapsed }
-          else
-            Down { error = "unexpected response" }
+      Ok _ ->
+        end = Time.now
+        IO.println f"up ({end - start})"
       Err err ->
-        do
-          print f"request failed: {err}"
-        in
-          Down { error = toString err }
-
-// ============================================================
-// =! / <-! 操作符：Error 自动传播
-
-// 在返回 Result t e 的函数中，=! / <-! 解包 Ok 并传播 Err
-type ConfigError
-  = MissingField String
-  | InvalidPort
-  | ResolveFailed String
-
-loadConfig : Path -> IO (Result { host : String, port : Port } ConfigError)
-loadConfig = \path ->
-  do
-    content <- readFile path
-    // =! 解包 Result，若为 Err 则提前返回
-    host    =! parseField "host" content
-    portStr =! parseField "port" content
-    portInt  = toInt portStr
-    port    =! Port.fromInt portInt
-  in
-    Ok { host = host, port = port }
-
-// =! / <-! 的链式使用
-fetchAndReport : SocketAddr -> IO (Result MonitorResult String)
-fetchAndReport = \addr ->
-  do
-    start <- now
-    body  <-! httpGet addr p"/api/data"
-    end   <- now
-    parsed =! parseJson body
-    data   =! extractField "value" parsed
-    logResult data
-  in
-    Ok (Result
-      { service   = "api"
-      , endpoint  = addr
-      , status    = Up { responseTime = end - start }
-      , checkedAt = start
-      })
-
-// ============================================================
-// Signal / Pid 使用
-// ============================================================
-
-// 发送信号
-reloadDaemon : Pid -> IO (Result Unit IOError)
-reloadDaemon = \pid ->
-  do
-    result <- kill pid SIGHUP
-    case result of
-      Ok _    -> print f"sent HUP to {pid}"
-      Err err -> print f"failed: {err}"
-  in
-    result
-
-// 等待子进程
-watchProcess : Pid -> Duration -> IO (Result ExitCode IOError)
-watchProcess = \pid timeout ->
-  do
-    result <- wait pid timeout
-  in
-    case result of
-      Ok code ->
-        do
-          if ExitCode.isSuccess code then
-            print "process exited ok"
-          else
-            print f"process failed: {code}"
-        in
-          Ok code
-      Err err ->
-        do
-          print f"wait failed: {err}"
-        in
-          Err err
+        IO.println f"down: {err}"
 
 // ============================================================
 // Stream：惰性处理网络数据
 // ============================================================
 
 // 流式读取 HTTP 响应
-streamResponse : SocketAddr -> IO (Result (Stream String) IOError)
-streamResponse = \addr ->
-  do
-    response <- httpGetStream addr p"/events"
-    Ok (response
-      |> filter (contains "data:")
-      |> map (\line -> String.slice 5 line))
-
-// 消费流
-processEvents : SocketAddr -> IO Unit
+processEvents : SocketAddr -> Unit
 processEvents = \addr ->
   do
-    result <- streamResponse addr
+    result = Cmd.curl? { silent = true } addr
     case result of
       Ok events ->
         events
-          |> take 100
-          |> iter (\event -> processEvent event)
-      Err e -> print f"stream failed: {e}"
+          |> Stream.lines
+          |> Stream.filter (\line -> String.contains "data:" line)
+          |> Stream.take 100
+          |> Stream.iter (\event -> IO.println event)
+      Err e -> IO.println f"stream failed: {e}"
 
 // ============================================================
-// 权限作用域（二级粒度）
+// Signal / Pid 使用
 // ============================================================
 
-// 1. 脚本级（顶部声明）：全局可用
-
-// 2. 作用域级：临时扩缩权限
-generateReport : Path -> IO Unit
-generateReport = \outputPath ->
+// 发送信号
+reloadDaemon : Pid -> Unit
+reloadDaemon = \pid ->
   do
-    data <- collectData
+    Cmd.kill { s = "HUP" } (Pid.toInt pid)
+    IO.println f"sent HUP to {pid}"
 
-    // 临时授予网络权限，do 块内有效
-    with caps
-      net.http = ["api.example.com"]
-    do
-      enriched <- enrichWithApi data
-      writeFile outputPath enriched
-    // 离开块后 net.http 权限自动收回
+// Signal.on — 仅可执行脚本可用
+handleTerminate : -> Unit
+handleTerminate = \ ->
+  do
+    Signal.on
+      SIGTERM
+      (\sig ->
+        do
+          IO.println "received SIGTERM, shutting down..."
+          Process.exit 0
+      )
+    Signal.on
+      SIGINT
+      (\sig ->
+        do
+          IO.println "interrupted"
+          Process.exit 0
+      )
 
-    print "report generated"
+// ============================================================
+// defer 资源清理
+// ============================================================
+
+backupAndClean : Path -> Unit
+backupAndClean = \workDir ->
+  do
+    tmp = TempFile.create
+    case tmp of
+      Ok tmpPath ->
+        defer (File.remove tmpPath)
+        IO.println f"using temp: {tmpPath}"
+        Cmd.tar { c = true, f = "backup.tar.gz" } workDir
+      Err _ ->
+        IO.println "failed to create temp file"
 
 // ============================================================
 // DateTime / Duration 操作
 // ============================================================
 
-timeWindow : Duration -> IO Bool
+timeWindow : Duration -> Bool
 timeWindow = \window ->
   do
-    current <- now
-    start <- fromUnixSecs 1700000000
+    current = Time.now
+    start = fromUnixSecs 1700000000
     elapsed = current - start
   in
     elapsed < window
 
 // Duration 字面量 + 运算
-scheduleCheck : IO Unit
-scheduleCheck =
+scheduleCheck : -> Unit
+scheduleCheck = \ ->
   do
     interval = 30s
     timeout  = 5s
     delay    = 100ms
-    oneDay   = 1d
-    halfHour = 30m
-
-    print f"checking every {interval}"
-    print f"timeout: {timeout}"
+    IO.println f"checking every {interval}"
+    IO.println f"timeout: {timeout}"
 
 // ============================================================
 // 组合：完整监控检查
 // ============================================================
 
-main : IO Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
-    // 构造 SocketAddr（IpAddress.parse 返回 Result IpAddress String）
-    addr = Tcp (IpAddress.parse "10.0.1.5" |> Result.withDefault panic) (Port.fromInt 8080)
+    // 注册信号处理
+    handleTerminate
+
+    // 构造 SocketAddr
+    addr = Tcp (IpAddress.parse "10.0.1.5" |> Result.withDefault (IpAddress.parse "127.0.0.1" |> Result.withDefault panic)) (Port.fromInt 8080)
 
     printTimestamp
-    status <- checkService addr
 
-    case status of
-      Up info ->
-        print f"service is up ({info.responseTime})"
-      Down err ->
-        do
-          print f"service is down: {err.error}"
-          // 重启逻辑：发送 SIGTERM
-          pid = Pid.pid 1234
-          result <- kill pid SIGTERM
-          case result of
-            Ok _  -> print "sent SIGTERM"
-            Err e -> print f"kill failed: {e}"
-      Timeout ->
-        print "request timed out"
+    // 命令行检查
+    checkService addr
 
     // 流式处理事件
     processEvents addr
 
     // 生成报告
-    generateReport p"/tmp/reports/health.json"
+    backupAndClean p"/tmp/reports"
 ```

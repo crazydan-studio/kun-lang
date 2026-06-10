@@ -60,7 +60,7 @@ describe = \shape ->
 describeResult : Result Int String -> String
 describeResult = \res ->
   case res of
-    Ok 0    -> "zero"            // 字面量 + 变体
+    Ok 0    -> "zero"
     Ok n    -> f"got: {n}"
     Err msg -> f"error: {msg}"
 
@@ -80,14 +80,14 @@ sum : List Int -> Int
 sum = \list ->
   case list of
     []          -> 0
-    [x, ..xs]    -> x + sum xs
+    [x, ..xs]   -> x + sum xs
 
 // 多元素前缀匹配
 startsWithOneTwo : List Int -> Bool
 startsWithOneTwo = \list ->
   case list of
     [1, 2, .._] -> true
-    _          -> false
+    _           -> false
 
 // 长度判断
 describeList : List a -> String
@@ -103,7 +103,7 @@ thirdElement : List Int -> ?Int
 thirdElement = \list ->
   case list of
     [_, _, z, .._] -> z
-    _             -> Nil
+    _              -> Nil
 
 // ============================================================
 // 4. 守卫子句（when）
@@ -143,7 +143,7 @@ swap = \pair ->
 bothOrNothing : (?a, ?b) -> ?(a, b)
 bothOrNothing = \pair ->
   case pair of
-    (a, b) when a /= Nil && b /= Nil -> (a, b)  // 双方都有值
+    (a, b) when a /= Nil && b /= Nil -> (a, b)
     _                                -> Nil
 
 // ============================================================
@@ -282,31 +282,40 @@ parseHttpStatus = \status ->
 processNode : Tree Int -> Int
 processNode = \tree ->
   case tree of
-    Leaf v          -> v          // v : Int
-    Node (left, right) ->         // left, right : Tree Int
+    Leaf v          -> v
+    Node (left, right) ->
       processNode left + processNode right
 
 // ============================================================
 // 10. If 表达式与模式匹配对比
 // ============================================================
 
-// if 适合简单布尔判断（Path.exists 返回 IO Bool，需在 do 块中使用）
-checkFile : Path -> IO String
+// if 适合简单布尔判断
+checkFile : Path -> Unit
 checkFile = \p ->
   do
-    exists <- Path.exists p
-  in
-    if exists then "exists" else "not found"
+    result = File.stat p
+    case result of
+      Ok stat ->
+        if stat.fileType == RegularFile then
+          IO.println "regular file"
+        else
+          IO.println "other"
+      Err _ ->
+        IO.println "not found"
 
-// case 适合多分支和结构解构（fileType 返回 IO (Result FileType IOError)）
-describeFileType : Path -> IO String
+// case 适合多分支和结构解构
+describeFileType : Path -> Unit
 describeFileType = \p ->
   do
-    fType <-! fileType p
-  in
-    case fType of
-      RegularFile   -> "regular file"
-      Directory     -> "directory"
-      Symlink       -> "symlink"
-      _             -> "other"
+    result = File.stat p
+    case result of
+      Ok stat ->
+        case stat.fileType of
+          RegularFile   -> IO.println "regular file"
+          Directory     -> IO.println "directory"
+          Symlink       -> IO.println "symlink"
+          _             -> IO.println "other"
+      Err _ ->
+        IO.println "stat failed"
 ```

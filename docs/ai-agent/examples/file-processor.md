@@ -1,23 +1,19 @@
 # 综合语法示例：日志文件处理器
 
-覆盖：注释、字面量、ADT、函数定义、Lambda、模式匹配、管道、IO、流、Record 操作、权限声明、模块导入、`=!` / `<-!` 操作符、f-string
+覆盖：注释、字面量、ADT、函数定义、Lambda、模式匹配、管道、`do` 块、Stream、Record 操作、模块导入、`Cmd.pipe`、`Cmd.<bin>?`、f-string
 
 ```kun
 // ============================================================
 // file-processor.kun  —  日志文件处理器
 // 涵盖：注释 / 字面量 / ADT / 类型标注 / 函数定义 / Lambda /
 //       case 模式匹配 / if / 管道 / do / Record 操作 / 导入 /
-//       权限声明 / 流 / 操作符 / =! / <-! 操作符
+//       Cmd.pipe / Stream / Cmd.<bin>?
 // ============================================================
 
 // 模块导入
 import List as L
 import Map with (get, insert)
 import Path
-
-// 脚本级权限声明
-with caps
-  fs.read = [Path.cwd, p"/var/log/", p"/etc/"]
 
 // ============================================================
 // ADT 定义
@@ -79,7 +75,7 @@ parseLine = \line ->
   let
     parts = String.split "|" line
   in
-    if length parts < 4 then
+    if List.length parts < 4 then
       Err UnknownFormat
     else
       let
@@ -130,7 +126,6 @@ countByLevel = \entries ->
       in
         insert level (n + 1) acc
     ) #{}
-    |> identity
 
 // ============================================================
 // Record 创建 / 访问 / 更新
@@ -148,42 +143,58 @@ createDefaultConfig = \logDir ->
     { cfg | minLevel = Warn }
 
 // ============================================================
-// IO 函数 + do 记法 + =! / <-! 操作符
+// do 块 + Cmd.pipe + Stream
 // ============================================================
 
-// 读取并解析配置文件
-readConfig : Path -> IO (Result Config ProcessError)
-readConfig = \path ->
+processLogFile : Path -> Unit
+processLogFile = \logPath ->
   do
-    content <- readFile path       // <- 从 IO 中解包
-    lines  = String.split "\n" content    // 纯函数解析
-    logDir = p"/var/log/myapp"
-    // =! 解包 Result，Err 自动传播
-    minLvl =! parseLevel (L.head lines |> maybe "INFO" identity)
-  in
-    Ok (createDefaultConfig logDir)
+    entries =
+      Cmd.pipe
+        [ Cmd.cat logPath
+        , Cmd.grep { pattern = "ERROR" }
+        , Cmd.head { n = "100" }
+        ]
+        |> Stream.lines
+        |> Stream.parseMap parseLine
+        |> Stream.toList
 
-// ============================================================
-// 流处理
-// ============================================================
+    IO.println f"found {List.length entries} errors"
 
-// 惰性读取大文件并逐行过滤
-processLargeFile : Path -> IO Unit
-processLargeFile = \path ->
+    List.iter
+      (\entry ->
+        do
+          IO.println f"[{entry.timestamp}] {entry.message}"
+      )
+      entries
+
+// 使用 Cmd.<bin>? 处理命令可能失败
+safeReadConfig : Path -> Unit
+safeReadConfig = \configPath ->
   do
-    lines <-! Stream.readLines path
-    lines
-      |> filter (contains "ERROR")
-      |> map parseLine
-      |> filterMap Result.ok
-      |> iter (\entry -> print entry.message)
+    result = Cmd.cat? configPath
+    case result of
+      Ok stream ->
+        lines =
+          stream
+            |> Stream.lines
+            |> Stream.toList
+        IO.println f"read {List.length lines} lines"
+      Err err ->
+        case err of
+          CommandFailed { exitCode, stderr } ->
+            IO.println f"cat failed ({exitCode}): {stderr}"
+          NotFound cmd ->
+            IO.println f"command not found: {cmd}"
+          _ ->
+            IO.println "unknown error"
 
 // ============================================================
 // 主入口：组合所有操作
 // ============================================================
 
-main : IO Unit
-main =
+main : List String -> Unit
+main = \_ ->
   do
     // 字面量展示
     appName  = "log-processor"     // String
@@ -192,7 +203,6 @@ main =
     rate     = 3.14                // Float
     newline  = '\n'                // Char
     timeout  = 30s                 // Duration
-    empty    = ()                  // Unit
 
     // Path 字面量（前缀 p + 双引号）
     logPath    = p"/var/log/myapp/access.log"
@@ -201,21 +211,20 @@ main =
 
     // 容器字面量
     levels   = [Debug, Info, Warn, Error]     // List
-    counts   = #{ "ok" = 42, "err" = 7 }       // Map（= 替代 =>）
-    uniqPids = #[ 100u, 200u, 300u ]           // Set
+    counts   = #{ "ok" = 42, "err" = 7 }       // Map（= 分隔键值对）
+    uniqPids = #[100, 200, 300]               // Set
     pair     = ("result", true)                 // Tuple
 
     // Bytes 字面量
     magicBytes = 0xCAFEBABE
 
-    // 正则字面量（新语法：r"..."）
+    // 正则字面量
     ipRegex = r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
 
-    // f-string 插值与格式化（新语法：f"..."）
+    // f-string 插值与格式化
     greeting   = f"app {appName} v{version}"                 // 变量插值
     formatted  = f"rate: {rate:.2f} / timeout: {timeout}"    // Float 精度
     hexVal     = f"hex: {255:x} / {255:X}"                   // 整数进制
-    showCount  = f"count: {result}"                          // Int 默认十进制
 
     // 索引访问
     first     = levels[0]         // List 索引 → ?LogLevel
@@ -231,44 +240,16 @@ main =
 
     // 运算符展示
     sum     = 10 + 20
-    diff    = 100 - 30
-    prod    = 6 * 7
-    quot    = 42 / 2
-    rem     = 10 % 3
     concat  = "hello" ++ " world"
-    eq      = sum == prod
-    neq     = sum /= diff
-    lt      = 1 < 2
-    gt      = 3 > 1
+    eq      = sum == result
     and_    = true && false
-    or_     = true || false
     neg     = not eq
-    negNum  = -42
 
-    // 读取文件
-    content <- readFile logPath
-    lines = String.split "\n" content
+    // 处理日志
+    processLogFile logPath
 
-    // 解析并过滤
-    parsed = lines |> L.filterMap parseLine
-    errors = parsed |> L.filter (\e -> e.level == Error)
+    // 安全读取配置
+    safeReadConfig configPath
 
-    // 生成报告（使用 f-string）
-    report =
-      L.map (\e ->
-        f"{e.timestamp:%yyyy-MM-dd HH:mm:ss} [{e.level}] {e.message}"
-      ) errors
-        |> join "\n"
-
-    // 写入结果
-    writeFile (Path.join backupDir "errors.log") report
-
-    // 权限作用域
-    with caps
-      fs.read = [p"/etc/"]
-    do
-      sysconfig <- readFile p"/etc/myapp/config.toml"
-      print sysconfig
-
-    print f"done: processed {L.length lines} lines"
+    IO.println f"done"
 ```
