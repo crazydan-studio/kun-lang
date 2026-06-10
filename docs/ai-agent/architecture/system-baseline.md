@@ -241,7 +241,8 @@ Cmd.<bin> { options } [posArgs...]
 通过 `Cmd.pipe` 将多个 Command 连接为 OS 管道链，编译为 `pipe2()` + 多次 `fork()`：
 
 ```kun
-Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = "10" }]
+do
+  Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = "10" }]
 ```
 
 - `Cmd.pipe`：链中任一命令非零退出 → panic（等价 `set -o pipefail`）
@@ -259,8 +260,9 @@ Cmd.withStdin : Stream Bytes -> Command -> Command  // 流式模式
 ### 环境变量：`Cmd.withEnv`
 
 ```kun
-Cmd.mysql { u = "root" }
-  |> Cmd.withEnv #{ "MYSQL_PWD" = Env.getenv "DB_PASS" ?? "" }
+do
+  Cmd.mysql { u = "root" }
+    |> Cmd.withEnv #{ "MYSQL_PWD" = Env.getenv "DB_PASS" ?? "" }
 ```
 
 ### 特殊字符命令名
@@ -268,8 +270,9 @@ Cmd.mysql { u = "root" }
 含 `-`、`.`、`+` 或数字开头的命令使用 `Cmd["..."]` 转义：
 
 ```kun
-Cmd["ntfs-3g"] { force = true } "/dev/sda1"
-Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
+do
+  Cmd["ntfs-3g"] { force = true } "/dev/sda1"
+  Cmd["g++"] { Wall = true, o = "a.out" } "main.cpp"
 ```
 
 ## 安全隔离
