@@ -11,6 +11,7 @@
 | [standard-library.md](standard-library.md) | 标准库类型设计 |
 | [syntax.md](syntax.md) | 语法设计 |
 | [code-formatting.md](code-formatting.md) | 代码格式化规范 |
+| [cli.md](cli.md) | `Cli` 模块详细设计（命令行参数解析） |
 | [feature-inventory.md](feature-inventory.md) | 功能清单与实现状态 |
 | [roles-and-permissions.md](roles-and-permissions.md) | ~~安全角色与权限模型~~ **已废弃** |
 | [supply-chain-security.md](supply-chain-security.md) | ~~供应链安全防御方案~~ **已废弃** |

@@ -1226,225 +1226,31 @@ parsePort "8080"
 
 ## `Cli` — 命令行参数解析
 
-### 定位
-
-对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。提供声明式 API、自动 `--help` 输出、子命令、互斥组、枚举约束等完整 CLI 开发能力。
-
-- 默认严格模式：未知选项报错并给出最接近的合法匹配
-- `loose = true`：透传模式，未知的 `--flag` 视为位置参数
-- `--help`/`-h` 始终自动生成
-- `?T` 字段自动视为可选
-
 需显式导入：
 
 ```kun
 import Cli
 ```
 
-### 类型→声明器映射
+对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。提供声明式 API、自动 `--help` 输出、子命令、互斥组、枚举约束等完整 CLI 开发能力。详细设计见 [`Cli` 模块设计文档](cli.md)。
 
-`Cli.parse` 的目标类型由调用点变量声明驱动。编译器在编译期检查声明器集合与 Record 字段集合的完备性。字段类型决定消费行为：
-
-| 字段类型 | 声明器 | 消费行为 |
-|---------|--------|---------|
-| `Bool` | `flag "n" 'c' "h"` | `--n`/`-c` → true，不出现 → false |
-| `Int` | `count "n" 'c' "h"` | `-c` → 1，`-ccc` → 3，不出现 → 0 |
-| `?T` | `option "n" 'c' "h"` | `--n VAL`/`-c VAL` → Some，不出现 → Nil |
-| `T`（非 Bool/非 List） | `option "n" 'c' "h" (default d)` | 不出现 → `d` |
-| `T`（非 Bool/非 List） | `option "n" 'c' "h"` | 不出现 → 错误（必填） |
-| `T`（非 Bool/非 List） | `arg "n" "h"` | 按序消费 1 个 token（必填） |
-| `?T` | `arg "n" "h"` | 按序消费 0 或 1 个 token（可选） |
-| `List T` | `arg "n" "h"` | 消费 0-N 个 token（仅可为最后一个位置参数） |
-
-### API
+简要示例：
 
 ```kun
-// 元数据
-intro : String -> CliMeta
-text  : String -> CliMeta
+type Config = { verbose : Bool, output : ?Path, jobs : Int, source : String }
 
-// 声明器
-flag    : String -> Char -> String -> CliArg
-option  : String -> Char -> String -> CliArg
-count   : String -> Char -> String -> CliArg
-arg     : String -> String -> CliArg
-
-// 修饰器（用于 option/flag）
-default  : a -> CliArgMod
-choices  : List a -> CliArgMod
-
-// 互斥组
-oneOf : List CliArg -> CliArgGroup
-
-// 子命令
-subCmd  : String -> String -> CliSpec -> CliSubCmd
-
-// 解析选项
-loose : CliSpec -> CliSpec
-
-// 解析
-parse : CliSpec -> List String -> Result a String
-```
-
-#### 声明器字段
-
-`arg` 的 `name` 同时是 Record 字段名和帮助文本中的显示名（自动大写为 metavar）。
-
-#### option 修饰器
-
-- `default d`：不出现时使用缺省值 `d`。
-- `choices [...]`：值必须从枚举列表中选择。
-- 不修饰的 `option`：字段类型 `?T` → 可选（缺省 Nil）；字段类型为 `T` 且无 `default` → 必填。
-
-### 帮助输出
-
-`--help`/`-h` 始终自动生成，无需额外声明。格式：
-
-```
-usage: build.kun [-v] [-o PATH] [-j N] SOURCE [TARGET]
-
-Build tool v1.0
-
-Compiles and packages the project.
-
-Options:
-  -v, --verbose       Verbose output
-  -o, --output PATH   Output file path
-  -j, --jobs N        Parallel jobs (default: 4)
-  -h, --help          Show this help
-
-Arguments:
-  SOURCE              Source directory
-  TARGET              Target name (optional)
-```
-
-### 场景
-
-#### 1. 基本用法
-
-```kun
-import Cli
-
-type Config =
-  { verbose : Bool
-  , output  : ?Path
-  , jobs    : Int
-  , source  : String
-  }
-
-parseConfig : List String -> Result Config String
 parseConfig =
   Cli.parse
-    { intro = Cli.intro "build.kun"
-    , text  = Cli.text "Compiles and packages the project."
+    { meta  = Cli.meta |> Cli.intro "build.kun"
     , args =
         [ Cli.flag "verbose" 'v' "Verbose output"
         , Cli.option "output" 'o' "Output file path"
-        , Cli.option "jobs" 'j' (default 4) "Parallel jobs"
+        , Cli.option "jobs" 'j' "Parallel jobs"
+            |> Cli.withDefault 4
         , Cli.arg "source" "Source directory"
         ]
     }
-
-main : List String -> Unit
-main = \raw ->
-  do
-    case parseConfig raw of
-      Ok cfg ->
-        IO.println f"building {cfg.source} with {cfg.jobs} jobs"
-      Err msg ->
-        IO.println msg
 ```
-
-#### 2. 子命令（多级）
-
-```kun
-type PushOpts = { force : Bool, remote : String, branch : String }
-type StatusOpts = { short : Bool }
-
-parsePush : CliSpec PushOpts
-parsePush =
-  { intro = Cli.intro "push"
-  , args =
-      [ Cli.flag "force" 'f' "Force push"
-      , Cli.arg "remote" "Remote name"
-      , Cli.arg "branch" "Branch name"
-      ]
-  }
-
-parseStatus : CliSpec StatusOpts
-parseStatus =
-  { intro = Cli.intro "status"
-  , args = [ Cli.flag "short" 's' "Short format" ]
-  }
-
-parseDeploy : CliSpec DeployCmd
-parseDeploy =
-  { intro = Cli.intro "deploy.kun"
-  , subCommands =
-      [ Cli.subCmd "push" "Push to remote" parsePush
-      , Cli.subCmd "status" "Show status" parseStatus
-      ]
-  }
-
-// 子命令可嵌套多层：
-// Cli.subCmd "remote" "Remote operations"
-//   (Cli.subCmds
-//     [ Cli.subCmd "add" "Add remote" parseAdd
-//     , Cli.subCmd "remove" "Remove remote" parseRemove
-//     ])
-```
-
-#### 3. 互斥选项
-
-```kun
-oneOf
-  [ Cli.flag "global" 'g' "Global config"
-  , Cli.flag "local" 'l' "Local config"
-  ]
-```
-
-#### 4. 枚举约束
-
-```kun
-Cli.option "level" 'l' (choices ["debug", "info", "warn"]) "Log level"
-```
-
-错误时输出合法选项列表。
-
-#### 5. 透传模式
-
-```kun
-type CompileConfig = { output : Path, compilerArgs : List String }
-
-parseCompile : CliSpec CompileConfig
-parseCompile =
-  { loose = true
-  , args =
-      [ Cli.option "output" 'o' (required) "Output file"
-      , Cli.arg "compilerArgs" "Compiler arguments"
-      ]
-  }
-```
-
-```
-kun gcc.kun -o a.out -Wall -O2 main.c
-             ──── ──┬───
-             选项   宽松 → 全部流入 compilerArgs
-```
-
-### 错误信息
-
-```
-Error: unrecognized option '--verbse'. Did you mean '--verbose'?
-
-Error: option '--jobs' expects an integer, got 'abc'
-
-Error: required argument 'source' is missing
-
-Try 'build.kun --help' for more information.
-```
-
---help/`-h` 始终自动可用且不可禁用。
 
 ## `Random` — 随机数
 

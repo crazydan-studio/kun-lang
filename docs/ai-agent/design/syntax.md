@@ -984,7 +984,7 @@ main = \raw ->
       Err msg -> IO.println msg
 ```
 
-`Cli` 模块的详细 API 见[标准库文档](standard-library.md#cli)。
+`Cli` 模块的详细 API 见 [`Cli` 模块设计文档](cli.md)。
 
 ### 模块名冲突
 
