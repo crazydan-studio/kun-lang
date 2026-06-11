@@ -18,15 +18,15 @@ case x of Ok v -> process v; Err _ -> handleError
 
 ## 文件级声明顺序
 
-文件分为两类：库模块（有 `module` 声明）和可执行脚本（无 `module` 声明）。
+文件分为两类：库模块（有 `export` 声明）和可执行脚本（有 `main` 无 `export`）。
 
 ### 库模块
 
-文件第一个非注释行必须是 `module` 声明，紧接 `import` 语句，之后是其余代码：
+文件第一个非注释行必须是 `export` 声明，紧接 `import` 语句，之后是其余代码：
 
 ```kun
 // ✅ 库模块
-module MyLib export (run, helper)
+export (run, helper)
 
 import List
 import Path
@@ -39,7 +39,7 @@ run = \dir ->
 
 ### 可执行脚本
 
-文件**不声明 `module`**，必须定义 `main` 函数。`import` 语句为文件首部，之后是其余代码：
+文件**不能有 `export` 声明**，必须定义 `main` 函数。`import` 语句为文件首部：
 
 ```kun
 // ✅ 可执行脚本
@@ -63,7 +63,7 @@ main = \_ ->
 | 上下文 | 缩进 |
 |--------|------|
 | 顶层定义 | 0 |
-| `module export` 导出列表 | +2 |
+| `export` 导出列表 | +2 |
 | `type` 变体 `=` / `\|` | +2 |
 | ADT 变体中的 Record 字段 | +4（从 `\|` 算 +2） |
 | 函数体 / Lambda 体 | +2 |
@@ -478,14 +478,14 @@ fetchData
   -> Result String CommandError
 ```
 
-## 模块声明
+## 导出声明
 
 ### 库模块
 
-`module Xxx export` 独占一行，导出列表换行缩进，逗号前置：
+`export` 独占一行，导出列表换行缩进，逗号前置：
 
 ```kun
-module Parser.JSON export
+export
   ( JsonValue
   , JsonValue(..)
   , fromString
@@ -496,12 +496,12 @@ module Parser.JSON export
 导出列表仅 1-2 项时可同行：
 
 ```kun
-module Config export (Config, defaultConfig)
+export (Config, defaultConfig)
 ```
 
 ### 可执行脚本
 
-可执行脚本**不声明 `module`**，直接以 `import` 或 `main` 开头。
+可执行脚本**不能有 `export` 声明**，直接以 `import` 或 `main` 开头。
 
 ## Cmd 调用
 

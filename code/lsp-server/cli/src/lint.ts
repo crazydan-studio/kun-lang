@@ -20,7 +20,7 @@ interface Diagnostic {
 
 function checkDeclarationOrderCLI(diagnostics: Diagnostic[], lines: string[]): void {
   let firstNonComment = -1
-  let moduleLine = -1
+  let exportLine = -1
   let firstImportLine = -1
 
   for (let i = 0; i < lines.length; i++) {
@@ -29,8 +29,8 @@ function checkDeclarationOrderCLI(diagnostics: Diagnostic[], lines: string[]): v
 
     if (firstNonComment === -1) firstNonComment = i
 
-    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed)) {
-      if (moduleLine === -1) moduleLine = i
+    if (DECLARATION_ORDER_RULES.exportPattern.test(trimmed)) {
+      if (exportLine === -1) exportLine = i
       continue
     }
 
@@ -40,15 +40,15 @@ function checkDeclarationOrderCLI(diagnostics: Diagnostic[], lines: string[]): v
     }
   }
 
-  if (moduleLine !== -1 && moduleLine !== firstNonComment) {
+  if (exportLine !== -1 && exportLine !== firstNonComment) {
     diagnostics.push({
-      line: moduleLine + 1,
+      line: exportLine + 1,
       message: '`module` 声明必须是文件第一个非注释行',
       severity: 'error',
     })
   }
 
-  if (moduleLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleLine) {
+  if (exportLine !== -1 && firstImportLine !== -1 && firstImportLine < exportLine) {
     diagnostics.push({
       line: firstImportLine + 1,
       message: '`import` 语句必须在 `module` 声明之后',

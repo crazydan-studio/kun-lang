@@ -1,6 +1,6 @@
 export const KEYWORDS = [
   'type', 'case', 'if', 'then', 'else', 'do', 'in', 'let',
-  'module', 'import', 'as', 'with', 'export', 'of',
+  'import', 'as', 'export', 'of',
   'when', 'defer',
 ] as const
 
@@ -91,8 +91,8 @@ export const PIPE_RULES = {
 } as const
 
 export const IMPORT_EXPORT_RULES = {
-  moduleDeclaration: /^module\s+\w+(\s+export\s+\([^)]*\))?/,
-  importStyles: ['as', 'with (..)', 'with (...)'],
+  exportDeclaration: /^export\s*\([^)]*\)/,
+  importStyles: ['as', '(..)', '(...)'],
 } as const
 
 export const EXECUTABLE_SCRIPT_RULES = {
@@ -109,9 +109,9 @@ export const NAMING_RULES = {
 } as const
 
 export const DECLARATION_ORDER_RULES = {
-  moduleFirst: true,
-  importAfterModule: true,
-  modulePattern: /^module\s+\w+/,
+  exportFirst: true,
+  importAfterExport: true,
+  exportPattern: /^export\s*\(/,
   importPattern: /^import\s+\w+/,
 } as const
 

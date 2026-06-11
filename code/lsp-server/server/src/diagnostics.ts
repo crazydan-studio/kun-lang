@@ -161,7 +161,7 @@ function checkFunctionApplication(diagnostics: Diagnostic[], line: string, lineN
 
 function checkDeclarationOrder(diagnostics: Diagnostic[], lines: string[]): void {
   let firstNonComment = -1
-  let moduleLine = -1
+  let exportLine = -1
   let firstImportLine = -1
 
   for (let i = 0; i < lines.length; i++) {
@@ -170,8 +170,8 @@ function checkDeclarationOrder(diagnostics: Diagnostic[], lines: string[]): void
 
     if (firstNonComment === -1) firstNonComment = i
 
-    if (DECLARATION_ORDER_RULES.modulePattern.test(trimmed)) {
-      if (moduleLine === -1) moduleLine = i
+    if (DECLARATION_ORDER_RULES.exportPattern.test(trimmed)) {
+      if (exportLine === -1) exportLine = i
       continue
     }
 
@@ -182,17 +182,17 @@ function checkDeclarationOrder(diagnostics: Diagnostic[], lines: string[]): void
   }
 
   // Rule 1: module must be the first non-comment line
-  if (moduleLine !== -1 && moduleLine !== firstNonComment) {
+  if (exportLine !== -1 && exportLine !== firstNonComment) {
     diagnostics.push(error(
-      '`module` declaration must be the first non-comment line in the file.',
-      moduleLine, 0, lines[moduleLine].trimEnd().length,
+      '`export` declaration must be the first non-comment line in the file.',
+      exportLine, 0, lines[exportLine].trimEnd().length,
     ))
   }
 
   // Rule 2: import must come after module
-  if (moduleLine !== -1 && firstImportLine !== -1 && firstImportLine < moduleLine) {
+  if (exportLine !== -1 && firstImportLine !== -1 && firstImportLine < exportLine) {
     diagnostics.push(error(
-      '`import` statements must come after `module` declaration.',
+      '`import` statements must come after `export` declaration.',
       firstImportLine, 0, lines[firstImportLine].trimEnd().length,
     ))
   }

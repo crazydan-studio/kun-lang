@@ -98,15 +98,16 @@ const KEYWORD_DOCS: Record<string, string> = {
     '    x + y',
     '```',
   ].join('\n'),
-  module: [
-    '### `module` — Module Declaration',
+  export: [
+    '### `export` — Export Declaration',
     '',
-    'Each library source file begins with a module declaration.',
-    'Executable scripts do not declare a module.',
+    'Each library source file begins with an export declaration.',
+    'File path determines the module name (e.g. `lib/File.kun` → module `File`).',
+    'Executable scripts (with `main`) must not have an `export` declaration.',
     '',
     '```kun',
-    'module List export (map, filter, fold)',
-    'module Result export (Result(..))',
+    'export (map, filter, fold)',
+    'export (Result(..))',
     '```',
   ].join('\n'),
   import: [

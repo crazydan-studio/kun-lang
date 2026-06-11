@@ -33,9 +33,9 @@ const KEYWORD_COMPLETIONS: CompletionItem[] = KEYWORDS.map(kw => {
       snippet: 'defer (${1:expr})',
       doc: 'Deferred cleanup expression',
     },
-    module: {
-      snippet: 'module ${1:Name} export (${2:symbols})',
-      doc: 'Module declaration with export list',
+    export: {
+      snippet: 'export (${1:symbols})',
+      doc: 'Export declaration',
     },
     import: {
       snippet: 'import ${1:Module}',
@@ -116,11 +116,7 @@ function getKeywordDoc(kw: string): string | undefined {
     in: 'Return expression for let/do',
     let: 'Local bindings',
     defer: 'Deferred cleanup expression',
-    module: 'Module declaration',
-    import: 'Import a module',
-    as: 'Module alias on import',
-    with: 'Import specific symbols',
-    export: 'Declare exported symbols in module',
+    export: 'Export declaration',
     when: 'Guard clause in pattern matching',
   }
   return docs[kw]

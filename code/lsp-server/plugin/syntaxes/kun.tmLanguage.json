@@ -41,7 +41,7 @@
         },
         {
           "name": "keyword.declaration.kun",
-          "match": "\\b(type|module|import|as|export|main)\\b"
+          "match": "\\b(type|import|as|export|main)\\b"
         }
       ]
     },

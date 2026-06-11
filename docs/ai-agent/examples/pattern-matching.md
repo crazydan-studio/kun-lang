@@ -10,7 +10,7 @@
 // ============================================================
 
 import File
-import FileType with (Regular, Directory, SymbolicLink, ..)
+import FileType (Regular, Directory, SymbolicLink, ..)
 
 // ============================================================
 // ADT 定义

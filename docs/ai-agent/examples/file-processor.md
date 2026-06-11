@@ -12,7 +12,7 @@
 
 // 模块导入
 import List as L
-import Map with (get, insert)
+import Map (get, insert)
 import Path
 
 // ============================================================

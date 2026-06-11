@@ -142,7 +142,7 @@
 | 模式匹配 | ✅ 设计定型 | 穷举、守卫、嵌套、解构 |
 | 解构赋值 | ✅ 设计定型 | 元组/Record/List |
 | 扩展积类型 | ❌ 已移除 | 移除 `{ Base \| field : T }` 语法，Record 类型需精确静态匹配 |
-| 模块系统 | ✅ 设计定型 | `module export`、`import ... with (...)` |
+| 模块系统 | ✅ 设计定型 | 目录即命名空间，`export (...)`，`import X (...)` |
 | 可执行脚本 | ✅ 设计定型 | 无模块声明，`main : List String -> Unit` |
 | REPL 交互环境 | 📋 设计中 | 结构化 REPL |
 
@@ -156,7 +156,7 @@
 | `with caps` 能力声明 | ❌ 已移除 | CLI `--allow-path` / `--allow-net` 替代 |
 | `=!` / `<-!` 早返回 | ❌ 已移除 | `Cmd.<bin>?` / `Cmd.pipe?` 替代 |
 | `stdin` 关键字 | ❌ 已移除 | `Cmd.withStdin` 函数替代 |
-| `command` 声明 | ❌ 已移除 | 类型化模块使用 `module` 声明 |
+| `command` 声明 | ❌ 已移除 | `export (…)` 声明替代 |
 | dlopen/ptrace 命令加载 | ❌ 已移除 | fork-exec 统一替代 |
 | Builder API / 幻影类型 | ❌ 已移除 | `Cmd.<bin>` + Record 替代 |
 | 能力管理器 | ❌ 已移除 | CLI 安全参数 + Landlock/mount ns 替代 |

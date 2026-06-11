@@ -20,7 +20,7 @@
     "keywords": {
       "patterns": [
         { "name": "keyword.control", "match": "\\b(case|of|if|then|else|do|in|let|when|not|defer)\\b" },
-        { "name": "keyword.declaration", "match": "\\b(type|module|import|as|export|main)\\b" },
+        { "name": "keyword.declaration", "match": "\\b(type|import|as|export|main)\\b" },
         { "name": "storage.type", "match": "\\b(Int|Float|Bool|String|Bytes|Char|Regex|Duration|Path|Unit|List|Map|Set|Stream|Result)\\b" }
       ]
     },

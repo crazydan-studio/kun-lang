@@ -112,7 +112,7 @@ export type RecordField = {
 }
 
 export type TopLevelDecl = {
-  kind: 'typeDecl' | 'functionDecl' | 'moduleDecl'
+  kind: 'typeDecl' | 'functionDecl'
   | 'importDecl' | 'expression'
   range: Range
   name?: string

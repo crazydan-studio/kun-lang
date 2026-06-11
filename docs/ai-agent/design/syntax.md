@@ -835,48 +835,81 @@ add1 = add 1
 
 ## 模块
 
-### 模块声明
+Kun 采用**目录即命名空间**的方案：文件名（去掉 `.kun` 后缀）即模块名，目录层级表达名字空间。文件路径唯一决定模块名，无需 `module` 声明。
 
-每个源文件以 `module` 声明开头，声明模块名和导出符号：
+### 模块组织
 
-```kun
-module List export (map, filter, fold)
-
-module Result export (Result, Result(..))    // 导出类型及所有变体
-module Result export (Result(Ok))           // 仅导出 Ok 变体
+```
+lib/                          ← 项目库根目录
+  Cmd/                        ← 命名空间：Cmd
+    Git.kun                   ← 模块 Cmd.Git
+    Docker.kun                ← 模块 Cmd.Docker
+  Parser/
+    JSON.kun                  ← 模块 Parser.JSON
+    Record.kun                ← 模块 Parser.Record
+  File.kun                    ← 模块 File
+  List.kun                    ← 模块 List
+deploy.kun                    ← 可执行脚本（有 main，无 export）
 ```
 
-所有需要导出的符号均通过 `module export` 声明。不存在 `pub` 关键字。
+### 搜索路径
 
-变体/字段导出语法：
+编译器按以下优先级查找模块：
+
+| 优先级 | 路径 | 范围 |
+|--------|------|------|
+| 1 | 同库相对路径 | 项目内模块互引。从当前文件所在库根出发，向上遍历查找 |
+| 2 | `$KUN_PATH` | 全系统共享的 Kun 模块 |
+| 3 | `<runtime>/lib/kun/` | 标准库 |
+| 4 | `~/.kun/cmd/` | 类型化命令模块 |
+
+编译器在首次编译时遍历库根目录一次，索引全部模块到缓存中，后续查找为 O(1)。
+
+### 导出
+
+库模块文件以 `export (...)` 声明公开符号。文件路径即模块名，无需在声明中重复：
+
+```kun
+export (map, filter, fold)
+
+export (Result, Result(..))    // 导出类型及所有变体
+export (Result(Ok))           // 仅导出 Ok 变体
+```
+
+可执行脚本文件**不能有 `export` 声明**（其 `main` 为唯一入口）。有 `export` 而无 `main` 为库模块；有 `main` 而无 `export` 为可执行脚本。两者同时出现是编译错误。
+
+导出语法：
 - `Result(..)` — 导出类型 `Result` 及其所有变体（`Ok`、`Err`）
 - `Result(Ok)` — 仅导出变体 `Ok`（不含 `Err`）
 - `Result` — 仅导出类型名，不导出任何变体
-- `Command` — 仅导出 Record 类型名，不导出任何字段，外部无法 `cmd.field` 访问或 `{ field = ... }` 构造
-- `Command(field1, field2)` — 仅导出指定字段，外部可访问/修改/更新这些字段
+- `Command` — 仅导出 Record 类型名，不导出任何字段
+- `Command(field1, field2)` — 仅导出指定字段
 - `Command(..)` — 导出 Record 类型及其所有字段
 
-未导出的 ADT 变体/Record 字段在导入方**不可引用**——既不能用于构造值、解构也不能用于字段访问。编译器对尝试使用未导出符号的代码报"符号未找到"。
+未导出的 ADT 变体/Record 字段在导入方**不可引用**。
 
 ### 导入
 
-导入有三种互斥的风格：**模块别名**（`as`）、**精选导入**（`with (symbols)`）和**全量导入**（`with (..)`），不可组合使用。
+导入有三种互斥风格：
 
 ```kun
-// 风格一：模块别名 — 所有公开符号通过别名限定访问
+// 风格一：模块别名 — 通过别名限定访问
 import List                            // 直接通过 List.map 访问
 import List as L                       // 通过 L.map 访问（短别名）
 
-import List with (map, filter)         // 风格二：精选导入 — 仅选择的符号可直接使用
-import List with (map as m, filter)    // 导入时重命名
-import List with (..)                  // 风格三：全量导入 — 所有公开符号可直接使用
+// 风格二：精选导入 — 仅选择的符号可直接使用
+import List (map, filter)
+import List (map as m, filter)         // 导入时重命名
+
+// 风格三：全量导入 — 所有公开符号可直接使用
+import List (..)
 ```
 
-从 ADT 导入变体（精选导入风格）：
+从 ADT 导入变体：
 
 ```kun
-import Result with (Result(..))     // 导入类型及所有变体
-import Result with (Result(Ok))    // 仅导入 Ok 变体
+import Result (Result(..))     // 导入类型及所有变体
+import Result (Result(Ok))    // 仅导入 Ok 变体
 ```
 
 导入变体后，变体名称可直接在代码中使用（`Ok`、`Err`），无需模块限定。
@@ -894,7 +927,7 @@ Kun 脚本的执行入口按以下规则确定：
 | 未定义 `main` | 编译错误：可执行脚本缺少 `main` 入口 |
 | `main` 签名不合法 | 类型标注不为 `List String -> Unit` 时编译错误 |
 
-可执行脚本文件**不能声明 `module`**。库模块文件有 `module` 声明，不可独立执行。
+可执行脚本文件**不能有 `export` 声明**。有 `export` 为库模块，有 `main` 为可执行脚本，两者同时出现是编译错误。
 
 ### 命令行参数
 
@@ -952,7 +985,9 @@ main = \raw ->
 
 ## 可执行脚本约束
 
-- 可执行脚本文件**不声明 `module`**
+- 可执行脚本文件**不能有 `export` 声明**
+- 有 `export` 而无 `main` → 库模块
+- 有 `main` 而无 `export` → 可执行脚本
 - `main` 的签名**唯一合法形式为 `List String -> Unit`**
 - 不需要命令行参数时用 `\_ ->` 忽略参数
 - 支持 Shebang（`#!/usr/bin/env kun`）
@@ -964,11 +999,13 @@ main = \_ ->
   do
     IO.println "hello"
 
-// ❌ 错误：可执行脚本中声明 module
-module Foo export (bar)    // 编译错误
+// ❌ 错误：可执行脚本不能有 export
+export (helper)    // 编译错误
+main : List String -> Unit
+main = \_ -> do IO.println "hello"
 
 // ❌ 错误：main 签名不合法
-main : Unit                // 编译错误
+main : Unit        // 编译错误
 ```
 
 ## Stream
