@@ -22,8 +22,8 @@ import Cli
 ```kun
 // 解析上下文元数据
 type CliMeta =
-  { intro : ?String    -- 程序名称/简介（显示在 --help 第一行）
-  , text  : ?String    -- 详细描述（简介下方显示）
+  { intro : ?String    // 程序名称/简介（显示在 --help 第一行）
+  , text  : ?String    // 详细描述（简介下方显示）
   }
 
 // 声明器种类
@@ -37,12 +37,12 @@ type CliArgKind
 // default 和 choices 存储为序列化字符串，运行期不做类型检查
 // 类型安全的门槛在 Cli.parse 调用点的编译期代码展开
 type CliArg =
-  { name    : String          -- 长选项名（也是 Record 字段名）
-  , short   : ?Char           -- 短选项字符
-  , help    : String          -- 帮助文本
-  , kind    : CliArgKind      -- 声明器种类
-  , default : ?String         -- 缺省值的字符串表示
-  , choices : ?(List String)  -- 枚举约束的字符串列表
+  { name    : String          // 长选项名（也是 Record 字段名）
+  , short   : ?Char           // 短选项字符
+  , help    : String          // 帮助文本
+  , kind    : CliArgKind      // 声明器种类
+  , default : ?String         // 缺省值的字符串表示
+  , choices : ?(List String)  // 枚举约束的字符串列表
   }
 
 // 互斥组
@@ -53,7 +53,7 @@ type CliArgGroup
 type CliSubCmd a =
   { name    : String
   , help    : String
-  , handler : ?(CliSpec b)      -- 子命令的处理 spec（b 无约束）
+  , handler : ?(CliSpec b)      // 子命令的处理 spec（b 无约束）
   }
 
 // 顶层解析描述，a 为目标 Record 类型
@@ -72,7 +72,7 @@ type CliSpec a =
 
 ```kun
 // 零值元数据
-meta : CliMeta        -- 等价于 { intro = Nil, text = Nil }
+meta : CliMeta        // 等价于 { intro = Nil, text = Nil }
 
 // 设置 intro
 intro : String -> CliMeta -> CliMeta
