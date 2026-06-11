@@ -49,19 +49,19 @@ type CliArg =
 type CliArgGroup
   = OneOf { name : String, args : List CliArg }
 
-// 子命令（递归引用 CliSpec）
-type CliSubCmd a =
+// 子命令（递归引用 CliSpec，a 约束父级类型，b 约束 handler 返回类型）
+type CliSubCmd a b =
   { name    : String
   , help    : String
-  , handler : ?(CliSpec a)      // 子命令的处理 spec
+  , handler : ?(CliSpec b)      // 子命令的处理 spec
   }
 
 // 顶层解析描述，a 为目标 Record 类型
 type CliSpec a =
   { meta     : CliMeta
-  , args     : List CliArg
+  , args     : ?(List CliArg)          // 位置参数和选项（可选）
   , groups   : ?(List CliArgGroup)    // 互斥组（可选）
-  , levels   : ?(List (CliSubCmd a))  // 子命令（可选）
+  , levels   : ?(List (CliSubCmd a b))  // 子命令（可选），b 与 a 独立
   , loose    : ?Bool                    // 透传模式（可选，默认 false）
   }
 ```
@@ -119,7 +119,7 @@ withChoices : List a -> CliArg -> CliArg
 oneOf : String -> List CliArg -> CliArgGroup
 
 // 子命令声明
-subCmd : String -> String -> CliSpec b -> CliSubCmd
+subCmd : String -> String -> CliSpec b -> CliSubCmd a b
 
 // 解析原始参数列表为目标 Record
 // 类型 a 由调用点的变量类型声明驱动
@@ -218,6 +218,8 @@ Arguments:
 `kun deploy.kun push --force origin main`
 
 ```kun
+import Cli
+
 type PushOpts =
   { force  : Bool
   , remote : String
@@ -261,6 +263,8 @@ parseDeploy =
 ### 3. 互斥组
 
 ```kun
+import Cli
+
 type MutexConfig = { global : Bool, local : Bool }
 
 parseConfig =
@@ -287,6 +291,8 @@ Cli.option "level" 'l' "Log level"
 `kun gcc.kun -o a.out -Wall -O2 main.c`
 
 ```kun
+import Cli
+
 type CompileConfig =
   { output        : Path
   , compilerArgs  : List String
@@ -308,6 +314,8 @@ parseCompile =
 ### 6. 多个位置参数
 
 ```kun
+import Cli
+
 type CpConfig =
   { source : String
   , dest   : String
@@ -325,7 +333,7 @@ parseCp =
     }
 ```
 
-```
+```bash
 kun cp.kun a.txt b.txt /tmp
 ```
 
@@ -334,6 +342,8 @@ kun cp.kun a.txt b.txt /tmp
 ### 7. 可选位置 + 余量位置
 
 ```kun
+import Cli
+
 type ToolConfig =
   { name  : ?String
   , files : List String
@@ -349,12 +359,14 @@ parseTool =
     }
 ```
 
-```
+```bash
 kun tool.kun                    → name = Nil, files = []
 kun tool.kun hello              → name = "hello", files = []
 kun tool.kun a.txt b.txt        → name = "a.txt", files = ["b.txt"]
 kun tool.kun hello a.txt b.txt  → name = "hello", files = ["a.txt", "b.txt"]
 ```
+
+位置参数消费策略为非贪婪：先尝试匹配前置的 `?T`（0 或 1 个），剩余全部进入 `List T`。`--` 之后全部 token 视为位置参数。
 
 ### 错误信息
 
