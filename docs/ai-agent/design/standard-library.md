@@ -1257,7 +1257,7 @@ import Cli
 | `Int` | `count "n" 'c' "h"` | `-c` → 1，`-ccc` → 3，不出现 → 0 |
 | `?T` | `option "n" 'c' "h"` | `--n VAL`/`-c VAL` → Some，不出现 → Nil |
 | `T`（非 Bool/非 List） | `option "n" 'c' "h" (default d)` | 不出现 → `d` |
-| `T`（非 Bool/非 List） | `option "n" 'c' "h" (required)` | 不出现 → 错误 |
+| `T`（非 Bool/非 List） | `option "n" 'c' "h"` | 不出现 → 错误（必填） |
 | `T`（非 Bool/非 List） | `arg "n" "h"` | 按序消费 1 个 token（必填） |
 | `?T` | `arg "n" "h"` | 按序消费 0 或 1 个 token（可选） |
 | `List T` | `arg "n" "h"` | 消费 0-N 个 token（仅可为最后一个位置参数） |
@@ -1298,10 +1298,9 @@ parse : CliSpec -> List String -> Result a String
 
 #### option 修饰器
 
-- `default d`：不出现时使用缺省值 `d`。修饰后字段可为非 `?T`。
+- `default d`：不出现时使用缺省值 `d`。
 - `choices [...]`：值必须从枚举列表中选择。
-- 不加修饰器的 `option` → 字段必须为 `?T`，缺省 Nil。
-- 字段为非 `?T` 且无 `default` → 自动视为必填。
+- 不修饰的 `option`：字段类型 `?T` → 可选（缺省 Nil）；字段类型为 `T` 且无 `default` → 必填。
 
 ### 帮助输出
 
