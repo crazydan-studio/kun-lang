@@ -785,13 +785,13 @@ Kun 已内建 `Regex` 类型和正则引擎，因此文本搜索类命令（`gre
 // Kun walkDir + filter:
 walkDir { root = p"/var/log" }
   |> filter (\e -> toString e.path |> endsWith ".log")
-  |> filter (\e -> e.fileType == RegularFile)
+  |> filter (\e -> e.type == Regular)
   |> filter (\e -> e.size > 100 * MB)
 ```
 
 ```kun
 // walkDir 的签名
-type DirEntry = { path : Path, fileType : FileType, size : Int, mtime : DateTime }
+type DirEntry = { path : Path, type : FileType, size : Int, mtime : DateTime }
 
 walkDir : { root : Path, depth : ?Int
           , followSymlinks : Bool

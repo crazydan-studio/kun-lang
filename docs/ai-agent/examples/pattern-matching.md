@@ -10,7 +10,7 @@
 // ============================================================
 
 import File
-import FileType with (RegularFile, Directory, Symlink, ..)
+import FileType with (Regular, Directory, SymbolicLink, ..)
 
 // ============================================================
 // ADT 定义
@@ -300,7 +300,7 @@ checkFile = \p ->
     result = File.stat p
     case result of
       Ok stat ->
-        if stat.fileType == RegularFile then
+        if stat.type == Regular then
           IO.println "regular file"
         else
           IO.println "other"
@@ -314,10 +314,10 @@ describeFileType = \p ->
     result = File.stat p
     case result of
       Ok stat ->
-        case stat.fileType of
-          RegularFile   -> IO.println "regular file"
+        case stat.type of
+          Regular       -> IO.println "regular file"
           Directory     -> IO.println "directory"
-          Symlink       -> IO.println "symlink"
+          SymbolicLink  -> IO.println "symlink"
           _             -> IO.println "other"
       Err _ ->
         IO.println "stat failed"
