@@ -235,6 +235,11 @@ type PushOpts =
 type StatusOpts =
   { short : Bool }
 
+// 子命令返回的联合类型
+type DeployCmd
+  = Push PushOpts
+  | Status StatusOpts
+
 parsePush =
   { meta  = Cli.intro "push" Cli.meta
   , args =
@@ -249,7 +254,6 @@ parseStatus =
   , args = [ Cli.flag "short" 's' "Short format" ]
   }
 
-parseDeploy : CliSpec Config
 parseDeploy =
   Cli.parse
     { meta  = Cli.intro "deploy.kun" Cli.meta
