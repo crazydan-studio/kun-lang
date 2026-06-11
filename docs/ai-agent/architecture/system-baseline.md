@@ -249,7 +249,7 @@ Cmd.<bin> { options } [posArgs...]
 | `Nil` | 省略不传 | Nil 值不生成 flag |
 | `List a` | `--key v1 --key v2` | 每个元素一个重复 flag |
 
-> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。含特殊字符（`-`、`.`、`+`）或数字开头的命令名使用 `Cmd["..."]` 转义。不适合 Record 映射的 flag（如 `-Wall`、`-D`、`-Wl,...` 等）使用 `Cmd.withRawOpt` 按原样追加。
+> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。不适合 Record 映射的 flag（如 `-Wall`、`-Wl,...` 等）使用 `Cmd.withRawOpt` 按原样追加。
 
 argv 生成顺序：
 
