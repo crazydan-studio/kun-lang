@@ -40,10 +40,11 @@ createUser = \name uid email ->
 // 2. ADT 全部变体字段风格
 // ============================================================
 
-// 无字段变体
-type ExitCode
-  = Success
-  | GeneralError
+// Newtype（单变体）与 `of` 构造器
+type ExitCode = ExitCode Int
+success         = ExitCode.of 0
+generalError    = ExitCode.of 1
+commandNotFound = ExitCode.of 127
 
 // 无名字段变体（空格分隔）
 type ProcessError
@@ -126,7 +127,7 @@ createUserRecord = \name age email ->
 now : -> DateTime
 now = \ ->
   do
-    Time.now
+    Sys.time
 
 // ============================================================
 // 5. Let-多态（Hindley-Milner 自动泛型）

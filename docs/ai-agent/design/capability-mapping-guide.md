@@ -139,7 +139,7 @@ CLI 命令：ls -la --sort=time /var/log
 1. 能力识别："列出 /var/log 目录的文件/目录，含隐藏条目，按时间排序"
                                     ↓
 2. 返回类型定义：
-   type DirEntry = { name : Path, fileType : FileType, size : Int,
+   type DirEntry = { name : Path, type : FileType, size : Int,
                      mtime : DateTime, mode : Permissions }
                                     ↓
 3. 影响结果的参数：

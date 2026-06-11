@@ -90,7 +90,7 @@ parseLine = \line ->
               { timestamp = timestamp
               , level     = lvl
               , message   = message
-              , pid       = Pid.pid pidStr
+              , pid       = Pid.of (String.toInt pidStr |> Result.withDefault 0)
               })
           Err e -> Err (ParseFailed e)
 
