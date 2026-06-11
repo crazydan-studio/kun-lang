@@ -245,9 +245,9 @@ Cmd.<bin> { options } [posArgs...]
 | `{ o = "a.out" }` | `-o a.out` | 单小写字符 + 非 Bool → 双 token（flag + 值） |
 | `{ X = "POST" }` | `-X POST` | 单大写字符 → 保留大小写，`-` 前缀 |
 | `{ humanReadable = true }` | `--human-readable` | 标准 camelCase 多大写断词 |
-| `Bool = false` | 省略不传 | false 值不生成 flag |
-| `Nil` | 省略不传 | Nil 值不生成 flag |
-| `List a` | `--key v1 --key v2` | 每个元素一个重复 flag |
+| `Bool = false` | 省略不传 | false 值不生成 flag | — |
+| `Nil` | 省略不传 | Nil 值不生成 flag | — |
+| `List a` | `--key v1 --key v2` | 每个元素一个重复 flag | — |
 
 > **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。不适合 Record 映射的 flag（如 `-Wall`、`-Wl,...` 等）使用 `Cmd.withRawOpt` 按原样追加。
 
