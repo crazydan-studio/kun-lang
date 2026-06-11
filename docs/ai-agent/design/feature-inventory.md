@@ -143,7 +143,8 @@
 | 解构赋值 | ✅ 设计定型 | 元组/Record/List |
 | 扩展积类型 | ❌ 已移除 | 移除 `{ Base \| field : T }` 语法，Record 类型需精确静态匹配 |
 | 模块系统 | ✅ 设计定型 | 目录即命名空间，`export (...)`，`import X (...)` |
-| 可执行脚本 | ✅ 设计定型 | 无模块声明，`main : List String -> Unit` |
+| 可执行脚本 | ✅ 设计定型 | `main : List String -> Unit`（类型标注可选） |
+| Cli 模块 | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
 | REPL 交互环境 | 📋 设计中 | 结构化 REPL |
 
 ### 已废弃/移除
@@ -163,3 +164,4 @@
 | 命令签名系统 (Ed25519) | ❌ 已移除 | 不涉及注册中心 |
 | 参数验证器 (Validator) | ❌ 已移除 | 选项类型检查替代 |
 | `Std` 模块 | ❌ 已移除 | `Path.cwd`（常量）+ `Cmd.withCwd`（per-command chdir）替代 |
+| `Args` 模块 | ❌ 已移除 | `Cli` 模块替代（类型驱动、auto --help、子命令） |
