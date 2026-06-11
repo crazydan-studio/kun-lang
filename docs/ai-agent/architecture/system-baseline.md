@@ -449,25 +449,49 @@ Arena 分配器特性：线性分配（bump allocation），无释放操作；Ar
 
 ## 模块解析与加载
 
-### 模块搜索路径
+Kun 采用目录即命名空间方案：文件名（去掉 `.kun` 后缀）即模块名，目录层级表达名字空间。模块名由文件路径唯一确定，无需在文件中声明。
+
+### 模块组织
 
 ```
-1. 标准库路径:   <runtime_prefix>/lib/kun/
-2. 项目本地路径: ./<script_dir>/modules/
-3. 用户自定义路径: $KUN_PATH 环境变量指定的目录列表
+my-project/
+├── deploy.kun                 ← 可执行脚本（有 main，无 export）
+├── lib/                       ← 项目库根目录
+│   ├── Cmd/
+│   │   └── Git.kun            ← 模块 Cmd.Git
+│   ├── File.kun               ← 模块 File
+│   └── List.kun               ← 模块 List
+└── tests/
+    └── test-config.kun        ← 可执行测试脚本
 ```
 
-### 类型化命令模块搜索路径
+### 搜索路径（优先级从高到低）
+
+1. **同库相对路径**：从当前文件所在库根出发，按目录层级查找。`import Config` → `lib/Config.kun`
+2. **`$KUN_PATH`**：全系统共享的 Kun 模块
+3. **`<runtime>/lib/kun/`**：标准库路径
+4. **`~/.kun/cmd/`**：类型化命令模块
+
+编译器在首次编译时遍历库根目录一次，索引全部模块到缓存中。库根目录通过向上遍历找到 `kunk.json` 或第一个不含 `.kun` 文件作为直接成员的目录确定。
+
+### 加载流程
 
 ```
-1. ~/.kun/cmd/<Name>.kun
-2. $KUN_PATH/cmd/<Name>.kun
-3. <runtime>/lib/kun/cmd/<Name>.kun
+import Cmd.Git
+      │
+      ▼
+搜索 lib/Cmd/Git.kun（同库） → 搜索 $KUN_PATH/Cmd/Git.kun → 搜索 <runtime>/lib/kun/Cmd/Git.kun
+      │
+      ▼
+已在缓存中？──是──→ 返回缓存副本
+      │
+      ▼否
+读取文件 → 词法分析 → 语法分析 → 类型检查 → 递归加载依赖 → 缓存
 ```
 
 ### 循环依赖检测
 
-模块加载器维护加载中集合和已完成缓存。检测到循环依赖时编译期报错。
+加载器维护加载中集合和已完成缓存。检测到循环依赖时编译期报错。
 
 ## 标准库集成
 
@@ -482,5 +506,6 @@ Arena 分配器特性：线性分配（bump allocation），无释放操作；Ar
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| 0.4.0 | 2026-06-11 | 模块系统重设计：目录即命名空间；`export (…)` 替代 `module Xxx export (…)`；`import X (…)` 替代 `import X with (…)` |
 | 0.2.0 | 2026-06-10 | 架构重设计：移除 `.cmd.kun`/`IO T`/`with caps`/dlopen/ptrace 等；新增 `Cmd.<bin>` fork-exec + Landlock/mount ns + `defer` + tagged union Stream |
 | 0.1.0 | 2026-05-27 | 项目初始化，设计文档定型 |
