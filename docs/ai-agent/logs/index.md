@@ -15,3 +15,5 @@
 | [CDF 类型/架构/语法层重构](log-2026-06-04-cdf-rearchitecture.md) | CDF 全面重构 | 2026-06-04 |
 | [语法打磨 + 8 轮审计](log-2026-06-04-syntax-polish-audit-rounds.md) | 语法打磨 + 全面审计 | 2026-06-04 |
 | [全面审计修复 + 语法检查](log-2026-06-06-comprehensive-audit-syntax-fixes.md) | 全面审计 + 语法检查 | 2026-06-06 |
+| [架构评审与全面修复](log-2026-06-07-comprehensive-review-and-fixes.md) | 架构评审与全面修复 | 2026-06-07 |
+| [架构重设计与标准库重组讨论](log-2026-06-11-design-discussions.md) | 架构重设计执行 + 设计讨论 | 2026-06-11 |
