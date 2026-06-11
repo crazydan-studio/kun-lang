@@ -703,7 +703,7 @@ type LogEntry =
 currentTime : -> String
 currentTime = \ ->
   do
-    now = Time.now
+    now = Sys.time
   in
     DateTime.format "%H:%M:%S" now
 

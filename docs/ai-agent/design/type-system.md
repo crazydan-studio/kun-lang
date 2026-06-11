@@ -201,13 +201,13 @@ if x /= Nil then
 - `-> T` 与 `a -> T` 是**不同元数的函数类型**——HM 合一时元数必须相同，否则合一失败
 - 零参函数**仅允许用于 IO 效应函数**（函数体含 `do` 块）。纯零参函数退化为常量，应使用 `let` 绑定
 - 对应的 Lambda 语法为 `\ -> expr`
-- 调用零参函数时裸名即为调用：`Time.now`（不可传参）
+- 调用零参函数时裸名即为调用：`Sys.time`（不可传参）
 
 ```kun
 now : -> DateTime
 now = \ ->
   do
-    Time.now
+    Sys.time
 
 getPid : -> Pid
 getPid = \ ->
@@ -233,7 +233,7 @@ p = p"/tmp/foo"
 Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
 
 - 含 `do` 块的函数自动标记为效应函数
-- 以下命名空间的所有函数均为效应函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Time.*`、`Signal.*`、`Sys.*`、`TempFile.*`
+- 以下命名空间的所有函数均为效应函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
 - 效应性不扩散到类型签名——函数签名中不出现 `IO` 标记
 - Lambda 含有效应函数调用时，该 lambda 必须在 `do` 块内定义

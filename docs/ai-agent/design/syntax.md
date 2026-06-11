@@ -345,7 +345,7 @@ identity = \x -> x
 now : -> DateTime
 now = \ ->
   do
-    Time.now
+    Sys.time
 
 main : List String -> Unit
 main = \_ ->

@@ -10,14 +10,7 @@
 //       Stream、DateTime/Duration、defer
 // ============================================================
 
-import DateTime
-import Duration
-import ExitCode
-import IpAddress with (IpAddress, Ipv4)
-import Port
-import Signal with (SIGTERM, SIGINT)
-import Pid
-import Time
+import IO
 import TempFile
 import File
 import Process
@@ -47,7 +40,7 @@ type MonitorResult
 printTimestamp : -> Unit
 printTimestamp = \ ->
   do
-    nowTime = Time.now
+    nowTime = Sys.time
     IO.println f"check at: {nowTime:%HH:mm:ss}"
 
 // 命令行检查：curl + 解析
@@ -58,11 +51,11 @@ checkService = \addr ->
       Tcp ip _ -> ip
       Udp ip _ -> ip
 
-    start = Time.now
+    start = Sys.time
     result = Cmd.curl? { silent = true } (IpAddress.toString ip)
     case result of
       Ok _ ->
-        end = Time.now
+        end = Sys.time
         IO.println f"up ({end - start})"
       Err err ->
         IO.println f"down: {err}"
@@ -139,7 +132,7 @@ backupAndClean = \workDir ->
 timeWindow : Duration -> Bool
 timeWindow = \window ->
   do
-    current = Time.now
+    current = Sys.time
     start = DateTime.fromUnixSecs 1700000000
     elapsed = current - start
   in
@@ -165,7 +158,7 @@ main = \_ ->
     // 注册信号处理
     handleTerminate
     // 构造 SocketAddr
-    addr = Tcp (IpAddress.parse "10.0.1.5" |> Result.withDefault (Ipv4 (127, 0, 0, 1))) (Port.fromInt 8080)
+    addr = Tcp (IpAddress.parse "10.0.1.5" |> Result.withDefault (Ipv4 (127, 0, 0, 1))) (Port.of 8080)
     printTimestamp
     // 命令行检查
     checkService addr
