@@ -53,16 +53,16 @@ type CliArgGroup
 type CliSubCmd a =
   { name    : String
   , help    : String
-  , handler : ?(CliSpec b)      // 子命令的处理 spec（b 无约束）
+  , handler : ?(CliSpec a)      // 子命令的处理 spec
   }
 
 // 顶层解析描述，a 为目标 Record 类型
 type CliSpec a =
   { meta     : CliMeta
   , args     : List CliArg
-  , groups   : List CliArgGroup
-  , levels   : ?(List (CliSubCmd a))
-  , loose    : Bool              // 透传模式
+  , groups   : ?(List CliArgGroup)    // 互斥组（可选）
+  , levels   : ?(List (CliSubCmd a))  // 子命令（可选）
+  , loose    : ?Bool                    // 透传模式（可选，默认 false）
   }
 ```
 
@@ -115,20 +115,12 @@ withChoices : List a -> CliArg -> CliArg
 #### 子命令
 
 ```kun
+// 互斥组声明
+oneOf : String -> List CliArg -> CliArgGroup
+
 // 子命令声明
 subCmd : String -> String -> CliSpec b -> CliSubCmd
-```
 
-#### 解析选项
-
-```kun
-// 开启透传模式（未知 --flag 视为位置参数）
-loose : CliSpec a -> CliSpec a
-```
-
-#### 解析
-
-```kun
 // 解析原始参数列表为目标 Record
 // 类型 a 由调用点的变量类型声明驱动
 parse : CliSpec a -> List String -> Result a String
@@ -168,15 +160,16 @@ parse : CliSpec a -> List String -> Result a String
 
 ```kun
 import Cli
+import IO
 
-type Config =
+type BuildConfig =
   { verbose : Bool          // -v, --verbose
   , output  : ?Path         // -o, --output
   , jobs    : Int           // -j, --jobs
   , source  : String        // SOURCE（位置参数）
   }
 
-parseConfig : List String -> Result Config String
+parseConfig : List String -> Result BuildConfig String
 parseConfig =
   Cli.parse
     { meta  = Cli.meta
@@ -189,7 +182,6 @@ parseConfig =
             |> Cli.withDefault 4
         , Cli.arg "source" "Source directory"
         ]
-    , loose = false
     }
 
 main : List String -> Unit
@@ -269,17 +261,18 @@ parseDeploy =
 ### 3. 互斥组
 
 ```kun
-type Config = { global : Bool, local : Bool }
+type MutexConfig = { global : Bool, local : Bool }
 
-Cli.parse
-  { meta = Cli.meta
-  , groups =
-      [ Cli.oneOf "config-source"
-          [ Cli.flag "global" 'g' "Use global config"
-          , Cli.flag "local" 'l' "Use local config"
-          ]
-      ]
-  }
+parseConfig =
+  Cli.parse
+    { meta = Cli.meta
+    , groups =
+        [ Cli.oneOf "config-source"
+            [ Cli.flag "global" 'g' "Use global config"
+            , Cli.flag "local" 'l' "Use local config"
+            ]
+        ]
+    }
 ```
 
 ### 4. 枚举约束
@@ -321,14 +314,15 @@ type CpConfig =
   , target : Path
   }
 
-Cli.parse
-  { meta = Cli.meta
-  , args =
-      [ Cli.arg "source" "Source file"
-      , Cli.arg "dest"   "Destination file"
-      , Cli.arg "target" "Target directory"
-      ]
-  }
+parseCp =
+  Cli.parse
+    { meta = Cli.meta
+    , args =
+        [ Cli.arg "source" "Source file"
+        , Cli.arg "dest"   "Destination file"
+        , Cli.arg "target" "Target directory"
+        ]
+    }
 ```
 
 ```
@@ -340,18 +334,19 @@ kun cp.kun a.txt b.txt /tmp
 ### 7. 可选位置 + 余量位置
 
 ```kun
-type Config =
+type ToolConfig =
   { name  : ?String
   , files : List String
   }
 
-Cli.parse
-  { meta = Cli.meta
-  , args =
-      [ Cli.arg "name" "Optional name"
-      , Cli.arg "files" "Input files"
-      ]
-  }
+parseTool =
+  Cli.parse
+    { meta = Cli.meta
+    , args =
+        [ Cli.arg "name" "Optional name"
+        , Cli.arg "files" "Input files"
+        ]
+    }
 ```
 
 ```
