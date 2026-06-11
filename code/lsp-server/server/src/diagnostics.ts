@@ -205,7 +205,7 @@ function checkEffectContext(
   allLines: string[],
 ): void {
   // Check that effect function calls (Cmd.*/IO.*/File.*/etc.) are inside do blocks
-  const hasEffectCall = /\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+|Std\.(cd|cwd)/.test(line)
+  const hasEffectCall = /\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+/.test(line)
   if (hasEffectCall) {
     let foundDo = false
     for (let j = lineNum; j >= 0; j--) {
@@ -215,7 +215,7 @@ function checkEffectContext(
       }
     }
     if (!foundDo) {
-      const idx = line.search(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+|Std\.(cd|cwd)/)
+      const idx = line.search(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+/)
       diagnostics.push(
         error('Effect functions (Cmd.*/IO.*/File.*/etc.) can only be called inside a do block.', lineNum, idx, idx + line.match(/\b\w+\.\w+/)![0].length),
       )

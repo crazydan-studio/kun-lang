@@ -47,6 +47,7 @@
 | kun cmd init | ✅ 设计定型 | 从 man/--help 自动生成命令模块骨架 |
 | Cmd.pipe / Cmd.pipe? | ✅ 设计定型 | OS 管道链（pipe2 + fork），? 变体返回 Result |
 | Cmd.withEnv | ✅ 设计定型 | 链式修饰环境变量 |
+| Cmd.withCwd | ✅ 设计定型 | 指定子进程工作目录（per-command chdir） |
 | Cmd.withStdin | ✅ 设计定型 | stdin 注入（字符串/流式） |
 | Cmd.withRawOpt | ✅ 设计定型 | 追加原始 argv token |
 | Cmd.mergeStderr | ✅ 设计定型 | 合并 stderr 到 stdout |
@@ -138,3 +139,4 @@
 | 能力管理器 | ❌ 已移除 | CLI 安全参数 + Landlock/mount ns 替代 |
 | 命令签名系统 (Ed25519) | ❌ 已移除 | 不涉及注册中心 |
 | 参数验证器 (Validator) | ❌ 已移除 | 选项类型检查替代 |
+| `Std` 模块 | ❌ 已移除 | `Path.cwd`（常量）+ `Cmd.withCwd`（per-command chdir）替代 |

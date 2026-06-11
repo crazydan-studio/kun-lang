@@ -130,7 +130,7 @@ function runDiagnostics(content: string): Diagnostic[] {
     }
 
     // 7. Effect function calls outside do blocks
-    const effectCallMatch = line.match(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+|Std\.(cd|cwd)/)
+    const effectCallMatch = line.match(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+/)
     if (effectCallMatch) {
       let foundDo = false
       for (let j = i; j >= 0; j--) {

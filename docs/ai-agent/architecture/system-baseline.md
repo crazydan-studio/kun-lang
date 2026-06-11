@@ -102,7 +102,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 
 `do` 块按顺序执行效应操作。含 `do` 块的函数通过编译器 AST 标记自动识别为效应函数。纯函数（无 `do` 块）不能调用效应函数——编译期拒绝。
 
-效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Time.*`、`Signal.*`、`Sys.*`、`TempFile.*`、`Std.cd`/`Std.cwd`。
+效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Time.*`、`Signal.*`、`Sys.*`、`TempFile.*`。
 
 `do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值：
 
@@ -139,7 +139,7 @@ countFiles = \dir ->
 Command 执行的契约：
 
 ```
-动作: fork → chdir 到逻辑 CWD（子进程内） → setrlimit → install seccomp → exec → waitpid
+动作: fork → chdir 到 Cmd.withCwd 指定目录或 Path.cwd（子进程内） → setrlimit → install seccomp → exec → waitpid
 返回: Stream String（场景①②）或 Result (Stream String) CommandError（场景③）
 argv 序列化: Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 stdout: 通过 pipe 捕获，返回为 Stream String
@@ -287,6 +287,27 @@ Cmd.withStdin : Stream Bytes -> Command -> Command  // 流式模式
 do
   Cmd.mysql { u = "root" }
     |> Cmd.withEnv #{ "MYSQL_PWD" = Env.getenv "DB_PASS" ?? "" }
+```
+
+### 工作目录：`Cmd.withCwd`
+
+`Cmd.withCwd : Path -> Command -> Command` 指定子进程的工作目录。fork 后、exec 前对子进程 `chdir`。每个 Command 独立设置，不同子进程互不干扰。父进程 OS CWD 始终不变。缺省使用 `Path.cwd`（脚本启动时冻结的常量）。
+
+```kun
+do
+  Cmd.ls {}                                       // CWD = Path.cwd
+  Cmd.tar { c = true, f = "backup.tar" } "."
+    |> Cmd.withCwd p"/build/output"               // 仅此子进程 CWD = /build/output
+  Cmd.ls {}                                       // CWD 仍为 Path.cwd
+```
+
+Kun **不提供全局 `cd`**——这避免了 Bash 中全局状态泄漏导致的隐蔽 Bug。需要跨多个命令使用同一 CWD 时，用变量绑定：
+
+```kun
+do
+  workDir = p"/build/output"
+  Cmd.tar { c = true, f = "backup.tar" } "." |> Cmd.withCwd workDir
+  Cmd.ls { a = true } |> Cmd.withCwd workDir
 ```
 
 ### 特殊字符命令名

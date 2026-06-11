@@ -99,6 +99,8 @@ Cmd.withStdin   : String -> Command -> Command
 Cmd.withStdin   : Stream Bytes -> Command -> Command
 Cmd.withRawOpt  : String -> ?String -> Command -> Command
 Cmd.mergeStderr : Command -> Command
+Cmd.withCwd     : Path -> Command -> Command
+Cmd.withRunAs   : String -> Command -> Command
 ```
 
 ## 管道与组合

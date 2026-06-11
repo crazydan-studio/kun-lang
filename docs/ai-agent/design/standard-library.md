@@ -201,7 +201,7 @@ Signal.on : Signal -> (Signal -> Unit) -> Unit  // 注册信号处理器
 - 通过构造器创建：`Time.now : -> DateTime`（当前系统时间）、`DateTime.fromUnixSecs : Int -> DateTime`
 - 支持操作：`+ Duration -> DateTime`、`- Duration -> DateTime`、`- DateTime -> Duration`
 - 字段提取：`year`、`month`、`day`、`hour`、`minute`、`second`
-- 格式化和解析：`format : String -> DateTime -> String`（`%` 引导的格式符，详见语法设计）、`parse : String -> String -> Result DateTime String`
+- 格式化和解析：`format : String -> DateTime -> String`（格式化符号详见语法设计）、`parse : String -> String -> Result DateTime String`
 - 与 `Duration` 的关系：`DateTime` 是时间轴上的点，`Duration` 是两点之间的间隔
 - 语义场景：文件时间戳（`mtime`、`ctime`）、日志记录、调度触发、超时计算
 
@@ -305,6 +305,25 @@ List.reverse : List a -> List a
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素，保留非 `Nil` 的值
 - `fold` 为左折叠，`fold (+) 0 [1, 2, 3]` → `6`
 - `iter` 遍历每个元素并调用回调。回调可以是纯函数或效应函数——但若回调为效应 lambda（函数体含 `do` 块或调用了效应函数），则整个 `List.iter ...` 表达式本身必须处于 `do` 块中，且效应 lambda 必须在 `do` 块内定义。纯回调无此限制
+
+  典型使用场景：
+  - **批量副作用** — 对已知文件列表执行删除、重命名等操作（Bash `for f in *.log; do rm $f; done` 的替代）
+  - **条件式批处理** — 先 `List.filter` 筛选，再用 `List.iter` 执行操作
+  - **审计/日志** — 遍历配置项或处理结果并逐条输出
+
+  ```kun
+  do
+    // 批量删除过期文件
+    List.iter (\p -> do File.remove p) staleFiles
+
+    // 筛选后批量处理
+    largeFiles =
+      allFiles
+        |> List.filter (\f -> f.size > 1024 * 1024)
+    List.iter (\f -> do Cmd.gzip {} f.path) largeFiles
+  ```
+
+  注意：`List.iter` 与 `Stream.iter` 正交——`List.iter` 遍历内存列表，`Stream.iter` 消费惰性管道/文件流并强制回调为 `do` 块。如需对大文件或子进程输出做流式处理，用 `Stream.iter`。
 
 ## `Map` — 映射表操作
 
@@ -586,6 +605,7 @@ Cmd.withRawOpt  : String -> ?String -> Command -> Command
 Cmd.withStdin   : String -> Command -> Command
 Cmd.withStdin   : Stream Bytes -> Command -> Command
 Cmd.mergeStderr : Command -> Command
+Cmd.withCwd     : Path -> Command -> Command
 Cmd.withRunAs  : String -> Command -> Command
 
 // 工具
@@ -595,6 +615,18 @@ Cmd.retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 ```
 
 `Cmd.withRunAs` 指定命令执行用户（如 `Cmd.withRunAs "nobody"`）。子进程通过 `setuid()` 切换，需 Kun 进程具备 OS 级权限。不指定时以当前用户执行。
+
+`Cmd.withCwd` 指定子进程的工作目录（fork 后、exec 前 `chdir`）。每个 Command 独立设置，不同子进程互不干扰。父进程 OS CWD 始终不变。缺省使用 `Path.cwd`（脚本启动时冻结的常量）作为子进程 CWD。
+
+```kun
+do
+  // 默认 CWD = Path.cwd
+  Cmd.ls {}                                    // CWD 同脚本启动目录
+  // 指定 CWD
+  Cmd.tar { c = true, f = "backup.tar" } "."
+    |> Cmd.withCwd p"/build/output"            // 仅此子进程的 CWD = /build/output
+  Cmd.ls {}                                    // CWD 仍为 Path.cwd
+```
 
 ## `Time` — 时间与等待
 
@@ -610,16 +642,7 @@ Process.exit     : Int -> Unit
 Process.pid      : -> Pid
 ```
 
-## `Std` — 通用工具（缺省自动导入）
-
-```kun
-Std.cd       : Path -> Unit
-Std.cwd      : -> Path
-```
-
-逻辑 CWD：`Std.cd` 更新运行时维护的逻辑 CWD。fork 子进程时，在 `exec` 前 `chdir` 到此值。Kun 进程的 OS CWD 始终不变。
-
-## `Sys` — 类型化系统命令（种子生态，syscall 实现）
+## `Sys` — 类型化系统命令（syscall 实现）
 
 ```kun
 Sys.ps     : -> Stream { pid : Pid, cmd : String }
