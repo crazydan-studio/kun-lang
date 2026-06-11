@@ -119,6 +119,93 @@
 - CI 配置中显式指定版本
 - 仅在计划性迁移窗口升级
 
+## 扩展评估：其他候选语言
+
+### Kun 宿主语言的硬约束
+
+| 约束 | 原因 |
+|------|------|
+| 无 GC / 可控内存 | 脚本解释器不能有不可预测的 STW 暂停 |
+| 原生 ADT / sum type | HM 类型推断器的 AST 和类型表示必须用 tagged union |
+| 穷举模式匹配 | 类型检查器大量依赖 |
+| 直接 syscall 访问 | Landlock、seccomp、signalfd、fork-exec 等 Linux 特有机制 |
+| 编译期代码生成 | Parser.Record 需要为每个类型生成特化序列化代码 |
+| 小体量独立二进制 | 脚本语言分发——嵌入 CI 流水线、Docker 镜像、边缘设备 |
+| LLM 友好 | AI 辅助开发为主要工作流，代码生成质量直接影响开发效率 |
+
+### 候选语言评估
+
+#### C++17/20
+
+| 维度 | 评价 |
+|------|------|
+| ADT | `std::variant` + `std::visit` = pattern matching。不如 Rust/Zig 的 tagged union 优雅，但可用 |
+| 内存管理 | `std::pmr::monotonic_buffer_resource` = Arena。无 GC |
+| syscall | 直接 `syscall()` 或 libc，原生支持 |
+| 编译期 | `constexpr` + `consteval` + 模板元编程 = 强大但冗长。Parser.Record 代码生成可行但不优雅 |
+| 二进制 | 极小（与 C 同级） |
+| LLM 支持 | ⭐ 最强。训练数据量压倒性第一。LLM 对 C++17/20 惯用模式掌握极好 |
+
+**关键风险**：无借用检查器 = 内存 bug 概率高。模板错误信息冗长。`std::variant` + `std::visit` 的 AST 递归遍历代码比 Zig tagged union 冗长 2-3×。虽然 LLM 能写 C++，但在 20,000 行规模的复杂解释器项目中，内存管理的人工审查负担会显著增加。
+
+#### Swift
+
+| 维度 | 评价 |
+|------|------|
+| ADT | `enum` + associated values = 完美的代数数据类型，穷举 `switch` |
+| 内存管理 | ARC 确定性释放，无 STW。比 GC 好，比 Arena 手动控制差一点 |
+| syscall | `Glibc` 模块可用，但 Linux 是二等公民（Darwin 优先） |
+| 编译期 | Swift 5.9+ Macro 系统，可做类型驱动代码生成 |
+| 二进制 | 因 Swift runtime 较 Zig 大 3-5× |
+| LLM 支持 | 中等。iOS/macOS 生态训练数据丰富，但服务端/系统编程场景远少于 Rust/C++ |
+
+**关键风险**：`fork()` 在 Darwin 上不可用，Linux 上的 Swift 生态仍不成熟。Kun 所有核心 syscall（Landlock、seccomp、signalfd、mount ns）都是 Linux 独有的，这让 Swift 的 Darwin 基因成为一个真实问题。
+
+#### D（@nogc 子集）
+
+| 维度 | 评价 |
+|------|------|
+| ADT | `std.sumtype` 或手工 tagged union，中等 |
+| 内存管理 | `@nogc` 子集禁用 GC，手动管理。Arena 可实现 |
+| syscall | 直接 C 互操作 |
+| 编译期 | CTFE（编译期函数执行）+ `mixin` = 极强 |
+| 二进制 | 小（with betterC） |
+| LLM 支持 | 较弱。D 社区小，LLM 训练数据远不如 C++/Rust/Zig |
+
+**关键风险**：LLM 支持太弱。这是致命问题——整个项目的 AI 辅助开发工作流会严重受阻。
+
+#### C（纯 C）
+
+| 维度 | 评价 |
+|------|------|
+| LLM 支持 | ⭐ 最强（与 C++ 并列）。任何 LLM 都以最高质量生成 C |
+| 二进制/性能/syscall | 全满分 |
+| ADT | 手工 tagged union + `switch`，冗长但完全可控 |
+
+**关键风险**：无泛型/无编译期代码生成 → Parser.Record 的代码生成只能用外部代码生成器（Python 脚本等），打破单体二进制原则。在 20,000 行 C 中维护 HM 推断器的手工 tagged union AST 极易出错。
+
+### 扩展对比矩阵
+
+| | Zig | Rust | C++17 | Swift | C | Go |
+|---|---|---|---|---|---|---|
+| ADT / sum type | 5 | 5 | 3.5 | 5 | 2 | 1 |
+| 无 GC / 可控 | 5 | 5 | 5 | 4 | 5 | 1 |
+| syscall | 5 | 4 | 5 | 3 | 5 | 3.5 |
+| 编译期代码生成 | 5 | 4 | 4 | 3.5 | 1 | 2 |
+| 小二进制 | 5 | 3.5 | 5 | 3 | 5 | 2 |
+| LLM 友好 | 2.5 | 5 | 5 | 3.5 | 5 | 4 |
+| 内存安全 | 3 | 5 | 1 | 4 | 1 | 3 |
+
+### 扩展评估结论
+
+**没有比 Zig 更适合且 LLM 明显更友好的候选语言。** 这是一个「适合度 vs LLM 友好度」的根本性权衡：
+
+- **C++** 是唯一 LLM 评分不输 Zig 适合度评分的替代。但 `std::variant` 的冗长 + 无借用检查器，在 20,000 行规模会显著提升维护负担。可行但不是更优。
+- **Swift** 类型系统完美匹配 Kun 需求，但 Linux syscall 生态的薄弱是硬伤。
+- 其他候选（D、C）都有致命短板。
+
+**核心洞察**：Zig 的 LLM 弱点可以通过加强 `zig-patterns.md` 和 AI 代码强制审计来缓解。其他语言在「Kun 完整性」维度的短板是结构性/根本性的，无法通过工程手段弥补。
+
 ## 参考
 
 - [项目上下文](../context/project-context.md)
