@@ -23,19 +23,41 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| Port | ✅ 设计定型 | 0-65535，独立类型 |
-| Pid | ✅ 设计定型 | 构造器 pid(n) |
+| Port | ✅ 设计定型 | 0-65535，newtype，`of` + `isValid` |
+| Pid | ✅ 设计定型 | newtype，`Pid.of` 构造 |
 | Signal | ✅ 设计定型 | POSIX 信号枚举，`Signal.on`（signalfd），仅可执行脚本可用 |
 | Errno | ✅ 设计定型 | POSIX 错误码枚举，与 IOError 建立映射 |
-| FileType | ✅ 设计定型 | 运行时文件类型枚举 |
+| FileType | ✅ 设计定型 | 运行时文件类型枚举（Regular/SymbolicLink/CharDevice） |
 | IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
 | CommandError | ✅ 设计定型 | 语义化命令错误类型（NotFound/PermissionDenied/CommandFailed/KilledBySignal/PipeFailed） |
-| DateTime | ✅ 设计定型 | 绝对时间点，format/parse，与 Duration 互操作 |
-| ExitCode | ✅ 设计定型 | 0-255，isSuccess/isFailure，预定义常量 |
+| DateTime | ✅ 设计定型 | newtype，`format` 返回 `Result String String` |
+| ExitCode | ✅ 设计定型 | 0-255，newtype，`of` + `isValid`，预定义常量 |
 | Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型（Int newtype） |
 | IpAddress | ✅ 设计定型 | IPv4/IPv6 枚举，SocketAddr |
-| Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
+| Parser.JSON | ✅ 设计定型 | `JsonInt`/`JsonFloat` 拆分，JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
+
+### 标准库模块
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Math | ✅ 设计定型 | 三角函数、指数对数、幂运算、角度转换、常量 |
+| Function | ✅ 设计定型 | `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`，始终缺省可用 |
+| Nil | ✅ 设计定型 | `maybe`/`map`/`orElse`/`toResult`，变体 `Nil` 缺省可用，函数需显式导入 |
+| String | ✅ 设计定型 | `toString`（编译器级泛型）+ 类型互转函数 |
+| List | ✅ 设计定型 | 不可变列表查询与变换 |
+| Map | ✅ 设计定型 | 不可变字典查询与变换 |
+| Result | ✅ 设计定型 | `map`/`mapError`/`andThen`/`withDefault` |
+| Args | ✅ 设计定型 | 命令行参数解析 |
+| Random | ✅ 设计定型 | 密码学安全随机数 |
+| TempFile / TempDir | ✅ 设计定型 | 临时文件/目录创建 |
+| Stream | ✅ 设计定型 | 惰性序列（纯变换 + IO 消费） |
+| IO | ✅ 设计定型 | 控制台 IO，需显式导入 |
+| Env | ✅ 设计定型 | 环境变量读写 |
+| File | ✅ 设计定型 | 进程内文件 syscall |
+| Cmd | ✅ 设计定型 | 命令构造/修饰/执行 |
+| Process | ✅ 设计定型 | `exit`/`pid`/`sleep` |
+| Sys | ✅ 设计定型 | `ps`/`free`/`df`
 
 ### 命令系统
 
