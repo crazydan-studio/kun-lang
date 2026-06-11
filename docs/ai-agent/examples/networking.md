@@ -32,7 +32,7 @@ type HealthStatus
   | Timeout
 
 type MonitorResult
-  = Result
+  = MonitorResult
     { service  : String
     , endpoint : SocketAddr
     , status   : HealthStatus
@@ -53,12 +53,11 @@ printTimestamp = \ ->
 // 命令行检查：curl + 解析
 checkService : SocketAddr -> Unit
 checkService = \addr ->
-  let
+  do
     ip = case addr of
       Tcp ip _ -> ip
       Udp ip _ -> ip
-  in
-  do
+
     start = Time.now
     result = Cmd.curl? { silent = true } (IpAddress.toString ip)
     case result of
@@ -84,7 +83,8 @@ processEvents = \addr ->
           |> Stream.filter (\line -> String.contains "data:" line)
           |> Stream.take 100
           |> Stream.iter (\event -> do IO.println event)
-      Err e -> IO.println f"stream failed: {e}"
+      Err e ->
+        IO.println f"stream failed: {e}"
 
 // ============================================================
 // Signal / Pid 使用
