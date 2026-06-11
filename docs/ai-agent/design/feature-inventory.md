@@ -48,7 +48,6 @@
 | List | ✅ 设计定型 | 不可变列表查询与变换 |
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
 | Result | ✅ 设计定型 | `map`/`mapError`/`andThen`/`withDefault` |
-| Args | ✅ 设计定型 | 命令行参数解析 |
 | Random | ✅ 设计定型 | 密码学安全随机数 |
 | TempFile / TempDir | ✅ 设计定型 | 临时文件/目录创建 |
 | Stream | ✅ 设计定型 | 惰性序列（纯变换 + IO 消费） |
@@ -164,4 +163,3 @@
 | 命令签名系统 (Ed25519) | ❌ 已移除 | 不涉及注册中心 |
 | 参数验证器 (Validator) | ❌ 已移除 | 选项类型检查替代 |
 | `Std` 模块 | ❌ 已移除 | `Path.cwd`（常量）+ `Cmd.withCwd`（per-command chdir）替代 |
-| `Args` 模块 | ❌ 已移除 | `Cli` 模块替代（类型驱动、auto --help、子命令） |
