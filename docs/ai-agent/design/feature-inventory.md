@@ -51,6 +51,7 @@
 | Cmd.withStdin | ✅ 设计定型 | stdin 注入（字符串/流式） |
 | Cmd.withRawOpt | ✅ 设计定型 | 追加原始 argv token |
 | Cmd.mergeStderr | ✅ 设计定型 | 合并 stderr 到 stdout |
+| Cmd.andThen / Cmd.orElse | ✅ 设计定型 | 命令短路条件组合（Bash `&&`/`\|\|` 替代） |
 | Cmd.timeout | ✅ 设计定型 | 命令超时（SIGKILL + waitpid） |
 | Cmd.retry | ✅ 设计定型 | 命令重试（内部调用 Cmd.timeout） |
 | Cmd.which | ✅ 设计定型 | PATH 查找命令 |

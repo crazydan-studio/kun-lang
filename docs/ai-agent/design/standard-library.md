@@ -325,6 +325,16 @@ List.reverse : List a -> List a
 
   注意：`List.iter` 与 `Stream.iter` 正交——`List.iter` 遍历内存列表，`Stream.iter` 消费惰性管道/文件流并强制回调为 `do` 块。如需对大文件或子进程输出做流式处理，用 `Stream.iter`。
 
+  当回调是 `Cmd.*` 调用时，每次循环独立 fork 子进程（fork ~0.1ms + exec ~0.3ms ≈ ~0.5ms/次）。按规模选择策略：
+
+  | 批量规模 | 方案 | 示例 |
+  |---------|------|------|
+  | < 50 项 | `List.iter` + `Cmd.*` 直接遍历 | `List.iter (\f -> do Cmd.gzip {} f.path) files` |
+  | 50-500 项 | 批处理——`Cmd.xargs` 或 `Cmd.withStdin` 注入列表 | `Cmd.xargs { P = "4" } "gzip" \|> Cmd.withStdin fileList` |
+  | > 500 项 | `Cmd.pipe` 流式 + 并行（v0.3 `Task.spawn`） | 并发度过低时用 `xargs -P`，大文件走 `File.readBytes` 流式管道 |
+
+  fork COW 机制下子进程不复制父进程内存——只复制页表。因此批量 `fork-exec` 的内存开销可忽略不计，唯一成本是 `exec()` 加载二进制的时间。大量小文件建议走批处理减少 exec 次数。
+
 ## `Map` — 映射表操作
 
 ### 定位
@@ -608,6 +618,10 @@ Cmd.mergeStderr : Command -> Command
 Cmd.withCwd     : Path -> Command -> Command
 Cmd.withRunAs  : String -> Command -> Command
 
+// Command 组合（短路条件）
+Cmd.andThen : Command -> Command -> Command
+Cmd.orElse  : Command -> Command -> Command
+
 // 工具
 Cmd.which   : String -> ?Path
 Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError
@@ -627,6 +641,21 @@ do
     |> Cmd.withCwd p"/build/output"            // 仅此子进程的 CWD = /build/output
   Cmd.ls {}                                    // CWD 仍为 Path.cwd
 ```
+
+`Cmd.andThen` 实现短路条件执行——第一个命令成功（exit 0）时执行第二个，失败时短路。`Cmd.orElse` 相反——第一个失败时执行备选，成功时短路。返回 `Command`（延迟执行），不立即 fork。
+
+```kun
+do
+  // 构建成功后才推送
+  Cmd.docker.build { tag = "app" } "."
+    |> Cmd.andThen (Cmd.docker.push {} "app:latest")
+
+  // 主服务器不可用时回退到备选
+  Cmd.curl? { silent = true } "http://primary"
+    |> Cmd.orElse (Cmd.curl { silent = true } "http://fallback")
+```
+
+不引入 `&&`/`||` 运算符——与 Kun 已有的逻辑短路运算符（用于 Bool 表达式）冲突。
 
 ## `Time` — 时间与等待
 

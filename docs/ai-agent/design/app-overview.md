@@ -101,6 +101,10 @@ Cmd.withRawOpt  : String -> ?String -> Command -> Command
 Cmd.mergeStderr : Command -> Command
 Cmd.withCwd     : Path -> Command -> Command
 Cmd.withRunAs   : String -> Command -> Command
+
+// Command 组合（短路条件）
+Cmd.andThen : Command -> Command -> Command
+Cmd.orElse  : Command -> Command -> Command
 ```
 
 ## 管道与组合
