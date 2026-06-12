@@ -228,11 +228,8 @@ function sidebarDesign() {
         { text: '标准库', link: '/ai-agent/design/standard-library' },
         { text: '语法设计', link: '/ai-agent/design/syntax' },
         { text: '代码格式化规范', link: '/ai-agent/design/code-formatting' },
+        { text: 'Cli 命令行解析', link: '/ai-agent/design/cli' },
         { text: '功能清单', link: '/ai-agent/design/feature-inventory' },
-        { text: '安全角色与权限', link: '/ai-agent/design/roles-and-permissions' },
-        { text: '供应链安全', link: '/ai-agent/design/supply-chain-security' },
-        { text: '命令函数系统', link: '/ai-agent/design/command-function-system' },
-        { text: '命令签名系统（已废弃）', link: '/ai-agent/design/command-signature-system' },
       ],
     },
   ]
