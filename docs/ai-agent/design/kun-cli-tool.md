@@ -248,6 +248,6 @@ REPL 默认运行在 `--no-sandbox` 模式。
 
 ## 版本历史
 
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| 2026.06 | 2026-06-12 | 从 `app-overview.md`、`syntax.md`、`system-baseline.md` 中提取 CLI 工具与安全控制为独立文档 |
+| 版本 | 变更 |
+|------|------|
+| 2026.06.12 | 从 `app-overview.md`、`syntax.md`、`system-baseline.md` 中提取 CLI 工具与安全控制为独立文档 |

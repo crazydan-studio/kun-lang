@@ -2,7 +2,11 @@
 
 ## 定位
 
-Kun 通过 `Cmd.<bin>` 语法调用 Linux 命令。本文件定义命令调用的语法、语义与机制。具体的函数签名定义见[标准库 Cmd 模块](standard-library.md#cmd--command-工具与命令调用)，运行时实现细节见[系统基线](../architecture/system-baseline.md#命令调用机制)。
+Kun 通过 `Cmd.<bin>` 语法调用 Linux 命令。本文件定义命令调用的语法、语义与机制。
+
+> **编译器内置**：`Cmd.<bin>` 语法和 `Cmd.<bin>?` 由编译器直接解析并生成 fork-exec 调用代码，非标准库函数调用。`Command` 类型的延迟执行语义（惰性、`|>` 隐式触发、`do` 块边界触发）也由编译器处理。
+
+具体的函数签名定义见[标准库 Cmd 模块](standard-library.md#cmd--command-工具与命令调用)，运行时实现细节见[系统基线](../architecture/system-baseline.md#命令调用机制)。
 
 ## 语法入口
 
@@ -255,6 +259,6 @@ do
 
 ## 版本历史
 
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| 2026.06 | 2026-06-12 | 从 `app-overview.md` 和 `system-baseline.md` 中提取命令调用机制为独立文档 |
+| 版本 | 变更 |
+|------|------|
+| 2026.06.12 | 从 `app-overview.md` 和 `system-baseline.md` 中提取命令调用机制为独立文档 |

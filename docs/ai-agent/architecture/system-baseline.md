@@ -379,8 +379,8 @@ import Cmd.Git
 
 ## 版本历史
 
-| 版本 | 日期 | 变更 |
-|---|---|---|
-| 2026.06.11 | 2026-06-11 | 模块系统重设计：目录即命名空间；`export (…)` 替代 `module Xxx export (…)`；`import X (…)` 替代 `import X with (…)` |
-| 2026.06.10 | 2026-06-10 | 架构重设计：移除 `.cmd.kun`/`IO T`/`with caps`/dlopen/ptrace 等；新增 `Cmd.<bin>` fork-exec + Landlock/mount ns + `defer` + tagged union Stream |
-| 2026.05.27 | 2026-05-27 | 项目初始化，设计文档定型 |
+| 版本 | 变更 |
+|------|------|
+| 2026.06.11 | 模块系统重设计：目录即命名空间；`export (…)` 替代 `module Xxx export (…)`；`import X (…)` 替代 `import X with (…)` |
+| 2026.06.10 | 架构重设计：移除 `.cmd.kun`/`IO T`/`with caps`/dlopen/ptrace 等；新增 `Cmd.<bin>` fork-exec + Landlock/mount ns + `defer` + tagged union Stream |
+| 2026.05.27 | 项目初始化，设计文档定型 |
