@@ -152,6 +152,10 @@ Cli.flag "optional" 'o' "Enable optional mode"
 Error: cannot specify both '--optional' and '--no-optional'
 ```
 
+**与环境变量的交互**：`withNegation` 和 `withEnvVar` 可同时使用。`--no-debug` 显式
+覆盖 `$DEBUG` 环境变量值——命令行否定标志优先级高于环境变量。不自动生成
+`$NO_DEBUG` 类反向环境变量映射，需否定行为时请在命令行显式传递。
+
 ### 环境变量回退
 
 使用 `withEnvVar` 修饰器为选项指定环境变量回退值：
@@ -207,6 +211,15 @@ Cli.option "port" 'p' "Server port"
 `withValidator` 接受签名为 `a -> Result a String` 的函数——`Ok value` 通过，
 `Err msg` 返回错误信息。`a` 由目标 Record 字段类型确定，编译期校验匹配。
 
+`withValidator` 为**纯编译期标记**——不在 `CliArg` 中存储任何字段，仅在编译器的展
+开上下文中记录校验函数引用。`Cli.parse` 展开阶段按目标字段类型查找函数、验证签名、
+内联校验逻辑。修饰器链中只能有一个 validator；重复调用后者覆盖前者。
+
+**校验作用范围与顺序**：validator 作用于**所有值来源**（命令行、环境变量、
+`withDefault`）。在整个解析链中，类型解析先于 validator 校验——值先被解析为目标类
+型，再经 validator 验证。若 `withDefault` 提供的缺省值无法通过 validator，编译期直
+接报错。解析优先级不变（cli > env > default），validator 在最终值确定后运行。
+
 用户可定义自定义校验函数，签名为 `a -> Result a String`。编译期内联该校验逻辑。
 `Validator` 模块的标准校验函数定义见 [`standard-library.md`](standard-library.md)。
 
@@ -241,7 +254,6 @@ type CliArg =
   , default    : ?String         // 缺省值的字符串表示
   , dependsOn  : ?String         // 依赖项名称（withRequires 设置）
   , envVar     : ?String         // 环境变量名（withEnvVar 设置）
-  , validator  : ?String         // 校验器标识（withValidator 设置，编译期解析）
   }
 
 // 互斥组（at most one：最多允许一个出现）
@@ -318,14 +330,17 @@ arg : String -> String -> CliArg
 ```kun
 // 设置缺省值（值在编译期序列化为 String 存入 default 字段，
 // 在 Cli.parse 调用点按目标字段类型反序列化）
+// 适用于所有声明器
 withDefault : a -> CliArg -> CliArg
 
 // 选项依赖：声明此选项要求另一选项同时出现
 // 参数为所依赖选项的 kebab-case 名（编译期校验其存在性及无循环）
+// 适用于 option、flag、count（arg 编译期报错）
 withRequires : String -> CliArg -> CliArg
 
 // 否定标志：为 Bool 型 flag 自动生成 --no-<name> 否定形式
 // 仅对目标字段类型为 Bool 的 flag 有效（否则编译期报错）；否定无短选项
+// 可同时使用 withEnvVar：--no-<name> 显式覆盖环境变量值
 withNegation : CliArg -> CliArg
 
 // 环境变量回退：选项未在命令行出现时，从指定环境变量读取
@@ -333,8 +348,10 @@ withNegation : CliArg -> CliArg
 // 对 option 和 flag 有效（count/arg 编译期报错）
 withEnvVar : String -> CliArg -> CliArg
 
-// 自定义校验：内联一个校验函数到解析代码
+// 自定义校验：编译期内联校验函数到解析代码（纯编译期标记，不存入 CliArg）
 // 参数为 Validator 模块函数或自定义函数，签名 a -> Result a String
+// 适用于 option、arg、count（flag 编译期报错）
+// 作用于所有值来源（cli/env/default）；缺省值不通过校验 → 编译期报错
 withValidator : (a -> Result a String) -> CliArg -> CliArg
 ```
 
@@ -372,19 +389,21 @@ parse : CliSpec -> List String -> Result a CliError
 | `flag "debug" Nil "h" \|> withEnvVar "DEBUG"` | `Bool` | 命令行未提供时从 `$DEBUG` 读取真值 |
 | `count "verbosity" 'v' "h"` | `Int` | `-v` → 1，`-vvv` → 3，不出现 → 0 |
 | `count "verbose" Nil "h"` | `Int` | `--verbose` → 1，每次出现 +1（仅长选项），不出现 → 0 |
+| `count "verbosity" 'v' "h" \|> withDefault 2` | `Int` | 不出现 → 2（起始计数） |
+| `count "verbosity" 'v' "h" \|> withValidator (Validator.range 0 10)` | `Int` | 计数值必须在 0–10 内 |
 | `option "output" 'o' "h"` | `?T` | `--output VAL`/`-o VAL` → 对应解析值，不出现 → Nil |
-| `option "output" 'o' "h"` | `T` | `--output VAL`/`-o VAL` → 必填，不出现 → 错误 |
+| `option "config" 'c' "h"`（无 default） | `T` | 必填，`--config VAL`/`-c VAL` 必须提供，不出现 → 错误 |
 | `option "max-jobs" 'j' "h" \|> withDefault d` | `T` | 不出现 → `d` |
 | `option "port" 'p' "h"` | `List T` | 可重复，`-p 80 -p 443` → `[80, 443]`，不出现 → `[]` |
 | `option "port" 'p' "h" \|> withEnvVar "PORT"` | `T` / `?T` | 命令行未提供时从 `$PORT` 读取 |
 | `option "level" 'l' "h" \|> withValidator v` | `?T` / `T` | 解析后调用 v；`Ok` 通过，`Err` → 报错 |
 | `option "port" 'p' "h" \|> withValidator (Validator.range 1 65535)` | `Int` | 值必须在 1–65535 范围内 |
 | `option "config" Nil "h"` | `?T` / `T` / `List T` | 同 `option`，无短选项（仅 `--config VAL`） |
-| `option "config" 'c' "h"`（无 default） | `T` | 必填，不出现 → 错误 |
 | `option "password" 'p' "h" \|> withRequires "username"` | `?T` / `T` | 出现时要求 `--username` 也出现 |
 | `arg "source-dir" "h"` | `T`（非 Bool/List） | 必填，1 个 token |
-| `arg "output-dir" "h"` | `?T` | 可选，0 或 1 个 token |
+| `arg "output-dir" "h"` | `?T` | 可选，0 或 1 个 token；`\|> withDefault d` → 不出现 → `d` |
 | `arg "files" "h"` | `List T` | 0-N 个 token（仅可为最后一个位置参数） |
+| `arg "count" "h" \|> withValidator (Validator.range 1 100)` | `Int` | 解析后调用校验器 |
 
 ### 名字冲突与保留字
 
@@ -524,7 +543,7 @@ handleSubCmd cfg =
 `Cli.parse` 的泛型类型 `a` 由调用上下文推断。编译期流程：
 
 0. **类型推断前提**：`Cli.parse` 的调用处必须有显式类型标注（如
-   `parseConfig : List String -> Result MyConfig Cli.Error`），或通过后续使用使
+   `parseConfig : List String -> Result MyConfig Cli.CliError`），或通过后续使用使
    `a` 被约束为具体 Record 类型。若 `a` 始终为自由类型变量（无约束），编译器报错
    ，提示需要类型标注
 1. HM 推断 `a = MyConfig`（从标注或上下文合一得出）
@@ -737,8 +756,8 @@ import Cli
 import IO
 
 type WatchConfig =
-  { verbosity : Int           // -v, --verbose（计数型）
-  , path      : String        // PATH（位置参数）
+  { verbose : Int             // -v, --verbose（计数型）
+  , path    : String           // PATH（位置参数）
   }
 
 parseConfig : List String -> Result WatchConfig Cli.CliError
@@ -756,7 +775,7 @@ main = \raw ->
   do
     case parseConfig raw of
       Ok cfg ->
-        IO.println f"watching {cfg.path} at verbosity level {cfg.verbosity}"
+        IO.println f"watching {cfg.path} at verbosity level {cfg.verbose}"
       Err err ->
         IO.println (Cli.show err)
 ```
