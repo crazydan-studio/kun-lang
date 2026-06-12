@@ -104,27 +104,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 
 效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`、`TempDir.*`。
 
-`do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值：
-
-```kun
-// do 无 in：返回 Unit
-main : List String -> Unit
-main = \_ ->
-  do
-    IO.println "deploying..."
-    Cmd.rsync { archive = true, verbose = true } "src/" "dst/"
-
-// do in：执行副作用后返回纯值
-countFiles : Path -> Int
-countFiles = \dir ->
-  do
-    entries =
-      Cmd.ls { all = true } dir
-        |> Stream.lines
-        |> Stream.toList
-  in
-    List.length entries
-```
+`do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值。语法细节见 [`syntax.md`](../design/syntax.md) do 块章节。
 
 ### Command 执行模型
 
@@ -136,16 +116,7 @@ countFiles = \dir ->
 | `do` 块语句边界 | 未消费的 `Command` 作为 `do` 块语句结果 | `Cmd.ls { long = true }` |
 | `Cmd.<bin>?` | `?` 后缀，立即执行并返回 `Result` | `result = Cmd.cat? p"/x"` |
 
-Command 执行的契约：
-
-```
-动作: fork → chdir 到 Cmd.withCwd 指定目录或 Path.cwd（子进程内） → setrlimit → install seccomp → exec → waitpid
-返回: Stream String（场景①②）或 Result (Stream String) CommandError（场景③）
-argv 序列化: Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
-stdout: 通过 pipe 捕获，返回为 Stream String
-stderr: 透传到父进程 stderr
-stdin: 继承父进程（通常为 /dev/null 或外部管道）
-```
+具体执行流程见下方「命令调用机制」章节。
 
 ### Stream 惰性求值
 
@@ -177,17 +148,7 @@ const Stream = union(enum) {
 
 ### `CommandError`
 
-命令执行阶段的语义化错误类型：
-
-```kun
-type CommandError
-  = NotFound String
-  | PermissionDenied String
-  | CommandFailed { command : String, exitCode : Int, stderr : String }
-  | KilledBySignal { command : String, signal : Int, stderr : String }
-  | IoError IOError
-  | PipeFailed { commands : List String, failedAt : Int, error : CommandError }
-```
+命令执行阶段的语义化错误类型，完整定义见 [`standard-library.md`](../design/standard-library.md)。包含 `NotFound`、`PermissionDenied`、`CommandFailed`、`KilledBySignal`、`IoError`、`PipeFailed` 六个变体。
 
 ### 错误传播模型
 
@@ -214,164 +175,35 @@ panic 触发 unwind 时，当前 `do` 块的所有 `defer` 按 LIFO 逆序始终
 
 ## 命令调用机制
 
-### 整体架构
+所有命令通过 `Cmd.<bin>` 语法调用，命令执行采用 fork-exec 子进程 + 管道捕获 stdout/stderr。语言层 API 见 [`standard-library.md`](../design/standard-library.md) Cmd 模块及 [`app-overview.md`](../design/app-overview.md)。
 
-所有命令通过 `Cmd.<bin>` 语法调用。命令执行采用 fork-exec 子进程 + 管道捕获 stdout/stderr。
+### 子进程执行流程
 
 ```
 Cmd.<bin> { options } [posArgs...]
   │
-  ├── 自动模块发现（编译期）
-  │   ├── 搜索 ~/.kun/cmd/<Name>.kun
-  │   ├── 搜索 $KUN_PATH/cmd/<Name>.kun
-  │   └── 搜索 <runtime>/lib/kun/cmd/<Name>.kun
+  ├── 编译期：模块发现与选项类型检查
+  │   ├── 搜索 ~/.kun/cmd/<Name>.kun → $KUN_PATH/cmd/<Name>.kun → <runtime>/lib/kun/cmd/<Name>.kun
+  │   ├── 找到类型化模块 → 加载并提供选项类型检查
+  │   └── 未找到 → 裸调用：运行时 PATH 查找 + camelCase 自动映射
   │
-  ├── 找到模块 → 加载类型化选项 + 命令构造器
-  │   未找到 → 裸调用：PATH 查找二进制 + camelCase 映射
-  │
-  └── 运行时 fork-exec + Stream pipe 捕获
+  └── 运行时：fork-exec + Stream pipe 捕获
 ```
 
-### camelCase → kebab-case 选项映射规则
-
-`Cmd.<bin> { field = value }` 中的 Record 字段名自动映射为 CLI flag，规则如下：
-
-| Record 字段 | CLI flag | 规则 | 示例 |
-|------------|---------|------|------|
-| `{ maxCount = 50 }` | `--max-count 50` | 多字符 camelCase → kebab-case（大写字母触发断词） |
-| `{ oneline = true }` | `--oneline` | 全小写多字符 → 一字不拆，直接 `--` 前缀 |
-| `{ readonly = true }` | `--readonly` | 同上，不做连字符拆分 |
-| `{ l = true }` | `-l` | 单小写字符 + Bool=true → 单 token 短 flag |
-| `{ o = "a.out" }` | `-o a.out` | 单小写字符 + 非 Bool → 双 token（flag + 值） |
-| `{ X = "POST" }` | `-X POST` | 单大写字符 → 保留大小写，`-` 前缀 |
-| `{ humanReadable = true }` | `--human-readable` | 标准 camelCase 多大写断词 |
-| `Bool = false` | 省略不传 | false 值不生成 flag | — |
-| `Nil` | 省略不传 | Nil 值不生成 flag | — |
-| `List a` | `--key v1 --key v2` | 每个元素一个重复 flag | — |
-
-> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。不适合 Record 映射的 flag（如 `-Wall`、`-Wl,...` 等）使用 `Cmd.withRawOpt` 按原样追加。
-
-argv 生成顺序：
+Command 执行的系统契约：
 
 ```
-Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
-```
-### PATH 查找
-
-`Cmd.<bin>` 的命令查找发生在**运行时**（每次调用时解析 PATH）。编译时不检查命令是否存在。若运行时命令未找到，触发 `NotFound` panic。首次 PATH 解析成功后结果被缓存（每次 `do` 块入口刷新），后续调用无需重复搜索。
-
-### OS 管道：`Cmd.pipe` / `Cmd.pipe?`
-
-通过 `Cmd.pipe` 将多个 Command 连接为 OS 管道链，编译为 `pipe2()` + 多次 `fork()`：
-
-```kun
-do
-  Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = 10 }]
+动作: fork → chdir 到 Cmd.withCwd 指定目录或 Path.cwd（子进程内） → setrlimit → install seccomp → exec → waitpid
+返回: Stream String（|> 隐式触发 / do 块边界）或 Result (Stream String) CommandError（? 后缀）
+argv: Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
+stdout: pipe 捕获为 Stream String
+stderr: 透传到父进程（mergeStderr 时合并到 stdout）
+stdin: 继承父进程（/dev/null 或外部管道）
 ```
 
-- `Cmd.pipe`：链中任一命令非零退出 → panic（等价 `set -o pipefail`）
-- `Cmd.pipe?`：链中任一命令失败 → 返回 `Err (PipeFailed ...)`
+### 运行时 PATH 解析
 
-### stdin 注入：`Cmd.withStdin`
-
-`Cmd.withStdin` 为 Command 注入 stdin：
-
-```kun
-Cmd.withStdin : String -> Command -> Command        // 字符串模式
-Cmd.withStdin : Stream Bytes -> Command -> Command  // 流式模式
-```
-
-### 环境变量：`Cmd.withEnv`
-
-```kun
-do
-  Cmd.mysql { u = "root" }
-    |> Cmd.withEnv #{ "MYSQL_PWD" = Env.getenv "DB_PASS" ?? "" }
-```
-
-### stderr 合并：`Cmd.mergeStderr`
-
-`Cmd.mergeStderr : Command -> Command` 将子进程的 stderr 合并到 stdout 流中，使 stderr 输出也能通过 `Stream` 捕获和管道处理：
-
-```kun
-do
-  Cmd.ffmpeg {} "input.mp4" "output.mp4"
-    |> Cmd.mergeStderr
-    |> Stream.lines
-    |> Stream.iter (\line -> do IO.println line)
-```
-
-### 工作目录：`Cmd.withCwd`
-
-`Cmd.withCwd : Path -> Command -> Command` 指定子进程的工作目录。fork 后、exec 前对子进程 `chdir`。每个 Command 独立设置，不同子进程互不干扰。父进程 OS CWD 始终不变。缺省使用 `Path.cwd`（脚本启动时冻结的常量）。
-
-```kun
-do
-  Cmd.ls {}                                       // CWD = Path.cwd
-  Cmd.tar { c = true, f = "backup.tar" } "."
-    |> Cmd.withCwd p"/build/output"               // 仅此子进程 CWD = /build/output
-  Cmd.ls {}                                       // CWD 仍为 Path.cwd
-```
-
-Kun **不提供全局 `cd`**——这避免了 Bash 中全局状态泄漏导致的隐蔽 Bug。需要跨多个命令使用同一 CWD 时，用变量绑定：
-
-```kun
-do
-  workDir = p"/build/output"
-  Cmd.tar { c = true, f = "backup.tar" } "." |> Cmd.withCwd workDir
-  Cmd.ls { a = true } |> Cmd.withCwd workDir
-```
-
-### 执行用户：`Cmd.withRunAs`
-
-`Cmd.withRunAs : String -> Command -> Command` 指定子进程的执行用户。fork 后、exec 前调用 `setuid()`，需 Kun 进程具备 OS 级权限（root 或 `CAP_SETUID`）。
-
-```kun
-do
-  Cmd.systemctl { restart = true } "nginx"
-    |> Cmd.withRunAs "root"
-```
-
-### 短路条件组合：`Cmd.andThen` / `Cmd.orElse`
-
-```kun
-// Cmd.andThen : Command -> Command -> Command（前一个成功时执行后一个）
-// Cmd.orElse  : Command -> Command -> Command（前一个失败时执行备选）
-do
-  Cmd.docker.build { tag = "app" } "."
-    |> Cmd.andThen (Cmd.docker.push {} "app:latest")
-
-  Cmd.ping { c = "3" } "192.168.1.1"
-    |> Cmd.orElse (Cmd.echo {} "unreachable")
-```
-
-`Cmd.andThen` / `Cmd.orElse` 返回 `Command`（延迟执行），不立即 fork。不引入 `&&`/`||` 运算符以避免与逻辑短路运算符冲突。
-
-### 超时与重试：`Cmd.timeout` / `Cmd.retry`
-
-```kun
-// Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError
-// Cmd.retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
-do
-  case Cmd.curl {} "https://example.com" |> Cmd.timeout 5s of
-    Ok stream -> ...
-    Err err   -> IO.println "request timed out"
-
-  case Cmd.curl {} "https://example.com" |> Cmd.retry 3 1s of
-    Ok stream -> ...
-    Err err   -> IO.println "request failed after 3 retries"
-```
-
-### 特殊字符命令名
-
-含 `-`、`.`、`+` 或数字开头的命令使用 `Cmd["..."]` 转义：
-
-```kun
-do
-  Cmd["ntfs-3g"] { force = true } "/dev/sda1"
-  Cmd["g++"] { o = "a.out" } "main.cpp"
-    |> Cmd.withRawOpt "-Wall" Nil
-```
+`Cmd.<bin>` 的命令查找发生在**运行时**。编译时不检查命令是否存在。首次 PATH 解析成功后结果缓存（每次 `do` 块入口刷新）。运行时未找到命令则触发 `NotFound` panic。
 
 ## 安全隔离
 
