@@ -28,5 +28,17 @@ archive/
 
 ## 当前版本
 
-- **活跃版本**：0.1.0（文档在 `docs/ai-agent/architecture/`、`docs/ai-agent/design/` 中）
+- **活跃版本**：2026.06（文档在 `docs/ai-agent/architecture/`、`docs/ai-agent/design/` 中）
 - **归档版本**：暂无
+
+## 已废弃文档
+
+[`deprecated/`](deprecated/) 目录存放已废弃的历史设计文档，仅供回顾参考：
+
+| 文件 | 原用途 | 废弃原因 |
+|------|--------|---------|
+| `roles-and-permissions.md` | 安全角色与权限模型 | `with caps` 方案被 CLI 参数（`--allow-path`/`--allow-net`/`--no-sandbox`）替代 |
+| `supply-chain-security.md` | 供应链安全防御方案 | Ed25519 签名验证、二进制完整性校验等已移除 |
+| `command-function-system.md` | 命令函数系统（`.cmd.kun` + Builder API） | 被 `Cmd.<bin>` 语法替代 |
+| `command-signature-system.md` | 命令签名系统（CDF） | 不涉及注册中心，设计废弃 |
+| `capability-mapping-guide.md` | 能力映射指南 | `.cmd.kun` 命令函数系统被 `Cmd.<bin>` 替代 |

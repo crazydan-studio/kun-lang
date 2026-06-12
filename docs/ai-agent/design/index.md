@@ -13,11 +13,8 @@
 | [code-formatting.md](code-formatting.md) | 代码格式化规范 |
 | [cli.md](cli.md) | `Cli` 模块详细设计（命令行参数解析） |
 | [feature-inventory.md](feature-inventory.md) | 功能清单与实现状态 |
-| [roles-and-permissions.md](roles-and-permissions.md) | ~~安全角色与权限模型~~ **已废弃** |
-| [supply-chain-security.md](supply-chain-security.md) | ~~供应链安全防御方案~~ **已废弃** |
-| [command-function-system.md](command-function-system.md) | ~~命令函数系统（`.cmd.kun` + Builder API）~~ **已废弃** |
-| [command-signature-system.md](command-signature-system.md) | ~~命令签名系统（CDF）~~ **已废弃** |
-| [capability-mapping-guide.md](capability-mapping-guide.md) | ~~能力映射指南~~ **已废弃** |
+
+> 已废弃的历史设计文档已归档至 [`archive/deprecated/`](../archive/deprecated/) 目录。包括：安全角色与权限模型（`with caps`）、供应链安全、命令函数系统（`.cmd.kun` + Builder API）、命令签名系统（CDF）、能力映射指南。
 
 ## 设计原则
 
