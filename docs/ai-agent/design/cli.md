@@ -7,13 +7,13 @@
 编译期代码展开实现，与 `Parser.Record.fromJson` 机制一致。
 
 `Cli` 模块仅导出类型结构与声明器函数，不提供构造器或修饰器包装函数——用户直接操作
-`CliSpec` 和 `CliMeta` 等 Record 数据，通过标准 Record 语法和 Map 字面量/更新语法
-进行组装。
+`Cli.CliSpec` 和 `Cli.CliMeta` 等 Record 数据，通过标准 Record 语法和 Map 字面量/
+更新语法进行组装。
 
 需显式导入：
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 ```
 
 ### 设计原则
@@ -23,11 +23,10 @@ import Cli (CliError, CliSpec)
   option，`List T` → 余量位置参数或可重复选项
 - **声明即文档**：声明器携带的字符串既是解析规则，也是帮助文本——`--help` 始终自动
   生成；`--version` 同样自动可用
-- **数据即接口**：`CliSpec` 和 `CliMeta` 为普通 Record 类型，用户通过标准 Record
-  字面量构造、通过 `{ r | field = value }` 更新、通过 `Map` 模块操作子命令。不提供
-  额外的包装函数
-- **管道修饰**：`withDefault`、`withChoices`、`withRequires` 等修饰器通过 `|>` 链
-  式应用
+- **数据即接口**：`Cli.CliSpec` 和 `Cli.CliMeta` 为普通 Record 类型，用户通过标准
+  Record 字面量构造、通过 `{ r | field = value }` 更新、通过 `Map` 模块操作子命令
+- **管道修饰**：`withDefault`、`withChoices`、`withRequires`、`withNegation`、
+  `withEnvVar`、`withValidator` 等修饰器通过 `|>` 链式应用
 - **kebab-case → camelCase**：选项名、位置参数名和子命令名使用 kebab-case 书写，
   编译器在 `Cli.parse` 调用点自动映射为 Record 字段的 camelCase 名称
 
@@ -48,6 +47,10 @@ import Cli (CliError, CliSpec)
 
 短选项（`Char`）不受此规则影响——始终为单字符。若声明器不提供短选项，传 `Nil` 即可
 （仅长选项）。
+
+**字段名建议**：对于 `List T` 类型字段（可重复选项或余量位置参数），建议使用单数形
+式命名——例如 `port : List Int` 而非 `ports : List Int`，使 `--port 80 --port 443`
+读起来自然。此规则为非强制建议，不影响编译期校验。
 
 #### 输入验证
 
@@ -95,11 +98,11 @@ import Cli (CliError, CliSpec)
 
 ```kun
 type RunConfig =
-  { ports : List Int       // -p, --ports（可重复）
+  { port : List Int        // -p, --port（可重复，单数形式）
   , image : String         // IMAGE（位置参数）
   }
 
-// --ports 8080 --ports 443 nginx  →  ports = [8080, 443], image = "nginx"
+// --port 8080 --port 443 nginx  →  port = [8080, 443], image = "nginx"
 ```
 
 列表元素按出现顺序排列。不出现时为空列表 `[]`。可重复选项的位置参数行为与单值选项
@@ -139,8 +142,14 @@ Cli.flag "optional" 'o' "Enable optional mode"
 ```
 
 `--no-optional` 显式将对应字段设为 `false`，覆盖任何缺省值。不声明 `withNegation`
-时，不提供 `--optional` 即为 `false`；适合不需要显式否定的场景。否定标志仅对目标字
-段类型为 `Bool` 的 `flag` 有效，对 `count`、`option`、`arg` 无效。
+时，不提供 `--optional` 即为 `false`。否定标志仅对目标字段类型为 `Bool` 的 `flag`
+有效，对 `count`、`option`、`arg` 无效（编译期报错）。
+
+若用户同时传入 `--optional` 和 `--no-optional`，解析报错：
+
+```
+Error: cannot specify both '--optional' and '--no-optional'
+```
 
 ### 环境变量回退
 
@@ -153,7 +162,8 @@ Cli.option "config" 'c' "Config file path"
 ```
 
 优先级：命令行显式传入 > 环境变量 > `withDefault` > 必填报错 / Nil。环境变量值按
-目标字段类型进行字符串解析，解析失败时报错（与命令行值解析失败的格式一致）。
+目标字段类型进行字符串解析。若环境变量存在但解析失败，**静默回退**至后续优先级（
+`withDefault` 或报错）——不会因环境变量中的垃圾值而中断脚本。
 
 可同时使用 `withEnvVar` 和 `withDefault`：
 
@@ -166,6 +176,30 @@ Cli.option "port" 'p' "Server port"
 命令行 `--port 3000` → `3000`；无命令行但 `PORT=5000` → `5000`；两者皆无
 → `8080`。
 
+**对环境变量的限制**：
+
+- `withEnvVar` 对 `option` 有效；对 `flag` 有效（真值解析见下文）；对 `count` 和
+  `arg` 无效（编译期报错）
+- **Bool 型 flag 的环境变量真值解析**：不区分大小写，`"true"`、`"1"`、`"yes"`
+  → `true`；`"false"`、`"0"`、`"no"`、`""` → `false`；其他值 → 报错
+- **子命令环境变量作用域**：环境变量属于进程全局。若父命令和子命令同时声明了
+  `withEnvVar "CONFIG"`，同一环境变量会分别应用到各自的 spec——这是用户的责任，不
+  做冲突检测
+
+### 自定义校验
+
+使用 `withValidator` 修饰器指定一个编译期已知的校验函数：
+
+```kun
+// 校验端口范围
+Cli.option "port" 'p' "Server port"
+  |> Cli.withValidator "validatePort"
+```
+
+`withValidator` 参数为当前编译单元中可见函数的 kebab-case 名。编译期查找该函数，并
+在 `Cli.parse` 展开阶段将其校验逻辑内联到生成的解析代码中。被引用函数的签名必须为
+`a -> Result a String`（`Ok` 原值通过，`Err` 返回错误信息）。
+
 ### 类型结构
 
 ```kun
@@ -174,7 +208,7 @@ Cli.option "port" 'p' "Server port"
 type CliMeta =
   { intro   : ?String    // 程序名称/简介（显示在 --help 第一行）
   , text    : ?String    // 详细描述（简介下方显示）
-  , version : ?String    // 版本号（显示在 --version 输出中）；Nil 时输出「版本未设定」
+  , version : ?String    // 版本号（显示在 --version 输出中）；Nil 时输出「版本未知或未设定」
   }
 
 // 声明器种类
@@ -198,6 +232,7 @@ type CliArg =
   , choices    : ?(List String)  // 枚举约束的字符串列表
   , dependsOn  : ?String         // 依赖项名称（withRequires 设置）
   , envVar     : ?String         // 环境变量名（withEnvVar 设置）
+  , validator  : ?String         // 自定义校验函数名（withValidator 设置）
   }
 
 // 互斥组（at most one：最多允许一个出现）
@@ -219,20 +254,21 @@ type CliSpec =
 // 解析错误类型（结构化，支持程序化处理）
 type CliError
   = UnknownOption { option : String, suggestion : ?String }
-  | BadValue { name : String, expected : String, got : String }
+  | BadValue { name : String, source : String, expected : String, got : String }
   | MissingArg { name : String }
   | MissingOption { name : String }
-  | BadChoice { name : String, got : String, choices : List String }
+  | BadChoice { name : String, source : String, got : String, choices : List String }
   | UnexpectedArg { arg : String }
   | MutexViolation { group : String, options : List String }
   | DependencyViolation { option : String, requires : String }
   | UnknownSubCmd { name : String, suggestion : ?String }
+  | BothFlagAndNegation { name : String }
 ```
 
 > **递归类型依赖**：`CliSpec` 通过 `subs : ?(Map String CliSpec)` 形成递归类型。这
 > 要求 Kun 的类型系统支持 **等递归类型（equi-recursive types）**——即在合一算法中
-> 对 `type` 别名关闭 occurs check，允许类型引用自身。此能力是 `CliSpec` 设计的硬
-> 依赖，需在类型系统实现时予以支持。
+> 对 `type` 别名关闭 occurs check，允许类型引用自身。此能力已写入
+> `type-system.md` 的「递归类型」章节。
 
 ### API
 
@@ -281,12 +317,17 @@ withChoices : List a -> CliArg -> CliArg
 withRequires : String -> CliArg -> CliArg
 
 // 否定标志：为 Bool 型 flag 自动生成 --no-<name> 否定形式
-// 仅对目标字段类型为 Bool 的 flag/flagLong 有效
+// 仅对目标字段类型为 Bool 的 flag 有效（否则编译期报错）
 withNegation : CliArg -> CliArg
 
 // 环境变量回退：选项未在命令行出现时，从指定环境变量读取
-// 环境变量解析失败或不存在时，继续走 withDefault／Nil／必填等后续逻辑
+// 解析失败静默回退至后续优先级（withDefault／Nil／必填）
+// 对 option 和 flag 有效（count/arg 编译期报错）
 withEnvVar : String -> CliArg -> CliArg
+
+// 自定义校验：编译期内联指定函数到解析代码
+// 参数为当前编译单元中可见函数的 kebab-case 名，签名 a -> Result a String
+withValidator : String -> CliArg -> CliArg
 ```
 
 #### 错误格式化
@@ -304,13 +345,20 @@ show : CliError -> String
 oneOf : String -> List CliArg -> CliArgGroup
 ```
 
+#### Spec 组合
+
+```kun
+// 合并两个 CliSpec：args 和 groups 拼接，subs 合并（同名子命令右侧覆盖）
+// meta 和 loose 取自第一个 spec
+merge : CliSpec -> CliSpec -> CliSpec
+```
+
 #### 解析
 
 ```kun
 // 解析原始参数列表为目标 Record
 // 类型 a 由调用点的变量类型声明驱动（HM 推断）
-// 约束：调用处必须有显式类型标注（如 parseConfig : ... -> Result MyConfig CliError）
-//       或通过后续使用使 a 被约束为具体类型
+// 约束：调用处必须有显式类型标注
 parse : CliSpec -> List String -> Result a CliError
 ```
 
@@ -320,13 +368,16 @@ parse : CliSpec -> List String -> Result a CliError
 | -------- | ------------ | ------ |
 | `flag "dry-run" 'd' "h"` | `Bool` | `--dry-run`/`-d` → true，不出现 → false |
 | `flag "amend" Nil "h"` | `Bool` | `--amend` → true（仅长选项），不出现 → false |
+| `flag "optional" 'o' "h" \|> withNegation` | `Bool` | `--optional` → true，`--no-optional` → false，不出现 → false |
 | `count "verbosity" 'v' "h"` | `Int` | `-v` → 1，`-vvv` → 3，不出现 → 0 |
 | `count "verbose" Nil "h"` | `Int` | `--verbose` → 1，每次出现 +1（仅长选项），不出现 → 0 |
 | `option "output" 'o' "h"` | `?T` | `--output VAL`/`-o VAL` → 对应解析值，不出现 → Nil |
 | `option "output" 'o' "h"` | `T` | `--output VAL`/`-o VAL` → 必填，不出现 → 错误 |
 | `option "max-jobs" 'j' "h" \|> withDefault d` | `T` | 不出现 → `d` |
-| `option "ports" 'p' "h"` | `List T` | 可重复，`-p 80 -p 443` → `[80, 443]`，不出现 → `[]` |
+| `option "port" 'p' "h"` | `List T` | 可重复，`-p 80 -p 443` → `[80, 443]`，不出现 → `[]` |
+| `option "port" 'p' "h" \|> withEnvVar "PORT"` | `T` / `?T` | 命令行未提供时从 `$PORT` 读取 |
 | `option "config" Nil "h"` | `?T` / `T` / `List T` | 同 `option`，无短选项（仅 `--config VAL`） |
+| `option "config" 'c' "h" \|> withValidator "v"` | `T` / `?T` | 解析后调用校验函数 `v` |
 | `option "config" 'c' "h"`（无 default） | `T` | 必填，不出现 → 错误 |
 | `arg "source-dir" "h"` | `T`（非 Bool/List） | 必填，1 个 token |
 | `arg "output-dir" "h"` | `?T` | 可选，0 或 1 个 token |
@@ -341,7 +392,7 @@ parse : CliSpec -> List String -> Result a CliError
 - **保留名 `help`**：声明器不得使用 `name = "help"`，`--help` 由框架自动生成
 - **保留短选项 `h`**：声明器不得使用 `short = 'h'`，`-h` 为 `--help` 保留
 - **保留名 `version`**：声明器不得使用 `name = "version"`，`--version` 由框架自动
-  生成（显示 `meta.version`，Nil 时输出「版本未设定」）
+  生成（显示 `meta.version`，Nil 时输出「版本未知或未设定」）
 - **保留短选项 `V`**：声明器不得使用 `short = 'V'`，`-V` 为 `--version` 保留
 - **父/子命令同名**：子命令名（kebab-case）经过 camelCase 映射后若与父 Record 的
   其他字段名（选项或位置参数）冲突，编译期报错
@@ -351,7 +402,8 @@ parse : CliSpec -> List String -> Result a CliError
 ### 互斥组
 
 `oneOf` 语义为 **at most one**（最多允许一个出现）：组内声明的参数中，零个或一个可
-以出现在命令行中；超过一个则解析报错。
+以出现在命令行中；超过一个则解析报错（包含否定标志——`--no-dry-run` 视为选项出现
+）。
 
 ```
 Error: argument group 'config-source' allows at most one of: --global, --local
@@ -368,13 +420,12 @@ default/Nil/false 时拒绝）。这避免在框架层引入 `exactlyOne` 的额
 字段，字段名为子命令名的 camelCase 映射，字段类型为子命令解析结果的目标 Record 类
 型。
 
-子命令的 `CliSpec` 自身不含父命令的目标类型信息——类型约束全在 `Cli.parse` 调用点
-的编译期展开阶段完成。
+子命令的 `Cli.CliSpec` 自身不含父命令的目标类型信息——类型约束全在 `Cli.parse` 调
+用点的编译期展开阶段完成。
 
 #### 组装方式
 
-用户通过 Map 字面量直接将子命令 spec 写入父 spec 的 `subs` 字段。新建 spec 时使用
-Map 字面量：
+用户通过 Map 字面量直接将子命令 spec 写入父 spec 的 `subs` 字段：
 
 ```kun
 // 一次性声明全部子命令
@@ -449,7 +500,8 @@ handleSubCmd cfg =
 #### 多级嵌套
 
 子命令的 spec 自身可含 `subs`，支持任意层级嵌套。每级子命令对应父 Record 中的一个
-可选字段，字段类型为下一级子命令的配置 Record。组装方式同顶层——通过 Map 字面量或更新语法逐级嵌套。
+可选字段，字段类型为下一级子命令的配置 Record。组装方式同顶层——通过 Map 字面量或
+更新语法逐级嵌套。
 
 #### 帮助
 
@@ -457,17 +509,19 @@ handleSubCmd cfg =
 `deploy.kun push --help`）显示该子命令的详细帮助。子命令帮助文本取自子 spec 的
 `meta.intro`。
 
-`--version` 同样自动可用——显示 `meta.version`（若提供），否则输出「版本未设定」。
+`--version` 同样自动可用——显示 `meta.version`（若提供），否则输出「版本未知或未设
+定」。
 
 帮助输出中，参数名（选项名、位置参数名）的显示规则为：kebab-case 名全部大写，保留
-原 `-` 分隔符。例如 `"source-dir"` → `SOURCE-DIR`，`"file-list"` → `FILE-LIST`。
+原 `-` 分隔符。否定标志以 `--no-NAME` 形式出现在帮助中；带 `withEnvVar` 的选项显
+示 `[env: VARNAME]` 提示。
 
 ### 编译期类型安全
 
 `Cli.parse` 的泛型类型 `a` 由调用上下文推断。编译期流程：
 
 0. **类型推断前提**：`Cli.parse` 的调用处必须有显式类型标注（如
-   `parseConfig : List String -> Result MyConfig CliError`），或通过后续使用使
+   `parseConfig : List String -> Result MyConfig Cli.Error`），或通过后续使用使
    `a` 被约束为具体 Record 类型。若 `a` 始终为自由类型变量（无约束），编译器报错
    ，提示需要类型标注
 1. HM 推断 `a = MyConfig`（从标注或上下文合一得出）
@@ -480,7 +534,11 @@ handleSubCmd cfg =
 5. 检查名字冲突：同 spec 内重名、保留名 `help`/`h`/`version`/`V`、父/子命令间的
    字段名冲突
 6. 检查依赖关系：`withRequires` 的依赖目标存在且不形成循环
-7. 为每个 `CliArg` 按对应字段类型生成特化的字符串→类型转换代码
+7. 检查修改器适用范围：`withNegation` 仅用于 Bool/flat、`withEnvVar` 仅用于
+   option/flat
+8. 对 `withValidator`：查找指定函数，校验签名 `a -> Result a String`，内联其校验
+   逻辑
+9. 为每个 `CliArg` 按对应字段类型生成特化的字符串→类型转换代码
 
 `CliArg` 本身不带类型参数（`default` 和 `choices` 存储为 `String`），以避免不同字
 段类型的 `CliArg` 无法放入同一 `List`。`CliSpec` 同样不带类型参数——子命令 spec 的
@@ -492,7 +550,7 @@ handleSubCmd cfg =
 字符串反序列化，并校验反序列结果类型匹配且（对于 `withChoices`）值在允许列表内。此
 机制与 `Parser.Record.fromJson` 的默认值处理一致。
 
-> **编译期代码展开**：上述步骤 3-7 由编译器的通用代码展开设施执行——该设施允许标
+> **编译期代码展开**：上述步骤 3-9 由编译器的通用代码展开设施执行——该设施允许标
 > 准库函数在编译期根据已知类型参数内省 Record 结构并生成特化代码。此机制与
 > `Parser.Record.fromJson` 共用同一基础设施，基于 Zig `comptime` + `@typeInfo` 实
 > 现。`Cli.parse` 不要求编译器对其有特殊内置知识——它仅使用编译器提供的公开类型内
@@ -507,7 +565,7 @@ handleSubCmd cfg =
 `kun build.kun -v -o dist/ --jobs 8 app`
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 import IO
 
 type BuildConfig =
@@ -517,12 +575,11 @@ type BuildConfig =
   , source  : String        // SOURCE（位置参数）
   }
 
-parseConfig : List String -> Result BuildConfig CliError
+parseConfig : List String -> Result BuildConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta  = { intro  = "build.kun"
               , text   = "Compiles and packages."
-              , version = Nil
               }
     , args =
         [ Cli.flag "verbose" 'v' "Enable verbose output"
@@ -568,7 +625,7 @@ Arguments:
 `kun deploy.kun -v push --force origin main`
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 import IO
 
 type PushConfig =
@@ -587,7 +644,7 @@ type DeployConfig =
   , status  : ?StatusConfig
   }
 
-pushSpec : CliSpec
+pushSpec : Cli.CliSpec
 pushSpec =
   { meta = { intro = "Deploy push action" }
   , args =
@@ -597,7 +654,7 @@ pushSpec =
       ]
   }
 
-statusSpec : CliSpec
+statusSpec : Cli.CliSpec
 statusSpec =
   { meta = { intro = "Deploy status action" }
   , args =
@@ -605,7 +662,7 @@ statusSpec =
       ]
   }
 
-parseConfig : List String -> Result DeployConfig CliError
+parseConfig : List String -> Result DeployConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta =
@@ -673,7 +730,7 @@ Arguments:
 父命令可同时声明位置参数——仅在无子命令匹配时才绑定：
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type DeployConfig =
   { target  : ?String          // 仅无子命令时绑定
@@ -681,7 +738,7 @@ type DeployConfig =
   , status  : ?StatusConfig
   }
 
-parseConfig : List String -> Result DeployConfig CliError
+parseConfig : List String -> Result DeployConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta  = { intro = "deploy.kun" }
@@ -717,7 +774,7 @@ kun deploy.kun -- push          → Target: push
 ### 4. 多级子命令嵌套
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type RemoteAddConfig =
   { name : String
@@ -732,7 +789,7 @@ type DeployConfig =
   , push   : ?PushConfig
   }
 
-remoteAddSpec : CliSpec
+remoteAddSpec : Cli.CliSpec
 remoteAddSpec =
   { meta = { intro = "Add remote" }
   , args =
@@ -741,13 +798,13 @@ remoteAddSpec =
       ]
   }
 
-remoteSpec : CliSpec
+remoteSpec : Cli.CliSpec
 remoteSpec =
   { meta = { intro = "Remote management" }
   , subs = #{ "add" = remoteAddSpec }
   }
 
-parseConfig : List String -> Result DeployConfig CliError
+parseConfig : List String -> Result DeployConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta = { intro = "deploy.kun" }
@@ -758,7 +815,7 @@ parseConfig =
 ### 5. kebab-case 选项映射示例
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type SyncConfig =
   { dryRun     : Bool          // --dry-run, -n
@@ -767,7 +824,7 @@ type SyncConfig =
   , fileList   : List String   // FILE-LIST（余量位置参数）
   }
 
-parseSync : List String -> Result SyncConfig CliError
+parseSync : List String -> Result SyncConfig Cli.CliError
 parseSync =
   Cli.parse
     { meta = { intro = "sync.kun" }
@@ -801,20 +858,20 @@ Arguments:
 `kun docker.kun -p 8080:80 -p 443:443 --rm nginx`
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type RunConfig =
-  { ports  : List String     // --port / -p（可重复）
-  , rm     : Bool            // --rm（仅长选项）
-  , image  : String          // IMAGE（位置参数）
+  { port  : List String      // --port / -p（可重复，单数形式）
+  , rm    : Bool             // --rm（仅长选项）
+  , image : String           // IMAGE（位置参数）
   }
 
-parseRun : List String -> Result RunConfig CliError
+parseRun : List String -> Result RunConfig Cli.CliError
 parseRun =
   Cli.parse
     { meta = { intro = "kun-docker" }
     , args =
-        [ Cli.option "ports" 'p' "Publish port (host:container)"
+        [ Cli.option "port" 'p' "Publish port (host:container)"
         , Cli.flag "rm" Nil "Remove container after exit"
         , Cli.arg "image" "Container image"
         ]
@@ -824,7 +881,7 @@ parseRun =
 ### 7. 选项依赖
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type LoginConfig =
   { username : String
@@ -832,7 +889,7 @@ type LoginConfig =
   , host     : ?String
   }
 
-parseLogin : List String -> Result LoginConfig CliError
+parseLogin : List String -> Result LoginConfig Cli.CliError
 parseLogin =
   Cli.parse
     { meta = { intro = "login.kun" }
@@ -854,11 +911,11 @@ Error: option '--password' requires '--username' to also be specified
 ### 8. 互斥组
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type MutexConfig = { global : Bool, local : Bool }
 
-parseConfig : List String -> Result MutexConfig CliError
+parseConfig : List String -> Result MutexConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta = { intro = "mutex.kun" }
@@ -882,14 +939,14 @@ Error: argument group 'config-source' allows at most one of: --global, --local
 ### 9. 枚举约束
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type ServerConfig =
   { host     : String
   , logLevel : ?String     // --log-level, -l
   }
 
-parseConfig : List String -> Result ServerConfig CliError
+parseConfig : List String -> Result ServerConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta = { intro = "server.kun" }
@@ -907,19 +964,112 @@ parseConfig =
 Error: option '--log-level' must be one of: debug, info, warn
 ```
 
-### 10. 透传模式
+### 10. 否定标志
+
+`kun server.kun --verbose --no-color`
+
+```kun
+import Cli
+import IO
+
+type ServerConfig =
+  { verbose : Bool
+  , color   : Bool
+  , port    : Int
+  }
+
+parseConfig : List String -> Result ServerConfig Cli.CliError
+parseConfig =
+  Cli.parse
+    { meta = { intro = "server.kun" }
+    , args =
+        [ Cli.flag "verbose" 'v' "Verbose output"
+            |> Cli.withNegation
+        , Cli.flag "color" Nil "Enable colored output"
+            |> Cli.withNegation
+        , Cli.option "port" 'p' "Server port"
+            |> Cli.withDefault 8080
+        ]
+    }
+
+main : List String -> Unit
+main = \raw ->
+  do
+    case parseConfig raw of
+      Ok cfg ->
+        IO.println f"verbose={cfg.verbose}, color={cfg.color}, port={cfg.port}"
+      Err err ->
+        IO.println (Cli.show err)
+```
+
+自动 `--help` 输出：
+
+```
+usage: server.kun [-v] [--no-color] [-p N]
+
+Options:
+  -v, --verbose       Verbose output
+      --no-verbose    Disable verbose output
+      --color         Enable colored output
+      --no-color      Disable colored output
+  -p, --port N        Server port (default: 8080)
+  -h, --help          Show this help
+  -V, --version       Show version
+```
+
+### 11. 环境变量回退
+
+`kun server.kun`（依靠环境变量和缺省值）
+
+```kun
+import Cli
+import IO
+
+type AppConfig =
+  { host : String
+  , port : Int
+  , debug : Bool
+  }
+
+parseConfig : List String -> Result AppConfig Cli.CliError
+parseConfig =
+  Cli.parse
+    { meta = { intro = "server.kun" }
+    , args =
+        [ Cli.option "host" Nil "Server host"
+            |> Cli.withEnvVar "HOST"
+            |> Cli.withDefault "localhost"
+        , Cli.option "port" 'p' "Server port"
+            |> Cli.withEnvVar "PORT"
+            |> Cli.withDefault 8080
+        , Cli.flag "debug" 'd' "Debug mode"
+            |> Cli.withEnvVar "DEBUG"
+        ]
+    }
+
+main : List String -> Unit
+main = \raw ->
+  do
+    case parseConfig raw of
+      Ok cfg ->
+        IO.println f"host={cfg.host}, port={cfg.port}, debug={cfg.debug}"
+      Err err ->
+        IO.println (Cli.show err)
+```
+
+### 12. 透传模式
 
 `kun gcc.kun -o a.out -Wall -O2 main.c`
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type CompileConfig =
   { output       : Path
   , compilerArgs : List String
   }
 
-parseCompile : List String -> Result CompileConfig CliError
+parseCompile : List String -> Result CompileConfig Cli.CliError
 parseCompile =
   Cli.parse
     { meta  = { intro = "gcc.kun" }
@@ -934,10 +1084,10 @@ parseCompile =
 `output : Path` 无 `?` 无 default → 必填。`--o a.out` 之后所有 `-Wall`、`-O2`、
 `main.c` 均流入 `compilerArgs`。
 
-### 11. 多个位置参数
+### 13. 多个位置参数
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type CpConfig =
   { source : String
@@ -945,7 +1095,7 @@ type CpConfig =
   , target : Path
   }
 
-parseCp : List String -> Result CpConfig CliError
+parseCp : List String -> Result CpConfig Cli.CliError
 parseCp =
   Cli.parse
     { meta = { intro = "cp.kun" }
@@ -964,17 +1114,17 @@ kun cp.kun a.txt b.txt /tmp
 按声明顺序消费：`a.txt` → `source`，`b.txt` → `dest`，`/tmp` → `target`。`--` 分
 隔符遵循 POSIX 惯例：`--` 之后全部 token 视为位置参数。
 
-### 12. 可选位置 + 余量位置
+### 14. 可选位置 + 余量位置
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type ToolConfig =
   { name  : ?String
   , files : List String
   }
 
-parseTool : List String -> Result ToolConfig CliError
+parseTool : List String -> Result ToolConfig Cli.CliError
 parseTool =
   Cli.parse
     { meta = { intro = "tool.kun" }
@@ -1006,19 +1156,24 @@ kun tool.kun hello a.txt b.txt  → name = "hello", files = ["a.txt", "b.txt"]
 // $ kun deploy.kun --version
 // deploy.kun 2.1.0
 
-// 不指定版本号（version = Nil）→ 显示「版本未设定」
+// 不指定版本号（version = Nil）→ 显示「版本未知或未设定」
 { meta = { intro = "deploy.kun" } }
 
 // $ kun deploy.kun --version
-// deploy.kun — 版本未设定
+// deploy.kun — 版本未知或未设定
 ```
 
-### 完整 sub 字段说明示例
+### 完整 CliSpec 字段说明示例
 
 展示 `CliSpec` 所有字段及子命令的完整组装：
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
+
+type DeployConfig =
+  { target : String
+  , force  : Bool
+  }
 
 type FullConfig =
   { verbose : Bool
@@ -1028,16 +1183,15 @@ type FullConfig =
   , deploy  : ?DeployConfig         // 子命令字段（可选）
   }
 
-deploySpec : CliSpec
+deploySpec : Cli.CliSpec
 deploySpec =
   { meta   = { intro = "deploy", version = "3.0.0" }
-  , args   = [ Cli.arg "target" "Deploy target" ]
-  , groups = []
-  , subs   = #{}
-  , loose  = false
+  , args   = [ Cli.arg "target" "Deploy target"
+             , Cli.flag "force" 'f' "Force deploy"
+             ]
   }
 
-parseConfig : List String -> Result FullConfig CliError
+parseConfig : List String -> Result FullConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta   = { intro  = "full.kun"
@@ -1057,6 +1211,35 @@ parseConfig =
     }
 ```
 
+### Spec 组合
+
+使用 `Cli.merge` 将共享选项模块化：
+
+```kun
+import Cli
+
+// 公共选项（多个命令共享）
+commonOpts : Cli.CliSpec
+commonOpts =
+  { meta = { intro = "common" }
+  , args =
+      [ Cli.flag "verbose" 'v' "Verbose output"
+      , Cli.flag "quiet" 'q' "Suppress output"
+      ]
+  }
+
+// 特定命令的 spec
+buildSpec : Cli.CliSpec
+buildSpec =
+  { meta = { intro = "build" }
+  , args = [ Cli.option "output" 'o' "Output path" ]
+  }
+
+// 合并：commonOpts 的 args 拼接到 buildSpec 之前
+finalSpec : Cli.CliSpec
+finalSpec = Cli.merge commonOpts buildSpec
+```
+
 ### 错误信息与程序化处理
 
 `CliError` 为和类型，支持模式匹配实现程序化处理。使用 `Cli.show` 获取人类可读描述
@@ -1066,10 +1249,13 @@ parseConfig =
 case parseConfig raw of
   Ok cfg -> ...
   Err (Cli.UnknownOption { option = "verbse", suggestion = "verbose" }) ->
-    // 自定义处理
     IO.println "did you mean --verbose?"
+  Err (Cli.BothFlagAndNegation { name = "verbose" }) ->
+    IO.println "cannot use both --verbose and --no-verbose"
+  Err (Cli.BadValue { name = "port", source = "PORT", ... }) ->
+    IO.println "env var PORT has invalid value"
   Err err ->
-    IO.println (Cli.show err)   // 通用回退
+    IO.println (Cli.show err)
 ```
 
 完整错误输出示例：
@@ -1092,6 +1278,8 @@ Error: unexpected argument 'c.txt'
 Error: argument group 'config-source' allows at most one of: --global, --local
 
 Error: option '--password' requires '--username' to also be specified
+
+Error: cannot specify both '--verbose' and '--no-verbose'
 
 Error: unknown subcommand 'pussh'. Did you mean 'push'?
 
