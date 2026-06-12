@@ -105,6 +105,10 @@ Cmd.withRunAs   : String -> Command -> Command
 // Command 组合（短路条件）
 Cmd.andThen : Command -> Command -> Command
 Cmd.orElse  : Command -> Command -> Command
+
+// 工具函数
+Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError
+Cmd.retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 ```
 
 ## 管道与组合
@@ -150,9 +154,11 @@ do
 
 ```kun
 do
-  tmp = TempFile.create
-  defer (File.remove tmp)
-  Cmd.ffmpeg {} "input.mp4" tmp
+  case TempFile.create of
+    Ok tmp ->
+      defer (File.remove tmp)
+      Cmd.ffmpeg {} "input.mp4" tmp
+    Err _ -> IO.println "failed to create temp file"
 // do 块退出时自动 remove tmp
 ```
 

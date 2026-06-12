@@ -268,12 +268,14 @@ main = \_ ->
 ```kun
 readConfig : Path -> Result Config Error
 readConfig = \path ->
-  do
-    content = File.readString path
-    lines  = String.split "\n" content
-    logDir = p"/var/log/myapp"
-  in
-    Ok (createDefaultConfig logDir)
+  case File.readString path of
+    Ok content ->
+      do
+        lines  = String.split "\n" content
+        logDir = p"/var/log/myapp"
+      in
+        Ok (createDefaultConfig logDir)
+    Err e -> Err (ConfigReadError e)
 ```
 
 `do` 块内的 `if` / `case` 分支自动继承效应上下文，可直接调用 `Cmd.*`，无需显式嵌套 `do`。嵌套 `do` 仅用于分支需要独立 `defer` 作用域时。
@@ -430,9 +432,9 @@ Cmd.pipe
 变体竖排，`=` 与第一个变体同行，`|` 与 `=` 对齐：
 
 ```kun
-type Result t e
-  = Ok t
-  | Err e
+type Validation e a
+  = Pass a
+  | Fail e
 ```
 
 变体带无名字段时同行：
@@ -447,24 +449,17 @@ type Color
 变体带 Record 字段时，`{` 在 `|` 下方缩进，字段换行：
 
 ```kun
-type CommandError
-  = NotFound String
-  | PermissionDenied String
-  | CommandFailed
-      { command  : String
-      , exitCode : Int
-      , stderr   : String
+type ParseResult
+  = Success String
+  | Skipped String
+  | Failure
+      { line    : Int
+      , col     : Int
+      , message : String
       }
-  | KilledBySignal
-      { command : String
-      , signal  : Int
-      , stderr  : String
-      }
-  | IoError IOError
-  | PipeFailed
-      { commands : List String
-      , failedAt : Int
-      , error    : CommandError
+  | Fatal
+      { reason : String
+      , cause  : ?ParseResult
       }
 ```
 
@@ -481,9 +476,9 @@ add = \x y -> x + y
 
 ```kun
 fetchData
-  : SocketAddr
+  : Host
   -> Path
-  -> Result String CommandError
+  -> Result String FetchError
 ```
 
 ## 导出声明
@@ -615,7 +610,7 @@ do
 
 ```kun
 do
-  tmp = TempFile.create
+  tmp = p"/tmp/out.mp4"
   defer (File.remove tmp)
   defer (IO.println "cleanup complete")
 
@@ -713,7 +708,9 @@ currentTime = \ ->
   do
     now = Sys.time
   in
-    DateTime.format "%H:%M:%S" now
+    case DateTime.format "%H:%M:%S" now of
+      Ok s  -> s
+      Err _ -> "??:??:??"
 
 parseLine : String -> Result LogEntry String
 parseLine = \line ->
