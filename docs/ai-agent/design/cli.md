@@ -194,7 +194,8 @@ Cli.option "port" 'p' "Server port"
 - `withEnvVar` 对 `option` 有效；对 `flag` 有效（真值解析见下文）；对 `count` 和
   `arg` 无效（编译期报错）
 - **Bool 型 flag 的环境变量真值解析**：不区分大小写，`"true"`、`"1"`、`"yes"`
-  → `true`；`"false"`、`"0"`、`"no"`、`""` → `false`；其他值 → 报错
+  → `true`；`"false"`、`"0"`、`"no"`、`""` → `false`；其他值 → 静默回退至后续优
+  先级（与通用规则一致）
 - **子命令环境变量作用域**：环境变量属于进程全局。若父命令和子命令同时声明了
   `withEnvVar "CONFIG"`，同一环境变量会分别应用到各自的 spec——这是用户的责任，不
   做冲突检测
@@ -360,6 +361,10 @@ withEnvVar : String -> CliArg -> CliArg
 withValidator : (a -> Result a String) -> CliArg -> CliArg
 ```
 
+> **修饰器顺序无关**：修饰器各自设置 `CliArg` 的不同字段（`default`、`dependsOn`、
+> `envVar`），或作为编译期标记（`withNegation`、`withValidator`）。校验在所有修饰
+> 器累积后的独立阶段进行，`|>` 链中的书写顺序不影响最终行为。
+
 #### 错误格式化
 
 ```kun
@@ -391,8 +396,9 @@ parse : CliSpec -> List String -> Result a CliError
 | `flag "dry-run" 'd' "h"` | `Bool` | `--dry-run`/`-d` → true，不出现 → false |
 | `flag "amend" Nil "h"` | `Bool` | `--amend` → true（仅长选项），不出现 → false |
 | `flag "optional" 'o' "h" \|> withNegation` | `Bool` | `--optional` → true，`--no-optional` → false，不出现 → false |
-| `flag "debug" 'd' "h" \|> withDefault true` | `Bool` | 不出现 → true（缺省开启，配合 withNegation 使用） |
+| `flag "debug" 'd' "h" \|> withDefault true` | `Bool` | 不出现 → true（缺省开启）；通常配合 `withNegation` 使用以提供关闭途径 |
 | `flag "debug" Nil "h" \|> withEnvVar "DEBUG"` | `Bool` | 命令行未提供时从 `$DEBUG` 读取真值 |
+| `flag "verbose" 'v' "h" \|> withRequires "output"` | `Bool` | 出现时要求 `--output` 也出现 |
 | `count "verbosity" 'v' "h"` | `Int` | `-v` → 1，`-vvv` → 3，不出现 → 0 |
 | `count "verbose" Nil "h"` | `Int` | `--verbose` → 1，每次出现 +1（仅长选项），不出现 → 0 |
 | `count "verbosity" 'v' "h" \|> withDefault 2` | `Int` | 不出现 → 2（起始计数） |
@@ -409,6 +415,7 @@ parse : CliSpec -> List String -> Result a CliError
 | `option "password" 'p' "h" \|> withRequires "username"` | `?T` / `T` | 出现时要求 `--username` 也出现 |
 | `arg "source-dir" "h"` | `T`（非 Bool/List） | 必填，1 个 token |
 | `arg "output-dir" "h"` | `?T` | 可选，0 或 1 个 token；`\|> withDefault d` → 不出现 → `d` |
+| `arg "name" "h" \|> withDefault d` | `T` | 不出现 → `d`（将必填参数变为可选） |
 | `arg "files" "h"` | `List T` | 0-N 个 token（仅可为最后一个位置参数） |
 | `arg "count" "h" \|> withValidator (Validator.range 1 100)` | `Int` | 解析后调用校验器 |
 
@@ -489,6 +496,9 @@ parentSpec
   token——所有剩余位置 token 交由子命令的 spec 解析
 - **无子命令时父命令正常解析**：若所有位置 token 均不匹配子命令名，父命令的位置参
   数按声明顺序正常绑定
+- **透传模式与子命令**：二者可共存。匹配到子命令后，透传行为由子命令 spec 的
+  `loose` 字段决定——父命令的 `loose` 不传导到子命令。未匹配到子命令时，父命令的
+  `loose` 正常生效
 
 ```
 输入: deploy.kun -v prod
@@ -749,6 +759,7 @@ Deploy push action
 Options:
   -f, --force         Force push
   -h, --help          Show this help
+  -V, --version       Show version
 
 Arguments:
   REMOTE              Remote name
@@ -1277,7 +1288,7 @@ import Cli
 
 type DeployConfig =
   { target : String
-  , force  : Bool
+  , forceDeploy : Bool
   }
 
 type FullConfig =
@@ -1292,7 +1303,7 @@ deploySpec : Cli.CliSpec
 deploySpec =
   { meta   = { intro = "deploy", version = "3.0.0" }
   , args   = [ Cli.arg "target" "Deploy target"
-             , Cli.flag "force" 'f' "Force deploy"
+             , Cli.flag "force-deploy" Nil "Force deploy"
              ]
   }
 

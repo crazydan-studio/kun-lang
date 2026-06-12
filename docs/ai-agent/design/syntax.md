@@ -957,18 +957,23 @@ kun script.kun            # args = []
 
 ### 命名参数
 
-实际脚本通常需要命名参数（`--output file.txt`、`-v`）。Kun 通过标准库 `Cli` 模块将原始 `List String` 解析为结构化配置：
+实际脚本通常需要命名参数（`--output file.txt`、`-v`）。Kun 通过标准库 `Cli` 模块
+将原始 `List String` 解析为结构化配置：
 
 ```kun
 import Cli
+import IO
 
-type Config
-  = Config { verbose : Bool, output : ?Path, name : ?String }
+type Config =
+  { verbose : Bool
+  , output  : ?Path
+  , name    : ?String
+  }
 
-parseConfig : List String -> Result Config String
+parseConfig : List String -> Result Config Cli.CliError
 parseConfig =
   Cli.parse
-    { intro = Cli.intro "script.kun"
+    { meta  = { intro = "script.kun" }
     , args =
         [ Cli.flag "verbose" 'v' "Verbose output"
         , Cli.option "output" 'o' "Output file"
@@ -981,7 +986,7 @@ main = \raw ->
   do
     case parseConfig raw of
       Ok cfg  -> IO.println f"config: {cfg.verbose} {cfg.output}"
-      Err msg -> IO.println msg
+      Err err -> IO.println (Cli.show err)
 ```
 
 `Cli` 模块的详细 API 见 [`Cli` 模块设计文档](cli.md)。
