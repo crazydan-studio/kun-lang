@@ -188,8 +188,8 @@ import String
 name = "  Kun  " |> String.trim          // → "Kun"
 parts = "a,b,c" |> String.split ","      // → ["a", "b", "c"]
 back = parts |> String.join ":"          // → "a:b:c"
-text = String.fromInt 42                 // → "42"
-num  = String.toInt "123"               // → Ok 123
+text = Int.toString 42                 // → "42"
+num  = Int.fromString "123"             // → Ok 123
 ```
 
 ## `Math` — 数学函数与常量
@@ -351,13 +351,17 @@ always = \x _ -> x
 ### 示例
 
 ```kun
+add1 = \x -> x + 1
+double = \x -> x * 2
+sqrt = Float.sqrt
+
 // 管道
-sqrt <| add 1 3                      // → sqrt (add 1 3)
-[1, 2, 3] |> List.map double         // → [2, 4, 6]
+sqrt <| add1 3                         // → sqrt (add1 3)
+[1, 2, 3] |> List.map double           // → [2, 4, 6]
 
 // 函数组合
-doubleThenAdd1 = add1 << double       // \x -> add1 (double x)
-add1ThenDouble = double >> add1       // \x -> double (add1 x)
+doubleThenAdd1 = add1 << double         // \x -> add1 (double x)
+add1ThenDouble = double >> add1         // \x -> double (add1 x)
 ```
 
 ## 系统类型
@@ -493,7 +497,7 @@ on : Signal -> (Signal -> Unit) -> Unit
 
 - `on` 注册信号处理函数，收到信号时执行并传递信号值；前一个处理器被替换
 - 回调**必须为 `do` 块**
-- `Signal.on` 仅可在可执行脚本（无 `module` 声明的 `.kun` 文件）中使用，**库模块禁止调用**
+- `Signal.on` 仅可在可执行脚本（无 `export` 声明的 `.kun` 文件）中使用，**库模块禁止调用**
 
 信号处理采用 **signalfd** 机制（Linux 3.8+），并非在 OS 信号上下文中直接执行 Kun 代码。
 
@@ -1048,13 +1052,12 @@ import Nil
 config = #{ "host" = "localhost" }
 host =
   Map.get "host" config
-    |> Nil.maybe "127.0.0.1" identity  // → "localhost"
+    |> Nil.maybe "127.0.0.1"  // → "localhost"
 
-missing =
-  Map.get "port" config
-    |> Nil.map (\s -> String.toInt s)
-    |> Nil.orElse (42)
-    |> Nil.toResult "no port found"
+// Nil.maybe 配合其他 ?T 值
+portSetting : ?Int
+portSetting = Nil
+port = Nil.maybe 8080 portSetting  // → 8080
 ```
 
 ## `List` — 列表操作
@@ -1099,7 +1102,7 @@ reverse   : List a -> List a                   // 反转列表
 |---------|------|------|
 | < 50 项 | `List.iter` + `Cmd.*` 直接遍历 | `List.iter (\f -> do Cmd.gzip {} f.path) files` |
 | 50-500 项 | 批处理——`Cmd.xargs` 或 `Cmd.withStdin` 注入列表 | `Cmd.xargs { P = "4" } "gzip" \|> Cmd.withStdin fileList` |
-| > 500 项 | `Cmd.pipe` 流式 + 并行（v0.3 `Task.spawn`） | 并发度过低时用 `xargs -P`，大文件走 `File.readBytes` 流式管道 |
+| > 500 项 | `Cmd.pipe` 流式 + 并行（`Task.spawn`） | 并发度过低时用 `xargs -P`，大文件走 `File.readBytes` 流式管道 |
 
 ### 示例
 
@@ -1211,7 +1214,7 @@ import Result
 
 parsePort : String -> Result Int String
 parsePort = \s ->
-  String.toInt s
+  Int.fromString s
     |> Result.andThen (\n ->
       if n >= 0 && n <= 65535 then
         Ok n
@@ -1597,7 +1600,7 @@ import Env
 
 do
   Env.setenv "KUN_LOG_LEVEL" "debug"
-  level = Env.getenv "KUN_LOG_LEVEL" |> Nil.maybe "info" identity
+  level = Env.getenv "KUN_LOG_LEVEL" |> Nil.maybe "info"
   IO.println f"log level: {level}"
 ```
 
@@ -1855,7 +1858,7 @@ import Parser.JSON
 #### API
 
 ```kun
-module Parser.JSON export
+export
   ( JsonValue, JsonValue(..)
   , fromString, toString
   )
@@ -1904,7 +1907,7 @@ import Parser.Record
 #### API
 
 ```kun
-module Parser.Record export
+export
   ( fromJson
   , toJson
   )
@@ -1971,6 +1974,6 @@ main = \_ ->
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| 0.3.1 | 2026-06-11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
-| 0.3.0 | 2026-06-10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
-| 0.1.0 | 2026-05-27 | MVP 基础标准库类型设计定型 |
+| 2026.06.11 | 2026-06-11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
+| 2026.06.10 | 2026-06-10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
+| 2026.05.27 | 2026-05-27 | MVP 基础标准库类型设计定型 |

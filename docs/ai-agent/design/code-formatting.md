@@ -90,11 +90,11 @@ add : Int -> Int -> Int
 add = \x y ->
   x + y
 
-// 零参函数（仅 IO 效应）
+// 零参函数（仅效应函数）
 now : -> DateTime
 now = \ ->
   do
-    clock_gettime
+    Sys.time
 ```
 
 简短表达式可在一行内定义：
@@ -102,7 +102,7 @@ now = \ ->
 ```kun
 add = \x y -> x + y
 increment = \x -> x + 1
-pid = \ -> getpid    // 零参 IO 函数，单表达式可同行
+pid = \ -> Process.pid    // 零参效应函数，单表达式可同行
 ```
 
 Lambda 参数支持解构：
@@ -315,7 +315,7 @@ do
 Cmd.pipe
   [ Cmd.ps { a = true }
   , Cmd.grep { pattern = "nginx" }
-  , Cmd.head { n = "10" }
+  , Cmd.head { n = 10 }
   ]
 
 Cmd.pipe?
@@ -421,7 +421,7 @@ list = [1..1000]
 Cmd.pipe
   [ Cmd.cat p"/var/log/app.log"
   , Cmd.grep { pattern = "ERROR" }
-  , Cmd.head { n = "100" }
+  , Cmd.head { n = 100 }
   ]
 ```
 
@@ -438,10 +438,10 @@ type Result t e
 变体带无名字段时同行：
 
 ```kun
-type ExitCode
-  = Success
-  | GeneralError
-  | NotFound String
+type Color
+  = Red
+  | Green
+  | Blue
 ```
 
 变体带 Record 字段时，`{` 在 `|` 下方缩进，字段换行：
@@ -449,14 +449,22 @@ type ExitCode
 ```kun
 type CommandError
   = NotFound String
+  | PermissionDenied String
   | CommandFailed
       { command  : String
       , exitCode : Int
       , stderr   : String
       }
+  | KilledBySignal
+      { command : String
+      , signal  : Int
+      , stderr  : String
+      }
+  | IoError IOError
   | PipeFailed
       { commands : List String
       , failedAt : Int
+      , error    : CommandError
       }
 ```
 
@@ -722,7 +730,7 @@ main = \_ ->
       Cmd.pipe
         [ Cmd.cat p"/var/log/app.log"
         , Cmd.grep { pattern = "ERROR" }
-        , Cmd.head { n = "100" }
+        , Cmd.head { n = 100 }
         ]
         |> Stream.lines
         |> Stream.parseMap parseLine
