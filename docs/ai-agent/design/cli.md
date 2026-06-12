@@ -156,6 +156,14 @@ Error: cannot specify both '--optional' and '--no-optional'
 覆盖 `$DEBUG` 环境变量值——命令行否定标志优先级高于环境变量。不自动生成
 `$NO_DEBUG` 类反向环境变量映射，需否定行为时请在命令行显式传递。
 
+```kun
+// 默认启用 debug，可通过 --no-debug 或 $DEBUG=false 关闭
+Cli.flag "debug" 'd' "Debug mode"
+  |> Cli.withDefault true
+  |> Cli.withNegation
+  |> Cli.withEnvVar "DEBUG"
+```
+
 ### 环境变量回退
 
 使用 `withEnvVar` 修饰器为选项指定环境变量回退值：
@@ -218,7 +226,8 @@ Cli.option "port" 'p' "Server port"
 **校验作用范围与顺序**：validator 作用于**所有值来源**（命令行、环境变量、
 `withDefault`）。在整个解析链中，类型解析先于 validator 校验——值先被解析为目标类
 型，再经 validator 验证。若 `withDefault` 提供的缺省值无法通过 validator，编译期直
-接报错。解析优先级不变（cli > env > default），validator 在最终值确定后运行。
+接报错。解析优先级不变（cli > env > default），validator 在最终值确定后运行。对于
+`?T` 类型的可选位置参数，若未提供值（结果为 `Nil`），validator 不触发。
 
 用户可定义自定义校验函数，签名为 `a -> Result a String`。编译期内联该校验逻辑。
 `Validator` 模块的标准校验函数定义见 [`standard-library.md`](standard-library.md)。
@@ -231,7 +240,7 @@ Cli.option "port" 'p' "Server port"
 type CliMeta =
   { intro   : ?String    // 程序名称/简介（显示在 --help 第一行）
   , text    : ?String    // 详细描述（简介下方显示）
-  , version : ?String    // 版本号（显示在 --version 输出中）；Nil 时输出「版本未知或未设定」
+  , version : ?String    // 版本号（显示在 --version 输出中）；Nil 时输出「版本未设定」
   }
 
 // 声明器种类
@@ -289,10 +298,6 @@ type CliError
 > 要求 Kun 的类型系统支持 **等递归类型（equi-recursive types）**——即在合一算法中
 > 对 `type` 别名关闭 occurs check，允许类型引用自身。此能力已写入
 > `type-system.md` 的「递归类型」章节。
->
-> **`T → ?T` 提升**：`CliSpec` 的 `args`、`groups`、`subs`、`loose` 字段类型均为
-> `?T`，但构造时通常传入非 nilable 值（如 `args = [...]`）。编译器在 Record 字段
-> 位置隐式执行 `T → ?T` 提升——此规则应在 `type-system.md` 中明确规定。
 
 ### API
 
@@ -386,11 +391,13 @@ parse : CliSpec -> List String -> Result a CliError
 | `flag "dry-run" 'd' "h"` | `Bool` | `--dry-run`/`-d` → true，不出现 → false |
 | `flag "amend" Nil "h"` | `Bool` | `--amend` → true（仅长选项），不出现 → false |
 | `flag "optional" 'o' "h" \|> withNegation` | `Bool` | `--optional` → true，`--no-optional` → false，不出现 → false |
+| `flag "debug" 'd' "h" \|> withDefault true` | `Bool` | 不出现 → true（缺省开启，配合 withNegation 使用） |
 | `flag "debug" Nil "h" \|> withEnvVar "DEBUG"` | `Bool` | 命令行未提供时从 `$DEBUG` 读取真值 |
 | `count "verbosity" 'v' "h"` | `Int` | `-v` → 1，`-vvv` → 3，不出现 → 0 |
 | `count "verbose" Nil "h"` | `Int` | `--verbose` → 1，每次出现 +1（仅长选项），不出现 → 0 |
 | `count "verbosity" 'v' "h" \|> withDefault 2` | `Int` | 不出现 → 2（起始计数） |
 | `count "verbosity" 'v' "h" \|> withValidator (Validator.range 0 10)` | `Int` | 计数值必须在 0–10 内 |
+| `count "verbosity" 'v' "h" \|> withRequires "output"` | `Int` | 出现时要求 `--output` 也出现 |
 | `option "output" 'o' "h"` | `?T` | `--output VAL`/`-o VAL` → 对应解析值，不出现 → Nil |
 | `option "config" 'c' "h"`（无 default） | `T` | 必填，`--config VAL`/`-c VAL` 必须提供，不出现 → 错误 |
 | `option "max-jobs" 'j' "h" \|> withDefault d` | `T` | 不出现 → `d` |
@@ -414,7 +421,7 @@ parse : CliSpec -> List String -> Result a CliError
 - **保留名 `help`**：声明器不得使用 `name = "help"`，`--help` 由框架自动生成
 - **保留短选项 `h`**：声明器不得使用 `short = 'h'`，`-h` 为 `--help` 保留
 - **保留名 `version`**：声明器不得使用 `name = "version"`，`--version` 由框架自动
-  生成（显示 `meta.version`，Nil 时输出「版本未知或未设定」）
+  生成（显示 `meta.version`，Nil 时输出「版本未设定」）
 - **保留短选项 `V`**：声明器不得使用 `short = 'V'`，`-V` 为 `--version` 保留
 - **父/子命令同名**：子命令名（kebab-case）经过 camelCase 映射后若与父 Record 的
   其他字段名（选项或位置参数）冲突，编译期报错
@@ -424,8 +431,7 @@ parse : CliSpec -> List String -> Result a CliError
 ### 互斥组
 
 `oneOf` 语义为 **at most one**（最多允许一个出现）：组内声明的参数中，零个或一个可
-以出现在命令行中；超过一个则解析报错（包含否定标志——`--no-dry-run` 视为选项出现
-）。
+以出现在命令行中；超过一个则解析报错（包含否定标志——`--no-dry-run` 视为选项出现）。
 
 ```
 Error: argument group 'config-source' allows at most one of: --global, --local
@@ -556,10 +562,12 @@ handleSubCmd cfg =
 5. 检查名字冲突：同 spec 内重名、保留名 `help`/`h`/`version`/`V`、父/子命令间的
    字段名冲突
 6. 检查依赖关系：`withRequires` 的依赖目标存在且不形成循环
-7. 检查修改器适用范围：`withNegation` 仅用于 Bool/flat、`withEnvVar` 仅用于
-   option/flat
+7. 检查修改器适用范围：`withNegation` 仅用于 `Bool` 型 `flag`；`withEnvVar` 仅用于
+   `option` 和 `flag`；`withRequires` 仅用于 `option`、`flag`、`count`；`withValidator`
+   仅用于 `option`、`arg`、`count`。违规 → 编译期报错
 8. 对 `withValidator`：校验函数签名 `a -> Result a String`（`a` 与目标字段类型合
-   一），内联校验逻辑到解析代码中
+   一），校验缺省值是否通过 validator（不通过 → 编译期报错），内联校验逻辑到解析
+   代码中
 9. 为每个 `CliArg` 按对应字段类型生成特化的字符串→类型转换代码
 
 `CliArg` 本身不带类型参数（`default` 存储为 `String`），以避免不同字
@@ -1253,11 +1261,11 @@ kun tool.kun hello a.txt b.txt  → name = "hello", files = ["a.txt", "b.txt"]
 // $ kun deploy.kun --version
 // deploy.kun 2.1.0
 
-// 不指定版本号（version = Nil）→ 显示「版本未知或未设定」
+// 不指定版本号（version = Nil）→ 显示「版本未设定」
 { meta = { intro = "deploy.kun" } }
 
 // $ kun deploy.kun --version
-// deploy.kun — 版本未知或未设定
+// deploy.kun — 版本未设定
 ```
 
 ### 完整 CliSpec 字段说明示例
@@ -1342,6 +1350,8 @@ Error: argument 'count' expects an integer, got 'abc'
 Error: option '--log-level' has invalid value: expected one of [debug, info, warn], got 'error'
 
 Error: option '--port' has invalid value: expected 1..65535, got 99999
+
+Error: argument 'count' has invalid value: expected 1..100, got 200
 
 Error: unexpected argument 'c.txt'
 
