@@ -112,9 +112,16 @@ if x /= Nil then
 
 #### `Float`
 
-- IEEE 754 双精度浮点数
-- 支持操作：`+`, `-`, `*`, `/`, `neg`, `abs`, `floor`, `ceil`, `round`, `sqrt`
-- 与 `Int` 的混合运算需显式转换：`toFloat`, `toInt`
+- IEEE 754 双精度浮点数（f64）
+- 支持操作：`+`、`-`、`*`、`/`、`neg`、`abs`、`floor`、`ceil`、`round`、`sqrt`
+- 与 `Int` 的混合运算需显式转换：`toFloat`、`toInt`
+
+**精度局限**：二进制浮点无法精确表示大多数十进制小数（如 `0.1` + `0.2` ≠ `0.3`）。Kun 从两个层面缓解：
+
+1. `toString` 输出时默认舍入到 15 位有效数字，消除显示噪音
+2. `Float.approxEqual` 提供容差比较，避免直接用 `==` 比较浮点值
+
+需要精确十进制计算的场景应使用标准库 `Decimal` 类型。
 
 #### `Bool`
 

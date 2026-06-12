@@ -52,7 +52,7 @@ y = Int.toFloat 7          // → 7.0
 
 ### 定位
 
-`Float` 为内置类型（f64），`Float` 模块提供取反、绝对值、取整、平方根及类型互转函数。
+`Float` 为内置类型（f64），`Float` 模块提供取反、绝对值、取整、平方根、容差比较及类型互转函数。
 
 需显式导入：
 
@@ -81,13 +81,16 @@ round : Float -> Float
 // 平方根
 sqrt : Float -> Float
 
+// 容差比较：|a - b| < epsilon
+approxEqual : Float -> Float -> Float -> Bool
+
 // 从 String 转换为 Float（可能失败）
 fromString : String -> Result Float String
 
 // 从 Float 转换为 Int（截断小数）
 toInt : Float -> Int
 
-// 从 Float 转换为 String
+// 从 Float 转换为 String（输出舍入到 15 位有效数字）
 toString : Float -> String
 ```
 
@@ -96,11 +99,16 @@ toString : Float -> String
 ```kun
 import Float
 
-a = Float.sqrt 16.0         // → 4.0
-b = Float.floor 3.7         // → 3.0
-c = Float.round 3.7         // → 4.0
-d = Float.fromString "2.5"  // → Ok 2.5
-e = Float.toInt 3.14        // → 3
+a = Float.sqrt 16.0                  // → 4.0
+b = Float.floor 3.7                  // → 3.0
+c = Float.round 3.7                  // → 4.0
+d = Float.fromString "2.5"           // → Ok 2.5
+e = Float.toInt 3.14                 // → 3
+
+// 容差比较
+Float.approxEqual (0.1 + 0.2) 0.3 1e-10    // → true
+Float.approxEqual 1.0 1.0001 1e-4          // → true
+Float.approxEqual 1.0 1.01 1e-4            // → false
 ```
 
 ## `String` — 字符串操作
@@ -1008,6 +1016,87 @@ case IpAddress.parse "10.0.1.5" of
   Err _ ->
     IO.println "bad address"
 ```
+
+## `Decimal` — 十进制精确数值
+
+### 定位
+
+`Decimal` 为精确十进制浮点类型。以整数尾数和指数表示数值，避免 IEEE 754 二进制浮点的舍入误差。适用于金融计算、配置文件解析等需要精确小数的场景。`Decimal` 为标准库实现，非编译器内置。
+
+需显式导入：
+
+```kun
+import Decimal
+```
+
+### API
+
+```kun
+type Decimal
+
+// 从字符串构造（调用者自保证合法性，非法输入行为未定义）
+of : String -> Decimal
+
+// 从 Int 构造（精确）
+fromInt : Int -> Decimal
+
+// 从字符串安全构造（非法格式返回 Err）
+fromString : String -> Result Decimal String
+
+// 加法
+(+) : Decimal -> Decimal -> Decimal
+
+// 减法
+(-) : Decimal -> Decimal -> Decimal
+
+// 乘法
+(*) : Decimal -> Decimal -> Decimal
+
+// 除法（可能产生无限小数，需指定精度；精度不足时返回 Err）
+divide : Int -> Decimal -> Decimal -> Result Decimal String
+
+// 舍入到指定小数位数
+round : Int -> Decimal -> Decimal
+
+// 比较
+compare : Decimal -> Decimal -> Order
+
+// 转换为字符串
+toString : Decimal -> String
+```
+
+- `of` — 从字符串构造，由调用者确保输入合法（如字面量 `"0.1"`）。非法格式为运行时行为，不保证报错
+- `fromString` — 安全构造，非法格式返回 `Err`
+- `fromInt` 从整数构造，始终成功
+- 四则运算均保持精确（除法除外）
+- `divide precision a b` — 以 `precision` 位小数精度计算 `a / b`；结果无法在指定精度内精确表示时返回 `Err`
+- `round n` — 四舍五入到 `n` 位小数
+
+### 示例
+
+```kun
+import Decimal
+
+a = Decimal.of "0.1"
+b = Decimal.of "0.2"
+sum = a + b                          // → Decimal "0.3"（精确）
+
+// 除法需指定精度
+Decimal.of "1.0"
+  |> (\d -> Decimal.divide 4 d (Decimal.fromInt 3))
+  // → Ok Decimal "0.3333"
+
+// 安全构造（处理不确定来源的输入）
+case Decimal.fromString userInput of
+  Ok d  -> d
+  Err _ -> Decimal.fromInt 0
+
+// 舍入
+d = Decimal.of "3.14159"
+Decimal.round 2 d                    // → Decimal "3.14"
+```
+
+> `Decimal` 与 `Float` 不可隐式互转。需要转换时通过字符串中转：`Float.toString` → `Decimal.fromString`，或 `Decimal.toString` → `Float.fromString`。
 
 ## `Nil` — 可选值操作
 
@@ -1993,6 +2082,7 @@ main = \_ ->
 |------|---------|------|
 | `Function` | 始终缺省可用 | `identity`、`always`、`<\|`、`\|>`、`<<`、`>>` |
 | `Nil` | 变体 `Nil` 缺省可用；函数需 `import Nil` | `withDefault`、`map`、`orElse`、`toResult`、`andThen` |
+| `Decimal` | `import Decimal` | 精确十进制数值 |
 | `Int` | `import Int` | 整数操作与互转 |
 | `Float` | `import Float` | 浮点操作与互转 |
 | `String` | `import String` | `toString`、字符串操作及类型互转 |
@@ -2020,6 +2110,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |
 | 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
 | 2026.06.10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
 | 2026.05.27 | MVP 基础标准库类型设计定型 |

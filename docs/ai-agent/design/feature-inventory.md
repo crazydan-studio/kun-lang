@@ -33,6 +33,7 @@
 | DateTime | ✅ 设计定型 | newtype，`format` 返回 `Result String String` |
 | ExitCode | ✅ 设计定型 | 0-255，newtype，`of` + `isValid`，预定义常量 |
 | Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型（Int newtype） |
+| Decimal | ✅ 设计定型 | 精确十进制数值（非编译器内置） |
 | IpAddress | ✅ 设计定型 | IPv4/IPv6 枚举，SocketAddr |
 | Parser.JSON | ✅ 设计定型 | `JsonInt`/`JsonFloat` 拆分，JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
@@ -61,7 +62,8 @@
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
 | Path | ✅ 设计定型 | `cwd`/`parent`/`fileName`/`extension`/`join`/`(++)`/`toString` |
 | Int | ✅ 设计定型 | 整数取反/绝对值/类型互转，需显式导入 |
-| Float | ✅ 设计定型 | 浮点取反/绝对值/取整/平方根/类型互转，需显式导入 |
+| Float | ✅ 设计定型 | 浮点取反/绝对值/取整/平方根/容差比较(`approxEqual`)/类型互转，需显式导入 |
+| Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
 | Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
 
