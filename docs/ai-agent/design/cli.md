@@ -396,7 +396,7 @@ parse : CliSpec -> List String -> Result a CliError
 | `flag "dry-run" 'd' "h"` | `Bool` | `--dry-run`/`-d` → true，不出现 → false |
 | `flag "amend" Nil "h"` | `Bool` | `--amend` → true（仅长选项），不出现 → false |
 | `flag "optional" 'o' "h" \|> withNegation` | `Bool` | `--optional` → true，`--no-optional` → false，不出现 → false |
-| `flag "debug" 'd' "h" \|> withDefault true` | `Bool` | 不出现 → true（缺省开启）；通常配合 `withNegation` 使用以提供关闭途径 |
+| `flag "debug" 'd' "h" \|> withDefault true` | `Bool` | 不出现 → true（缺省开启）**须配合 `withNegation` 使用**；无 `withNegation` 则 flag 永远为 true |
 | `flag "debug" Nil "h" \|> withEnvVar "DEBUG"` | `Bool` | 命令行未提供时从 `$DEBUG` 读取真值 |
 | `flag "verbose" 'v' "h" \|> withRequires "output"` | `Bool` | 出现时要求 `--output` 也出现 |
 | `count "verbosity" 'v' "h"` | `Int` | `-v` → 1，`-vvv` → 3，不出现 → 0 |
@@ -498,7 +498,9 @@ parentSpec
   数按声明顺序正常绑定
 - **透传模式与子命令**：二者可共存。匹配到子命令后，透传行为由子命令 spec 的
   `loose` 字段决定——父命令的 `loose` 不传导到子命令。未匹配到子命令时，父命令的
-  `loose` 正常生效
+  `loose` 正常生效。注意：子命令匹配**之前**的 token 全部属于父命令作用域——若父
+  命令 `loose=true`，在遇到子命令名之前的所有未知 token 会被父命令的余量位置参数
+  消费，而非透传给子命令
 
 ```
 输入: deploy.kun -v prod
