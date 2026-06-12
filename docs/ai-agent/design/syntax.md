@@ -288,28 +288,28 @@ type Color
   | Green
   | Blue
 
-type Result t e
-  = Ok t
-  | Err e
+type Option a
+  = Some a
+  | None
 
-type SocketAddr
-  = Tcp IpAddress Port
-  | Udp IpAddress Port
+type Shape
+  = Circle Float
+  | Rectangle Float Float
 ```
 
 变体字段支持三种形式：
 
 ```kun
-type IpAddress
-  = Ipv4 (Int, Int, Int, Int)                              // 无名字段（元组风格）
-  | Ipv6 (Int, Int, Int, Int, Int, Int, Int, Int)
+type Point
+  = Cartesian (Float, Float)                              // 无名字段（元组风格）
+  | Polar (Float, Float)
 
-type Error
-  = NotFound Path          // 无名字段（空格分隔）
-  | PermissionDenied Path
+type Event
+  = Click (Int, Int)          // 无名字段（空格分隔）
+  | KeyPress Char
 
-type Color
-  = Rgb { r : Int, g : Int, b : Int }    // 具名字段（Record 风格）
+type Person
+  = Person { name : String, age : Int }    // 具名字段（Record 风格）
 ```
 
 ### Newtype
@@ -317,8 +317,8 @@ type Color
 单变体 ADT 为 newtype：
 
 ```kun
-type Uid
-  = Uid Int
+type UserId
+  = UserId Int
 ```
 
 ### 函数类型别名
