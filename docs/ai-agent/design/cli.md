@@ -233,6 +233,45 @@ Cli.option "port" 'p' "Server port"
 用户可定义自定义校验函数，签名为 `a -> Result a String`。编译期内联该校验逻辑。
 `Validator` 模块的标准校验函数定义见 [`standard-library.md`](standard-library.md)。
 
+### 约束选项的说明约定
+
+对于带有取值范围、枚举选择或其他约束的选项，**必须在 `help` 文本中明确描述约束条件**
+，使使用者无需查看脚本源码即可通过 `--help` 了解合法输入：
+
+| 约束类型 | help 文本约定 | 示例 |
+|---------|-------------|------|
+| 枚举值（`Validator.oneOf`） | 末尾标注 `(values: a, b, c)` | `"Log level (values: debug, info, warn)"` |
+| 数值范围（`Validator.range`） | 末尾标注 `(range: min..max)` | `"Server port (range: 1..65535)"` |
+| 非空约束（`Validator.nonEmpty`）| 标注 `(required)` | `"Server name (required)"` |
+| 正则匹配（`Validator.regex`） | 末尾标注 `(pattern: ...)` | `"Branch name (pattern: [a-z][a-z0-9-]*)"` |
+| 文件存在性 | 末尾标注 `(must exist)` / `(writable)` 等 | `"Config file path (must exist, readable)"` |
+| 自定义校验 | 简要描述校验规则 | `"Token (64-char hex string)"` |
+
+`--help` 输出中的帮助文本直接使用声明器中提供的 `help` 字符串，**不做自动推断**——
+约束描述由声明者显式写入 `help` 文本。编译期不校验 `help` 文本是否与实际 validator
+一致（validator 可能来自模块外部或用户自定义函数，其约束语义无法在编译器层面提取）。
+
+较复杂的约束或业务规则应在脚本的额外文档（如项目 README）中详细说明，`help` 文本仅
+提供简要指引。 `help` 文本最长建议不超过 80 字符——超长文本在终端帮助输出中被截断。
+
+```kun
+// ✅ 正确：help 文本明确描述约束
+Cli.option "log-level" 'l' "Log level (values: debug, info, warn)"
+  |> Cli.withValidator (Validator.oneOf ["debug", "info", "warn"])
+
+Cli.option "port" 'p' "Server port (range: 1..65535)"
+  |> Cli.withDefault 8080
+  |> Cli.withValidator (Validator.range 1 65535)
+
+Cli.option "host" Nil "Server host (required, must be non-empty)"
+  |> Cli.withValidator (Validator.nonEmpty)
+  |> Cli.withDefault "localhost"
+
+// ❌ 不推荐：help 文本未描述约束，使用者需阅读源码了解合法输入
+Cli.option "log-level" 'l' "Log level"
+  |> Cli.withValidator (Validator.oneOf ["debug", "info", "warn"])
+```
+
 ### 类型结构
 
 ```kun

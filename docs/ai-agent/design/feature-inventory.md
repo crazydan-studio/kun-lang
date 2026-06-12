@@ -60,6 +60,10 @@
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
 | Path | ✅ 设计定型 | `cwd`/`parent`/`fileName`/`extension`/`join`/`(++)`/`toString` |
+| Int | ✅ 设计定型 | 整数取反/绝对值/类型互转，需显式导入 |
+| Float | ✅ 设计定型 | 浮点取反/绝对值/取整/平方根/类型互转，需显式导入 |
+| Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
+| Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
 
 ### 命令系统
 
@@ -151,8 +155,6 @@
 | 扩展积类型 | ❌ 已移除 | 移除 `{ Base \| field : T }` 语法，Record 类型需精确静态匹配 |
 | 模块系统 | ✅ 设计定型 | 目录即命名空间，`export (...)`，`import X (...)` |
 | 可执行脚本 | ✅ 设计定型 | `main : List String -> Unit`（类型标注可选） |
-| Cli 模块 | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
-| REPL 交互环境 | 📋 设计中 | 结构化 REPL |
 
 ### 已废弃/移除
 
