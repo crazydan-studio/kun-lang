@@ -914,83 +914,6 @@ import Result (Result(Ok))    // 仅导入 Ok 变体
 
 导入变体后，变体名称可直接在代码中使用（`Ok`、`Err`），无需模块限定。
 
-## 脚本入口
-
-### 入口规则
-
-Kun 脚本的执行入口按以下规则确定：
-
-| 条件 | 行为 |
-|------|------|
-| 定义 `main : List String -> Unit` | 从 `main` 启动，传入命令行参数。退出码为 0 |
-| 定义 `main` (无类型标注) | 编译器自动按 `List String -> Unit` 类型检查 |
-| 未定义 `main` | 编译错误：可执行脚本缺少 `main` 入口 |
-| `main` 签名不合法 | 类型标注不为 `List String -> Unit` 时编译错误 |
-
-可执行脚本文件**不能有 `export` 声明**。有 `export` 为库模块，有 `main` 为可执行脚本，两者同时出现是编译错误。
-
-### 命令行参数
-
-脚本通过 `main` 函数的参数接收命令行参数：
-
-```kun
-main : List String -> Unit
-main = \args ->
-  do
-    case args of
-      []           -> IO.println "no arguments"
-      [name]       -> IO.println f"hello, {name}"
-      [cmd, ..rest] -> IO.println f"{cmd} with {List.length rest} args"
-```
-
-参数规则：
-- 脚本名（`argv[0]`）不传入 `args` 列表，仅包含用户提供的参数
-- 参数类型为 `List String`，每个元素是单个参数字符串
-- 无参数时传入空列表 `[]`
-
-启动命令与参数映射：
-
-```bash
-kun script.kun foo bar    # args = ["foo", "bar"]
-kun script.kun            # args = []
-```
-
-### 命名参数
-
-实际脚本通常需要命名参数（`--output file.txt`、`-v`）。Kun 通过标准库 `Cli` 模块
-将原始 `List String` 解析为结构化配置：
-
-```kun
-import Cli
-import IO
-
-type Config =
-  { verbose : Bool
-  , output  : ?Path
-  , name    : ?String
-  }
-
-parseConfig : List String -> Result Config Cli.CliError
-parseConfig =
-  Cli.parse
-    { meta  = { intro = "script.kun" }
-    , args =
-        [ Cli.flag "verbose" 'v' "Verbose output"
-        , Cli.option "output" 'o' "Output file"
-        , Cli.option "name" 'n' "Config name"
-        ]
-    }
-
-main : List String -> Unit
-main = \raw ->
-  do
-    case parseConfig raw of
-      Ok cfg  -> IO.println f"config: {cfg.verbose} {cfg.output}"
-      Err err -> IO.println (Cli.show err)
-```
-
-`Cli` 模块的详细 API 见 [`Cli` 模块设计文档](cli.md)。
-
 ### 模块名冲突
 
 不同路径下的模块可能同名（如 `./lib/json.kun` 和 `./vendor/json.kun`）。搜索优先级决定哪个模块被导入：
@@ -999,30 +922,9 @@ main = \raw ->
 2. 同一路径下同名模块为编译期错误（无法确定开发者意图）
 3. 项目本地路径下同名模块按搜索顺序首命中，不告警
 
-## 可执行脚本约束
+## 脚本入口
 
-- 可执行脚本文件**不能有 `export` 声明**
-- 有 `export` 而无 `main` → 库模块
-- 有 `main` 而无 `export` → 可执行脚本
-- `main` 的签名**唯一合法形式为 `List String -> Unit`**
-- 不需要命令行参数时用 `\_ ->` 忽略参数
-- 支持 Shebang（`#!/usr/bin/env kun`）
-
-```kun
-// ✅ 正确：可执行脚本
-main : List String -> Unit
-main = \_ ->
-  do
-    IO.println "hello"
-
-// ❌ 错误：可执行脚本不能有 export
-export (helper)    // 编译错误
-main : List String -> Unit
-main = \_ -> do IO.println "hello"
-
-// ❌ 错误：main 签名不合法
-main : Unit        // 编译错误
-```
+可执行脚本与 `main` 函数的约定详见 [`kun` CLI 工具](kun-cli-tool.md#脚本入口)。
 
 ## Stream
 

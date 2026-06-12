@@ -207,17 +207,7 @@ stdin: 继承父进程（/dev/null 或外部管道）
 
 ## 安全隔离
 
-### CLI 控制
-
-```bash
-kun script.kun                           # 默认：Landlock/mount ns，仅 CWD 可读写，无网络
-kun --allow-path /tmp script.kun         # 额外允许 /tmp（默认 :rw）
-kun --allow-net script.kun               # 开放网络出站
-kun --no-sandbox script.kun              # 完全关闭
-kun --force script.kun                   # 强制运行（跳过安全确认）
-kun --env=inherit script.kun             # 继承全部环境变量
-kun --cpu-limit 120s --mem-limit 1G script.kun
-```
+CLI 安全参数（`--allow-path`、`--allow-net`、`--no-sandbox`、`--force`、`--env=`、`--cpu-limit`、`--mem-limit`）的完整说明见 [`kun` CLI 工具](../design/kun-cli-tool.md#安全控制)。
 
 ### 安全层架构
 

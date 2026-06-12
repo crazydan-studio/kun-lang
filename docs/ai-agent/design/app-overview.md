@@ -101,19 +101,7 @@ do
 
 ## 安全模型
 
-安全策略通过 CLI 参数声明，与代码分离：
-
-```bash
-kun script.kun                           # 默认：仅 CWD 可读写，无网络
-kun --allow-path /tmp script.kun         # 额外允许 /tmp
-kun --allow-net script.kun               # 开放网络出站
-kun --no-sandbox script.kun              # 完全关闭
-kun --force script.kun                   # 强制运行（跳过安全确认）
-kun --env=inherit script.kun             # 继承全部环境变量
-kun --cpu-limit 120s --mem-limit 1G script.kun
-```
-
-子进程 fork 后自动安装 Landlock（首选）/ mount namespace（兜底）/ seccomp + rlimit 多层沙箱隔离。
+安全策略通过 [`kun` CLI 参数](kun-cli-tool.md#安全控制)声明（`--allow-path`、`--allow-net`、`--no-sandbox`、`--force`、`--env=`、`--cpu-limit`、`--mem-limit`），与脚本代码分离。默认仅 CWD 可读写、无网络。运行时通过 Landlock / mount namespace / seccomp + rlimit 多层沙箱隔离，详细实现见[系统基线](../architecture/system-baseline.md#安全隔离)。
 
 ## 语法设计
 

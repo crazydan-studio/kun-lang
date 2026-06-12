@@ -94,7 +94,7 @@
 | Stream tagged union | ✅ 设计定型 | 替代函数指针链，双层间接→单层 |
 | do 块顺序执行 | ✅ 设计定型 | defer LIFO 逆序清理 |
 | panic + unwind | ✅ 设计定型 | defer 始终执行，panic-with-defer 语义 |
-| REPL 交互环境 | 📋 设计中 | 表达式求值 + 类型查询 + `:type`/`:load`/`:cmds`/`:modules` |
+| REPL 交互环境 | 📋 设计中 | 表达式求值 + 类型查询 + `:type`/`:load`/`:cmds`/`:modules`；详见 [`kun` CLI 工具](kun-cli-tool.md#repl) |
 
 ### 管道与组合
 
@@ -105,6 +105,8 @@
 | 高阶函数 | ✅ 设计定型 | map、filter、fold、reduce 等标准库函数已定义 |
 
 ### 安全
+
+> CLI 参数与安全控制见 [`kun` CLI 工具](kun-cli-tool.md)。
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
