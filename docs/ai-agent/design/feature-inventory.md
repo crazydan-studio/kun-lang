@@ -1,6 +1,6 @@
 # 功能清单
 
-## 当前版本（0.3.x — 架构重设计）
+## 当前版本（2026.06 — 架构重设计）
 
 > 以下为架构重设计后的功能清单。实现状态将随着开发进展更新。
 
@@ -57,6 +57,9 @@
 | Cmd | ✅ 设计定型 | 命令构造/修饰/执行 |
 | Process | ✅ 设计定型 | `exit`/`pid`/`sleep` |
 | Sys | ✅ 设计定型 | `ps`/`free`/`df`
+| Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
+| Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
+| Path | ✅ 设计定型 | `cwd`/`parent`/`fileName`/`extension`/`join`/`(++)`/`toString` |
 
 ### 命令系统
 
@@ -79,7 +82,7 @@
 | Command 执行模型 | ✅ 设计定型 | 延迟执行，`\|>` 隐式触发 / do 块边界 / ? 后缀立即执行 |
 | camelCase→kebab-case 映射 | ✅ 设计定型 | 多大写断词、全小写不断词、单字符短 flag；非标准 flag 用 Cmd.withRawOpt |
 | Cmd.withRunAs | ✅ 设计定型 | 指定命令执行用户（setuid） |
-| 预置高频命令模块 | ✅ 设计定型 | v0.1：20 个高频命令类型定义（git、docker、curl 等） |
+| 预置高频命令模块 | ✅ 设计定型 | 首批 20 个高频命令类型定义（git、docker、curl 等） |
 
 ### 运行时
 
@@ -106,6 +109,7 @@
 | CLI `--allow-path` | ✅ 设计定型 | 路径级文件系统访问控制 |
 | CLI `--allow-net` | ✅ 设计定型 | 网络出站/入站控制 |
 | CLI `--no-sandbox` | ✅ 设计定型 | 完全关闭沙箱 |
+| CLI `--force` | ✅ 设计定型 | 强制运行（跳过安全确认） |
 | CLI `--env=` | ✅ 设计定型 | 环境变量继承策略 |
 | CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 | rlimit 资源限制 |
 | Landlock | ✅ 设计定型 | 内核 6.7+：文件 + 网络控制（首选） |
@@ -161,5 +165,4 @@
 | Builder API / 幻影类型 | ❌ 已移除 | `Cmd.<bin>` + Record 替代 |
 | 能力管理器 | ❌ 已移除 | CLI 安全参数 + Landlock/mount ns 替代 |
 | 命令签名系统 (Ed25519) | ❌ 已移除 | 不涉及注册中心 |
-| 参数验证器 (Validator) | ❌ 已移除 | 选项类型检查替代 |
 | `Std` 模块 | ❌ 已移除 | `Path.cwd`（常量）+ `Cmd.withCwd`（per-command chdir）替代 |

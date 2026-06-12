@@ -19,12 +19,15 @@ kun-lang/
 │   ├── camelCase → kebab-case 自动映射
 │   ├── 类型化模块自动发现（~/.kun/cmd/）
 │   ├── Cmd.withEnv / Cmd.withStdin / Cmd.withRawOpt / Cmd.mergeStderr
+│   ├── Cmd.withCwd / Cmd.withRunAs
+│   ├── Cmd.andThen / Cmd.orElse（短路条件组合）
+│   ├── Cmd.timeout / Cmd.retry（超时与重试）
 │   └── Cmd.pipe OS 管道链
 ├── 安全子系统
-│   ├── CLI 安全参数解析（--allow-path、--allow-net、--no-sandbox）
-│   ├── Landlock 路径/端口级控制（内核 6.7+ 首选）
+│   ├── CLI 安全参数解析（--allow-path、--allow-net、--no-sandbox、--force、--env=、--cpu-limit、--mem-limit）
+│   ├── Landlock 文件控制（5.13+）/ 网络控制（6.7+）首选
 │   ├── Mount namespace 兜底隔离（内核 3.8+）
-│   ├── seccomp-BPF 系统调用过滤（最低降级）
+│   ├── seccomp-BPF 系统调用过滤（最低降级，per 子进程 fork 后安装）
 │   ├── rlimit 资源限制
 │   └── 环境变量安全过滤
 ├── 标准库
@@ -51,11 +54,11 @@ kun-lang/
 
 ### 命令调用系统
 
-负责将 Linux 命令的能力抽象为类型安全调用。`Cmd.<bin>` 语法构造 Command 值，camelCase 字段名自动映射为 kebab-case CLI flag。类型化模块自动发现机制在编译时检查选项类型一致性。`Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` 修饰 Command 值。`Cmd.pipe` 将多个 Command 组合为 OS 管道链。
+负责将 Linux 命令的能力抽象为类型安全调用。`Cmd.<bin>` 语法构造 Command 值，camelCase 字段名自动映射为 kebab-case CLI flag。类型化模块自动发现机制在编译时检查选项类型一致性。`Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` / `Cmd.withCwd` / `Cmd.withRunAs` 修饰 Command 值，`Cmd.andThen` / `Cmd.orElse` 提供短路条件组合，`Cmd.timeout` / `Cmd.retry` 提供超时与重试。`Cmd.pipe` 将多个 Command 组合为 OS 管道链。
 
 ### 安全子系统
 
-实现多层安全模型。从 CLI 参数解析安全策略（`--allow-path`、`--allow-net` 等），运行时在 fork 子进程后安装 Landlock（首选）/ mount namespace（兜底）/ seccomp（降级）安全层。rlimit 限制 CPU、内存、文件描述符和子进程数。环境变量白名单过滤 + 始终剔除列表。
+实现多层安全模型。从 CLI 参数解析安全策略（`--allow-path`、`--allow-net` 等），初始化阶段在父进程安装 Landlock（首选）/ mount namespace（兜底）主沙箱层；fork 子进程后安装 seccomp-BPF（per 子进程降级）。rlimit 限制 CPU、内存、文件描述符和子进程数。环境变量白名单过滤 + 始终剔除列表。
 
 ### 标准库
 

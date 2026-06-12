@@ -4,7 +4,7 @@
 
 | 层 | 技术选择 | 说明 |
 |---|---|---|
-| 宿主语言 | Zig | 高性能、无 hidden control flow、直接操作内存 |
+| 宿主语言 | Zig 0.13.0 | 高性能、无 hidden control flow、直接操作内存 |
 | 目标平台 | Linux | 使用 fork/exec、namespace、Landlock、seccomp 等 Linux 特有机制 |
 | 文档构建 | VitePress + pnpm | 现代化的静态文档站点 |
 | 版本控制 | Git + GitHub | 分布式版本控制 |
@@ -96,13 +96,13 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 | `if`/三元 | 按需 | 仅条件匹配的分支被求值 |
 | `&&`/`\|\|` | 短路 | 左侧确定结果时右侧不求值 |
 | `Stream` | 惰性 | 元素在消费时按需拉取 |
-| `let ... in` 绑定 | 延迟 | 绑定在被引用前不强制求值 |
+| `let ... in` 绑定 | 延迟 | `let` 与 `in` 之间的绑定仅在 `in` 之后被引用时才真正求值，绑定时不求值 |
 
 ### do 块与效应函数
 
 `do` 块按顺序执行效应操作。含 `do` 块的函数通过编译器 AST 标记自动识别为效应函数。纯函数（无 `do` 块）不能调用效应函数——编译期拒绝。
 
-效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Time.*`、`Signal.*`、`Sys.*`、`TempFile.*`。
+效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`。
 
 `do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值：
 
@@ -266,7 +266,7 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 
 ```kun
 do
-  Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = "10" }]
+  Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = 10 }]
 ```
 
 - `Cmd.pipe`：链中任一命令非零退出 → panic（等价 `set -o pipefail`）
@@ -310,6 +310,46 @@ do
   Cmd.ls { a = true } |> Cmd.withCwd workDir
 ```
 
+### 执行用户：`Cmd.withRunAs`
+
+`Cmd.withRunAs : String -> Command -> Command` 指定子进程的执行用户。fork 后、exec 前调用 `setuid()`，需 Kun 进程具备 OS 级权限（root 或 `CAP_SETUID`）。
+
+```kun
+do
+  Cmd.systemctl { restart = true } "nginx"
+    |> Cmd.withRunAs "root"
+```
+
+### 短路条件组合：`Cmd.andThen` / `Cmd.orElse`
+
+```kun
+// Cmd.andThen : Command -> Command -> Command（前一个成功时执行后一个）
+// Cmd.orElse  : Command -> Command -> Command（前一个失败时执行备选）
+do
+  Cmd.docker.build { tag = "app" } "."
+    |> Cmd.andThen (Cmd.docker.push {} "app:latest")
+
+  Cmd.ping { c = "3" } "192.168.1.1"
+    |> Cmd.orElse (Cmd.echo {} "unreachable")
+```
+
+`Cmd.andThen` / `Cmd.orElse` 返回 `Command`（延迟执行），不立即 fork。不引入 `&&`/`||` 运算符以避免与逻辑短路运算符冲突。
+
+### 超时与重试：`Cmd.timeout` / `Cmd.retry`
+
+```kun
+// Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError
+// Cmd.retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
+do
+  case Cmd.curl {} "https://example.com" |> Cmd.timeout 5s of
+    Ok stream -> ...
+    Err err   -> IO.println "request timed out"
+
+  case Cmd.curl {} "https://example.com" |> Cmd.retry 3 1s of
+    Ok stream -> ...
+    Err err   -> IO.println "request failed after 3 retries"
+```
+
 ### 特殊字符命令名
 
 含 `-`、`.`、`+` 或数字开头的命令使用 `Cmd["..."]` 转义：
@@ -330,6 +370,7 @@ kun script.kun                           # 默认：Landlock/mount ns，仅 CWD 
 kun --allow-path /tmp script.kun         # 额外允许 /tmp（默认 :rw）
 kun --allow-net script.kun               # 开放网络出站
 kun --no-sandbox script.kun              # 完全关闭
+kun --force script.kun                   # 强制运行（跳过安全确认）
 kun --env=inherit script.kun             # 继承全部环境变量
 kun --cpu-limit 120s --mem-limit 1G script.kun
 ```
@@ -337,7 +378,7 @@ kun --cpu-limit 120s --mem-limit 1G script.kun
 ### 安全层架构
 
 ```
-优先 Landlock（内核 6.7+：文件 + 网络）→ mount namespace 兜底（内核 3.8+）→ seccomp 降级（内核 3.5+）→ 拒绝运行（内核 < 3.5）
+优先 Landlock（5.13+：文件控制；6.7+：文件 + 网络控制）→ mount namespace 兜底（内核 3.8+）→ seccomp 降级（内核 3.5+）→ 拒绝运行（内核 < 3.5）
 ```
 
 ### 资源限制（rlimit）
@@ -506,6 +547,6 @@ import Cmd.Git
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| 0.4.0 | 2026-06-11 | 模块系统重设计：目录即命名空间；`export (…)` 替代 `module Xxx export (…)`；`import X (…)` 替代 `import X with (…)` |
-| 0.2.0 | 2026-06-10 | 架构重设计：移除 `.cmd.kun`/`IO T`/`with caps`/dlopen/ptrace 等；新增 `Cmd.<bin>` fork-exec + Landlock/mount ns + `defer` + tagged union Stream |
-| 0.1.0 | 2026-05-27 | 项目初始化，设计文档定型 |
+| 2026.06.11 | 2026-06-11 | 模块系统重设计：目录即命名空间；`export (…)` 替代 `module Xxx export (…)`；`import X (…)` 替代 `import X with (…)` |
+| 2026.06.10 | 2026-06-10 | 架构重设计：移除 `.cmd.kun`/`IO T`/`with caps`/dlopen/ptrace 等；新增 `Cmd.<bin>` fork-exec + Landlock/mount ns + `defer` + tagged union Stream |
+| 2026.05.27 | 2026-05-27 | 项目初始化，设计文档定型 |
