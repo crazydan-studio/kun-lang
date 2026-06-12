@@ -29,7 +29,7 @@
 | Errno | ✅ 设计定型 | POSIX 错误码枚举，与 IOError 建立映射 |
 | FileType | ✅ 设计定型 | 运行时文件类型枚举（Regular/SymbolicLink/CharDevice） |
 | IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
-| CommandError | ✅ 设计定型 | 语义化命令错误类型（NotFound/PermissionDenied/CommandFailed/KilledBySignal/PipeFailed） |
+| CommandError | ✅ 设计定型 | 语义化命令错误类型（NotFound/PermissionDenied/CommandFailed/KilledBySignal/IoError/PipeFailed） |
 | DateTime | ✅ 设计定型 | newtype，`format` 返回 `Result String String` |
 | ExitCode | ✅ 设计定型 | 0-255，newtype，`of` + `isValid`，预定义常量 |
 | Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型（Int newtype） |
@@ -112,7 +112,7 @@
 | CLI `--force` | ✅ 设计定型 | 强制运行（跳过安全确认） |
 | CLI `--env=` | ✅ 设计定型 | 环境变量继承策略 |
 | CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 | rlimit 资源限制 |
-| Landlock | ✅ 设计定型 | 内核 6.7+：文件 + 网络控制（首选） |
+| Landlock | ✅ 设计定型 | 内核 5.13+：文件控制；6.7+：文件 + 网络控制（首选） |
 | Mount namespace 兜底 | ✅ 设计定型 | 内核 3.8+：目录级隔离 |
 | seccomp-BPF 降级 | ✅ 设计定型 | 内核 3.5+：系统调用类型过滤 |
 | 环境变量安全过滤 | ✅ 设计定型 | 干净白名单 + 始终剔除列表 |

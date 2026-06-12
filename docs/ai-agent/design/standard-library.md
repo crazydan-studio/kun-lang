@@ -1087,6 +1087,7 @@ map       : (a -> b) -> List a -> List b        // 对每个元素应用函数
 filter    : (a -> Bool) -> List a -> List a     // 保留满足条件的元素
 filterMap : (a -> ?b) -> List a -> List b      // 映射并丢弃 Nil
 fold      : (b -> a -> b) -> b -> List a -> b   // 左折叠
+reduce    : (a -> a -> a) -> List a -> ?a       // 无初始值的折叠，空列表返回 Nil
 iter      : (a -> Unit) -> List a -> Unit       // 遍历每个元素并调用回调
 append    : List a -> List a -> List a          // 拼接两个列表
 reverse   : List a -> List a                   // 反转列表
@@ -1094,6 +1095,7 @@ reverse   : List a -> List a                   // 反转列表
 
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素
 - `fold` 为左折叠，`fold (+) 0 [1, 2, 3]` → `6`
+- `reduce` 为无初始值的折叠，以首个元素作为起始累加器，空列表返回 `Nil`
 - `iter` 遍历每个元素并调用回调。回调可以是纯函数或效应函数——若回调为效应 lambda（函数体含 `do` 块或调用了效应函数），则整个 `List.iter ...` 表达式本身必须处于 `do` 块中，且效应 lambda 必须在 `do` 块内定义。纯回调无此限制
 
 当回调是 `Cmd.*` 调用时，每次循环独立 fork 子进程（fork ~0.1ms + exec ~0.3ms ≈ ~0.5ms/次）。按规模选择策略：
