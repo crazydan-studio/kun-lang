@@ -1224,28 +1224,77 @@ parsePort "8080"
   |> Result.withDefault 80           // → 8081
 ```
 
+## `Validator` — 校验函数
+
+### 定位
+
+`Validator` 模块提供常用校验函数，供 `Cli.withValidator` 等编译期校验场景使用。所有
+函数为纯函数，签名为 `a -> Result a String`——传入原值，`Ok` 通过，`Err` 返回错误信
+息。
+
+需显式导入：
+
+```kun
+import Validator
+```
+
+### API
+
+```kun
+// 枚举约束：值必须在列表中
+oneOf : List String -> a -> Result a String
+
+// 数值范围：[min, max] 闭区间
+range : Int -> Int -> Int -> Result Int String
+
+// 非空字符串
+nonEmpty : String -> Result String String
+
+// 正则匹配：模式必须匹配整个字符串
+regex : String -> String -> Result String String
+```
+
+### 示例
+
+```kun
+import Validator
+
+// 与 Cli.withValidator 配合使用
+Cli.option "log-level" 'l' "Log level"
+  |> Cli.withValidator (Validator.oneOf ["debug", "info", "warn"])
+
+Cli.option "port" 'p' "Server port"
+  |> Cli.withValidator (Validator.range 1 65535)
+
+// 独立使用
+case Validator.range 1 100 50 of
+  Ok v  -> IO.println f"valid: {v}"
+  Err e -> IO.println e
+```
+
 ## `Cli` — 命令行参数解析
 
 需显式导入：
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 ```
 
 对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安
-全的 Record。`Cli` 模块导出类型结构与声明器函数——`CliSpec` 和 `CliMeta` 为普通
-Record 类型，用户直接通过 Record 字面量构造和 `Map` 更新语法进行组装。提供声明式
-API、自动 `--help`/`--version` 输出、子命令、互斥组、枚举约束、选项依赖、否定标志
-、环境变量回退等完整 CLI 开发能力。详细设计见 [`Cli` 模块设计文档](cli.md)。
+全的 Record。`Cli` 模块导出类型结构与声明器函数——`Cli.CliSpec` 和 `Cli.CliMeta`
+为普通 Record 类型，用户直接通过 Record 字面量构造和 `Map` 更新语法进行组装。提供
+声明式 API、自动 `--help`/`--version` 输出、子命令、互斥组、选项依赖、否定标志、环
+境变量回退、自定义校验（对接 `Validator` 模块）等完整 CLI 开发能力。详细设计见
+[`Cli` 模块设计文档](cli.md)。
 
 简要示例：
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type Config = { verbose : Bool, output : ?Path, jobs : Int, source : String }
 
-parseConfig : List String -> Result Config CliError
+parseConfig : List String -> Result Config Cli.CliError
 parseConfig =
   Cli.parse
     { meta  = { intro = "build.kun", text = "Compiles and packages." }
@@ -1262,12 +1311,12 @@ parseConfig =
 子命令示例：
 
 ```kun
-import Cli (CliError, CliSpec)
+import Cli
 
 type PushConfig = { force : Bool, remote : String, branch : String }
 type DeployConfig = { verbose : Bool, push : ?PushConfig }
 
-pushSpec : CliSpec
+pushSpec : Cli.CliSpec
 pushSpec =
   { meta = { intro = "Push to remote" }
   , args =
@@ -1277,7 +1326,7 @@ pushSpec =
       ]
   }
 
-parseConfig : List String -> Result DeployConfig CliError
+parseConfig : List String -> Result DeployConfig Cli.CliError
 parseConfig =
   Cli.parse
     { meta  = { intro = "deploy.kun" }
@@ -1907,6 +1956,7 @@ main = \_ ->
 | `TempFile` | `import TempFile` | 临时文件和临时目录 |
 | `TempDir` | `import TempDir` | — |
 | `Stream` | `import Stream` | 惰性序列 |
+| `Validator` | `import Validator` | 校验函数（`oneOf`/`range`/`nonEmpty`/`regex`），供 `Cli.withValidator` 等使用 |
 | `IO` | `import IO` | 控制台 IO |
 | `Env` | `import Env` | 环境变量 |
 | `File` | `import File` | 文件操作 |
@@ -1921,6 +1971,6 @@ main = \_ ->
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| 0.3.1 | 2026-06-11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构 |
+| 0.3.1 | 2026-06-11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
 | 0.3.0 | 2026-06-10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
 | 0.1.0 | 2026-05-27 | MVP 基础标准库类型设计定型 |

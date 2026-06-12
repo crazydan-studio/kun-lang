@@ -207,25 +207,8 @@ Cli.option "port" 'p' "Server port"
 `withValidator` 接受签名为 `a -> Result a String` 的函数——`Ok value` 通过，
 `Err msg` 返回错误信息。`a` 由目标 Record 字段类型确定，编译期校验匹配。
 
-**标准 Validator 模块**提供以下常用校验函数：
-
-```kun
-import Validator
-
-// 枚举约束：值必须在列表中
-oneOf : List String -> a -> Result a String
-
-// 数值范围：[min, max] 闭区间
-range : Int -> Int -> Int -> Result Int String
-
-// 非空字符串
-nonEmpty : String -> Result String String
-
-// 正则匹配：模式必须匹配整个字符串
-regex : String -> String -> Result String String
-```
-
 用户可定义自定义校验函数，签名为 `a -> Result a String`。编译期内联该校验逻辑。
+`Validator` 模块的标准校验函数定义见 [`standard-library.md`](standard-library.md)。
 
 ### 类型结构
 
