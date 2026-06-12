@@ -63,6 +63,8 @@
 
 ### 命令系统
 
+> 完整设计见 [OS 命令调用机制](command-system.md)。
+
 | 功能 | 状态 | 说明 |
 |---|---|---|
 | `Cmd.<bin>` 语法 | ✅ 设计定型 | 命令调用统一入口，Record 选项自动映射 camelCase → kebab-case |
