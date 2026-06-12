@@ -102,7 +102,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 
 `do` 块按顺序执行效应操作。含 `do` 块的函数通过编译器 AST 标记自动识别为效应函数。纯函数（无 `do` 块）不能调用效应函数——编译期拒绝。
 
-效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`。
+效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`、`TempDir.*`。
 
 `do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值：
 
@@ -287,6 +287,18 @@ Cmd.withStdin : Stream Bytes -> Command -> Command  // 流式模式
 do
   Cmd.mysql { u = "root" }
     |> Cmd.withEnv #{ "MYSQL_PWD" = Env.getenv "DB_PASS" ?? "" }
+```
+
+### stderr 合并：`Cmd.mergeStderr`
+
+`Cmd.mergeStderr : Command -> Command` 将子进程的 stderr 合并到 stdout 流中，使 stderr 输出也能通过 `Stream` 捕获和管道处理：
+
+```kun
+do
+  Cmd.ffmpeg {} "input.mp4" "output.mp4"
+    |> Cmd.mergeStderr
+    |> Stream.lines
+    |> Stream.iter (\line -> do IO.println line)
 ```
 
 ### 工作目录：`Cmd.withCwd`

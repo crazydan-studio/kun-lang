@@ -233,7 +233,7 @@ p = p"/tmp/foo"
 Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
 
 - 含 `do` 块的函数自动标记为效应函数
-- 以下命名空间的所有函数均为效应函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`
+- 以下命名空间的所有函数均为效应函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`、`TempDir.*`
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
 - 效应性不扩散到类型签名——函数签名中不出现 `IO` 标记
 - Lambda 含有效应函数调用时，该 lambda 必须在 `do` 块内定义
