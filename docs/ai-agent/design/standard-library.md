@@ -1229,20 +1229,26 @@ parsePort "8080"
 需显式导入：
 
 ```kun
-import Cli
+import Cli (CliError, CliSpec)
 ```
 
-对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。提供声明式 API、自动 `--help` 输出、子命令、互斥组、枚举约束等完整 CLI 开发能力。详细设计见 [`Cli` 模块设计文档](cli.md)。
+对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安
+全的 Record。`Cli` 模块导出类型结构与声明器函数——`CliSpec` 和 `CliMeta` 为普通
+Record 类型，用户直接通过 Record 字面量构造和 `Map` 更新语法进行组装。提供声明式
+API、自动 `--help`/`--version` 输出、子命令、互斥组、枚举约束、选项依赖、否定标志
+、环境变量回退等完整 CLI 开发能力。详细设计见 [`Cli` 模块设计文档](cli.md)。
 
 简要示例：
 
 ```kun
+import Cli (CliError, CliSpec)
+
 type Config = { verbose : Bool, output : ?Path, jobs : Int, source : String }
 
-parseConfig : List String -> Result Config String
+parseConfig : List String -> Result Config CliError
 parseConfig =
   Cli.parse
-    { meta  = Cli.meta |> Cli.intro "build.kun"
+    { meta  = { intro = "build.kun", text = "Compiles and packages." }
     , args =
         [ Cli.flag "verbose" 'v' "Verbose output"
         , Cli.option "output" 'o' "Output file path"
@@ -1250,6 +1256,33 @@ parseConfig =
             |> Cli.withDefault 4
         , Cli.arg "source" "Source directory"
         ]
+    }
+```
+
+子命令示例：
+
+```kun
+import Cli (CliError, CliSpec)
+
+type PushConfig = { force : Bool, remote : String, branch : String }
+type DeployConfig = { verbose : Bool, push : ?PushConfig }
+
+pushSpec : CliSpec
+pushSpec =
+  { meta = { intro = "Push to remote" }
+  , args =
+      [ Cli.flag "force" 'f' "Force push"
+      , Cli.arg "remote" "Remote name"
+      , Cli.arg "branch" "Branch name"
+      ]
+  }
+
+parseConfig : List String -> Result DeployConfig CliError
+parseConfig =
+  Cli.parse
+    { meta  = { intro = "deploy.kun" }
+    , args  = [ Cli.flag "verbose" 'v' "Verbose output" ]
+    , subs  = #{ "push" = pushSpec }
     }
 ```
 
