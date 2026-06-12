@@ -229,6 +229,8 @@ function sidebarDesign() {
         { text: '语法设计', link: '/ai-agent/design/syntax' },
         { text: '代码格式化规范', link: '/ai-agent/design/code-formatting' },
         { text: 'Cli 命令行解析', link: '/ai-agent/design/cli' },
+        { text: 'OS 命令调用机制', link: '/ai-agent/design/command-system' },
+        { text: 'Kun CLI 工具', link: '/ai-agent/design/kun-cli-tool' },
         { text: '功能清单', link: '/ai-agent/design/feature-inventory' },
       ],
     },

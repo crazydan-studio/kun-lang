@@ -428,6 +428,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.12 | 新增 `Float` 精度局限说明与 `toString` 截断语义；编译器内置标注（`Nil`/`?T`/效应跟踪）；效应命名空间补全 `TempDir.*`；新增 `Decimal` 精确十进制类型 |
 | 2026.06.10 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base \| field : T }`）；效应跟踪改为 AST 标记方案 |
 | 2026.06.10 | 目录即命名空间模块系统：`export (...)` 替代 `module Xxx export (...)`；`import X (...)` 替代 `import X with (...)` |
 | 2026.06.02 | 扩展积类型 `{ Base \| field : T }`，移除行变量以降低类型检查器实现复杂度 |
