@@ -1026,23 +1026,27 @@ import Nil
 ```kun
 type Nil = Nil   // 始终缺省自动导入
 
-// Nil 时返回缺省值
-maybe : a -> ?a -> a
+// Nil 时返回缺省值（解包，返回 a）
+withDefault : a -> ?a -> a
 
 // 非 Nil 时应用函数
 map : (a -> b) -> ?a -> ?b
 
-// Nil 时返回备选值
+// 依次尝试，取首个非 Nil（链式回退，保持 ?a）
 orElse : ?a -> ?a -> ?a
 
 // Nil 转为 Err e
 toResult : e -> ?a -> Result a e
+
+// 非 Nil 时链式调用可能返回 Nil 的函数（单子绑定）
+andThen : (a -> ?b) -> ?a -> ?b
 ```
 
-- `maybe` 提供 Nil 时的缺省值回退
-- `map` 相当于 `?T` 上的 `map`
-- `orElse` 提供链式备选
-- `toResult` 将可选值提升为 `Result`，Nil 携带错误信息
+- `withDefault` — 提供缺省值并解包。适合「取不到就用默认值」场景
+- `map` — 在有值时变换。适合对可选值做纯计算
+- `orElse` — 链式尝试多个来源，取首个非 Nil。`orElse` 保持可选包装，可与 `withDefault` 组合使用：`a |> orElse b |> orElse c |> withDefault default`
+- `toResult` — 将可选值提升为 `Result`，Nil 携带错误信息
+- `andThen` — 串联返回 `?T` 的操作，前一步为 Nil 则短路。适合「取值 → 解析 → 查表」等多步可能失败的操作链
 
 `?T` 为语言内置的类型构造器，`case` 和 `??` / `?.` 为内置操作符，不受 `import Nil` 影响。
 
@@ -1051,15 +1055,53 @@ toResult : e -> ?a -> Result a e
 ```kun
 import Nil
 
-config = #{ "host" = "localhost" }
+// withDefault：用缺省值解包
 host =
-  Map.get "host" config
-    |> Nil.maybe "127.0.0.1"  // → "localhost"
+  Map.get "host" #{ "host" = "localhost" }
+    |> Nil.withDefault "127.0.0.1"        // → "localhost"
 
-// Nil.maybe 配合其他 ?T 值
-portSetting : ?Int
-portSetting = Nil
-port = Nil.maybe 8080 portSetting  // → 8080
+count =
+  Map.get "count" #{}                     // → Nil
+    |> Nil.withDefault 0                  // → 0
+
+// map：在可选值上做变换
+name =
+  Map.get "name" #{ "name" = "Kun" }
+    |> Nil.map (\s -> String.toUpper s)   // → "KUN"
+
+absent =
+  Map.get "name" #{}
+    |> Nil.map (\s -> String.toUpper s)   // → Nil
+
+// orElse：依次尝试多个来源
+dbConfig : ?String
+dbConfig = Nil
+
+config =
+  Map.get "host" #{}
+    |> Nil.orElse dbConfig                // 回退到 dbConfig
+    |> Nil.orElse (Map.get "host" #{ "host" = "prod" })
+    |> Nil.withDefault "localhost"        // → "prod"
+
+// toResult：可选值 → Result
+required =
+  Map.get "port" #{ "port" = "8080" }
+    |> Nil.toResult "port is required"    // → Ok "8080"
+
+missing =
+  Map.get "port" #{}
+    |> Nil.toResult "port is required"    // → Err "port is required"
+
+// andThen：串联可失败的操作链
+port =
+  Map.get "port" #{ "port" = "8080" }     // ?String
+    |> Nil.andThen (\s -> Int.fromString s |> Result.ok)  // ?Int
+    |> Nil.withDefault 80                 // → 8080
+
+missingPort =
+  Map.get "port" #{}
+    |> Nil.andThen (\s -> Int.fromString s |> Result.ok)
+    |> Nil.withDefault 80                 // → 80（回退到缺省）
 ```
 
 ## `List` — 列表操作
@@ -1604,7 +1646,7 @@ import Env
 
 do
   Env.setenv "KUN_LOG_LEVEL" "debug"
-  level = Env.getenv "KUN_LOG_LEVEL" |> Nil.maybe "info"
+  level = Env.getenv "KUN_LOG_LEVEL" |> Nil.withDefault "info"
   IO.println f"log level: {level}"
 ```
 
@@ -1950,7 +1992,7 @@ main = \_ ->
 | 模块 | 导入方式 | 说明 |
 |------|---------|------|
 | `Function` | 始终缺省可用 | `identity`、`always`、`<\|`、`\|>`、`<<`、`>>` |
-| `Nil` | 变体 `Nil` 缺省可用；函数需 `import Nil` | `maybe`、`map`、`orElse`、`toResult` |
+| `Nil` | 变体 `Nil` 缺省可用；函数需 `import Nil` | `withDefault`、`map`、`orElse`、`toResult`、`andThen` |
 | `Int` | `import Int` | 整数操作与互转 |
 | `Float` | `import Float` | 浮点操作与互转 |
 | `String` | `import String` | `toString`、字符串操作及类型互转 |
