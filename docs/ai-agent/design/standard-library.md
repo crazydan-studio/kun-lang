@@ -1239,6 +1239,7 @@ import Cli
 ```kun
 type Config = { verbose : Bool, output : ?Path, jobs : Int, source : String }
 
+parseConfig : List String -> Result Config String
 parseConfig =
   Cli.parse
     { meta  = Cli.meta |> Cli.intro "build.kun"
