@@ -2067,57 +2067,6 @@ do
     )
 ```
 
-## `Network` — 网络 IO
-
-### 定位
-
-`Network` 模块提供 TCP/UDP 套接字操作，配合 `SocketAddr` 和 `IpAddress` 类型使用。所有函数均为效应函数。
-
-需显式导入：
-
-```kun
-import Network
-```
-
-### API
-
-```kun
-// TCP 客户端
-tcpConnect : SocketAddr -> Duration -> Result Stream Bytes IOError
-tcpSend    : Stream Bytes -> Stream Bytes -> Result Unit IOError
-tcpClose   : Stream Bytes -> Result Unit IOError
-
-// HTTP 客户端（基于 TCP）
-httpGet     : String -> Duration -> Result (Stream String) IOError
-httpPost    : String -> String -> Duration -> Result (Stream String) IOError
-```
-
-- `tcpConnect addr timeout` 连接到远程地址，返回双向流（入站 + 出站）
-- `httpGet url timeout` 和 `httpPost url body timeout` 为常用 HTTP 操作的便捷封装
-- 所有操作受 `--allow-net` CLI 参数控制：未指定时编译期报错
-
-### 示例
-
-```kun
-import Network
-import IpAddress
-
-do
-  addr = Tcp (IpAddress.parse "93.184.216.34" |> Result.withDefault (Ipv4 (127,0,0,1))) (Port.of 80)
-  case Network.tcpConnect addr 5s of
-    Ok stream -> ...
-    Err _     -> IO.println "connection failed"
-
-  // HTTP GET
-  case Network.httpGet "https://example.com/api" 10s of
-    Ok body ->
-      body
-        |> Stream.lines
-        |> Stream.take 10
-        |> Stream.iter (\line -> do IO.println line)
-    Err _ -> IO.println "request failed"
-```
-
 ## `Parser` — 编译期类型安全解析
 
 ### `Parser.JSON`
@@ -2247,7 +2196,6 @@ main = \_ ->
 | `Process` | `import Process` | 进程控制（`exit`/`pid`/`kill`/`wait`/`sleep`） |
 | `Duration` | `import Duration` | 时间段操作 |
 | `Sys` | `import Sys` | 系统信息查询 |
-| `Network` | `import Network` | TCP/UDP/HTTP 网络 IO（`tcpConnect`/`httpGet`） |
 | `Path` | `import Path` | 路径操作函数（类型标注无需导入） |
 | `Port` | `import Port` | 端口号操作（`of`/`isValid`/`fromInt`） |
 | `Pid` | `import Pid` | 进程 ID 操作 |
@@ -2271,7 +2219,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.13 | 示例代码语法合规修复；新增 `Regex`/`Duration`/`Set`/`Task`/`Network` 模块；`Map` API 签名泛化（`k`/`v`）；`List` 新增 `sort`/`slice`/`take`/`drop`/`all`/`any`；`Process` 新增 `kill`/`wait`；`File` 新增 `glob`；`Regex` 新增 `fromString` |
+| 2026.06.13 | 示例代码语法合规修复；新增 `Regex`/`Duration`/`Set`/`Task` 模块；`Map` API 签名泛化（`k`/`v`）；`List` 新增 `sort`/`slice`/`take`/`drop`/`all`/`any`；`Process` 新增 `kill`/`wait`；`File` 新增 `glob`；`Regex` 新增 `fromString` |
 | 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |
 | 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
 | 2026.06.10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
