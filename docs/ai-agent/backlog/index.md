@@ -11,7 +11,7 @@
 | P1 | 命令函数系统设计 | — | `docs/ai-agent/design/command-function-system.md` | — | `done` | `plan-first` | 无 | 2026-06-04 |
 | P1 | 安全模型设计 | — | `docs/ai-agent/design/roles-and-permissions.md` | — | `done` | `plan-first` | 无 | 2026-05-31 |
 | P1 | 标准库类型设计 | — | `docs/ai-agent/design/standard-library.md` | — | `done` | `implement` | 无 | 2026-05-30 |
-| **P1** | **REPL 设计** | — | — | — | `needs-requirement` | `plan-first` | 运行时设计 | — |
+| **P1** | **Kun Shell 设计** | — | [`docs/ai-agent/design/kun-shell.md`](/ai-agent/design/kun-shell) | — | `done` | `plan-first` | 运行时设计 | 2026-06-13 |
 | P2 | PlantUML 图表补全 | — | `docs/ai-agent/diagrams/index.md` | `docs/ai-agent/plans/plan-type-system-core-design.md` | `needs-design` | `plan-first` | 无 | 2026-06-04 |
 
 ## 状态流转

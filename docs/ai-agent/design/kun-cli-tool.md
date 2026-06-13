@@ -19,6 +19,7 @@ kun [安全参数] <子命令> [子命令参数] <脚本.kun> [脚本参数...]
 | `lint` | lint 检查 `.kun` 文件 | `kun lint script.kun` |
 | `check` | 仅类型检查，不执行 | `kun check script.kun` |
 | `repl` | 启动交互式 REPL | `kun repl` |
+| `shell` | 启动 Kun Shell（交互式开发环境） | `kun shell` |
 | `cmd init` | 从 man/--help 生成类型化命令模块骨架 | `kun cmd init ls` |
 
 ## 执行模式
@@ -212,26 +213,11 @@ kun --allow-path /tmp --allow-net --cpu-limit 30s script.kun
 | `RLIMIT_NOFILE` | 256 | — |
 | `RLIMIT_NPROC` | 32 | — |
 
-## REPL
+## Kun Shell
 
-启动命令：
+Kun Shell 是 Kun 的交互式开发环境，整合了表达式求值、函数定义与收藏、脚本/库模块编辑执行、历史日志存储与回放功能。完整设计见 [Kun Shell](kun-shell.md)。
 
-```bash
-kun repl
-```
-
-支持以下交互命令：
-
-| 命令 | 说明 |
-|------|------|
-| `<expr>` | 求值表达式，打印结果与类型 |
-| `:type <expr>` | 显示表达式类型 |
-| `:load <file>` | 加载 `.kun` 文件 |
-| `:cmds` | 列出可用的类型化命令模块 |
-| `:modules` | 列出已加载的模块 |
-| `:exit` / `:quit` | 退出 REPL |
-
-REPL 默认运行在 `--no-sandbox` 模式。
+`kun repl` 作为历史兼容别名，指向 `kun shell`。
 
 ## 与相关文档的关系
 
@@ -239,6 +225,7 @@ REPL 默认运行在 `--no-sandbox` 模式。
 |------|------|
 | [`Cli` 模块](cli.md) | 脚本内 `List String` → 结构化 Config 的类型驱动解析器 |
 | [系统基线](../architecture/system-baseline.md#安全隔离) | Landlock/mount ns/seccomp/rlimit 运行时实现细节 |
+| [`Kun Shell`](kun-shell.md) | 交互式开发环境：SQLite/DuckDB 日志存储、函数收藏、AST 哈希唯一引用 |
 | [语法设计](syntax.md) | `main` 入口、`export`/`import` 语法 |
 | [功能清单](feature-inventory.md) | 各功能实现状态追踪 |
 
@@ -246,5 +233,5 @@ REPL 默认运行在 `--no-sandbox` 模式。
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.13 | 沙箱层级描述重构：区分父进程层与子进程层的两层叠加模型 |
+| 2026.06.13 | 沙箱层级描述重构；REPL 重命名为 Kun Shell 并独立为设计文档 |
 | 2026.06.12 | 从 `app-overview.md`、`syntax.md`、`system-baseline.md` 中提取 CLI 工具与安全控制为独立文档 |

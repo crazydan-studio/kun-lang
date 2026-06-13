@@ -102,7 +102,7 @@
 | Stream tagged union | ✅ 设计定型 | 替代函数指针链，双层间接→单层 |
 | do 块顺序执行 | ✅ 设计定型 | defer LIFO 逆序清理 |
 | panic + unwind | ✅ 设计定型 | defer 始终执行，panic-with-defer 语义 |
-| REPL 交互环境 | ✅ 设计定型 | 表达式求值 + 类型查询 + `:type`/`:load`/`:cmds`/`:modules`；详见 [`kun` CLI 工具](kun-cli-tool.md#repl) |
+| Kun Shell | ✅ 设计定型 | 交互式开发环境：表达式求值 + 类型查询 + `:type`/`:load`/`:edit`/`:run`/`:save`；SQLite 日志存储、DuckDB 可替换引擎、函数收藏、AST 哈希唯一引用；详见 [Kun Shell](kun-shell.md) |
 
 ### 管道与组合
 
@@ -181,5 +181,5 @@
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.13 | REPL 状态更新为"设计定型" |
+| 2026.06.13 | REPL 重命名为 Kun Shell 并扩展设计（SQLite 日志、函数收藏、AST 哈希） |
 | 2026.06.10 | 架构重设计：功能清单全面刷新 |
