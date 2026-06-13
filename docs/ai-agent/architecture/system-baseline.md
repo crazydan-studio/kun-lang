@@ -102,7 +102,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 
 `do` 块按顺序执行效应操作。含 `do` 块的函数通过编译器 AST 标记自动识别为效应函数。纯函数（无 `do` 块）不能调用效应函数——编译期拒绝。
 
-效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`、`TempDir.*`。
+效应函数涵盖以下命名空间的所有函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`。
 
 `do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值。语法细节见 [`syntax.md`](../design/syntax.md) do 块章节。
 
@@ -381,7 +381,7 @@ import Cmd.Git
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.12 | 文档重构：命令调用机制独立为 `command-system.md`；CLI 工具与安全控制独立为 `kun-cli-tool.md`；效应命名空间补全 `TempDir.*`；新增 `Cmd.mergeStderr`、`Cmd.timeout`/`Cmd.retry`、`Cmd.withRunAs`/`Cmd.andThen`/`Cmd.orElse` 文档；版本号统一为 yyyy.MM.dd 日期格式 |
+| 2026.06.12 | 文档重构：命令调用机制独立为 `command-system.md`；CLI 工具与安全控制独立为 `kun-cli-tool.md`；`TempFile`/`TempDir` 整合为 `File.createTempFile`/`File.createTempDir`；新增 `Cmd.mergeStderr`、`Cmd.timeout`/`Cmd.retry`、`Cmd.withRunAs`/`Cmd.andThen`/`Cmd.orElse` 文档；版本号统一为 yyyy.MM.dd 日期格式 |
 | 2026.06.11 | 模块系统重设计：目录即命名空间；`export (…)` 替代 `module Xxx export (…)`；`import X (…)` 替代 `import X with (…)` |
 | 2026.06.10 | 架构重设计：移除 `.cmd.kun`/`IO T`/`with caps`/dlopen/ptrace 等；新增 `Cmd.<bin>` fork-exec + Landlock/mount ns + `defer` + tagged union Stream |
 | 2026.05.27 | 项目初始化，设计文档定型 |

@@ -91,7 +91,7 @@ do
 
 ```kun
 do
-  case TempFile.create of
+  case File.createTempFile of
     Ok tmp ->
       defer (File.remove tmp)
       Cmd.ffmpeg {} "input.mp4" tmp

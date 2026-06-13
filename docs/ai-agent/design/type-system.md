@@ -104,52 +104,37 @@ if x /= Nil then
 
 #### `Int`
 
-- 固定 64 位有符号整数，补码表示
-- 四则运算溢出为运行时 Panic（`debug` 模式检测，`release` 模式可关闭检查）。注意：关闭检查后溢出行为为静默回绕（wraparound），与 i64 的补码表示一致。这是否属于"运行时类型错误"的争议——溢出是值域问题而非类型问题，不影响类型系统关于"消除运行时类型不匹配错误"的保证
-- 字面量支持十进制、十六进制 `0x`、八进制 `0o`、二进制 `0b`，以及下划线分隔 `1_000_000`
-- 支持操作：`+`, `-`, `*`, `/` (截断除法), `%` (模), `neg`, `abs`
-- 比较操作返回 `Bool`：`==`, `/=`, `<`, `>`, `<=`, `>=`
+- 固定 64 位有符号整数（i64），补码表示。字面量支持十进制、`0x`、`0o`、`0b` 及 `_` 分隔
+- 四则运算溢出时 panic（`release` 模式可关闭检测）。操作函数见 [`Int` 模块](standard-library.md#int--整数操作)
 
 #### `Float`
 
-- IEEE 754 双精度浮点数（f64）
-- 支持操作：`+`、`-`、`*`、`/`、`neg`、`abs`、`floor`、`ceil`、`round`、`sqrt`
-- 与 `Int` 的混合运算需显式转换：`toFloat`、`toInt`
+- IEEE 754 双精度浮点数（f64）。与 `Int` 混合运算需显式转换
+- 操作函数及容差比较见 [`Float` 模块](standard-library.md#float--浮点操作)
 
 **精度局限**：二进制浮点无法精确表示大多数十进制小数（如 `0.1` + `0.2` ≠ `0.3`）。Kun 从两个层面缓解：
 
 1. `toString` 输出时默认舍入到 15 位有效数字，消除显示噪音
 2. `Float.approxEqual` 提供容差比较，避免直接用 `==` 比较浮点值
 
-需要精确十进制计算的场景应使用标准库 `Decimal` 类型。
+需要精确十进制计算的场景应使用标准库 [`Decimal` 类型](standard-library.md#decimal--十进制精确数值)。
 
 #### `Bool`
 
-- 仅两个值：`true`, `false`
-- 支持操作：`&&`, `||`, `not`
-- 短路求值：`&&` 和 `||` 具有短路语义
+- 仅两个值：`true`、`false`。支持 `&&`、`||`、`not`，前两者短路求值
 
 #### `String`
 
-- 不可变 UTF-8 编码文本
-- 支持操作（通过 `String` 模块调用）：`++` (拼接), `length`, `slice`, `contains`, `startsWith`, `endsWith`, `split`, `join`, `trim`, `toUpper`, `toLower`, `replace`
-- 索引访问：`str[i]` 返回 `Char`
-- 使用双引号 `"..."`，支持转义序列；多行字符串用 `"""` 包裹
-- 插值字符串使用 `f"..."` 前缀
-- **外部输入编码策略**：从文件/网络读取的外部字节序列转换为 `String` 时（`Bytes -> String`），若包含非法 UTF-8 序列则运行时 Panic。需要处理非 UTF-8 数据的场景应使用 `Bytes` 类型，而非强制转为 `String`
+- 不可变 UTF-8 编码文本。操作函数见 [`String` 模块](standard-library.md#string--字符串操作)
+- 从外部输入转为 `String` 时，非法 UTF-8 序列运行时 Panic
 
 #### `Bytes`
 
-- 不可变二进制数据，与 `String` 语义上严格区分
-- 字面量使用 `0x` 前缀后接十六进制字节：`0x48656C6C6F`
-- 支持操作：`++` (拼接), `length`, `slice`, `at`
-- 转换：`toBytes : String -> Bytes`、`toString : Bytes -> String` (假定 UTF-8)
+- 不可变二进制数据，与 `String` 语义严格区分。字面量 `0x` 前缀。转换函数见标准库
 
 #### `Char`
 
-- Unicode 标量值（U+0000 到 U+10FFFF）
-- 使用单引号字面量：`'A'`, `'\n'`, `'好'`
-- 支持操作：`isDigit`, `isLetter`, `isWhitespace`, `toUpper`, `toLower`
+- Unicode 标量值（u32）。操作函数见标准库
 
 #### `Regex`
 
@@ -177,25 +162,16 @@ if x /= Nil then
 
 - 修饰符作用域：出现在模式开头则作用于整个模式，出现在中间则仅影响后续部分
 - 支持修饰符开关：`(?i)` 开启，`(?-i)` 关闭
-- 编译期对正则语法进行验证，语法错误为编译期错误
-- 支持操作：`match : Regex -> String -> ?String`、`matchAll : Regex -> String -> List String`、`contains : Regex -> String -> Bool`、`split : Regex -> String -> List String`、`replace : Regex -> String -> String -> String`、`replaceAll : Regex -> String -> String -> String`
-- 捕获组支持：`captures : Regex -> String -> ?(List (?String))`（返回所有捕获组，每组可能为 null）
+- 编译期验证正则语法。操作函数见标准库 `Regex` 类型
 
 #### `Duration`
 
-- 表示纳秒精度的时间段
-- 运行时表示为 i64（纳秒数）
-- 字面量：`5s`, `100ms`, `2h`, `30m`, `1d`, `500us`, `200ns`
-- 支持操作：`+`, `-`, 比较, `toSecs`, `toMillis`, `toNanos`
-- 可与 `Int` 进行标量乘除：`5s * 3`
+- 纳秒精度时间段，运行时表示为 i64（纳秒）。字面量：`5s`、`100ms`、`2h`、`30m`、`1d`、`500us`、`200ns`
+- 操作函数见标准库
 
 #### `Unit`
 
-- 零宽度类型（运行时 0 字节，等价 C `void`）
-- **无程序员可访问的字面量**——编译器在需要 `Unit` 值的位置插入唯一的隐式值
-- 仅用作**返回类型**（`T -> Unit`，标记无有意义返回值），**不可作为参数类型**
-- 对应 C 的 `void`
-- 泛型实例化中 `b = Unit` 时，编译器隐式填充唯一值；`Result Unit E` 的 `Ok` 变体由编译器隐式产生载荷
+- 零宽度类型（C `void`），编译器隐式值。不可作为参数类型
 
 #### 零参函数类型 `-> T`
 
@@ -226,11 +202,7 @@ getPid = \ ->
 
 #### `Path`
 
-- 表示文件系统路径
-- 与 `String` 语义上区分（但运行时同用 `[]u8`）
-- 字面量使用 `p"..."` 前缀：`p"/tmp/foo"`、`p"./foo"`
-- 支持操作：`++` (拼接)，`p"/etc" ++ p"kun" ++ p"config"` → `p"/etc/kun/config"`（自动处理分隔符）
-- 支持操作：`parent : Path -> Path`、`fileName : Path -> String`
+- 文件系统路径，与 `String` 语义区分。字面量 `p"..."` 前缀。操作函数见 [`Path` 模块](standard-library.md#path)
 
 ```kun
 // 路径操作是纯字符串语义，不依赖文件类型
@@ -244,7 +216,7 @@ p = p"/tmp/foo"
 Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
 
 - 含 `do` 块的函数自动标记为效应函数
-- 以下命名空间的所有函数均为效应函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`TempFile.*`、`TempDir.*`
+- 以下命名空间的所有函数均为效应函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
 - 效应性不扩散到类型签名——函数签名中不出现 `IO` 标记
 - Lambda 含有效应函数调用时，该 lambda 必须在 `do` 块内定义
@@ -253,11 +225,21 @@ Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
 
 ### 等价规则
 
-类型等价基于结构等价（Structural Equivalence）：
+Kun 采用**结构等价**（Structural Equivalence），而非名义等价（Nominal Equivalence）。
 
-- 两个类型当且仅当其结构完全相同时被视为等价
-- 名称别名（在导入时指定的别名）展开后参与比较
-- 泛型类型在应用相同类型参数后结构等价
+**结构等价**：两个类型当且仅当其结构完全相同时被视为等价。名称别名（导入时指定）展开后参与比较。泛型类型在应用相同类型参数后结构等价。结构等价适用于所有类型：基础类型、复合类型、Record、ADT、函数类型均基于其结构而非名称判断等价。
+
+**名义等价**（未采用）：两个类型仅当声明为同一名称时才等价，即使结构相同也不兼容。如 `type A = { x: Int }` 与 `type B = { x: Int }` 在名义等价下是不同的类型。
+
+选择结构等价的理由：
+
+1. **与 HM 推断天然契合**。HM 合一算法直接产出结构等式，名义等价需要在合一之外额外维护全局名称映射并逐次查表展开，反而增加复杂度。
+
+2. **Kun 无子类型，名义等价优势场景不存在**。名义等价的主要优势在于配合 nominal subtyping（如 Java 继承链），但 Kun 设计原则明确排除了子类型关系。
+
+3. **脚本场景追求零声明成本**。`{ x: Int, y: Int }` 自然就是坐标类型，无需先声明 `type Point = ...` 才能传递。用户按需使用 Record 字面量即可获得类型安全。
+
+4. **需要语义隔离时用 newtype**。`type UserId = UserId Int` 在结构等价系统中提供精确的名义边界——同名 newtype 互相兼容，不同名的即使包装相同底层类型也不兼容。这以最小成本在需要的地方获得名义等价的语义隔离能力，而不必全系统采用。
 
 ### 递归类型
 
@@ -309,100 +291,6 @@ updateName = \r ->
   { r | name = "new name" }
 ```
 
-### 显式类型转换
-
-跨类型转换必须通过显式内置函数：
-
-| 转换 | 函数 | 安全性 |
-|------|------|--------|
-| `Int -> Float` | `toFloat : Int -> Float` | 大整数可能精度损失 |
-| `Float -> Int` | `toInt : Float -> Int` | 截断，小数部分丢失 |
-| `String -> Bytes` | `toBytes : String -> Bytes` | 始终安全 |
-| `Bytes -> String` | `toString : Bytes -> String` | UTF-8 非法序列运行时 Panic |
-
-## 类型检查算法
-
-### 两阶段流程
-
-```
-阶段 1: 约束生成（Constraint Generation）
-  AST → 遍历生成类型约束等式
-
-阶段 2: 合一（Unification）
-  约束等式 → 求解 → 类型替换 → 最终类型
-```
-
-### 阶段 1: 约束生成
-
-对 AST 的每个节点，根据其种类生成对应的类型约束：
-
-| AST 节点 | 生成的约束 |
-|---|---|
-| 整数字面量 | `τ = Int` |
-| Bool 字面量 | `τ = Bool` |
-| 变量引用 | `τ = lookup(env, var)` |
-| 函数应用 | `τ_fn = (τ_arg) -> τ_res` |
-| Lambda | `τ = (τ_param) -> τ_body` |
-| Let 绑定 | 泛型实例化，let-多态 |
-| 模式匹配 | 穷举性检查，分支类型合一 |
-| If 表达式 | 条件必须为 `Bool`，分支类型合一 |
-| Record 字面量 | `τ = { f1: τ1, f2: τ2, ... }`，提取字段类型 |
-| 字段访问 `.name` | `τ_record` 必须包含 `name` 字段，`τ_res` 为该字段类型 |
-| Record 更新 `{ r \| f = v }` | `τ_input` 与 `τ_output` 结构相同，仅字段 `f` 类型为 `τ_val` |
-
-### 阶段 2: 合一
-
-标准 Martelli-Montanari 合一算法：
-
-1. 从约束集中取一条等式 `τ₁ = τ₂`
-2. 应用当前替换到 `τ₁` 和 `τ₂`
-3. 尝试合一化简后的类型
-4. 发生冲突 → 生成类型错误报告
-5. 成功 → 将新替换加入到全局替换
-6. 重复直到约束集为空
-
-Record 类型的合一是结构化的：两个 Record 类型当且仅当字段名集合相同且对应字段类型可合一时才可合一。
-
-### 类型错误报告
-
-类型错误报告包含：
-
-- **错误位置**：文件名 + 行号 + 列号
-- **期望类型**：上下文期望的类型
-- **实际类型**：表达式推断出的类型
-- **错误原因**：可读的中文解释
-- **修改建议**：针对常见错误的修复提示
-
-错误消息模板：
-
-```
-类型错误 [E001]: 类型不匹配
-  ┌─ script.kun:12:5
-  │
-12  │  42 + "hello"
-  │  ───┬───
-  │     ╰── String 类型不能与 Int 进行 + 运算
-  │
-  提示：字符串拼接请使用 ++ 操作符
-```
-
-## 类型表示与运行时
-
-### 运行时类型表示
-
-- 基础类型在运行时表示为对应的 C ABI 类型（`i64`、`f64`、`u8` 等）
-- 禁止运行时类型擦除 —— 仅在必要时保留类型标签（如 ADT 变体标记）
-- 和类型运行时采用带标记的联合体（Tagged Union）：
-
-  ```zig
-  struct Nilable_Int64 {
-    uint8_t is_nil;    // 0 = 有值, 1 = Nil
-    int64_t value;     // 仅 is_nil==0 时有意义
-  };
-  ```
-
-## 版本与演进
-
 ### Record 构造默认对象
 
 Kun 语言本身**不**支持为积类型字段绑定缺省值语法。需要使用缺省值的场景，由类型模块导出的构造默认对象的函数实现：
@@ -426,9 +314,31 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 此模式与不可变性一致，不需要语言层面增加缺省值语法，不增加类型系统的复杂度。
 
+
+### 显式类型转换
+
+跨类型转换必须通过显式内置函数：
+
+| 转换 | 函数 | 安全性 |
+|------|------|--------|
+| `Int -> Float` | `toFloat : Int -> Float` | 大整数可能精度损失 |
+| `Float -> Int` | `toInt : Float -> Int` | 截断，小数部分丢失 |
+| `String -> Bytes` | `toBytes : String -> Bytes` | 始终安全 |
+| `Bytes -> String` | `toString : Bytes -> String` | UTF-8 非法序列运行时 Panic |
+
+## 类型检查算法
+
+类型检查采用 HM（Hindley-Milner）推断，两阶段流程（约束生成 + 合一），详细实现见[系统基线](../architecture/system-baseline.md)。
+
+## 类型表示与运行时
+
+类型在编译后的运行时表示及 C ABI 映射见[系统基线](../architecture/system-baseline.md#类型运行时表示)。T类型系统专注于编译期语义，运行时内存布局属于架构实现细节。
+
+## 版本与演进
+
 | 版本 | 变更 |
 |------|------|
-| 2026.06.12 | 新增 `Float` 精度局限说明与 `toString` 截断语义；编译器内置标注（`Nil`/`?T`/效应跟踪）；效应命名空间补全 `TempDir.*`；新增 `Decimal` 精确十进制类型 |
+| 2026.06.12 | 新增 `Float` 精度局限说明与 `toString` 截断语义；编译器内置标注（`Nil`/`?T`/效应跟踪）；新增 `Decimal` 精确十进制类型；`TempFile`/`TempDir` 整合为 `File.createTempFile`/`File.createTempDir` |
 | 2026.06.10 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base \| field : T }`）；效应跟踪改为 AST 标记方案 |
 | 2026.06.10 | 目录即命名空间模块系统：`export (...)` 替代 `module Xxx export (...)`；`import X (...)` 替代 `import X with (...)` |
 | 2026.06.02 | 扩展积类型 `{ Base \| field : T }`，移除行变量以降低类型检查器实现复杂度 |

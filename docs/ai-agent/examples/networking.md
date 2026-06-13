@@ -11,7 +11,7 @@
 // ============================================================
 
 import IO
-import TempFile
+import File
 import File
 import Process
 
@@ -116,7 +116,7 @@ handleTerminate = \ ->
 backupAndClean : Path -> Unit
 backupAndClean = \workDir ->
   do
-    tmp = TempFile.create
+    tmp = File.createTempFile
     case tmp of
       Ok tmpPath ->
         defer (File.remove tmpPath)

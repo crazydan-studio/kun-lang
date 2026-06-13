@@ -50,7 +50,7 @@
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
 | Result | ✅ 设计定型 | `map`/`mapError`/`andThen`/`withDefault` |
 | Random | ✅ 设计定型 | 密码学安全随机数 |
-| TempFile / TempDir | ✅ 设计定型 | 临时文件/目录创建 |
+| File.createTempFile / File.createTempDir | ✅ 设计定型 | 临时文件/目录创建 |
 | Stream | ✅ 设计定型 | 惰性序列（纯变换 + IO 消费） |
 | IO | ✅ 设计定型 | 控制台 IO，需显式导入 |
 | Env | ✅ 设计定型 | 环境变量读写 |

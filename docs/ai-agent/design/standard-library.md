@@ -6,6 +6,10 @@
 
 所有标准库模块中的函数均需显式导入方可使用（除 `Function` 模块名称始终缺省可用、`Nil` 变体始终缺省可用外）。
 
+### 约定：`of` 构造函数
+
+标准库中 `Xxx.of` 形式的构造函数由编译器保证转换安全——调用者以字面量（或编译期已知值）调用时在编译期校验合法性；运行时传入非法值时**抛出 panic**。需要处理不确定来源数据的场景应使用 `Xxx.fromString` / `Xxx.fromInt` 等返回 `Result` 的安全构造。
+
 ## `Int` — 整数操作
 
 ### 定位
@@ -785,6 +789,8 @@ toUnixNanos : DateTime -> Int
 
 // 按格式模板格式化时间，格式非法时返回 `Err`
 format : String -> DateTime -> Result String String
+// 格式字段名：`yyyy`（年）、`yy`（年两位数）、`MM`（月）、`dd`（日）、`HH`（时）、`mm`（分）、`ss`（秒）、`SSS`（毫秒）、`Z`（时区偏移）
+
 // 按格式模板解析时间字符串
 parse : String -> String -> Result DateTime String
 
@@ -1418,60 +1424,7 @@ case Validator.range 1 100 50 of
 import Cli
 ```
 
-对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安
-全的 Record。`Cli` 模块导出类型结构与声明器函数——`Cli.CliSpec` 和 `Cli.CliMeta`
-为普通 Record 类型，用户直接通过 Record 字面量构造和 `Map` 更新语法进行组装。提供
-声明式 API、自动 `--help`/`--version` 输出、子命令、互斥组、选项依赖、否定标志、环
-境变量回退、自定义校验（对接 `Validator` 模块）等完整 CLI 开发能力。详细设计见
-[`Cli` 模块设计文档](cli.md)。
-
-简要示例：
-
-```kun
-import Cli
-
-type Config = { verbose : Bool, output : ?Path, jobs : Int, source : String }
-
-parseConfig : List String -> Result Config Cli.CliError
-parseConfig =
-  Cli.parse
-    { meta  = { intro = "build.kun", text = "Compiles and packages." }
-    , args =
-        [ Cli.flag "verbose" 'v' "Verbose output"
-        , Cli.option "output" 'o' "Output file path"
-        , Cli.option "jobs" 'j' "Parallel jobs"
-            |> Cli.withDefault 4
-        , Cli.arg "source" "Source directory"
-        ]
-    }
-```
-
-子命令示例：
-
-```kun
-import Cli
-
-type PushConfig = { force : Bool, remote : String, branch : String }
-type DeployConfig = { verbose : Bool, push : ?PushConfig }
-
-pushSpec : Cli.CliSpec
-pushSpec =
-  { meta = { intro = "Push to remote" }
-  , args =
-      [ Cli.flag "force" 'f' "Force push"
-      , Cli.arg "remote" "Remote name"
-      , Cli.arg "branch" "Branch name"
-      ]
-  }
-
-parseConfig : List String -> Result DeployConfig Cli.CliError
-parseConfig =
-  Cli.parse
-    { meta  = { intro = "deploy.kun" }
-    , args  = [ Cli.flag "verbose" 'v' "Verbose output" ]
-    , subs  = #{ "push" = pushSpec }
-    }
-```
+类型驱动 CLI 参数解析，完整 API、示例与设计说明见 [`Cli` 模块](cli.md)。
 
 ## `Random` — 随机数
 
@@ -1512,47 +1465,6 @@ Random.shuffle [1, 2, 3, 4, 5]       // → 随机排列
 ```
 
 语义场景：唯一 ID 生成、端口选择、测试数据、负载分配。
-
-## `TempFile` / `TempDir` — 临时文件与目录
-
-### 定位
-
-创建临时文件和目录，遵循安全最佳实践（`mkstemp`）。生命周期：临时文件/目录在脚本退出时自动清理。
-
-需显式导入：
-
-```kun
-import TempFile
-import TempDir
-```
-
-### API
-
-- `TempFile` 函数
-  ```kun
-  // 创建临时文件，返回路径
-  create : -> Result Path IOError
-  ```
-- `TempDir` 函数
-  ```kun
-  // 创建临时目录，返回路径
-  create : -> Result Path IOError
-  ```
-
-### 示例
-
-```kun
-import TempFile
-
-do
-  case TempFile.create of
-    Ok tmp ->
-      defer (File.remove tmp)
-      File.writeString tmp "content"
-      IO.println f"wrote to {tmp}"
-    Err _ ->
-      IO.println "failed to create temp file"
-```
 
 ## `Stream` — 惰性序列
 
@@ -1780,6 +1692,12 @@ remove : Path -> Result Unit IOError
 
 // 删除目录
 removeDir : Path -> Result Unit IOError
+
+// 创建临时文件，脚本退出时自动清理，返回路径
+createTempFile : -> Result Path IOError
+
+// 创建临时目录，脚本退出时自动清理，返回路径
+createTempDir : -> Result Path IOError
 ```
 
 ### 示例
@@ -1803,93 +1721,25 @@ do
         |> List.iter (\p -> do IO.println (Path.toString p))
     Err _ ->
       IO.println "cannot list directory"
+
+  // 创建临时文件
+  case File.createTempFile of
+    Ok tmp ->
+      defer (File.remove tmp)
+      File.writeString tmp "content"
+      IO.println f"wrote to {tmp}"
+    Err _ ->
+      IO.println "failed to create temp file"
 ```
 
 ## `Cmd` — Command 工具与命令调用
 
-### 定位
-
-子进程命令的构造、修饰与执行。命令调用的语法与机制详见[OS 命令调用机制](command-system.md)。
+命令调用语法、选项映射、执行模型、API 签名及完整示例见 [OS 命令调用机制](command-system.md)。
 
 需显式导入：
 
 ```kun
 import Cmd
-```
-
-### API
-
-> **编译器内置**：`<bin>` 和 `<bin>?` 语法由编译器解析并生成对应的命令调用代码，非普通函数调用。`Command` 类型的延迟执行和 `|>` 隐式触发也由编译器处理。
-
-```kun
-// Command 构造
-<bin>  : ?{ options } -> posArgs... -> Command
-<bin>? : ?{ options } -> posArgs... -> Result (Stream String) CommandError
-
-// OS 管道链
-pipe  : List Command -> Command
-pipe? : List Command -> Result (Stream String) CommandError
-
-// 添加环境变量
-withEnv : Map String String -> Command -> Command
-
-// 追加原始 argv token
-withRawOpt : String -> ?String -> Command -> Command
-
-// 注入 stdin（字符串或字节流）
-withStdin : String -> Command -> Command
-withStdin : Stream Bytes -> Command -> Command
-
-// stderr 合并到 stdout
-mergeStderr : Command -> Command
-
-// 指定工作目录
-withCwd : Path -> Command -> Command
-
-// 指定执行用户
-withRunAs : String -> Command -> Command
-
-// 短路条件组合
-andThen : Command -> Command -> Command          // 第一个成功时执行第二个
-orElse  : Command -> Command -> Command          // 第一个失败时执行备选
-
-// 工具
-which   : String -> ?Path                                                   // PATH 查找
-timeout : Duration -> Command -> Result (Stream String) CommandError        // 超时执行
-retry   : Int -> Duration -> Command -> Result (Stream String) CommandError // 重试执行
-```
-
-- `Cmd.withCwd` 每个 Command 独立设置工作目录（fork 后、exec 前 `chdir`），父进程 CWD 始终不变。缺省使用 `Path.cwd`
-- `Cmd.withRunAs` 子进程通过 `setuid()` 切换，需 Kun 进程具备 OS 级权限
-- `Cmd.andThen` / `Cmd.orElse` 返回 `Command`（延迟执行），不立即 fork。不引入 `&&`/`||` 运算符以避免与逻辑短路运算符冲突
-
-### 示例
-
-```kun
-import Cmd
-
-do
-  // 基础调用
-  Cmd.ls { l = true, a = true } p"/tmp"
-
-  // 即时执行（返回 Result）
-  case Cmd.grep? { i = true, pattern = "error" } p"/var/log/app.log" of
-    Ok stream ->
-      stream
-        |> Stream.lines
-        |> Stream.iter (\line -> do IO.println line)
-    Err _ ->
-      IO.println "grep failed"
-
-  // 管道链
-  Cmd.pipe
-    [ Cmd.echo {} "hello world"
-    , Cmd.wc { w = true }
-    ]
-
-  // 短路条件
-  Cmd.docker.build { tag = "app" } "."
-    |> Cmd.andThen (Cmd.docker.push {} "app:latest")
 ```
 
 ## `Process` — 进程控制
@@ -2092,8 +1942,6 @@ main = \_ ->
 | `Result` | `import Result` | 错误处理组合子 |
 | `Cli` | `import Cli` | 命令行参数解析（类型驱动，auto --help，子命令） |
 | `Random` | `import Random` | 随机数与洗牌 |
-| `TempFile` | `import TempFile` | 临时文件和临时目录 |
-| `TempDir` | `import TempDir` | — |
 | `Stream` | `import Stream` | 惰性序列 |
 | `Validator` | `import Validator` | 校验函数（`oneOf`/`range`/`nonEmpty`/`regex`），供 `Cli.withValidator` 等使用 |
 | `IO` | `import IO` | 控制台 IO |
