@@ -6,6 +6,7 @@
 |---|---|---|
 | 宿主语言 | Zig 0.13.0 | 高性能、无 hidden control flow、直接操作内存 |
 | 目标平台 | Linux | 使用 fork/exec、namespace、Landlock、seccomp 等 Linux 特有机制 |
+| 二进制产物 | `kun`（脚本执行器）+ `kun-shell`（交互式环境）+ `libkun_core.so`（共享解释器核心） | 单体可执行文件 + 动态链接库 |
 | 文档构建 | VitePress + pnpm | 现代化的静态文档站点 |
 | 版本控制 | Git + GitHub | 分布式版本控制 |
 

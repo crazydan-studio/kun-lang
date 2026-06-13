@@ -18,7 +18,6 @@ kun [安全参数] <子命令> [子命令参数] <脚本.kun> [脚本参数...]
 | `fmt` | 格式化 `.kun` 文件 | `kun fmt script.kun` |
 | `lint` | lint 检查 `.kun` 文件 | `kun lint script.kun` |
 | `check` | 仅类型检查，不执行 | `kun check script.kun` |
-| `shell` | 启动 Kun Shell（交互式环境） | `kun shell` |
 | `cmd init` | 从 man/--help 生成类型化命令模块骨架 | `kun cmd init ls` |
 
 ## 执行模式
@@ -214,7 +213,7 @@ kun --allow-path /tmp --allow-net --cpu-limit 30s script.kun
 
 ## Kun Shell
 
-Kun Shell 是 Kun 的交互式环境，整合了表达式求值、函数定义与收藏、脚本/库模块编辑执行、历史日志存储与回放功能。完整设计见 [Kun Shell](kun-shell.md)。
+Kun Shell 是 Kun 的交互式环境，以独立可执行文件 `kun-shell` 提供。`kun-shell` 与 `kun` 通过动态链接库 `libkun_core.so` 共享解释器核心代码。完整设计见 [Kun Shell](kun-shell.md)。
 
 ## 与相关文档的关系
 

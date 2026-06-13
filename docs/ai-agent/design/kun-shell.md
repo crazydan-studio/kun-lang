@@ -2,12 +2,12 @@
 
 ## 定位
 
-Kun Shell 是 Kun 的交互式环境，替代传统的 REPL 模式。Kun Shell 整合了表达式求值、函数定义与收藏、脚本/库模块编辑执行、历史记录存储与回放功能，是 Kun 开发者的主要交互入口。
+Kun Shell 是 Kun 的交互式环境。`kun-shell` 为独立可执行文件，与 `kun` CLI 工具通过动态链接库 `libkun_core.so` 共享解释器核心代码（词法分析、语法分析、类型检查、效应检查、求值引擎）。
 
 启动命令：
 
 ```bash
-kun shell
+kun-shell
 ```
 
 Kun Shell 默认运行在 `--no-sandbox` 模式。
@@ -211,25 +211,32 @@ formatHost : String -> Int -> String
 
 ## 架构
 
-Kun Shell 由以下组件构成：
+Kun Shell 由以下组件构成，通过 `libkun_core.so` 动态链接库与 `kun` 共享解释器核心：
 
 ```
-Kun Shell
+kun-shell 可执行文件
 ├── 输入处理层    —— 读取用户输入、命令解析、历史补全
-├── 求值引擎      —— 表达式求值、函数定义、模块加载（复用解释器核心）
+├── 求值引擎      —— 通过 libkun_core.so 调用解释器核心
 ├── 存储层        —— SQLite（缺省）/ DuckDB（可选）日志与收藏
 ├── 编辑器集成    —— 调用 $EDITOR 进行文件编辑
 ├── 历史回放      —— 结构化日志查询与重放
 └── 函数收藏      —— AST 哈希、唯一引用、跨会话复用
+
+解释器核心（libkun_core.so）
+├── 词法分析器
+├── 语法分析器
+├── 类型检查器
+├── 效应检查器
+└── 求值引擎
 ```
 
-与解释器核心的关系：Kun Shell 复用 `解释器核心`（词法分析、语法分析、类型检查、效应检查）的全部能力，在其上构建交互式界面和持久化能力。
+`kun-shell` 和 `kun` 均链接 `libkun_core.so`，解释器核心代码编译为单一共享库，避免两份二进制重复内建解释器逻辑。Kun Shell 在解释器核心之上构建交互式界面和持久化能力。
 
 ## 与相关文档的关系
 
 | 文档 | 内容 |
 |------|------|
-| [`kun` CLI 工具](kun-cli-tool.md) | `kun shell` 子命令入口、Shell 安全模式 |
+| [`kun` CLI 工具](kun-cli-tool.md) | `kun` 与 `kun-shell` 通过 `libkun_core.so` 共享解释器核心 |
 | [系统基线](../architecture/system-baseline.md) | 求值引擎与解释器核心的实现 |
 | [模块边界](../architecture/module-boundaries.md) | Shell 在架构中的位置与依赖 |
 | [语法设计](syntax.md) | Shell 中使用的 Kun 语法 |
