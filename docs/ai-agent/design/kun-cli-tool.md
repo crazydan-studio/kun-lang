@@ -136,6 +136,8 @@ kun script.kun            # args = []
 - 不需要命令行参数时用 `\_ ->` 忽略参数
 - 支持 Shebang：`#!/usr/bin/env kun`
 
+> **Shebang 限制**：Linux 内核仅将 shebang 行的第一个参数传递给解释器。因此 `#!/usr/bin/env kun --allow-path /tmp` 中 `--allow-path /tmp` 会被内核截断。安全参数必须通过命令行传递（`kun --allow-path /tmp script.kun`），或使用 `#!/usr/bin/kun` 并将参数写入脚本内的 `# kun-args: --allow-path /tmp` 前置指令。
+
 ```kun
 // ✅ 正确：可执行脚本
 main : List String -> Unit

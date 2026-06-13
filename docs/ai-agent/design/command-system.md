@@ -98,8 +98,10 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 | 场景 | 触发条件 | 示例 |
 |---|---|---|
 | `\|>` 隐式触发 | 左侧 `Command`，右侧函数期望 `Stream` | `Cmd.cat p"/x" \|> Stream.lines` |
-| `do` 块语句边界 | 未消费的 `Command` 作为 `do` 块语句结果 | `Cmd.ls { long = true }` |
+| `do` 块语句边界 | 未被 `=` 绑定或 `|>` 消费的 `Command` 表达式作为独立语句执行 | `Cmd.ls { long = true }` |
 | `Cmd.<bin>?` | `?` 后缀，立即执行并返回 `Result` | `result = Cmd.cat? p"/x"` |
+
+> `do` 块边界规则：`Cmd.<bin>` 表达式若被 `=` 绑定（如 `c = Cmd.ls {}`）则视为"已消费"，不在此处触发执行——`c` 绑定为 `Command` 值，后续可通过 `|>` 或终端操作触发。若 `Cmd.<bin>` 表达式作为独立语句出现（无 `=` 绑定），则视为"未消费"，在语句边界自动触发执行。
 
 ### 错误处理
 
@@ -183,6 +185,8 @@ do
 Cmd.withStdin : String -> Command -> Command        // 字符串模式
 Cmd.withStdin : Stream Bytes -> Command -> Command  // 流式模式
 ```
+
+String 重载适用于小体积输入（< 1MB），超出时推荐使用流式模式。两种模式均在 fork 后通过 pipe 写入子进程 stdin，若子进程不消费 stdin 且输入超过 pipe 缓冲区（64KB），父进程写入阻塞。
 
 ## 环境变量：`Cmd.withEnv`
 
