@@ -21,7 +21,7 @@ kun-lang/
 │   ├── Cmd.withEnv / Cmd.withStdin / Cmd.withRawOpt / Cmd.mergeStderr
 │   ├── Cmd.withCwd / Cmd.withRunAs
 │   ├── Cmd.andThen / Cmd.orElse（短路条件组合）
-│   ├── Cmd.timeout / Cmd.retry（超时与重试，工具函数）
+│   ├── Cmd.timeout / Cmd.retry（立即执行，返回 Result，与修饰函数不同）
 │   ├── Cmd.pipe / Cmd.pipe? OS 管道链
 │   └── Cmd.which（PATH 查找）
 ├── 安全子系统
@@ -32,11 +32,13 @@ kun-lang/
 │   ├── rlimit 资源限制
 │   └── 环境变量安全过滤
 ├── 标准库
-│   ├── 数据类型（List、Map、Set、Stream 等）
-│   ├── 管道与高阶函数
+│   ├── 数据类型（Int、Float、String、Math、Decimal、List、Map、Set、Stream 等）
+│   ├── 管道与高阶函数（Function、Nil、Result 等）
 │   ├── 模式匹配
-│   ├── IO 操作
-│   └── 文件操作（File.* — 进程内 syscall）
+│   ├── IO 操作（IO、File、Env、Cmd、Process、Sys 等）
+│   ├── CLI 工具（Cli、Validator、Path 等）
+│   ├── 类型安全解析（Parser.JSON、Parser.Record）
+│   └── 系统与安全（Random、Signal、Port、Pid、ExitCode、DateTime、IpAddress、Errno、FileType、FileMode、FileStat、IOError、CommandError、Uid、Gid 等）
 └── REPL
     ├── 交互式环境
     ├── 语法高亮
@@ -76,9 +78,16 @@ REPL → 解释器核心 → 运行时
                       ↓
 解释器核心 → 命令调用系统
                       ↓
-           安全子系统 ← 运行时
+            运行时 → 安全子系统
                       ↓
-                 标准库 ← 运行时
+            运行时 → 标准库
 ```
 
 解释器核心依赖命令调用系统的类型化模块进行类型检查；运行时依赖安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用；REPL 是解释器核心的交互式包装。
+
+## 版本历史
+
+| 版本 | 变更 |
+|------|------|
+| 2026.06.13 | 标准库模块列表从 5 个分类扩展为按实际模块列举；依赖图统一为 `→` 方向；`Cmd.timeout`/`Cmd.retry` 标注执行时差异 |
+| 2026.06.10 | 架构重设计初始版本
