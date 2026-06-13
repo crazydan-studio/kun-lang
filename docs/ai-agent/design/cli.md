@@ -337,7 +337,7 @@ type CliError
 > **递归类型依赖**：`CliSpec` 通过 `subs : ?(Map String CliSpec)` 形成递归类型。这
 > 要求 Kun 的类型系统支持 **等递归类型（equi-recursive types）**——即在合一算法中
 > 对 `type` 别名关闭 occurs check，允许类型引用自身。此能力已写入
-> `type-system.md` 的「递归类型」章节。
+> [类型系统设计](type-system.md)的「递归类型」章节。
 
 ### API
 

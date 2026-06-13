@@ -243,8 +243,7 @@ Kun 采用**结构等价**（Structural Equivalence），而非名义等价（No
 
 ### 递归类型
 
-Kun 支持 **等递归类型（Equi-recursive Types）**。在合一算法中，对 `type` 声明的别
-名关闭 occurs check——允许类型定义中引用自身，通过别名的结构展开实现。
+Kun 支持 **等递归类型（Equi-recursive Types）**。在合一算法中，对 `type` 声明的别名关闭 occurs check——允许类型定义中引用自身，通过别名的结构展开实现。
 
 ```kun
 // 等递归类型示例：clispec 通过 subs 引用自身
@@ -332,7 +331,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 ## 类型表示与运行时
 
-类型在编译后的运行时表示及 C ABI 映射见[系统基线](../architecture/system-baseline.md#类型运行时表示)。T类型系统专注于编译期语义，运行时内存布局属于架构实现细节。
+类型在编译后的运行时表示及 C ABI 映射见[系统基线](../architecture/system-baseline.md#类型运行时表示)。类型系统专注于编译期语义，运行时内存布局属于架构实现细节。
 
 ## 版本与演进
 

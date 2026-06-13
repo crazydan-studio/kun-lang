@@ -393,7 +393,7 @@ type Port = Port Int
 #### API
 
 ```kun
-// 构造 `Port`，调用者须确保参数在 `0..65535` 内
+// 构造 `Port`，调用者须确保参数在 `0..65535` 内，非法输入 panic
 of : Int -> Port
 
 // 检查端口号是否在合法范围 `0..65535` 内
@@ -442,7 +442,7 @@ type Pid = Pid Int
 #### API
 
 ```kun
-// 构造 `Pid`，调用者须确保参数为合法进程 ID
+// 构造 `Pid`，调用者须确保参数为合法进程 ID，非法输入 panic
 of : Int -> Pid
 
 // 检查 PID 是否在合法范围 `1..2^22-1` 内
@@ -621,7 +621,7 @@ type FileMode = FileMode Int    // 八进制权限位，如 0o755、0o644
 #### API
 
 ```kun
-// 构造 `FileMode`，调用者须确保参数为合法八进制权限位
+// 构造 `FileMode`，调用者须确保参数为合法八进制权限位，非法输入 panic
 of : Int -> FileMode
 
 // 所有者是否可读
@@ -777,7 +777,7 @@ type DateTime = DateTime Int
 #### API
 
 ```kun
-// 从 Unix 纳秒数构造 `DateTime`（调用者自保证合法性）
+// 从 Unix 纳秒数构造 `DateTime`（调用者自保证合法性，非法输入 panic）
 of : Int -> DateTime
 
 // 从 Unix 秒数构造 `DateTime`
@@ -850,7 +850,7 @@ generalError : ExitCode
 // 127 — 命令未找到
 commandNotFound : ExitCode
 
-// 构造 `ExitCode`，调用者须确保参数在 `0..255` 内
+// 构造 `ExitCode`，调用者须确保参数在 `0..255` 内，非法输入 panic
 of : Int -> ExitCode
 
 // 检查退出码是否在合法范围 `0..255` 内
@@ -945,7 +945,7 @@ type Gid = Gid Int       // 组 ID
   ```kun
   current : -> Uid
 
-  // 构造 `Uid`
+  // 构造 `Uid`，调用者须确保参数合法，非法输入 panic
   of : Int -> Uid
 
   // 安全构造，非法值（< 0）返回 `Err`
@@ -957,7 +957,7 @@ type Gid = Gid Int       // 组 ID
   ```kun
   current : -> Gid
 
-  // 构造 `Gid`
+  // 构造 `Gid`，调用者须确保参数合法，非法输入 panic
   of : Int -> Gid
 
   // 安全构造，非法值（< 0）返回 `Err`
@@ -1040,7 +1040,7 @@ import Decimal
 ```kun
 type Decimal
 
-// 从字符串构造（调用者自保证合法性，非法输入行为未定义）
+// 从字符串构造（调用者自保证合法性，非法输入 panic）
 of : String -> Decimal
 
 // 从 Int 构造（精确）
@@ -1064,14 +1064,14 @@ divide : Int -> Decimal -> Decimal -> Result Decimal String
 // 舍入到指定小数位数
 round : Int -> Decimal -> Decimal
 
-// 比较
-compare : Decimal -> Decimal -> Order
+// 比较（返回 -1 / 0 / 1，同 Int 比较语义）
+compare : Decimal -> Decimal -> Int
 
 // 转换为字符串
 toString : Decimal -> String
 ```
 
-- `of` — 从字符串构造，由调用者确保输入合法（如字面量 `"0.1"`）。非法格式为运行时行为，不保证报错
+- `of` — 从字符串构造，由调用者确保输入合法。遵循[全局 `of` 约定](#约定of-构造函数)：非法输入 panic
 - `fromString` — 安全构造，非法格式返回 `Err`
 - `fromInt` 从整数构造，始终成功
 - 四则运算均保持精确（除法除外）

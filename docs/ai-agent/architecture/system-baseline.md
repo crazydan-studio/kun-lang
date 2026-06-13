@@ -175,7 +175,7 @@ panic 触发 unwind 时，当前 `do` 块的所有 `defer` 按 LIFO 逆序始终
 
 ## 命令调用机制
 
-所有命令通过 `Cmd.<bin>` 语法调用，命令执行采用 fork-exec 子进程 + 管道捕获 stdout/stderr。语言层 API 见 [`standard-library.md`](../design/standard-library.md) Cmd 模块及 [`app-overview.md`](../design/app-overview.md)。
+所有命令通过 `Cmd.<bin>` 语法调用，命令执行采用 fork-exec 子进程 + 管道捕获 stdout/stderr。语言层设计见 [OS 命令调用机制](../design/command-system.md)。
 
 ### 子进程执行流程
 

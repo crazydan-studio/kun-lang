@@ -16,7 +16,7 @@
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
 | 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |
 | 泛型 | ✅ 设计定型 | 无约束参数化多态（简单泛型） |
-| 效应跟踪 | ✅ 设计定型 | AST 标记：含 `do` 块的函数 + `Cmd.*`/`IO.*`/`File.*` 等命名空间函数为效应函数，纯函数不能调用 |
+| 效应跟踪 | ✅ 设计定型 | AST 标记：含 `do` 块的函数 + `Cmd.*`/`IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*` 命名空间函数为效应函数，纯函数不能调用 |
 | 类型等价 | ✅ 设计定型 | 结构等价，无子类型 |
 
 ### 标准库类型
@@ -34,6 +34,9 @@
 | ExitCode | ✅ 设计定型 | 0-255，newtype，`of` + `isValid`，预定义常量 |
 | Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型（Int newtype） |
 | Decimal | ✅ 设计定型 | 精确十进制数值（非编译器内置） |
+| FileMode | ✅ 设计定型 | 文件权限位（`of`/`isReadable`/`isWritable`/`isExecutable`/`fromInt`） |
+| FileStat | ✅ 设计定型 | 完整文件元数据（`size`/`type`/`mtime`/`mode`/`owner`/`device` 等） |
+| SocketAddr | ✅ 设计定型 | 套接字地址（`Tcp`/`Udp` + `IpAddress` + `Port`） |
 | IpAddress | ✅ 设计定型 | IPv4/IPv6 枚举，SocketAddr |
 | Parser.JSON | ✅ 设计定型 | `JsonInt`/`JsonFloat` 拆分，JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
@@ -50,11 +53,10 @@
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
 | Result | ✅ 设计定型 | `map`/`mapError`/`andThen`/`withDefault` |
 | Random | ✅ 设计定型 | 密码学安全随机数 |
-| File.createTempFile / File.createTempDir | ✅ 设计定型 | 临时文件/目录创建 |
 | Stream | ✅ 设计定型 | 惰性序列（纯变换 + IO 消费） |
 | IO | ✅ 设计定型 | 控制台 IO，需显式导入 |
 | Env | ✅ 设计定型 | 环境变量读写 |
-| File | ✅ 设计定型 | 进程内文件 syscall |
+| File | ✅ 设计定型 | 进程内文件 syscall（含 `createTempFile`/`createTempDir`） |
 | Cmd | ✅ 设计定型 | 命令构造/修饰/执行 |
 | Process | ✅ 设计定型 | `exit`/`pid`/`sleep` |
 | Sys | ✅ 设计定型 | `ps`/`free`/`df`
