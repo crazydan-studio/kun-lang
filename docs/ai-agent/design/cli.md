@@ -2,7 +2,7 @@
 
 ## 设计定位
 
-对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。`Cli` 是纯标准库模块，不依赖编译器内置支持——其类型安全由 HM 推断 +编译期代码展开实现，与 `Parser.Record.fromJson` 机制一致。
+对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。`Cli` 是标准库模块，利用编译器提供的编译期类型内省与代码展开 API（与 `Parser.Record.fromJson` 共用基础设施）实现类型安全。
 
 `Cli` 模块仅导出类型结构与声明器函数，不提供构造器或修饰器包装函数——用户直接操作`Cli.CliSpec` 和 `Cli.CliMeta` 等 Record 数据，通过标准 Record 语法和 Map 字面量/更新语法进行组装。
 
@@ -1348,3 +1348,10 @@ Try 'build.kun --help' for more information.
 ```
 
 `--help`/`-h` 始终自动可用，不可禁用。`--version`/`-V` 同样自动可用。出现解析错误时自动提示 `--help`。
+
+## 版本历史
+
+| 版本 | 变更 |
+|------|------|
+| 2026.06.13 | 定位描述调整：明确 Cli 依赖编译器编译期反射 API |
+| 2026.06.10 | 架构重设计：Cli 模块设计定型 |

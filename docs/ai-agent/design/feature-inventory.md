@@ -102,7 +102,7 @@
 | Stream tagged union | ✅ 设计定型 | 替代函数指针链，双层间接→单层 |
 | do 块顺序执行 | ✅ 设计定型 | defer LIFO 逆序清理 |
 | panic + unwind | ✅ 设计定型 | defer 始终执行，panic-with-defer 语义 |
-| REPL 交互环境 | 📋 设计中 | 表达式求值 + 类型查询 + `:type`/`:load`/`:cmds`/`:modules`；详见 [`kun` CLI 工具](kun-cli-tool.md#repl) |
+| REPL 交互环境 | ✅ 设计定型 | 表达式求值 + 类型查询 + `:type`/`:load`/`:cmds`/`:modules`；详见 [`kun` CLI 工具](kun-cli-tool.md#repl) |
 
 ### 管道与组合
 
@@ -176,3 +176,10 @@
 | 能力管理器 | ❌ 已移除 | CLI 安全参数 + Landlock/mount ns 替代 |
 | 命令签名系统 (Ed25519) | ❌ 已移除 | 不涉及注册中心 |
 | `Std` 模块 | ❌ 已移除 | `Path.cwd`（常量）+ `Cmd.withCwd`（per-command chdir）替代 |
+
+## 版本历史
+
+| 版本 | 变更 |
+|------|------|
+| 2026.06.13 | REPL 状态更新为"设计定型" |
+| 2026.06.10 | 架构重设计：功能清单全面刷新 |

@@ -268,8 +268,8 @@ do
 
 ```kun
 // Command 构造（编译器内置）
-<bin>  : ?[options] -> posArgs... -> Command
-<bin>? : ?[options] -> posArgs... -> Result (Stream String) CommandError
+// <bin>  : ?[options] -> posArgs... -> Command
+// <bin>? : ?[options] -> posArgs... -> Result (Stream String) CommandError
 
 // OS 管道链
 pipe  : List Command -> Command
@@ -293,6 +293,8 @@ which   : String -> ?Path
 timeout : Duration -> Command -> Result (Stream String) CommandError
 retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 ```
+
+> `<bin>`、`?[options]`、`posArgs...` 为元语法占位符，非 Kun 语法。`Cmd.<bin>` 接收可选选项 Record（`?[options]`）和零或多个位置参数（`posArgs...`）。具体调用示例见[语法入口](#语法入口)。
 
 ## 与标准库的关系
 

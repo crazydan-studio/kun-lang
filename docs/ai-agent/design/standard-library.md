@@ -206,6 +206,56 @@ text = Int.toString 42                 // → "42"
 num  = Int.fromString "123"             // → Ok 123
 ```
 
+## `Regex` — 正则操作
+
+### 定位
+
+`Regex` 为编译器内置类型，编译期验证正则语法。`Regex` 模块提供正则匹配和替换操作。
+
+需显式导入：
+
+```kun
+import Regex
+```
+
+### API
+
+```kun
+// 检查字符串是否匹配整个正则
+isMatch : Regex -> String -> Bool
+
+// 返回第一个匹配（含捕获组），无匹配返回 Nil
+firstMatch : Regex -> String -> ?{ matched : String, groups : List String }
+
+// 返回所有匹配
+allMatches : Regex -> String -> List { matched : String, groups : List String }
+
+// 替换第一个匹配
+replace : Regex -> String -> String -> String
+
+// 替换所有匹配
+replaceAll : Regex -> String -> String -> String
+
+// 分割字符串
+split : Regex -> String -> List String
+```
+
+### 示例
+
+```kun
+import Regex
+
+r = r"(?i)([a-z]+)"
+
+Regex.isMatch r"^\d+$" "12345"              // → true
+
+Regex.firstMatch r"(\d+)" "abc 123 def"     // → { matched = "123", groups = ["123"] }
+
+Regex.replaceAll r"x" "0" "x1 x2 x3"        // → "01 02 03"
+
+Regex.split r",\s*" "a, b, c"               // → ["a", "b", "c"]
+```
+
 ## `Math` — 数学函数与常量
 
 ### 定位
@@ -422,9 +472,10 @@ p = Port.of 80                       // 确信 80 合法
 if Port.isValid p then ...           // 有效性检查
 number = Port.toInt p                // → 80
 Port.isPrivileged p                  // → true
-case Port.fromInt 70000 of
-  Ok port  -> ...
-  Err msg  -> IO.println msg          // "port out of range"
+do
+  case Port.fromInt 70000 of
+    Ok port  -> ...
+    Err msg  -> IO.println msg          // "port out of range"
 ```
 
 语义场景：网络服务端口、防火墙规则、连接目标。
@@ -600,12 +651,13 @@ type FileType
 
 ```kun
 // stat : FileStat
-case stat.type of
-  Regular       -> IO.println "regular file"
-  Directory     -> IO.println "directory"
-  SymbolicLink  -> IO.println "symlink"
-  CharDevice    -> IO.println "char device"
-  _             -> IO.println "other"
+do
+  case stat.type of
+    Regular       -> IO.println "regular file"
+    Directory     -> IO.println "directory"
+    SymbolicLink  -> IO.println "symlink"
+    CharDevice    -> IO.println "char device"
+    _             -> IO.println "other"
 ```
 
 ### `FileMode`
@@ -682,12 +734,13 @@ type FileStat =
 #### 示例
 
 ```kun
-case File.stat p"/dev/sda" of
-  Ok stat ->
-    case stat.device of
-      { major, minor } -> IO.println f"device {major}:{minor}"
-      Nil              -> IO.println "not a device"
-  Err _ -> IO.println "stat failed"
+do
+  case File.stat p"/dev/sda" of
+    Ok stat ->
+      case stat.device of
+        { major, minor } -> IO.println f"device {major}:{minor}"
+        Nil              -> IO.println "not a device"
+    Err _ -> IO.println "stat failed"
 ```
 
 ### `IOError`
@@ -716,16 +769,17 @@ type IOError
 #### 示例
 
 ```kun
-case File.readString p"/nonexistent" of
-  Ok _ -> IO.println "ok"
-  Err e ->
-    case e of
-      NotFound p ->
-        IO.println f"{p} not found"
-      PermissionDenied { action, target, reason } ->
-        IO.println f"cannot {action} {target}: {reason}"
-      _ ->
-        IO.println "other error"
+do
+  case File.readString p"/nonexistent" of
+    Ok _ -> IO.println "ok"
+    Err e ->
+      case e of
+        NotFound p ->
+          IO.println f"{p} not found"
+        PermissionDenied { action, target, reason } ->
+          IO.println f"cannot {action} {target}: {reason}"
+        _ ->
+          IO.println "other error"
 ```
 
 ### `CommandError`
@@ -752,16 +806,17 @@ type CommandError
 #### 示例
 
 ```kun
-case Cmd.grep? { pattern = "ERROR" } p"/var/log/app.log" of
-  Ok stream -> ...
-  Err err ->
-    case err of
-      CommandFailed { exitCode, stderr } ->
-        IO.println f"grep failed ({exitCode}): {stderr}"
-      NotFound cmd ->
-        IO.println f"command not found: {cmd}"
-      _ ->
-        IO.println "other error"
+do
+  case Cmd.grep? { pattern = "ERROR" } p"/var/log/app.log" of
+    Ok stream -> ...
+    Err err ->
+      case err of
+        CommandFailed { exitCode, stderr } ->
+          IO.println f"grep failed ({exitCode}): {stderr}"
+        NotFound cmd ->
+          IO.println f"command not found: {cmd}"
+        _ ->
+          IO.println "other error"
 ```
 
 ### `DateTime`
@@ -818,16 +873,64 @@ toString : DateTime -> String
 #### 示例
 
 ```kun
-now = Sys.time
-past = DateTime.fromUnixSecs 1700000000
-elapsed = now - past
+do
+  now = Sys.time
+  past = DateTime.fromUnixSecs 1700000000
+  elapsed = now - past
 
-case DateTime.format "yyyy-MM-dd" now of
-  Ok s  -> IO.println f"today is {s}"
-  Err _ -> IO.println "format error"
+  case DateTime.format "yyyy-MM-dd" now of
+    Ok s  -> IO.println f"today is {s}"
+    Err _ -> IO.println "format error"
 
-dt = DateTime.of 1728000000000000    // 纳秒构造
-year = DateTime.year dt              // → 2024
+  dt = DateTime.of 1728000000000000    // 纳秒构造
+  year = DateTime.year dt              // → 2024
+```
+
+### `Duration`
+
+#### 定位
+
+时间段，纳秒精度，运行时表示为 i64。`Duration` 为编译器内置类型，字面量使用数字 + 单位后缀（`5s`、`100ms`、`2h`、`30m`、`1d`、`500us`、`200ns`）。
+
+需显式导入：
+
+```kun
+import Duration
+```
+
+#### API
+
+```kun
+// 算术运算（均返回 Duration）
+(+) : Duration -> Duration -> Duration
+(-) : Duration -> Duration -> Duration
+(*) : Int -> Duration -> Duration
+(/) : Duration -> Int -> Duration
+
+// 比较
+compare : Duration -> Duration -> Int    // -1 / 0 / 1
+
+// 单位提取
+toNanos : Duration -> Int
+toMicros : Duration -> Int
+toMillis : Duration -> Int
+toSecs : Duration -> Int
+toMinutes : Duration -> Int
+toHours : Duration -> Int
+toDays : Duration -> Int
+```
+
+#### 示例
+
+```kun
+import Duration
+
+d1 = 5s
+d2 = 100ms
+sum = d1 + d2                           // → 5100000000ns
+
+Duration.toSecs 2h                      // → 7200
+Duration.toMillis (5s - 100ms)           // → 4900
 ```
 
 ### `ExitCode`
@@ -1014,13 +1117,14 @@ type SocketAddr
 #### 示例
 
 ```kun
-case IpAddress.parse "10.0.1.5" of
-  Ok ip ->
-    IpAddress.isPrivate ip           // → true
-    IpAddress.toString ip            // → "10.0.1.5"
-    addr = Tcp ip (Port.of 8080)
-  Err _ ->
-    IO.println "bad address"
+do
+  case IpAddress.parse "10.0.1.5" of
+    Ok ip ->
+      IpAddress.isPrivate ip           // → true
+      IpAddress.toString ip            // → "10.0.1.5"
+      addr = Tcp ip (Port.of 8080)
+    Err _ ->
+      IO.println "bad address"
 ```
 
 ## `Decimal` — 十进制精确数值
@@ -1119,6 +1223,7 @@ import Nil
 ### API
 
 ```kun
+// 以下为编译器内置伪代码，用户无需自行定义
 type Nil = Nil   // 始终缺省自动导入
 
 // Nil 时返回缺省值（解包，返回 a）
@@ -1409,9 +1514,10 @@ Cli.option "port" 'p' "Server port"
   |> Cli.withValidator (Validator.range 1 65535)
 
 // 独立使用
-case Validator.range 1 100 50 of
-  Ok v  -> IO.println f"valid: {v}"
-  Err e -> IO.println e
+do
+  case Validator.range 1 100 50 of
+    Ok v  -> IO.println f"valid: {v}"
+    Err e -> IO.println e
 ```
 
 ## `Cli` — 命令行参数解析
@@ -1867,12 +1973,13 @@ toString   : JsonValue -> Result String String
 ```kun
 import Parser.JSON
 
-case Parser.JSON.fromString "{\"name\":\"Kun\",\"version\":1}" of
-  Ok (JsonObject obj) ->
-    case Map.get "name" obj of
-      JsonString name -> IO.println f"name: {name}"
-      _               -> IO.println "bad type"
-  Err msg -> IO.println f"parse error: {msg}"
+do
+  case Parser.JSON.fromString "{\"name\":\"Kun\",\"version\":1}" of
+    Ok (JsonObject obj) ->
+      case Map.get "name" obj of
+        JsonString name -> IO.println f"name: {name}"
+        _               -> IO.println "bad type"
+    Err msg -> IO.println f"parse error: {msg}"
 ```
 
 ### `Parser.Record`
@@ -1933,7 +2040,7 @@ main = \_ ->
 | `Decimal` | `import Decimal` | 精确十进制数值 |
 | `Int` | `import Int` | 整数操作与互转 |
 | `Float` | `import Float` | 浮点操作与互转 |
-| `String` | `import String` | `toString`、字符串操作及类型互转 |
+| `String` | `import String` | 字符串操作及类型互转（`toString` 为编译器级泛型） |
 | `Math` | `import Math` | 数学函数与常量 |
 | `List` | `import List` | 列表操作 |
 | `Map` | `import Map` | 映射表操作 |
@@ -1956,6 +2063,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.13 | 示例代码语法合规修复（IO.println/Sys.time 包裹在 `do` 块中）；新增 `Regex` 和 `Duration` 模块 API 文档；`Nil` 模块伪代码标注；导入一览表 `toString` 说明修正 |
 | 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |
 | 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
 | 2026.06.10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
