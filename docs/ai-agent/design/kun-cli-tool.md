@@ -230,7 +230,7 @@ kun --allow-path /tmp --allow-net --cpu-limit 30s script.kun
 
 | 策略 | 行为 |
 |------|------|
-| `--env=clean`（默认） | 仅传递干净白名单：`PATH`、`HOME`、`USER`、`TERM`、`LANG`、`PWD`、`SHELL`、`TZ` |
+| `--env=clean`（默认） | 仅传递干净白名单：`PATH`、`HOME`、`USER`、`TERM`、`LANG`、`PWD`、`SHELL`、`TZ`、`DISPLAY`、`SSH_AUTH_SOCK`、`XDG_RUNTIME_DIR`、`LC_ALL`、`LC_CTYPE`、`TMPDIR` |
 | `--env=inherit` | 继承全部环境变量（始终剔除列表例外） |
 
 始终剔除列表（无论策略如何永不传递）：`LD_PRELOAD`、`LD_AUDIT`、`LD_DEBUG`、`LD_LIBRARY_PATH`、`LD_PROFILE`、`LD_ORIGIN_PATH`、`GCONV_PATH`、`GLIBC_TUNABLES`。

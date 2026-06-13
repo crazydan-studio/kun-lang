@@ -81,7 +81,7 @@ do
 | `Nil` | 省略不传 | Nil 值不生成 flag | |
 | `List a` | `--key v1 --key v2` | 每个元素一个重复 flag | |
 
-> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分。不适合 Record 映射的 flag（如 `-Wall`、`-Wl,...` 等）使用 `Cmd.withRawOpt` 按原样追加。
+> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分——直接 `--` 前缀整个字段名（如 `readonly` → `--readonly`）。此规则确保与以全小写多字符 flag 为主的 CLI 工具兼容（如 `--oneline`、`--oneline` 等），但无法为全小写字段生成 kebab-case flag。需要非标准 flag 映射的用 `Cmd.withRawOpt` 按原样追加。
 
 argv 生成顺序：
 
@@ -100,6 +100,8 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 | `\|>` 隐式触发 | 左侧 `Command`，右侧函数期望 `Stream` | `Cmd.cat p"/x" \|> Stream.lines` |
 | `do` 块语句边界 | 未被 `=` 绑定或 `|>` 消费的 `Command` 表达式作为独立语句执行 | `Cmd.ls { long = true }` |
 | `Cmd.<bin>?` | `?` 后缀，立即执行并返回 `Result` | `result = Cmd.cat? p"/x"` |
+
+> `|>` 隐式触发的类型推断：编译器检测左侧 `Command` 类型与右侧函数期望的 `Stream String` 类型不匹配时，在两者之间插入 `Command → Stream String` 的执行步骤。若右侧函数为多态（如 `identity : a -> a`），编译器需先合一 `a ~ Stream String` 后确认触发。此多阶段类型检查（约束生成 → 合一 → Command 检测 → 插入执行节点）在 HM 框架内可实现，但相对常规合一增加了一步 AST 变换。编译期错误信息在无法确定触发条件时回退为"无法将 Command 用作 Stream，是否遗漏 `Cmd.<bin>?`？"
 
 > `do` 块边界规则：`Cmd.<bin>` 表达式若被 `=` 绑定（如 `c = Cmd.ls {}`）则视为"已消费"，不在此处触发执行——`c` 绑定为 `Command` 值，后续可通过 `|>` 或终端操作触发。若 `Cmd.<bin>` 表达式作为独立语句出现（无 `=` 绑定），则视为"未消费"，在语句边界自动触发执行。
 
@@ -251,6 +253,20 @@ do
 ```
 
 `Cmd.retry` 内部调用 `Cmd.timeout`，每次重试独立 fork 子进程。失败时重试 `n` 次，全部失败后返回最后一次 `Err`。
+
+#### 修饰函数链式组合顺序
+
+修饰函数通过 `|>` 链式应用时按从左到右的顺序累积属性，最终由 `timeout`/`retry` 或 `|>` 隐式触发/`do` 块边界触发 fork：
+
+```kun
+do
+  Cmd.someCmd {} dir
+    |> Cmd.withCwd p"/work"          // 1. 设置工作目录
+    |> Cmd.withRunAs "appuser"       // 2. 设置执行用户
+    |> Cmd.timeout 5s                // 3. 立即 fork → chdir → setuid → exec
+```
+
+fork 在 `timeout` 处触发，子进程内依次执行 `chdir("/work")` → `setuid(appuser)` → `exec`。若顺序不满足需求（如先 `timeout` 后 `withCwd`），`withCwd` 之后的修饰属性在 `timeout` fork 后无法应用——修饰函数必须在触发执行的操作之前。
 
 ## PATH 查找
 

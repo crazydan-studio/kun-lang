@@ -129,7 +129,7 @@ f"hex: {255:x} / {255:X}"         // 整数进制
 
 ### 自动 toString
 
-未指定格式说明时，`{expr}` 等价于 `toString(expr)`：
+未指定格式说明时，`{expr}` 等价于 `toString(expr)`。若 `expr` 的类型未定义 `toString` 且编译器无法使用缺省构造（如自定义 ADT 未实现 `toString`），编译期在约束生成阶段报错，提示用户为该类型实现 `toString` 或使用格式说明显式指定字段。f-string 的类型安全保证在编译期完成，无运��时 panic 风险。
 
 ```kun
 n = 42

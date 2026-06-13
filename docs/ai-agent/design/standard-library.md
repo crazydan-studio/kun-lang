@@ -1862,6 +1862,24 @@ createTempFile : -> Result Path IOError
 // 创建临时目录，脚本退出时自动清理，返回路径
 createTempDir : -> Result Path IOError
 
+// 复制文件/目录
+copy : Path -> Path -> Result Unit IOError
+
+// 移动/重命名文件
+rename : Path -> Path -> Result Unit IOError
+
+// 修改文件权限
+chmod : FileMode -> Path -> Result Unit IOError
+
+// 修改文件所有者
+chown : Uid -> Gid -> Path -> Result Unit IOError
+
+// 创建符号链接
+symlink : Path -> Path -> Result Unit IOError
+
+// 读取符号链接目标
+readlink : Path -> Result Path IOError
+
 // 按 glob 模式匹配文件
 glob : String -> Path -> Result (List Path) IOError
 ```
