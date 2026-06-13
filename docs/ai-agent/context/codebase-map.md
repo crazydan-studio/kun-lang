@@ -15,7 +15,7 @@
 |---|---|
 | `docs/ai-agent/context/` | 项目上下文与 AI 协作规范（最高优先级） |
 | `docs/ai-agent/architecture/` | 技术架构与系统设计 |
-| `docs/ai-agent/design/` | 应用层行为与功能设计（type-system / standard-library / syntax；roles-and-permissions / supply-chain-security / command-function-system / capability-mapping-guide 已废弃） |
+| `docs/ai-agent/design/` | 应用层行为与功能设计（type-system / standard-library / syntax / kun-shell；roles-and-permissions / supply-chain-security / command-function-system / capability-mapping-guide 已废弃） |
 | `docs/ai-agent/requirements/` | 需求文档 |
 | `docs/ai-agent/backlog/` | 待办事项 |
 | `docs/ai-agent/plans/` | 执行计划 |

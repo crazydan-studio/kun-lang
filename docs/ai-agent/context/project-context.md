@@ -17,10 +17,10 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型） |
-| Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md` |
+| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）、类型检查算法设计（定型）、CLI 工具功能（定型） |
+| Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | 架构重设计——移除 `IO T` 效应类型/`.cmd.kun`/`with caps`/`Nat`/dlopen/ptrace/Builder API/幻影类型；新增 `Cmd.<bin>` fork-exec/Landlock+mount ns+seccomp/defer/tagged union Stream/`Parser.Record`；标记角色安全/供应链安全/命令函数系统/能力映射指南为已废弃 |
+| 最近完成 | 架构重设计；REPL 更名为 Kun Shell（独立可执行文件 + libkun_core.so 共享核心）；kun doc 子命令（模块文档生成）；--trace 函数调用追踪；类型检查算法补充；八轮跨文档审计（52+ 项问题修复） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -30,6 +30,7 @@
 |---|---|
 | 语言实现 | Zig 0.13.0（宿主语言，版本锁定） |
 | 运行时 | fork-exec + pipe 捕获 stdout/stderr |
+| 二进制产物 | `kun`（脚本执行器）+ `kun-shell`（交互式环境）+ `libkun_core.so`（共享解释器核心） |
 | 安全模型 | CLI 参数（`--allow-path`/`--allow-net`）+ Landlock + mount namespace 兜底 + seccomp + rlimit |
 | 文档构建 | VitePress + pnpm |
 | 版本控制 | Git + GitHub |
@@ -48,6 +49,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-13 | 八轮跨文档一致性审计（52+ 项修复）；REPL → Kun Shell 独立文档；kun doc/--trace 设计；类型检查算法补充；libkun_core.so 共享库架构 | 设计+审计 | ✅ 全部 owner docs | ✅ document-audit、closure-audit | `implement` |
 | 2026-06-10 | 架构重设计——架构/设计/示例文档全面重写 | 设计+重构 | ✅ 全部 owner docs | ✅ document-audit-prompt、closure-audit-prompt | `plan-first` → `implement`（先审后实施） |
 | 2026-06-07 | AGENTS.md 完整性修订（补齐全目录索引 + 跨文档一致性修复 10 项） | 文档+修复 | ✅ AGENTS.md、context/、process/、skills/ | ✅ writing-conventions、closure-audit | `implement` 直接执行 |
 | 2026-06-07 | 架构与设计文档全面分析评审（12 份文档/5500 行交叉分析） | 分析+审计 | ✅ system-baseline、type-system、syntax | ✅ document-audit、multi-dimensional-audit | `implement` 直接执行 |
