@@ -272,14 +272,7 @@ ADT 在运行时表示为带标记的联合体（tagged union），tag 使用 `u
 
 ### Stream
 
-```zig
-const Stream = union(enum) {
-    cmd: struct { fd: i32, pid: i32, buf: []u8 },
-    mapped: struct { upstream: *Stream, f: FnPtr },
-    filtered: struct { upstream: *Stream, pred: FnPtr },
-    taken: struct { upstream: *Stream, remaining: usize },
-};
-```
+Stream 运行时表示采用 tagged union，定义见上方「Stream 惰性求值」章节。
 
 ### 函数值
 

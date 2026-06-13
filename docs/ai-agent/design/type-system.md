@@ -77,10 +77,10 @@ x = someFunctionReturningOptional
 
 case x of
   Nil -> "none"        // Nil 分支
-  s   -> s             // 此分支 s 收窄为 !String（安全）
+  s   -> s             // 此分支 s 收窄为非 Nil 的 String（安全）
 
 if x /= Nil then
-  IO.print x              // 此分支 x 收窄为 !String（安全）
+  String.length x         // 此分支 x 收窄为非 Nil 的 String（安全）
 ```
 
 ## 基础类型
@@ -209,14 +209,16 @@ getPid = \ ->
 p = p"/tmp/foo"
 ```
 
-### 效应跟踪
+## 效应跟踪
 
 > **编译器内置**：效应跟踪通过编译器 AST 标记实现，不可在纯 Kun 代码中模拟。`do` 块和效应命名空间（`Cmd.*`、`IO.*` 等）由编译器直接识别和处理。
 
 Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
 
 - 含 `do` 块的函数自动标记为效应函数
-- 以下命名空间的所有函数均为效应函数：`Cmd.*`、`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`
+- 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`
+- `Cmd` 模块的装饰函数（`Cmd.withEnv`、`Cmd.pipe` 等）及 `Cmd.<bin>?` 立即执行形式为效应函数
+- `Cmd.<bin>` 构造 `Command` 值是纯操作（延迟执行，无副作用），可在 `do` 块外使用
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
 - 效应性不扩散到类型签名——函数签名中不出现 `IO` 标记
 - Lambda 含有效应函数调用时，该 lambda 必须在 `do` 块内定义

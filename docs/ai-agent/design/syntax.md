@@ -587,9 +587,9 @@ doubleThenAdd1 = add1 << double    // 等价于 \x -> add1 (double x)
 
 ### Do 块（顺序执行）
 
-`do` 块按顺序执行效应操作。`do` 块内使用 `=` 绑定值：
+`do` 块按顺序执行效应操作，块类型由最后一条语句的类型决定。`do` 块内使用 `=` 绑定值：
 
-无返回值的 `do` 块（类型为 `Unit`）：
+最后一条语句返回 `Unit` 的 `do` 块：
 
 ```kun
 main : List String -> Unit
@@ -601,7 +601,9 @@ main = \_ ->
       Err _   -> IO.println "failed"
 ```
 
-有返回值的 `do` 块使用 `do in` 语法：
+> 注：上例 `do` 块类型为 `Unit`，因为最后一条语句（`case` 的每个分支末尾）为 `IO.print`/`IO.println`，均返回 `Unit`。`do` 块类型由最后一条语句决定，并非固定为 `Unit`。
+
+需要在外层访问 `do` 块内部绑定值或显式指定返回值时，使用 `do in` 语法：
 
 ```kun
 countFiles : Path -> Int

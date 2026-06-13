@@ -298,7 +298,7 @@ retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 
 ## 与标准库的关系
 
-- [标准库 Cmd 模块](standard-library.md#cmd--command-工具与命令调用)：引用本文档，不再重复 API 签名
+- [标准库 Cmd 模块](standard-library.md#cmd---command-工具与命令调用)：引用本文档，不再重复 API 签名
 - [系统基线](../architecture/system-baseline.md#命令调用机制)：描述 fork-exec 运行时**实现机制**（系统契约、安全层、内存管理）
 - 本文档：定义命令调用的**语法、语义、API 签名与使用机制**
 

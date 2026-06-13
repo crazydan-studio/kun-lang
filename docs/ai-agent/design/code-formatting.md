@@ -266,14 +266,15 @@ main = \_ ->
 ```kun
 readConfig : Path -> Result Config Error
 readConfig = \path ->
-  case File.readString path of
-    Ok content ->
-      do
-        lines  = String.split "\n" content
-        logDir = p"/var/log/myapp"
-      in
-        Ok (createDefaultConfig logDir)
-    Err e -> Err (ConfigReadError e)
+  do
+    case File.readString path of
+      Ok content ->
+        do
+          lines  = String.split "\n" content
+          logDir = p"/var/log/myapp"
+        in
+          Ok (createDefaultConfig logDir)
+      Err e -> Err (ConfigReadError e)
 ```
 
 `do` 块内的 `if` / `case` 分支自动继承效应上下文，可直接调用 `Cmd.*`，无需显式嵌套 `do`。嵌套 `do` 仅用于分支需要独立 `defer` 作用域时。

@@ -890,7 +890,7 @@ do
 
 #### 定位
 
-时间段，纳秒精度，运行时表示为 i64。`Duration` 为编译器内置类型，字面量使用数字 + 单位后缀（`5s`、`100ms`、`2h`、`30m`、`1d`、`500us`、`200ns`）。
+时间段，纳秒精度，运行时表示为 i64。`Duration` 为编译器内置类型，字面量使用数字 + 单位后缀（`5s`、`100ms`、`2h`、`30m`、`1d`、`500us`、`200ns`）。无需 `import Duration` 即可在类型标注中使用。
 
 需显式导入：
 
@@ -1702,8 +1702,8 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 | `Stream.map` / `Stream.filter` / `Stream.take` | **纯** | 惰性变换，不触发 IO |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
-| `Stream.toList` / `Stream.iter` / `Stream.fold` | **效应** | 终端操作，触发读取，仅 `do` 块可用 |
-| `Stream.string` / `Stream.bytes` | **效应** | 终端操作 |
+| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；纯 Stream（`range`/`fromList`）可在 `do` 外使用；IO 绑定 Stream 仅 `do` 块可用 |
+| `Stream.string` / `Stream.bytes` | **终端** | 同上 |
 | `Stream.fromList` | **纯** | 从纯 List 构造，无 IO 绑定 |
 
 ### 示例
