@@ -40,7 +40,7 @@ kun-lang/
 │   ├── 类型安全解析（Parser.JSON、Parser.Record）
 │   └── 系统与安全（Random、Signal、Port、Pid、ExitCode、DateTime、IpAddress、Errno、FileType、FileMode、FileStat、IOError、CommandError、Uid、Gid 等）
 └── Kun Shell
-    ├── 交互式开发环境
+    ├── 交互式环境
     ├── SQLite/DuckDB 日志存储
     ├── 函数收藏与复用（AST 哈希）
     ├── 历史回放
@@ -71,7 +71,7 @@ kun-lang/
 
 ### Kun Shell
 
-Kun 的交互式开发环境，整合表达式求值、函数定义与收藏、脚本/库模块编辑执行。以 SQLite 为缺省日志存储引擎，结构化记录输入与执行结果，支持历史回放。支持以动态链接库方式接入 DuckDB。函数通过 AST 哈希实现唯一引用与跨会话复用。完整设计见 [Kun Shell](../design/kun-shell.md)。
+Kun 的交互式环境，整合表达式求值、函数定义与收藏、脚本/库模块编辑执行。以 SQLite 为缺省日志存储引擎，结构化记录输入与执行结果，支持历史回放。支持以动态链接库方式接入 DuckDB。函数通过 AST 哈希实现唯一引用与跨会话复用。完整设计见 [Kun Shell](../design/kun-shell.md)。
 
 ## 模块依赖关系
 
