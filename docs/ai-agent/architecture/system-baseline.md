@@ -138,6 +138,67 @@ const Stream = union(enum) {
 
 类型检查阶段的错误，包含源文件名、行号、列号、期望类型、实际类型、错误原因、修复建议。
 
+### 类型检查算法
+
+类型检查采用 **Hindley-Milner**（HM）推断，分为两个阶段：
+
+#### 阶段一：约束生成
+
+遍历 Typed AST，为每个表达式节点生成类型约束方程。约束类型包括：
+
+- **等价约束**：`T1 ~ T2`，要求两个类型合一为相同结构
+- **实例化约束**：多态类型在使用点生成新的类型变量，确保泛型函数每次调用独立
+- **函数应用约束**：`f a` 生成 `Tf ~ Ta -> Tr`（函数类型与参数类型、返回类型的关系）
+
+Let 多态：`let` 绑定的泛型函数在约束生成时对其类型签名做泛化（generalization），产生的类型变量进入多态环境，每次引用时实例化为新类型变量。
+
+#### 阶段二：合一
+
+对阶段一生成的约束集，使用 **Algorithm W** 风格的合一求解器逐条解析：
+
+1. 维护一个**代换**（substitution）映射，记录类型变量到具体类型的替换关系
+2. 对每条等价约束 `T1 ~ T2`，按结构递归合一：
+   - 两者同为类型变量 → 代换中任一为另一（按优先级取）
+   - 一方为类型变量，另一方为具体类型 → 代换该变量为该类型（occurs check 防止无限递归）
+   - 两者同为具体类型（如 `List a ~ List Int`） → 递归合一部分参数
+   - 结构不匹配（如 `Int ~ String`） → 产生 `TypeError`
+3. 全部约束合完成后，将最终的代换应用到 AST，生成带完整类型标注的 Typed AST
+
+#### Let 多态与泛化
+
+`let` 绑定引入的多态函数类型通过以下步骤处理：
+
+```
+let f = \x -> x
+// 1. 推断 f 的类型变量：a -> a
+// 2. 泛化：将自由类型变量提升为多态类型变量：forall a. a -> a
+// 3. 实例化：f 42 → 实例化为 Int -> Int；f "hi" → 实例化为 String -> String
+```
+
+#### 效应检查
+
+在类型合的同时，效应检查器（Effect Checker）扫描 AST 中的 `do` 块和效应命名空间调用：
+
+- 识别含 `do` 块的函数，标记为效应函数（不在类型签名中体现）
+- 验证纯函数体中无效应函数调用
+- 验证 `do` 块外的代码无效应命名空间（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`）函数调用
+- 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry` 仅在 `do` 块内使用
+- Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
+
+效应检查失败也产生 `TypeError`，纳入统一的错误报告。
+
+#### 错误报告
+
+类型错误输出包含：
+
+| 字段 | 说明 |
+|------|------|
+| 源文件名 + 行号 + 列号 | 错误发生的精确位置 |
+| 期望类型 | 上下文要求的类型 |
+| 实际类型 | 推断出的实际类型 |
+| 错误原因 | 类型不匹配的具体原因（如 "Int 与 String 无法合一"） |
+| 修复建议 | 基于启发式规则的建议（如 "是否缺少类型转换？"） |
+
 ### `CommandError`
 
 命令执行阶段的语义化错误类型，完整定义见 [`standard-library.md`](../design/standard-library.md)。包含 `NotFound`、`PermissionDenied`、`CommandFailed`、`KilledBySignal`、`IoError`、`PipeFailed` 六个变体。
@@ -328,10 +389,10 @@ my-project/
 ### 加载流程
 
 ```
-import Cmd.Git
+import File
       │
       ▼
-搜索 lib/Cmd/Git.kun（同库） → 搜索 $KUN_PATH/Cmd/Git.kun → 搜索 <runtime>/lib/kun/Cmd/Git.kun → 搜索 ~/.kun/cmd/Cmd/Git.kun（类型化命令模块）
+搜索 lib/File.kun（同库） → 搜索 $KUN_PATH/File.kun → 搜索 <runtime>/lib/kun/File.kun
       │
       ▼
 已在缓存中？──是──→ 返回缓存副本
@@ -357,7 +418,7 @@ import Cmd.Git
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.13 | 安全层描述重构：区分父进程层与子进程层的叠加关系；沙箱安装步骤拆分时机差异；Command 执行触发条件、rlimit 表、搜索路径去重为引用；模块级 Arena 生命周期明确；求值策略术语与 design/ 对齐 |
+| 2026.06.13 | 安全层描述重构；新增类型检查算法章节（HM 推断、约束生成、合一、效应检查、错误报告）；Command 执行触发条件、rlimit 表、搜索路径去重为引用 |
 | 2026.06.12 | 文档重构：命令调用机制独立为 `command-system.md`；CLI 工具与安全控制独立为 `kun-cli-tool.md`；`TempFile`/`TempDir` 整合为 `File.createTempFile`/`File.createTempDir`；新增 `Cmd.mergeStderr`、`Cmd.timeout`/`Cmd.retry`、`Cmd.withRunAs`/`Cmd.andThen`/`Cmd.orElse` 文档；版本号统一为 yyyy.MM.dd 日期格式 |
 | 2026.06.11 | 模块系统重设计：目录即命名空间；`export (…)` 替代 `module Xxx export (…)`；`import X (…)` 替代 `import X with (…)` |
 | 2026.06.10 | 架构重设计：移除 `.cmd.kun`/`IO T`/`with caps`/dlopen/ptrace 等；新增 `Cmd.<bin>` fork-exec + Landlock/mount ns + `defer` + tagged union Stream |
