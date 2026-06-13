@@ -53,6 +53,7 @@
 | Bytes | ✅ 设计定型 | 二进制编解码（`toHex`/`fromHex`） |
 | List | ✅ 设计定型 | 不可变列表查询与变换 |
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
+| Set | ✅ 设计定型 | 不可变集合操作（`insert`/`remove`/`union`/`intersect`/`diff`） |
 | Result | ✅ 设计定型 | `map`/`mapError`/`andThen`/`withDefault` |
 | Random | ✅ 设计定型 | 密码学安全随机数 |
 | Stream | ✅ 设计定型 | 惰性序列（纯变换 + IO 消费） |
