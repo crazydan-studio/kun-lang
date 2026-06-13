@@ -623,6 +623,26 @@ countFiles = \dir ->
 - 纯函数（无 `do` 块）不能调用效应函数
 - 外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支
 
+### defer 资源清理
+
+`defer expr` 在 `do` 块内注册资源清理操作，`do` 块退出时（正常返回或 panic unwind）按 LIFO 逆序执行：
+
+```kun
+do
+  case File.createTempFile of
+    Ok tmp ->
+      defer (File.remove tmp)
+      Cmd.ffmpeg {} "input.mp4" tmp
+    Err _ -> IO.println "failed to create temp file"
+// do 块退出时自动 remove tmp
+```
+
+规则：
+- `defer` 仅在 `do` 块内有效
+- 多个 `defer` 按注册顺序的逆序（LIFO）执行
+- panic 触发 unwind 时 `defer` 始终执行
+- `defer` 表达式本身不返回值（类型为 `Unit`）
+
 ### Record 操作
 
 ```kun

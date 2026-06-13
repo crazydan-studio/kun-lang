@@ -194,14 +194,10 @@ kun --allow-path /tmp --allow-net --cpu-limit 30s script.kun
 
 ### 沙箱层级
 
-运行时安全隔离按内核能力逐级降级：
+运行时采用两层安全机制叠加：
 
-```
-优先 Landlock（5.13+：文件控制；6.7+：文件 + 网络控制）
-  → mount namespace 兜底（内核 3.8+）
-    → seccomp 降级（内核 3.5+）
-      → 拒绝运行（内核 < 3.5）
-```
+1. **父进程层**（初始化阶段一次性安装）：Landlock（首选：5.13+ 文件控制；6.7+ 文件 + 网络控制）→ mount namespace（兜底，内核 3.8+）→ 拒绝运行（内核 < 3.8）
+2. **子进程层**（每次 fork 后始终安装）：seccomp-BPF 系统调用过滤 + rlimit 资源限制
 
 详细实现见[系统基线](../architecture/system-baseline.md#安全隔离)。
 
@@ -250,4 +246,5 @@ REPL 默认运行在 `--no-sandbox` 模式。
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.13 | 沙箱层级描述重构：区分父进程层与子进程层的两层叠加模型 |
 | 2026.06.12 | 从 `app-overview.md`、`syntax.md`、`system-baseline.md` 中提取 CLI 工具与安全控制为独立文档 |

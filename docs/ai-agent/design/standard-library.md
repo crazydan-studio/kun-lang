@@ -1417,6 +1417,51 @@ Map.keys data                         // → ["host", "port"]
 Map.size data                         // → 2
 ```
 
+## `Set` — 集合操作
+
+### 定位
+
+`Set` 模块提供不可变无序集合的查询和变换操作。元素唯一，基于哈希表实现。Set 的值类型必须可哈希（`Int`、`String`、`Bool`、`Char` 等）。
+
+需显式导入：
+
+```kun
+import Set
+```
+
+### API
+
+```kun
+// 查询
+size    : Set a -> Int                 // 集合元素数量
+isEmpty : Set a -> Bool                // 是否为空
+contains : a -> Set a -> Bool          // 是否包含元素
+
+// 变换
+insert  : a -> Set a -> Set a          // 插入元素（幂等）
+remove  : a -> Set a -> Set a          // 移除元素
+union   : Set a -> Set a -> Set a      // 并集
+intersect : Set a -> Set a -> Set a    // 交集
+diff    : Set a -> Set a -> Set a      // 差集
+
+// 转换
+toList  : Set a -> List a              // 转为去重列表（顺序非确定）
+fromList : List a -> Set a             // 从列表构造（自动去重）
+```
+
+### 示例
+
+```kun
+import Set
+
+s = #[1, 2, 3]
+Set.size s                              // → 3
+Set.contains 2 s                        // → true
+Set.insert 3 s                          // → #[1, 2, 3]（幂等）
+Set.union s #[3, 4, 5]                  // → #[1, 2, 3, 4, 5]
+Set.toList (Set.fromList [1, 2, 2, 3])  // → [1, 2, 3]（去重）
+```
+
 ## `Result` — 错误处理组合子
 
 ### 定位
@@ -2041,9 +2086,11 @@ main = \_ ->
 | `Int` | `import Int` | 整数操作与互转 |
 | `Float` | `import Float` | 浮点操作与互转 |
 | `String` | `import String` | 字符串操作及类型互转（`toString` 为编译器级泛型） |
+| `Regex` | `import Regex` | 正则匹配与替换 |
 | `Math` | `import Math` | 数学函数与常量 |
 | `List` | `import List` | 列表操作 |
 | `Map` | `import Map` | 映射表操作 |
+| `Set` | `import Set` | 集合操作 |
 | `Result` | `import Result` | 错误处理组合子 |
 | `Cli` | `import Cli` | 命令行参数解析（类型驱动，auto --help，子命令） |
 | `Random` | `import Random` | 随机数与洗牌 |
@@ -2054,6 +2101,7 @@ main = \_ ->
 | `File` | `import File` | 文件操作 |
 | `Cmd` | `import Cmd` | 命令调用 |
 | `Process` | `import Process` | 进程控制（含 `sleep`） |
+| `Duration` | `import Duration` | 时间段操作 |
 | `Sys` | `import Sys` | 系统信息查询 |
 | `Path` | `import Path` | 路径操作函数（类型标注无需导入） |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
@@ -2063,7 +2111,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.13 | 示例代码语法合规修复（IO.println/Sys.time 包裹在 `do` 块中）；新增 `Regex` 和 `Duration` 模块 API 文档；`Nil` 模块伪代码标注；导入一览表 `toString` 说明修正 |
+| 2026.06.13 | 示例代码语法合规修复（IO.println/Sys.time 包裹在 `do` 块中）；新增 `Regex`、`Duration` 和 `Set` 模块 API 文档；`Nil` 模块伪代码标注；导入一览表补全 |
 | 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |
 | 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
 | 2026.06.10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
