@@ -196,7 +196,7 @@ let f = \x -> x
 
 - 识别含 `do` 块的函数，标记为效应函数（不在类型签名中体现）
 - 验证纯函数体中无效应函数调用
-- 验证 `do` 块外的代码无效应命名空间（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`）函数调用
+- 验证 `do` 块外的代码无效应命名空间（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`Task.*`）函数调用
 - 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry` 仅在 `do` 块内使用
 - Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
 
@@ -311,6 +311,8 @@ seccomp-BPF 过滤规则禁止以下系统调用类别：
 | 文件系统重挂载 | `mount`、`umount2`、`pivot_root`（子进程禁止） |
 | 容器逃逸 | `unshare`、`clone`（含 `CLONE_NEWNS`/`CLONE_NEWUSER`/`CLONE_NEWNET` 等标志时） |
 | 原始套接字 | `socket`（`AF_PACKET` 协议族） |
+| Landlock 逃逸 | `open_by_handle_at`、`name_to_handle_at`（按 inode 打开文件可绕过 Landlock 路径级限制） |
+| 异步 I/O 逃逸 | `io_uring_setup`、`io_uring_enter`、`io_uring_register`（历史漏洞频发，可绕过 seccomp 检查） |
 
 子进程的 seccomp 规则集是固定编译期常量，不受用户配置影响。
 

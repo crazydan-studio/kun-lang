@@ -16,7 +16,7 @@
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
 | 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |
 | 泛型 | ✅ 设计定型 | 无约束参数化多态（简单泛型） |
-| 效应跟踪 | ✅ 设计定型 | AST 标记：含 `do` 块的函数 + `IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*` 命名空间函数 + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry` 为效应函数；`Cmd.<bin>` 构造及 `Cmd` 装饰函数（`Cmd.pipe`/`Cmd.withEnv` 等，返回 `Command`）为纯操作 |
+| 效应跟踪 | ✅ 设计定型 | AST 标记：含 `do` 块的函数 + `IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*`/`Task.*` 命名空间函数 + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry` 为效应函数；`Cmd.<bin>` 构造及 `Cmd` 装饰函数为纯操作 |
 | 类型等价 | ✅ 设计定型 | 结构等价，无子类型 |
 
 ### 标准库类型
@@ -49,6 +49,8 @@
 | Function | ✅ 设计定型 | `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`，始终缺省可用 |
 | Nil | ✅ 设计定型 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`，变体 `Nil` 缺省可用，函数需显式导入 |
 | String | ✅ 设计定型 | `toString`（编译器级泛型）+ 类型互转函数 |
+| Regex | ✅ 设计定型 | 正则匹配与替换（`fromString` 运行时构造） |
+| Bytes | ✅ 设计定型 | 二进制编解码（`toHex`/`fromHex`） |
 | List | ✅ 设计定型 | 不可变列表查询与变换 |
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
 | Result | ✅ 设计定型 | `map`/`mapError`/`andThen`/`withDefault` |
@@ -59,6 +61,8 @@
 | File | ✅ 设计定型 | 进程内文件 syscall（含 `createTempFile`/`createTempDir`） |
 | Cmd | ✅ 设计定型 | 命令构造/修饰/执行 |
 | Process | ✅ 设计定型 | `exit`/`pid`/`kill`/`wait`/`sleep` |
+| Duration | ✅ 设计定型 | 时间段算术/比较/单位转换（编译器内置类型，模块函数需显式导入） |
+| Task | ✅ 设计定型 | `spawn`/`all` 并发命令执行 |
 | Sys | ✅ 设计定型 | `ps`/`free`/`df`
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
