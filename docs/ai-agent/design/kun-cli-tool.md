@@ -7,7 +7,7 @@
 ## 命令结构
 
 ```
-kun [安全参数] <子命令> [子命令参数] <脚本.kun> [脚本参数...]
+kun [全局选项] <子命令> [子命令参数] <脚本.kun> [脚本参数...]
 ```
 
 ### 子命令
@@ -84,7 +84,7 @@ kun --trace=full script.kun       # 打印完整调用栈
 `--trace` 输出格式：
 
 ```
-[Trace] File.readString("p"/etc/hostname") at main.kun:3:15
+[Trace] File.readString(p"/etc/hostname") at main.kun:3:15
 [Trace]   String.trim("hostname\n") at main.kun:4:10
 [Trace]   IO.println("hostname") at main.kun:5:5
 ```

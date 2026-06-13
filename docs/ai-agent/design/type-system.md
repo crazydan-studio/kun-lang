@@ -217,7 +217,7 @@ Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
 
 - 含 `do` 块的函数自动标记为效应函数
 - 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`
-- `Cmd` 模块的装饰函数（`Cmd.withEnv`、`Cmd.pipe`、`Cmd.withRawOpt`、`Cmd.mergeStderr`、`Cmd.withCwd`、`Cmd.withRunAs`、`Cmd.andThen`、`Cmd.orElse`）接收 `Command` 返回 `Command`，为纯操作，可在 `do` 块外使用
+- `Cmd.pipe` 及 `Cmd` 装饰函数（`Cmd.withEnv`、`Cmd.withRawOpt`、`Cmd.mergeStderr`、`Cmd.withCwd`、`Cmd.withRunAs`、`Cmd.andThen`、`Cmd.orElse`）接收并返回 `Command` 值，为纯操作，可在 `do` 块外使用
 - `Cmd.<bin>?` 立即执行及 `Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry` 返回 `Result`，为效应函数
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
 - 效应性不扩散到类型签名——函数签名中不出现 `IO` 标记

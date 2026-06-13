@@ -75,7 +75,7 @@ module Math loaded
 | `:cmds` | 列出可用的类型化命令模块 |
 | `:modules` | 列出已加载的模块 |
 | `:funcs` | 列出已定义和收藏的函数 |
-| `:history` | 查看命令历史 |
+| `:history` | 查看命令历史（支持 `--search <keyword>` 关键词搜索） |
 | `:replay <id>` | 回放指定历史记录 |
 | `:save <name>` | 收藏当前函数定义 |
 | `:exit` / `:quit` | 退出 Shell |
@@ -144,7 +144,7 @@ Kun Shell 支持以动态链接库方式接入 DuckDB 替换 SQLite：
 
 ```bash
 # 编译时启用 DuckDB 支持
-kun shell --engine duckdb
+kun-shell --engine duckdb
 
 # 或通过运行时动态加载
 >>> :engine duckdb
