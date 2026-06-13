@@ -194,6 +194,40 @@ toString : a -> String
 - `Regex`：正则模式字符串 `r"..."`
 - `Duration`：纳秒数
 
+## `Bytes` — 二进制数据编解码
+
+### 定位
+
+`Bytes` 为内置类型（不可变二进制数据，`[]u8` 切片），`Bytes` 模块提供编解码函数。
+
+需显式导入：
+
+```kun
+import Bytes
+```
+
+### API
+
+```kun
+// 从十六进制字符串解码
+fromHex : String -> Result Bytes String
+
+// 编码为十六进制字符串
+toHex : Bytes -> String
+```
+
+### 示例
+
+```kun
+import Bytes
+
+Bytes.toHex 0x48656C6C6F                    // → "48656C6C6F"
+
+case Bytes.fromHex "48656C6C6F" of
+  Ok b  -> b
+  Err _ -> 0x00
+```
+
 ### 示例
 
 ```kun
@@ -807,6 +841,7 @@ type CommandError
 
 - `CommandFailed` 包含命令名、退出码和完整 stderr 输出
 - `PipeFailed` 包含管道链中按序的命令名列表和失败位置
+- `show : CommandError -> String` 返回格式化的错误描述字符串
 
 #### 示例
 
@@ -1384,7 +1419,9 @@ do
 
 ### 定位
 
-`Map` 模块提供不可变字典的查询和变换操作。Map 的键类型必须可哈希（`Int`、`String`、`Bool`、`Char` 等）。
+`Map` 模块提供不可变字典的查询和变换操作。Map 的键类型必须可哈希（`Int`、`String`、`Bool`、`Char`、`Path` 等编译器内置可哈希类型及 `Duration`）。Kun 当前不提供用户自定义类型的哈希接口——使用非内置可哈希类型作为 Map 键将在编译期报错。
+
+> 哈希约束的编译期检查：编译器对 `Map k v` 类型构造中的 `k` 执行硬编码类型白名单检查（`Int`/`String`/`Bool`/`Char`/`Path`/`Duration`），非白名单类型在类型检查阶段报错。这是无类型类的临时方案，避免了运行时哈希崩溃，符合"所有类型安全检查在编译期完成"的原则。后续可引入 `Hashable` 类型类以支持用户自定义哈希。
 
 需显式导入：
 
@@ -2049,6 +2086,7 @@ all : Stream (Result a e) -> List (Result a e)
 - `spawn n cmds` 并发 fork 最多 `n` 个子进程，返回结果流（按完成顺序，非提交顺序）
 - `all` 消费结果流，等待全部子进程退出后收集为 List
 - 子进程仍受 `seccomp + rlimit` 约束，沙箱策略与单命令一致
+- `Cmd.timeout`/`Cmd.retry` 是立即执行函数（返回 `Result`），**不可与 `Task.spawn` 组合**——`spawn` 需要 `List Command`（未执行）。批量超时控制通过 `Task.spawn` 的并发度参数间接实现：并发度限制 + 子进程各自的 rlimit CPU 限制 (`--cpu-limit`) 提供超时兜底。
 
 ### 示例
 

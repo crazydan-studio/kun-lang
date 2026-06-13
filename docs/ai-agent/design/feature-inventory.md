@@ -58,7 +58,7 @@
 | Env | ✅ 设计定型 | 环境变量读写 |
 | File | ✅ 设计定型 | 进程内文件 syscall（含 `createTempFile`/`createTempDir`） |
 | Cmd | ✅ 设计定型 | 命令构造/修饰/执行 |
-| Process | ✅ 设计定型 | `exit`/`pid`/`sleep` |
+| Process | ✅ 设计定型 | `exit`/`pid`/`kill`/`wait`/`sleep` |
 | Sys | ✅ 设计定型 | `ps`/`free`/`df`
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
