@@ -1372,9 +1372,7 @@ parsePort "8080"
 
 ### 定位
 
-`Validator` 模块提供常用校验函数，供 `Cli.withValidator` 等编译期校验场景使用。所有
-函数为纯函数，签名为 `a -> Result a String`——传入原值，`Ok` 通过，`Err` 返回错误信
-息。
+`Validator` 模块提供常用校验函数，供 `Cli.withValidator` 等编译期校验场景使用。所有函数为纯函数，签名为 `a -> Result a String`——传入原值，`Ok` 通过，`Err` 返回错误信息。
 
 需显式导入：
 

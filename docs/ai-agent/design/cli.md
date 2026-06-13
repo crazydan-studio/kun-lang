@@ -2,13 +2,9 @@
 
 ## 设计定位
 
-对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安
-全的 Record。`Cli` 是纯标准库模块，不依赖编译器内置支持——其类型安全由 HM 推断 +
-编译期代码展开实现，与 `Parser.Record.fromJson` 机制一致。
+对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。`Cli` 是纯标准库模块，不依赖编译器内置支持——其类型安全由 HM 推断 +编译期代码展开实现，与 `Parser.Record.fromJson` 机制一致。
 
-`Cli` 模块仅导出类型结构与声明器函数，不提供构造器或修饰器包装函数——用户直接操作
-`Cli.CliSpec` 和 `Cli.CliMeta` 等 Record 数据，通过标准 Record 语法和 Map 字面量/
-更新语法进行组装。
+`Cli` 模块仅导出类型结构与声明器函数，不提供构造器或修饰器包装函数——用户直接操作`Cli.CliSpec` 和 `Cli.CliMeta` 等 Record 数据，通过标准 Record 语法和 Map 字面量/更新语法进行组装。
 
 需显式导入：
 
@@ -32,9 +28,7 @@ import Cli
 
 ### 命名约定
 
-声明器中的 `name` 参数（长选项名、位置参数名、子命令名）统一使用 **kebab-case**（
-全小写，连字符分隔）。编译器在 `Cli.parse` 调用点自动将其转换为 **camelCase** 以匹
-配 Record 字段名：
+声明器中的 `name` 参数（长选项名、位置参数名、子命令名）统一使用 **kebab-case**（全小写，连字符分隔）。编译器在 `Cli.parse` 调用点自动将其转换为 **camelCase** 以匹配 Record 字段名：
 
 | 声明名 (kebab-case) | Record 字段名 (camelCase) |
 | --------------------- | -------------------------- |
@@ -45,12 +39,9 @@ import Cli
 
 转换规则：按 `-` 分割，首段保持原样，后续每段首字母大写。
 
-短选项（`Char`）不受此规则影响——始终为单字符。若声明器不提供短选项，传 `Nil` 即可
-（仅长选项）。
+短选项（`Char`）不受此规则影响——始终为单字符。若声明器不提供短选项，传 `Nil` 即可（仅长选项）。
 
-**字段名建议**：对于 `List T` 类型字段（可重复选项或余量位置参数），建议使用单数形
-式命名——例如 `port : List Int` 而非 `ports : List Int`，使 `--port 80 --port 443`
-读起来自然。此规则为非强制建议，不影响编译期校验。
+**字段名建议**：对于 `List T` 类型字段（可重复选项或余量位置参数），建议使用单数形式命名——例如 `port : List Int` 而非 `ports : List Int`，使 `--port 80 --port 443`读起来自然。此规则为非强制建议，不影响编译期校验。
 
 #### 输入验证
 
@@ -72,8 +63,7 @@ import Cli
 | `--option VAL` | `--output dist/` | 空格分隔（POSIX 标准） |
 | `--option=VAL` | `--output=dist/` | 等号分隔（GNU 扩展） |
 
-两种形式等价，实现中统一处理：遇到 `--opt=val` 时按 `=` 拆分为选项名和值。短选项
-同样支持 `-oVAL`（无空格）。
+两种形式等价，实现中统一处理：遇到 `--opt=val` 时按 `=` 拆分为选项名和值。短选项同样支持 `-oVAL`（无空格）。
 
 ### 短标志组合
 
@@ -93,8 +83,7 @@ import Cli
 
 ### 可重复选项
 
-当 Record 字段类型为 `List T` 时，`option` 声明器自动变为可重复——每次出现均追加到
-列表：
+当 Record 字段类型为 `List T` 时，`option` 声明器自动变为可重复——每次出现均追加到列表：
 
 ```kun
 type RunConfig =
@@ -105,8 +94,7 @@ type RunConfig =
 // --port 8080 --port 443 nginx  →  port = [8080, 443], image = "nginx"
 ```
 
-列表元素按出现顺序排列。不出现时为空列表 `[]`。可重复选项的位置参数行为与单值选项
-相同：必须有值 token。
+列表元素按出现顺序排列。不出现时为空列表 `[]`。可重复选项的位置参数行为与单值选项相同：必须有值 token。
 
 > **与短标志组合的交互**：可重复选项不建议放入短标志组合中。`-pp 8080` 按组合规则
 > 解析为 `-p` 后跟随值 `p`，而非两次 `-p` 调用。使用可重复选项时请始终以独立形式
@@ -122,14 +110,11 @@ Cli.option "password" 'p' "Password"
   |> Cli.withRequires "username"
 ```
 
-若 `--password` 出现但 `--username` 未出现，解析报错。依赖链支持传递闭包。循环依赖
-在编译期检测并报错。
+若 `--password` 出现但 `--username` 未出现，解析报错。依赖链支持传递闭包。循环依赖在编译期检测并报错。
 
-**与 `withDefault` 的交互**：仅当选项**显式出现在命令行中**时才触发依赖检查——通过
-`withDefault` 获得缺省值的选项若未被用户显式传入，不会触发其 `withRequires` 约束。
+**与 `withDefault` 的交互**：仅当选项**显式出现在命令行中**时才触发依赖检查——通过`withDefault` 获得缺省值的选项若未被用户显式传入，不会触发其 `withRequires` 约束。
 
-**传递闭包错误报告**：当依赖链中某个环节缺失时，报告链上第一个断点。如 A → B → C
-，仅 A 出现而 B、C 均未出现时，报 `A requires B`（而非同时报 B requires C）。
+**传递闭包错误报告**：当依赖链中某个环节缺失时，报告链上第一个断点。如 A → B → C，仅 A 出现而 B、C 均未出现时，报 `A requires B`（而非同时报 B requires C）。
 
 ### 否定标志
 
@@ -141,10 +126,7 @@ Cli.flag "optional" 'o' "Enable optional mode"
   |> Cli.withNegation
 ```
 
-`--no-optional` 显式将对应字段设为 `false`，覆盖任何缺省值。不声明 `withNegation`
-时，不提供 `--optional` 即为 `false`。否定标志仅对目标字段类型为 `Bool` 的 `flag`
-有效，对 `count`、`option`、`arg` 无效（编译期报错）。否定没有短选项形式——仅通过
-`--no-<name>` 长选项提供。
+`--no-optional` 显式将对应字段设为 `false`，覆盖任何缺省值。不声明 `withNegation`时，不提供 `--optional` 即为 `false`。否定标志仅对目标字段类型为 `Bool` 的 `flag`有效，对 `count`、`option`、`arg` 无效（编译期报错）。否定没有短选项形式——仅通过`--no-<name>` 长选项提供。
 
 若用户同时传入 `--optional` 和 `--no-optional`，解析报错：
 
@@ -152,9 +134,7 @@ Cli.flag "optional" 'o' "Enable optional mode"
 Error: cannot specify both '--optional' and '--no-optional'
 ```
 
-**与环境变量的交互**：`withNegation` 和 `withEnvVar` 可同时使用。`--no-debug` 显式
-覆盖 `$DEBUG` 环境变量值——命令行否定标志优先级高于环境变量。不自动生成
-`$NO_DEBUG` 类反向环境变量映射，需否定行为时请在命令行显式传递。
+**与环境变量的交互**：`withNegation` 和 `withEnvVar` 可同时使用。`--no-debug` 显式覆盖 `$DEBUG` 环境变量值——命令行否定标志优先级高于环境变量。不自动生成`$NO_DEBUG` 类反向环境变量映射，需否定行为时请在命令行显式传递。
 
 ```kun
 // 默认启用 debug，可通过 --no-debug 或 $DEBUG=false 关闭
@@ -174,9 +154,7 @@ Cli.option "config" 'c' "Config file path"
   |> Cli.withEnvVar "MYAPP_CONFIG"
 ```
 
-优先级：命令行显式传入 > 环境变量 > `withDefault` > 必填报错 / Nil。环境变量值按
-目标字段类型进行字符串解析。若环境变量存在但解析失败，**静默回退**至后续优先级（
-`withDefault` 或报错）——不会因环境变量中的垃圾值而中断脚本。
+优先级：命令行显式传入 > 环境变量 > `withDefault` > 必填报错 / Nil。环境变量值按目标字段类型进行字符串解析。若环境变量存在但解析失败，**静默回退**至后续优先级（`withDefault` 或报错）——不会因环境变量中的垃圾值而中断脚本。
 
 可同时使用 `withEnvVar` 和 `withDefault`：
 
@@ -186,19 +164,16 @@ Cli.option "port" 'p' "Server port"
   |> Cli.withDefault 8080
 ```
 
-命令行 `--port 3000` → `3000`；无命令行但 `PORT=5000` → `5000`；两者皆无
-→ `8080`。
+命令行 `--port 3000` → `3000`；无命令行但 `PORT=5000` → `5000`；两者皆无→ `8080`。
 
 **对环境变量的限制**：
 
 - `withEnvVar` 对 `option` 有效；对 `flag` 有效（真值解析见下文）；对 `count` 和
   `arg` 无效（编译期报错）
 - **Bool 型 flag 的环境变量真值解析**：不区分大小写，`"true"`、`"1"`、`"yes"`
-  → `true`；`"false"`、`"0"`、`"no"`、`""` → `false`；其他值 → 静默回退至后续优
-  先级（与通用规则一致）
+  → `true`；`"false"`、`"0"`、`"no"`、`""` → `false`；其他值 → 静默回退至后续优先级（与通用规则一致）
 - **子命令环境变量作用域**：环境变量属于进程全局。若父命令和子命令同时声明了
-  `withEnvVar "CONFIG"`，同一环境变量会分别应用到各自的 spec——这是用户的责任，不
-  做冲突检测
+  `withEnvVar "CONFIG"`，同一环境变量会分别应用到各自的 spec——这是用户的责任，不做冲突检测
 
 ### 自定义校验
 
@@ -217,26 +192,17 @@ Cli.option "port" 'p' "Server port"
   |> Cli.withValidator (Validator.range 1 65535)
 ```
 
-`withValidator` 接受签名为 `a -> Result a String` 的函数——`Ok value` 通过，
-`Err msg` 返回错误信息。`a` 由目标 Record 字段类型确定，编译期校验匹配。
+`withValidator` 接受签名为 `a -> Result a String` 的函数——`Ok value` 通过，`Err msg` 返回错误信息。`a` 由目标 Record 字段类型确定，编译期校验匹配。
 
-`withValidator` 为**纯编译期标记**——不在 `CliArg` 中存储任何字段，仅在编译器的展
-开上下文中记录校验函数引用。`Cli.parse` 展开阶段按目标字段类型查找函数、验证签名、
-内联校验逻辑。修饰器链中只能有一个 validator；重复调用后者覆盖前者。
+`withValidator` 为**纯编译期标记**——不在 `CliArg` 中存储任何字段，仅在编译器的展开上下文中记录校验函数引用。`Cli.parse` 展开阶段按目标字段类型查找函数、验证签名、内联校验逻辑。修饰器链中只能有一个 validator；重复调用后者覆盖前者。
 
-**校验作用范围与顺序**：validator 作用于**所有值来源**（命令行、环境变量、
-`withDefault`）。在整个解析链中，类型解析先于 validator 校验——值先被解析为目标类
-型，再经 validator 验证。若 `withDefault` 提供的缺省值无法通过 validator，编译期直
-接报错。解析优先级不变（cli > env > default），validator 在最终值确定后运行。对于
-`?T` 类型的可选位置参数，若未提供值（结果为 `Nil`），validator 不触发。
+**校验作用范围与顺序**：validator 作用于**所有值来源**（命令行、环境变量、`withDefault`）。在整个解析链中，类型解析先于 validator 校验——值先被解析为目标类型，再经 validator 验证。若 `withDefault` 提供的缺省值无法通过 validator，编译期直接报错。解析优先级不变（cli > env > default），validator 在最终值确定后运行。对于`?T` 类型的可选位置参数，若未提供值（结果为 `Nil`），validator 不触发。
 
-用户可定义自定义校验函数，签名为 `a -> Result a String`。编译期内联该校验逻辑。
-`Validator` 模块的标准校验函数定义见 [`standard-library.md`](standard-library.md)。
+用户可定义自定义校验函数，签名为 `a -> Result a String`。编译期内联该校验逻辑。`Validator` 模块的标准校验函数定义见 [`standard-library.md`](standard-library.md)。
 
 ### 约束选项的说明约定
 
-对于带有取值范围、枚举选择或其他约束的选项，**必须在 `help` 文本中明确描述约束条件**
-，使使用者无需查看脚本源码即可通过 `--help` 了解合法输入：
+对于带有取值范围、枚举选择或其他约束的选项，**必须在 `help` 文本中明确描述约束条件**，使使用者无需查看脚本源码即可通过 `--help` 了解合法输入：
 
 | 约束类型 | help 文本约定 | 示例 |
 |---------|-------------|------|
@@ -247,12 +213,9 @@ Cli.option "port" 'p' "Server port"
 | 文件存在性 | 末尾标注 `(must exist)` / `(writable)` 等 | `"Config file path (must exist, readable)"` |
 | 自定义校验 | 简要描述校验规则 | `"Token (64-char hex string)"` |
 
-`--help` 输出中的帮助文本直接使用声明器中提供的 `help` 字符串，**不做自动推断**——
-约束描述由声明者显式写入 `help` 文本。编译期不校验 `help` 文本是否与实际 validator
-一致（validator 可能来自模块外部或用户自定义函数，其约束语义无法在编译器层面提取）。
+`--help` 输出中的帮助文本直接使用声明器中提供的 `help` 字符串，**不做自动推断**——约束描述由声明者显式写入 `help` 文本。编译期不校验 `help` 文本是否与实际 validator一致（validator 可能来自模块外部或用户自定义函数，其约束语义无法在编译器层面提取）。
 
-较复杂的约束或业务规则应在脚本的额外文档（如项目 README）中详细说明，`help` 文本仅
-提供简要指引。 `help` 文本最长建议不超过 80 字符——超长文本在终端帮助输出中被截断。
+较复杂的约束或业务规则应在脚本的额外文档（如项目 README）中详细说明，`help` 文本仅提供简要指引。 `help` 文本最长建议不超过 80 字符——超长文本在终端帮助输出中被截断。
 
 ```kun
 // ✅ 正确：help 文本明确描述约束
@@ -476,26 +439,21 @@ parse : CliSpec -> List String -> Result a CliError
 
 ### 互斥组
 
-`oneOf` 语义为 **at most one**（最多允许一个出现）：组内声明的参数中，零个或一个可
-以出现在命令行中；超过一个则解析报错（包含否定标志——`--no-dry-run` 视为选项出现）。
+`oneOf` 语义为 **at most one**（最多允许一个出现）：组内声明的参数中，零个或一个可以出现在命令行中；超过一个则解析报错（包含否定标志——`--no-dry-run` 视为选项出现）。
 
 ```
 Error: argument group 'config-source' allows at most one of: --global, --local
 ```
 
-若需要"必须选一个"的强约束，在应用层对解析结果进行校验（所有成员均为
-default/Nil/false 时拒绝）。这避免在框架层引入 `exactlyOne` 的额外复杂度。
+若需要"必须选一个"的强约束，在应用层对解析结果进行校验（所有成员均为default/Nil/false 时拒绝）。这避免在框架层引入 `exactlyOne` 的额外复杂度。
 
 ### 子命令
 
 #### 模型
 
-子命令通过父 Record 的**可选字段**（`?T`）表达：每个子命令对应父 Record 中的一个
-字段，字段名为子命令名的 camelCase 映射，字段类型为子命令解析结果的目标 Record 类
-型。
+子命令通过父 Record 的**可选字段**（`?T`）表达：每个子命令对应父 Record 中的一个字段，字段名为子命令名的 camelCase 映射，字段类型为子命令解析结果的目标 Record 类型。
 
-子命令的 `Cli.CliSpec` 自身不含父命令的目标类型信息——类型约束全在 `Cli.parse` 调
-用点的编译期展开阶段完成。
+子命令的 `Cli.CliSpec` 自身不含父命令的目标类型信息——类型约束全在 `Cli.parse` 调用点的编译期展开阶段完成。
 
 #### 组装方式
 
@@ -518,28 +476,20 @@ parentSpec
   |> \s -> { s | subs = #{ s.subs ?? #{} | "status" = statusSpec } }
 ```
 
-`??` 是 Nil 合并操作符——当 `s.subs` 为 `Nil` 时返回空 Map `#{}`，否则返回已有 Map
-。Map 字面量 `#{}` 和更新语法 `#{ old | key = val }` 是语言内置语法，无需
-`import Map`。
+`??` 是 Nil 合并操作符——当 `s.subs` 为 `Nil` 时返回空 Map `#{}`，否则返回已有 Map。Map 字面量 `#{}` 和更新语法 `#{ old | key = val }` 是语言内置语法，无需`import Map`。
 
 #### 调度规则
 
 - **子命令优先匹配**：解析器遇到位置 token 时，先检查是否匹配已注册的子命令名
-  （kebab-case 比对），匹配则切换到该子命令的解析模式。若需将子命令名作为父命令位
-  置参数的值传入，使用 `--` 分隔符：`deploy.kun -- push` 将 `"push"` 绑定到位置参
-  数而非匹配子命令
+  （kebab-case 比对），匹配则切换到该子命令的解析模式。若需将子命令名作为父命令位置参数的值传入，使用 `--` 分隔符：`deploy.kun -- push` 将 `"push"` 绑定到位置参数而非匹配子命令
 - **父命令选项仅在前**：父命令声明的选项仅在子命令 token 之前被识别。一旦匹配到子
-  命令，后续 token 由子命令的 spec 解析——子命令之后出现的父命令选项名将被视为未知
-  选项（由子命令 spec 的 unknown-option 处理逻辑处理）
+  命令，后续 token 由子命令的 spec 解析——子命令之后出现的父命令选项名将被视为未知选项（由子命令 spec 的 unknown-option 处理逻辑处理）
 - **子命令接管位置参数**：一旦匹配到子命令，父命令的所有位置参数声明不再消费
   token——所有剩余位置 token 交由子命令的 spec 解析
 - **无子命令时父命令正常解析**：若所有位置 token 均不匹配子命令名，父命令的位置参
   数按声明顺序正常绑定
 - **透传模式与子命令**：二者可共存。匹配到子命令后，透传行为由子命令 spec 的
-  `loose` 字段决定——父命令的 `loose` 不传导到子命令。未匹配到子命令时，父命令的
-  `loose` 正常生效。注意：子命令匹配**之前**的 token 全部属于父命令作用域——若父
-  命令 `loose=true`，在遇到子命令名之前的所有未知 token 会被父命令的余量位置参数
-  消费，而非透传给子命令
+  `loose` 字段决定——父命令的 `loose` 不传导到子命令。未匹配到子命令时，父命令的`loose` 正常生效。注意：子命令匹配**之前**的 token 全部属于父命令作用域——若父命令 `loose=true`，在遇到子命令名之前的所有未知 token 会被父命令的余量位置参数消费，而非透传给子命令
 
 ```
 输入: deploy.kun -v prod
@@ -558,8 +508,7 @@ parentSpec
 
 #### 分发模式
 
-子命令分发采用嵌套 `case` 模式。对于子命令较多的应用，可通过辅助函数减少嵌套深度
-：
+子命令分发采用嵌套 `case` 模式。对于子命令较多的应用，可通过辅助函数减少嵌套深度：
 
 ```kun
 // 使用 Nil 合并链（??）配合 Result 组合
@@ -573,62 +522,44 @@ handleSubCmd cfg =
     p -> IO.println f"Pushing to {p.remote}/{p.branch}"
 ```
 
-当子命令数量超过 3 时，建议抽取独立的处理函数，将嵌套 `case` 限制在分发层，业务逻
-辑放在各自处理函数中。
+当子命令数量超过 3 时，建议抽取独立的处理函数，将嵌套 `case` 限制在分发层，业务逻辑放在各自处理函数中。
 
 #### 多级嵌套
 
-子命令的 spec 自身可含 `subs`，支持任意层级嵌套。每级子命令对应父 Record 中的一个
-可选字段，字段类型为下一级子命令的配置 Record。组装方式同顶层——通过 Map 字面量或
-更新语法逐级嵌套。
+子命令的 spec 自身可含 `subs`，支持任意层级嵌套。每级子命令对应父 Record 中的一个可选字段，字段类型为下一级子命令的配置 Record。组装方式同顶层——通过 Map 字面量或更新语法逐级嵌套。
 
 #### 帮助
 
-`--help` 自动列出所有已注册子命令。对特定子命令使用 `--help`（如
-`deploy.kun push --help`）显示该子命令的详细帮助。子命令帮助文本取自子 spec 的
-`meta.intro`。
+`--help` 自动列出所有已注册子命令。对特定子命令使用 `--help`（如`deploy.kun push --help`）显示该子命令的详细帮助。子命令帮助文本取自子 spec 的`meta.intro`。
 
-`--version` 同样自动可用——显示 `meta.version`（若提供），否则输出「版本未知或未设
-定」。
+`--version` 同样自动可用——显示 `meta.version`（若提供），否则输出「版本未知或未设定」。
 
-帮助输出中，参数名（选项名、位置参数名）的显示规则为：kebab-case 名全部大写，保留
-原 `-` 分隔符。否定标志以 `--no-NAME` 形式出现在帮助中；带 `withEnvVar` 的选项显
-示 `[env: VARNAME]` 提示。
+帮助输出中，参数名（选项名、位置参数名）的显示规则为：kebab-case 名全部大写，保留原 `-` 分隔符。否定标志以 `--no-NAME` 形式出现在帮助中；带 `withEnvVar` 的选项显示 `[env: VARNAME]` 提示。
 
 ### 编译期类型安全
 
 `Cli.parse` 的泛型类型 `a` 由调用上下文推断。编译期流程：
 
 0. **类型推断前提**：`Cli.parse` 的调用处必须有显式类型标注（如
-   `parseConfig : List String -> Result MyConfig Cli.CliError`），或通过后续使用使
-   `a` 被约束为具体 Record 类型。若 `a` 始终为自由类型变量（无约束），编译器报错
-   ，提示需要类型标注
+   `parseConfig : List String -> Result MyConfig Cli.CliError`），或通过后续使用使`a` 被约束为具体 Record 类型。若 `a` 始终为自由类型变量（无约束），编译器报错，提示需要类型标注
 1. HM 推断 `a = MyConfig`（从标注或上下文合一得出）
 2. 编译器展开 `MyConfig` 的字段类型
 3. 对每个 `CliArg`：校验 `name` 的 kebab-case 格式，映射为 camelCase，在
-   `MyConfig` 中查找对应字段，按字段类型验证 `kind` 兼容性。缺字段 → 编译错误，多
-   余声明 → 编译错误
+   `MyConfig` 中查找对应字段，按字段类型验证 `kind` 兼容性。缺字段 → 编译错误，多余声明 → 编译错误
 4. 对 `subs` 中的每个条目：将 kebab-case key 映射为 camelCase，在 `MyConfig` 中查
    找对应字段，验证其为 `?T` 类型，递归验证子 spec 与 `T` 的兼容性
 5. 检查名字冲突：同 spec 内重名、保留名 `help`/`h`/`version`/`V`、父/子命令间的
    字段名冲突
 6. 检查依赖关系：`withRequires` 的依赖目标存在且不形成循环
 7. 检查修改器适用范围：`withNegation` 仅用于 `Bool` 型 `flag`；`withEnvVar` 仅用于
-   `option` 和 `flag`；`withRequires` 仅用于 `option`、`flag`、`count`；`withValidator`
-   仅用于 `option`、`arg`、`count`。违规 → 编译期报错
+   `option` 和 `flag`；`withRequires` 仅用于 `option`、`flag`、`count`；`withValidator`仅用于 `option`、`arg`、`count`。违规 → 编译期报错
 8. 对 `withValidator`：校验函数签名 `a -> Result a String`（`a` 与目标字段类型合
-   一），校验缺省值是否通过 validator（不通过 → 编译期报错），内联校验逻辑到解析
-   代码中
+   一），校验缺省值是否通过 validator（不通过 → 编译期报错），内联校验逻辑到解析代码中
 9. 为每个 `CliArg` 按对应字段类型生成特化的字符串→类型转换代码
 
-`CliArg` 本身不带类型参数（`default` 存储为 `String`），以避免不同字
-段类型的 `CliArg` 无法放入同一 `List`。`CliSpec` 同样不带类型参数——子命令 spec 的
-类型信息在构造时不绑定，仅在 `Cli.parse` 调用点通过编译期展开与目标 Record 结构进
-行交叉验证。
+`CliArg` 本身不带类型参数（`default` 存储为 `String`），以避免不同字段类型的 `CliArg` 无法放入同一 `List`。`CliSpec` 同样不带类型参数——子命令 spec 的类型信息在构造时不绑定，仅在 `Cli.parse` 调用点通过编译期展开与目标 Record 结构进行交叉验证。
 
-`withDefault` 在编译期将多态值序列化为 `String` 存入 `CliArg` 的 `default` 字段。
-在 `Cli.parse` 展开阶段，编译器按目标字段类型将存储的字符串反序列化，并校验反序列
-结果类型匹配。此机制与 `Parser.Record.fromJson` 的默认值处理一致。
+`withDefault` 在编译期将多态值序列化为 `String` 存入 `CliArg` 的 `default` 字段。在 `Cli.parse` 展开阶段，编译器按目标字段类型将存储的字符串反序列化，并校验反序列结果类型匹配。此机制与 `Parser.Record.fromJson` 的默认值处理一致。
 
 > **编译期代码展开**：上述步骤 3-9 由编译器的通用代码展开设施执行——该设施允许标
 > 准库函数在编译期根据已知类型参数内省 Record 结构并生成特化代码。此机制与
@@ -1238,8 +1169,7 @@ parseCompile =
     }
 ```
 
-`output : Path` 无 `?` 无 default → 必填。`--o a.out` 之后所有 `-Wall`、`-O2`、
-`main.c` 均流入 `compilerArgs`。
+`output : Path` 无 `?` 无 default → 必填。`--o a.out` 之后所有 `-Wall`、`-O2`、`main.c` 均流入 `compilerArgs`。
 
 ### 14. 多个位置参数
 
@@ -1268,8 +1198,7 @@ parseCp =
 kun cp.kun a.txt b.txt /tmp
 ```
 
-按声明顺序消费：`a.txt` → `source`，`b.txt` → `dest`，`/tmp` → `target`。`--` 分
-隔符遵循 POSIX 惯例：`--` 之后全部 token 视为位置参数。
+按声明顺序消费：`a.txt` → `source`，`b.txt` → `dest`，`/tmp` → `target`。`--` 分隔符遵循 POSIX 惯例：`--` 之后全部 token 视为位置参数。
 
 ### 15. 可选位置 + 余量位置
 
@@ -1299,8 +1228,7 @@ kun tool.kun a.txt b.txt        → name = "a.txt", files = ["b.txt"]
 kun tool.kun hello a.txt b.txt  → name = "hello", files = ["a.txt", "b.txt"]
 ```
 
-位置参数消费策略为非贪婪：先尝试匹配前置的 `?T`（0 或 1 个），剩余全部进入
-`List T`。`--` 之后全部 token 视为位置参数。
+位置参数消费策略为非贪婪：先尝试匹配前置的 `?T`（0 或 1 个），剩余全部进入`List T`。`--` 之后全部 token 视为位置参数。
 
 ### 版本标志
 
@@ -1370,8 +1298,7 @@ parseConfig =
 
 ### 错误信息与程序化处理
 
-`CliError` 为和类型，支持模式匹配实现程序化处理。使用 `Cli.show` 获取人类可读描述
-：
+`CliError` 为和类型，支持模式匹配实现程序化处理。使用 `Cli.show` 获取人类可读描述：
 
 ```kun
 case parseConfig raw of
@@ -1420,5 +1347,4 @@ Error: unknown subcommand 'pussh'. Did you mean 'push'?
 Try 'build.kun --help' for more information.
 ```
 
-`--help`/`-h` 始终自动可用，不可禁用。`--version`/`-V` 同样自动可用。出现解析错误
-时自动提示 `--help`。
+`--help`/`-h` 始终自动可用，不可禁用。`--version`/`-V` 同样自动可用。出现解析错误时自动提示 `--help`。
