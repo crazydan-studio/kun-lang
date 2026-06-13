@@ -329,7 +329,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 ## 类型检查算法
 
-类型检查采用 HM（Hindley-Milner）推断，两阶段流程（约束生成 + 合一），详细实现见[系统基线](../architecture/system-baseline.md)。
+类型检查采用 HM（Hindley-Milner）推断，两阶段流程（约束生成 + 合一）。详细实现待补充。
 
 ## 类型表示与运行时
 
