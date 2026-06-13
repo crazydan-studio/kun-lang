@@ -513,13 +513,14 @@ parentSpec
 ```kun
 // 使用 Nil 合并链（??）配合 Result 组合
 handleSubCmd : DeployConfig -> Unit
-handleSubCmd cfg =
-  case cfg.push of
-    Nil ->
-      case cfg.status of
-        Nil -> IO.println "No subcommand"
-        s   -> IO.println f"Status: short={s.short}"
-    p -> IO.println f"Pushing to {p.remote}/{p.branch}"
+handleSubCmd = \cfg ->
+  do
+    case cfg.push of
+      Nil ->
+        case cfg.status of
+          Nil -> IO.println "No subcommand"
+          s   -> IO.println f"Status: short={s.short}"
+      p -> IO.println f"Pushing to {p.remote}/{p.branch}"
 ```
 
 当子命令数量超过 3 时，建议抽取独立的处理函数，将嵌套 `case` 限制在分发层，业务逻辑放在各自处理函数中。
@@ -1271,26 +1272,30 @@ type FullConfig =
 deploySpec : Cli.CliSpec
 deploySpec =
   { meta   = { intro = "deploy", version = "3.0.0" }
-  , args   = [ Cli.arg "target" "Deploy target"
-             , Cli.flag "force-deploy" Nil "Force deploy"
-             ]
+  , args   =
+      [ Cli.arg "target" "Deploy target"
+      , Cli.flag "force-deploy" Nil "Force deploy"
+      ]
   }
 
 parseConfig : List String -> Result FullConfig Cli.CliError
 parseConfig =
   Cli.parse
-    { meta   = { intro  = "full.kun"
-               , text   = "Demonstrates all CliSpec fields."
-               , version = "1.0.0"
-               }
-    , args   = [ Cli.flag "verbose" 'v' "Verbose output"
-               , Cli.option "output" 'o' "Output path"
-               ]
-    , groups = [ Cli.oneOf "mode"
-                   [ Cli.flag "dry-run" 'n' "Dry run"
-                   , Cli.flag "force" 'f' "Force"
-                   ]
-               ]
+    { meta   =
+        { intro  = "full.kun"
+        , text   = "Demonstrates all CliSpec fields."
+        , version = "1.0.0"
+        }
+    , args   =
+        [ Cli.flag "verbose" 'v' "Verbose output"
+        , Cli.option "output" 'o' "Output path"
+        ]
+    , groups =
+        [ Cli.oneOf "mode"
+            [ Cli.flag "dry-run" 'n' "Dry run"
+            , Cli.flag "force" 'f' "Force"
+            ]
+        ]
     , subs   = #{ "deploy" = deploySpec }
     , loose  = false
     }
@@ -1301,6 +1306,7 @@ parseConfig =
 `CliError` 为和类型，支持模式匹配实现程序化处理。使用 `Cli.show` 获取人类可读描述：
 
 ```kun
+// 以下 case 应当在 do 块中（如 main = \raw -> do ... in）
 case parseConfig raw of
   Ok cfg -> ...
   Err (Cli.UnknownOption { option = "verbse", suggestion = "verbose" }) ->

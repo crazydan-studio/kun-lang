@@ -102,7 +102,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 
 `do` 块按顺序执行效应操作。含 `do` 块的函数通过编译器 AST 标记自动识别为效应函数。纯函数（无 `do` 块）不能调用效应函数——编译期拒绝。
 
-效应函数涵盖以下命名空间的所有函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`。`Cmd.<bin>` 构造 `Command` 值为纯操作（延迟执行），`Cmd.<bin>?` 立即执行及 `Cmd` 模块装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等）为效应函数。
+效应函数涵盖以下命名空间的所有函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`。`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作。`Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）为效应函数。
 
 `do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值。语法细节见 [`syntax.md`](../design/syntax.md) do 块章节。
 

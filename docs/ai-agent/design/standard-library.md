@@ -873,6 +873,8 @@ toString : DateTime -> String
 #### 示例
 
 ```kun
+import DateTime
+
 do
   now = Sys.time
   past = DateTime.fromUnixSecs 1700000000
@@ -2104,6 +2106,21 @@ main = \_ ->
 | `Duration` | `import Duration` | 时间段操作 |
 | `Sys` | `import Sys` | 系统信息查询 |
 | `Path` | `import Path` | 路径操作函数（类型标注无需导入） |
+| `Port` | `import Port` | 端口号操作（`of`/`isValid`/`fromInt`） |
+| `Pid` | `import Pid` | 进程 ID 操作 |
+| `Signal` | `import Signal` | 信号枚举与注册（`on` 仅可执行脚本可用） |
+| `Errno` | `import Errno` | POSIX 错误码 |
+| `FileType` | `import FileType` | 文件类型枚举 |
+| `FileMode` | `import FileMode` | 文件权限位操作 |
+| `FileStat` | `import FileStat` | 文件元数据结构（由 `File.stat` 返回） |
+| `IOError` | `import IOError` | 系统调用结构化错误 |
+| `CommandError` | `import CommandError` | 命令执行语义化错误 |
+| `DateTime` | `import DateTime` | 时间点操作（`format`/`parse`/`year` 等） |
+| `ExitCode` | `import ExitCode` | 退出码操作 |
+| `Uid` | `import Uid` | 用户 ID 操作 |
+| `Gid` | `import Gid` | 组 ID 操作 |
+| `IpAddress` | `import IpAddress` | IP 地址解析与查询 |
+| `SocketAddr` | `import SocketAddr` | 套接字地址（`Tcp`/`Udp` + `IpAddress` + `Port`） |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
 

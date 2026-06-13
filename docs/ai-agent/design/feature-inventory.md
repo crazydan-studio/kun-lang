@@ -16,7 +16,7 @@
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
 | 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |
 | 泛型 | ✅ 设计定型 | 无约束参数化多态（简单泛型） |
-| 效应跟踪 | ✅ 设计定型 | AST 标记：含 `do` 块的函数 + `IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*` 命名空间函数 + `Cmd` 装饰函数及 `Cmd.<bin>?` 为效应函数；`Cmd.<bin>` 构造 Command 值为纯操作；纯函数不能调用效应函数 |
+| 效应跟踪 | ✅ 设计定型 | AST 标记：含 `do` 块的函数 + `IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*` 命名空间函数 + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry` 为效应函数；`Cmd.<bin>` 构造及 `Cmd` 装饰函数（`Cmd.pipe`/`Cmd.withEnv` 等，返回 `Command`）为纯操作 |
 | 类型等价 | ✅ 设计定型 | 结构等价，无子类型 |
 
 ### 标准库类型

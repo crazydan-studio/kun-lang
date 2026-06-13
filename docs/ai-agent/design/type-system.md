@@ -105,19 +105,19 @@ if x /= Nil then
 #### `Int`
 
 - 固定 64 位有符号整数（i64），补码表示。字面量支持十进制、`0x`、`0o`、`0b` 及 `_` 分隔
-- 四则运算溢出时 panic（`release` 模式可关闭检测）。操作函数见 [`Int` 模块](standard-library.md#int--整数操作)
+- 四则运算溢出时 panic（`release` 模式可关闭检测）。操作函数见 [`Int` 模块](standard-library.md#int-整数操作)
 
 #### `Float`
 
 - IEEE 754 双精度浮点数（f64）。与 `Int` 混合运算需显式转换
-- 操作函数及容差比较见 [`Float` 模块](standard-library.md#float--浮点操作)
+- 操作函数及容差比较见 [`Float` 模块](standard-library.md#float-浮点操作)
 
 **精度局限**：二进制浮点无法精确表示大多数十进制小数（如 `0.1` + `0.2` ≠ `0.3`）。Kun 从两个层面缓解：
 
 1. `toString` 输出时默认舍入到 15 位有效数字，消除显示噪音
 2. `Float.approxEqual` 提供容差比较，避免直接用 `==` 比较浮点值
 
-需要精确十进制计算的场景应使用标准库 [`Decimal` 类型](standard-library.md#decimal--十进制精确数值)。
+需要精确十进制计算的场景应使用标准库 [`Decimal` 类型](standard-library.md#decimal-十进制精确数值)。
 
 #### `Bool`
 
@@ -125,7 +125,7 @@ if x /= Nil then
 
 #### `String`
 
-- 不可变 UTF-8 编码文本。操作函数见 [`String` 模块](standard-library.md#string--字符串操作)
+- 不可变 UTF-8 编码文本。操作函数见 [`String` 模块](standard-library.md#string-字符串操作)
 - 从外部输入转为 `String` 时，非法 UTF-8 序列运行时 Panic
 
 #### `Bytes`
@@ -217,8 +217,8 @@ Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
 
 - 含 `do` 块的函数自动标记为效应函数
 - 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`
-- `Cmd` 模块的装饰函数（`Cmd.withEnv`、`Cmd.pipe` 等）及 `Cmd.<bin>?` 立即执行形式为效应函数
-- `Cmd.<bin>` 构造 `Command` 值是纯操作（延迟执行，无副作用），可在 `do` 块外使用
+- `Cmd` 模块的装饰函数（`Cmd.withEnv`、`Cmd.pipe`、`Cmd.withRawOpt`、`Cmd.mergeStderr`、`Cmd.withCwd`、`Cmd.withRunAs`、`Cmd.andThen`、`Cmd.orElse`）接收 `Command` 返回 `Command`，为纯操作，可在 `do` 块外使用
+- `Cmd.<bin>?` 立即执行及 `Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry` 返回 `Result`，为效应函数
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
 - 效应性不扩散到类型签名——函数签名中不出现 `IO` 标记
 - Lambda 含有效应函数调用时，该 lambda 必须在 `do` 块内定义
@@ -339,6 +339,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.13 | `Cmd` 效应分类细化（装饰函数为纯操作/立即执行为效应）；效应跟踪提升为独立 H2；锚点规范化 |
 | 2026.06.12 | 新增 `Float` 精度局限说明与 `toString` 截断语义；编译器内置标注（`Nil`/`?T`/效应跟踪）；新增 `Decimal` 精确十进制类型；`TempFile`/`TempDir` 整合为 `File.createTempFile`/`File.createTempDir` |
 | 2026.06.10 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base \| field : T }`）；效应跟踪改为 AST 标记方案 |
 | 2026.06.10 | 目录即命名空间模块系统：`export (...)` 替代 `module Xxx export (...)`；`import X (...)` 替代 `import X with (...)` |
