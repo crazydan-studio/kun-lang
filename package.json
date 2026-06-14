@@ -3,24 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
     "docs:dev": "pnpm --filter @kun-lang/docs dev",
     "docs:build": "pnpm --filter @kun-lang/docs build",
     "docs:preview": "pnpm --filter @kun-lang/docs preview",
-    "docs:lint": "pnpm --filter @kun-lang/docs lint",
-    "docs:lint:fix": "pnpm --filter @kun-lang/docs lint:fix",
-    "lsp:build": "pnpm --filter @kun-lang/lsp-server build",
-    "lsp:start": "pnpm --filter @kun-lang/lsp-server start",
-    "lsp:typecheck": "pnpm --filter @kun-lang/lsp-server typecheck",
-    "lsp:plugin:build": "pnpm --filter @kun-lang/lsp-plugin build",
-    "lsp:shared:build": "pnpm --filter @kun-lang/lsp-shared build"
+    "docs:lint": "pnpm --filter @kun-lang/docs lint"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
-  },
-  "devDependencies": {
-    "ts-node": "^10.9.2"
   }
 }

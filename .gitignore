@@ -22,9 +22,3 @@ docs/public/diagrams/
 # OS
 .DS_Store
 Thumbs.db
-
-# Zig build output
-code/.zig-cache/
-code/zig-out/
-code/zig-cache/
-**/tsconfig.tsbuildinfo
