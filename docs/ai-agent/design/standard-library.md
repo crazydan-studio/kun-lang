@@ -1840,7 +1840,7 @@ main = \raw ->
 
 ### 定位
 
-提供密码学安全的伪随机数生成器。
+提供密码学安全的伪随机数生成器。所有函数均为效应函数，**只能在 `do` 块中调用**。
 
 需显式导入：
 
@@ -1915,8 +1915,19 @@ take : Int -> Stream a -> Stream a
 // 丢弃前 n 个元素
 drop : Int -> Stream a -> Stream a
 
-// 按 \n 切分
-lines : Stream String -> Stream String
+// 按 \n 切分（默认行长上限 1 MiB，超长行返回 Err LineTruncated）
+lines : Stream String -> Stream (Result String LineError)
+
+// 同上，指定行长上限（n ≤ 0 编译期报错）
+linesMax : Int -> Stream String -> Stream (Result String LineError)
+```
+
+`LineError` 定义：
+
+```kun
+type LineError =
+  LineTruncated { partial_len: Int }
+```
 
 // 映射并跳过失败
 parseMap : (a -> Result b e) -> Stream a -> Stream b
@@ -2271,6 +2282,7 @@ which : String -> ?Path
 | `Cmd.andThen` / `Cmd.orElse` | **纯** | 短路条件组合，返回 Command |
 | `Cmd.<bin>?` / `Cmd.pipe?` | **效应** | 立即执行并返回 Result |
 | `Cmd.exec` / `Cmd.timeout` / `Cmd.retry` | **效应** | 立即执行 |
+| `Cmd.which` | **效应** | PATH 查找（需文件系统访问） |
 
 > 完整语法、执行模型、选项映射及示例见 [OS 命令调用机制](command-system.md)。
 
@@ -2603,6 +2615,8 @@ main = \_ ->
 |------|---------|------|
 | `Function` | 始终缺省可用 | `identity`、`always`、`<\|`、`\|>`、`<<`、`>>` |
 | `Nil` | 变体 `Nil` 缺省可用；函数需 `import Nil` | `withDefault`、`map`、`orElse`、`toResult`、`andThen` |
+| `Bytes` | `import Bytes` | 二进制数据操作 |
+| `Char` | `import Char` | 字符分类与转换 |
 | `Decimal` | `import Decimal` | 精确十进制数值 |
 | `Int` | `import Int` | 整数操作与互转 |
 | `Float` | `import Float` | 浮点操作与互转 |

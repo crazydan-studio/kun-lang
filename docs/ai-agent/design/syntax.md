@@ -622,7 +622,7 @@ countFiles = \dir ->
 `do` 块规则：
 
 - `do` 块内使用 `=` 绑定值
-- 效应函数（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*` 命名空间的函数 + `Signal.on` + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.exec` + 用户定义含 `do` 块的函数 + 签名中声明了 `(a -> b)!` 参数的函数）只能在 `do` 块中调用；`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
+- 效应函数（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*` 命名空间的函数 + `Signal.on` + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.exec` + 用户定义含 `do` 块的函数 + 签名中声明了 `(a -> b)!` 参数的函数）只能在 `do` 块中调用；`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
 - 含 `do` 块的函数自动标记为效应函数
 - 签名中声明了 `(a -> b)!` 参数的函数自动标记为效应函数
 - 纯函数（无 `do` 块、无 `!` 参数）不能调用效应函数
@@ -985,7 +985,7 @@ Stream.parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 
 ```kun
 Stream.toList  : Stream a -> List a                 // 终端
-Stream.iter    : (a -> Unit) -> Stream a -> Unit     // 终端
+Stream.iter    : (a -> Unit)! -> Stream a -> Unit    // 终端
 Stream.fold    : (b -> a -> b) -> b -> Stream a -> b // 终端
 Stream.string  : Stream String -> String             // 终端：全文收集
 Stream.bytes   : Stream a -> Bytes                   // 终端：二进制读取
