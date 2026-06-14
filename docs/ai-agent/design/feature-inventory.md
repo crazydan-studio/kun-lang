@@ -65,12 +65,14 @@
 | Sys | ✅ 设计定型 | `ps`/`free`/`df`
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
+| Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
+| Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
 | Path | ✅ 设计定型 | `cwd`/`parent`/`fileName`/`extension`/`join`/`(++)`/`toString` |
 | Int | ✅ 设计定型 | 整数取反/绝对值/类型互转，需显式导入 |
 | Float | ✅ 设计定型 | 浮点取反/绝对值/取整/平方根/容差比较(`approxEqual`)/类型互转，需显式导入 |
 | Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
-| Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
-| Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
+
+> **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型，但不在 MVP（v0.1.0）范围。Cli 和 Parser.Record 均推迟到 v0.5 实施，届时编译期内省基础设施（基于 Zig comptime + @typeInfo）与二者同时实现。详见 `plans/plan-mvp-implementation.md` Phase 0.12。
 | Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令 |
 
 ### 命令系统
