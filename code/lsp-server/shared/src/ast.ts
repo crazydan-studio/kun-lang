@@ -90,6 +90,8 @@ export type Expr =
   | { kind: 'optionalChain'; target: Expr; func: Expr; range: Range }
   | { kind: 'indexAccess'; target: Expr; index: Expr; range: Range }
   | { kind: 'fieldShorthand'; field: string; range: Range }
+  | { kind: 'cmdBracket'; name: string; range: Range }
+  | { kind: 'exportDecl'; symbols: string[]; range: Range }
 
 export type Binding = {
   pattern: Pattern
@@ -141,11 +143,12 @@ export type UnaryOp = '-' | 'not'
 
 export type TopLevelDecl = {
   kind: 'typeDecl' | 'functionDecl'
-  | 'importDecl' | 'expression'
+  | 'importDecl' | 'exportDecl' | 'expression'
   range: Range
   name?: string
   typeAnnotation?: TypeAnnotation
   expr?: Expr
+  exportSymbols?: string[]  // for exportDecl: exported symbol names
 }
 
 export type KunDocument = {

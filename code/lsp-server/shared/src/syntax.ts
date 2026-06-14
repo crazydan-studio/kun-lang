@@ -4,10 +4,18 @@ export const KEYWORDS = [
   'when', 'defer',
 ] as const
 
-export const BUILTIN_TYPES = [
+export const COMPILER_BUILTIN_TYPES = [
   'Int', 'Float', 'Bool', 'String', 'Bytes', 'Char',
-  'Regex', 'Duration', 'Path', 'Result', 'List', 'Set',
-  'Map', 'Stream', 'Unit', 'Tuple',
+  'Regex', 'Duration', 'Path', 'Unit',
+] as const
+
+export const STDLIB_TYPES = [
+  'Result', 'List', 'Set', 'Map', 'Stream', 'Tuple',
+] as const
+
+export const BUILTIN_TYPES = [
+  ...COMPILER_BUILTIN_TYPES,
+  ...STDLIB_TYPES,
 ] as const
 
 export const DEPRECATED_SYNTAX = [
