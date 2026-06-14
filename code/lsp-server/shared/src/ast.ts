@@ -78,8 +78,18 @@ export type Expr =
   | { kind: 'record'; fields: RecordField[]; spread?: string; range: Range }
   | { kind: 'recordAccess'; record: Expr; field: string; range: Range }
   | { kind: 'recordUpdate'; record: Expr; fields: RecordField[]; range: Range }
-  | { kind: 'list'; elements: Expr[]; range: Range }
+  | { kind: 'list'; elements: ListElement[]; range: Range }
   | { kind: 'tuple'; elements: Expr[]; range: Range }
+  | { kind: 'map'; entries: MapEntry[]; range: Range }
+  | { kind: 'set'; elements: Expr[]; range: Range }
+  | { kind: 'range'; start: Expr; end: Expr; range: Range }
+  | { kind: 'binary'; operator: BinaryOp; left: Expr; right: Expr; range: Range }
+  | { kind: 'unary'; operator: UnaryOp; operand: Expr; range: Range }
+  | { kind: 'ternary'; condition: Expr; thenExpr: Expr; elseExpr: Expr; range: Range }
+  | { kind: 'nilCoalesce'; left: Expr; right: Expr; range: Range }
+  | { kind: 'optionalChain'; target: Expr; func: Expr; range: Range }
+  | { kind: 'indexAccess'; target: Expr; index: Expr; range: Range }
+  | { kind: 'fieldShorthand'; field: string; range: Range }
 
 export type Binding = {
   pattern: Pattern
@@ -90,7 +100,7 @@ export type Binding = {
 
 export type CaseBranch = {
   pattern: Pattern
-  guard?: string
+  guard?: Expr
   body: Expr
   range: Range
 }
@@ -110,6 +120,24 @@ export type RecordField = {
   value: Expr
   range: Range
 }
+
+export type MapEntry = {
+  key: Expr
+  value: Expr
+  range: Range
+}
+
+export type ListElement =
+  | { kind: 'expr'; expr: Expr; range: Range }
+  | { kind: 'spread'; expr: Expr; range: Range }
+
+export type BinaryOp =
+  | '+' | '-' | '*' | '/' | '%' | '++'
+  | '==' | '/=' | '<' | '>' | '<=' | '>='
+  | '&&' | '||'
+  | '>>' | '<<'
+
+export type UnaryOp = '-' | 'not'
 
 export type TopLevelDecl = {
   kind: 'typeDecl' | 'functionDecl'

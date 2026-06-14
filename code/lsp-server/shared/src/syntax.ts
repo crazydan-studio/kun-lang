@@ -7,7 +7,7 @@ export const KEYWORDS = [
 export const BUILTIN_TYPES = [
   'Int', 'Float', 'Bool', 'String', 'Bytes', 'Char',
   'Regex', 'Duration', 'Path', 'Result', 'List', 'Set',
-  'Map', 'Stream',
+  'Map', 'Stream', 'Unit', 'Tuple',
 ] as const
 
 export const DEPRECATED_SYNTAX = [
@@ -25,7 +25,7 @@ export const DEPRECATED_SYNTAX = [
 export const COMMENT_RULES = {
   validPrefix: '//',
   invalidPrefixes: ['--', '#', '/*', '*/'],
-  docCommentTriggers: ['type ', 'module ', /^\w+\s*:.*->/],
+  docCommentTriggers: ['type ', 'export ', /^\w+\s*:.*->/],
 } as const
 
 export const LITERAL_PREFIXES = ['p"', 'r"', 'f"', 'f"""'] as const

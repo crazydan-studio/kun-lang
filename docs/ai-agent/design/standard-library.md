@@ -182,8 +182,9 @@ toString : a -> String
 ```
 
 `toString` 是编译器层面的泛型函数。其分发策略为：
-1. 若类型定义了 `toString` 函数，则调用该类型的 `toString`
-2. 否则，使用编译器缺省的字符串构造
+1. 若类型定义了 `toString` 函数（显式实现或标准库 newtype 提供），则调用该类型的 `toString`
+2. 若是编译器内置基础类型（`Int`、`Float`、`Bool`、`String`、`Char`、`Bytes`、`Regex`、`Duration`、`Path`、`Unit`），使用编译器缺省的字符串构造（见下方内置类型缺省行为）
+3. 对于用户自定义 ADT，若未实现 `toString`，在 f-string 或直接调用 `toString` 时产生编译期错误——编译器不自动为自定义类型生成字符串表示。提示信息："type `Xxx` does not implement `toString`；implement `toString : Xxx -> String` or use a format specifier to select fields explicitly"
 
 各标准库中定义了 `toString` 的类型包括：`Port`、`Pid`、`ExitCode`、`DateTime`、`IpAddress`、`Path`、`Uid`、`Gid`、`FileMode`、`FileType`、`Signal`、`Errno`、`Duration`。
 
@@ -237,6 +238,85 @@ Bytes.toString 0x68656C6C6F                  // → "hello"
 case Bytes.fromHex "48656C6C6F" of
   Ok b  -> b
   Err _ -> 0x00
+```
+
+## `Char` — 字符操作
+
+### 定位
+
+`Char` 为内置类型（Unicode 标量值，运行时表示为 u32），`Char` 模块提供字符分类、转换及构造函数。
+
+需显式导入：
+
+```kun
+import Char
+```
+
+### API
+
+#### 构造
+
+```kun
+// 从 Int 构造 Char（调用者自保证合法性，非法码点 panic）
+// 合法范围：0..0x10FFFF，排除代理对 0xD800..0xDFFF
+of : Int -> Char
+
+// 从 Int 安全构造 Char（非法码点返回 Err）
+fromInt : Int -> Result Char String
+```
+
+#### 分类
+
+```kun
+// 是否为数字字符 '0'..'9'
+isDigit : Char -> Bool
+
+// 是否为字母字符（Unicode 字母类别）
+isAlpha : Char -> Bool
+
+// 是否为大写字母
+isUpper : Char -> Bool
+
+// 是否为小写字母
+isLower : Char -> Bool
+
+// 是否为空白字符（空格、制表、换行等，Unicode 空白）
+isWhitespace : Char -> Bool
+
+// 是否为控制字符（C0 和 C1 控制码、U+007F DEL）
+isControl : Char -> Bool
+```
+
+#### 转换
+
+```kun
+// 转为大写（非字母字符返回自身）
+toUpper : Char -> Char
+
+// 转为小写（非字母字符返回自身）
+toLower : Char -> Char
+
+// 提取 Unicode 码点值
+toInt : Char -> Int
+```
+
+### 示例
+
+```kun
+import Char
+
+ch = Char.of 65              // → 'A'
+Char.isDigit '5'             // → true
+Char.isAlpha 'A'             // → true
+Char.isUpper 'A'             // → true
+Char.toLower 'A'             // → 'a'
+Char.toInt 'A'               // → 65
+Char.isWhitespace '\n'       // → true
+
+// 安全构造
+case Char.fromInt 0xD800 of    // 代理对，非法
+  Ok c  -> c
+  Err _ -> Char.of 0xFFFD     // 回退到 Unicode 替换字符
 ```
 
 ### 示例
@@ -1039,7 +1119,9 @@ ExitCode.toInt ExitCode.generalError  // → 1
 
 #### 定位
 
-文件系统路径类型，运行时表示为 `[]u8`（UTF-8 路径切片）。`Path` 为内置类型，无需 `import Path` 即可在类型标注中使用，但 `Path` 模块中的函数需导入。
+文件系统路径类型，运行时表示为 `[]u8`（字节切片）。`Path` 为内置类型，无需 `import Path` 即可在类型标注中使用，但 `Path` 模块中的函数需导入。
+
+Path 的内部字节序列不保证为 UTF-8——Linux 内核将路径视为以 NUL 结尾的任意字节序列（禁止 `\0` 和 `/` 作为文件名字节），对编码不做约束。Kun 提供两条构造路径以覆盖不同场景：`p"..."` 字面量和 `Path.fromString` 适用于绝大多数 UTF-8 路径（编译期或运行时验证 UTF-8）；`Path.fromBytes` 从任意 `Bytes` 构造路径以覆盖非 UTF-8 文件系统场景（如解压不同编码的 zip、老旧 NAS 遗留文件）。`toString` 在路径含非法 UTF-8 字节时用 U+FFFD 替代，需精确保留原始字节的代码使用 `toBytes`。
 
 需显式导入：
 
@@ -1055,9 +1137,9 @@ cwd : Path
 
 // 父目录路径
 parent : Path -> Path
-// 文件名（含扩展名）
+// 文件名（含扩展名）——尝试 UTF-8 解码，非 UTF-8 字节用 U+FFFD 替换
 fileName : Path -> String
-// 文件扩展名（含 `.`）
+// 文件扩展名（含 `.`）——同 fileName 的 UTF-8 规则
 extension : Path -> String
 
 // 拼接路径段
@@ -1065,11 +1147,29 @@ join : Path -> String -> Path
 // 拼接左右两个路径，自动处理分隔符
 (++) : Path -> Path -> Path
 
-// 从字符串构造路径（始终安全，不做文件系统校验）
-// 任意有效 UTF-8 字符串均可为路径，故不返回 Result（违反 fromXxx 返回 Result 的约定是有意的——无失败路径）
+// 从 UTF-8 字符串构造路径（始终安全，不做文件系统校验）
+// 任意有效 UTF-8 字符串均可为路径，故不返回 Result
 fromString : String -> Path
+
+// 从字节数组构造路径（覆盖非 UTF-8 文件系统场景）
+// 验证规则：拒绝含 `\0` 字节 → Err "Path contains NUL byte"
+//            允许非 UTF-8 字节序列（不做编码验证）
+fromBytes : Bytes -> Result Path String
+
+// 从字节数组构造单路径组件（文件名/目录名）
+// 验证规则：拒绝含 `\0` 字节 → Err "Path component contains NUL byte"
+//           拒绝含 `/` 字节  → Err "Path component contains '/' byte"
+//           拒绝空字节序列    → Err "Path component is empty"
+//           允许非 UTF-8 字节序列（不做编码验证）
+component : Bytes -> Result Path String
+
 // 返回路径的字符串表示
+// 若内部字节为合法 UTF-8 → 返回等价 String
+// 若内部字节含非法 UTF-8 序列 → 非法字节用 U+FFFD（replacement character）替换
 toString : Path -> String
+
+// 以 Bytes 返回路径的原始字节表示（零开销，无验证）
+toBytes : Path -> Bytes
 ```
 
 #### 示例
@@ -1081,6 +1181,12 @@ home = Path.fromString "/home/user"
 logs = home ++ p"logs"               // → p"/home/user/logs"
 name = Path.fileName p"/tmp/foo.txt" // → "foo.txt"
 ext  = Path.extension p"/tmp/foo.txt" // → ".txt"
+
+// fromBytes：覆盖非 UTF-8 文件系统场景（Linux ext4/xfs 合法）
+// 受限 Landlock `--allow-path` 范围，仅 NUL 被拒绝
+case Path.fromBytes 0x2F746D702FBAADF00D of
+  Ok path  -> Path.toString path  // 显示用 U+FFFD 替代非 UTF-8 字节
+  Err _    -> p"/tmp/fallback"
 
 // 路径语义场景：文件操作路径管理、路径段拼接、父目录定位、文件扩展名提取
 ```
@@ -1632,13 +1738,103 @@ do
 
 ## `Cli` — 命令行参数解析
 
+### 定位
+
+`Cli` 模块提供类型驱动的命令行参数解析，将 `main` 接收的 `List String` 解析为类型安全的 Record。`--help` / `-h` 和 `--version` / `-V` 自动可用。
+
 需显式导入：
 
 ```kun
 import Cli
 ```
 
-类型驱动 CLI 参数解析，完整 API、示例与设计说明见 [`Cli` 模块](cli.md)。
+### API
+
+#### 声明器
+
+```kun
+// 布尔开关（--name / -c），不出现 → false
+flag : String -> ?Char -> String -> CliArg
+
+// 带值选项（--name VAL / -c VAL）
+//   字段为 ?T → 不出现 → Nil；字段为 T → 无缺省则必填；字段为 List T → 可重复
+option : String -> ?Char -> String -> CliArg
+
+// 计数型标志（-c → 1，-ccc → 3），不出现 → 0
+count : String -> ?Char -> String -> CliArg
+
+// 位置参数（按声明顺序消费 token）
+arg : String -> String -> CliArg
+```
+
+#### 修饰器
+
+```kun
+// 设置缺省值（编译期序列化，解析时按目标字段类型反序列化）
+withDefault : a -> CliArg -> CliArg
+
+// 选项依赖
+withRequires : String -> CliArg -> CliArg
+
+// 为 Bool 型 flag 自动生成 --no-<name> 否定形式
+withNegation : CliArg -> CliArg
+
+// 环境变量回退：命令行未提供时从指定环境变量读取
+withEnvVar : String -> CliArg -> CliArg
+
+// 自定义校验（签名 a -> Result a String）
+withValidator : (a -> Result a String) -> CliArg -> CliArg
+```
+
+#### 解析
+
+```kun
+// 互斥组（at most one：成员中最多允许一个出现）
+oneOf : String -> List CliArg -> CliArgGroup
+
+// 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断）
+parse : CliSpec -> List String -> Result a CliError
+
+// 将解析错误转为人类可读字符串
+show : CliError -> String
+```
+
+> 完整设计、命名约定、kebab-case→camelCase 映射、子命令及示例见 [`Cli` 模块](cli.md)。
+
+### 示例
+
+```kun
+import Cli
+import IO
+
+type BuildConfig =
+  { verbose : Bool
+  , output  : ?Path
+  , jobs    : Int
+  , source  : String
+  }
+
+parseConfig : List String -> Result BuildConfig Cli.CliError
+parseConfig =
+  Cli.parse
+    { meta  = { intro = "build.kun", text = "Compiles and packages." }
+    , args =
+        [ Cli.flag "verbose" 'v' "Enable verbose output"
+        , Cli.option "output" 'o' "Output file path"
+        , Cli.option "jobs" 'j' "Parallel jobs" |> Cli.withDefault 4
+        , Cli.arg "source" "Source directory"
+        ]
+    }
+
+main : List String -> Unit
+main = \raw ->
+  do
+    case parseConfig raw of
+      Ok cfg ->
+        IO.println f"building {cfg.source} with {cfg.jobs} jobs"
+      Err err ->
+        IO.println (Cli.show err)
+```
 
 ## `Random` — 随机数
 
@@ -1661,8 +1857,8 @@ int : Int -> Int -> Int
 // 指定长度的随机字节序列
 bytes : Int -> Bytes
 
-// [0, 1) 半开区间随机浮点数
-float : Float
+// [0, 1) 半开区间随机浮点数（零参效应函数）
+float : -> Float
 
 // Fisher-Yates 洗牌
 shuffle : List a -> List a
@@ -1945,6 +2141,12 @@ readlink : Path -> Result Path IOError
 glob : String -> Path -> Result (List Path) IOError
 ```
 
+> **MVP 已知限制 — 阻塞型文件**：`readString` 和 `readBytes` 通过 `read(2)` 系统调用实现，在 FIFO（命名管道）、socket、字符设备等阻塞型文件上会无限期阻塞直到对端写入或连接。MVP 不提供超时参数。
+>
+> 未来方案（v1.1 候选）：为 `readString` 和 `readBytes` 增加可选的 `Duration` 超时参数。
+>
+> 临时规避：将阻塞读取放入 `Cmd.cat?` 子进程并用 `Cmd.timeout` 包裹——子进程超时后 `Cmd.timeout` 返回 `Err`，父进程不受影响。
+
 ### 示例
 
 ```kun
@@ -1979,14 +2181,127 @@ do
 
 ## `Cmd` — Command 工具与命令调用
 
-命令调用语法、选项映射、执行模型、API 签名及完整示例见 [OS 命令调用机制](command-system.md)。
+### 定位
 
-`Cmd.exec : Command -> Unit` 显式执行 Command 值，执行失败 panic。替代原有的 `do` 块隐式执行。
+`Cmd` 模块提供类型化 OS 命令调用。所有函数按执行时机分为纯操作（构造和修饰 Command 值）与效应操作（立即执行）。
 
 需显式导入：
 
 ```kun
 import Cmd
+```
+
+### API
+
+#### Command 构造（编译器内置语法）
+
+```kun
+// <bin> 为动态命令名——Cmd.ls、Cmd.git、Cmd["ntfs-3g"] 等均为合法形式
+// <bin>   : ?[options] -> posArgs... -> Command          // 延迟执行，返回 Command 值
+// <bin>?  : ?[options] -> posArgs... -> Result (Stream String) CommandError  // 立即执行
+```
+
+#### OS 管道
+
+```kun
+// 将多个 Command 连接为 OS 管道链（纯操作，延迟执行）
+pipe : List Command -> Command
+
+// 同上，失败时返回 Err 而非 panic（效应函数，立即执行）
+pipe? : List Command -> Result (Stream String) CommandError
+```
+
+#### 修饰函数（纯操作，接收并返回 Command）
+
+```kun
+// 添加环境变量到子进程
+withEnv : Map String String -> Command -> Command
+
+// 追加原始 argv token（用于不适合 camelCase 自动映射的 flag）
+withRawOpt : String -> ?String -> Command -> Command
+
+// 注入 stdin（字符串模式）
+withStdin : String -> Command -> Command
+
+// 注入 stdin（流式模式，适用于大体积输入）
+withStdin : Stream Bytes -> Command -> Command
+
+// 将 stderr 合并到 stdout 流
+mergeStderr : Command -> Command
+
+// 指定子进程工作目录（fork 后、exec 前 chdir）
+withCwd : Path -> Command -> Command
+
+// 指定子进程执行用户（需 OS 级权限）
+withRunAs : String -> Command -> Command
+```
+
+#### 短路条件组合（纯操作，返回 Command）
+
+```kun
+// 前一个成功时执行后一个
+andThen : Command -> Command -> Command
+
+// 前一个失败时执行备选
+orElse : Command -> Command -> Command
+```
+
+#### 立即执行（效应函数）
+
+```kun
+// 显式执行 Command 值，执行失败 panic（stdout 被消费但不保留）
+exec : Command -> Unit
+
+// 超时执行，过期返回 Err（立即 fork）
+timeout : Duration -> Command -> Result (Stream String) CommandError
+
+// 重试 n 次执行，每次失败后等待 interval（立即 fork）
+retry : Int -> Duration -> Command -> Result (Stream String) CommandError
+
+// PATH 查找命令位置，不可执行/未找到返回 Nil
+which : String -> ?Path
+```
+
+#### 效应分类
+
+| 操作 | 类别 | 说明 |
+|------|------|------|
+| `Cmd.<bin>` | **纯** | 构造 Command 值，不执行 |
+| `Cmd.pipe` / `Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` / `Cmd.withCwd` / `Cmd.withRunAs` | **纯** | 修饰函数，接收并返回 Command |
+| `Cmd.andThen` / `Cmd.orElse` | **纯** | 短路条件组合，返回 Command |
+| `Cmd.<bin>?` / `Cmd.pipe?` | **效应** | 立即执行并返回 Result |
+| `Cmd.exec` / `Cmd.timeout` / `Cmd.retry` | **效应** | 立即执行 |
+
+> 完整语法、执行模型、选项映射及示例见 [OS 命令调用机制](command-system.md)。
+
+### 示例
+
+```kun
+import Cmd
+
+// 构造 Command（纯操作，可在外层使用）
+c = Cmd.ls { long = true, all = true } p"/tmp"
+  |> Cmd.withCwd p"/home"
+  |> Cmd.mergeStderr
+
+do
+  // 管道隐式执行
+  Cmd.ls {} p"/var/log"
+    |> Stream.lines
+    |> Stream.iter IO.println
+
+  // 显式执行
+  Cmd.exec c
+
+  // 立即执行 + 错误处理
+  case Cmd.ls? p"/nonexistent" of
+    Ok stream -> ...
+    Err e -> IO.println (CommandError.show e)
+
+  // 短路条件
+  Cmd.git.clone {} "https://..."
+    |> Cmd.andThen (Cmd.make {} "-C" "repo")
+    |> Cmd.exec
 ```
 
 ## `Process` — 进程控制
@@ -2253,13 +2568,13 @@ equal : a -> a -> String -> Unit
 // 断言条件为 true
 ok : Bool -> String -> Unit
 
-// 断言表达式触发 panic（thunk 可为纯函数或效应函数，panics 内部捕获 panic）
+// 断言纯函数 thunk 触发 panic（thunk 为纯函数；panics 内部捕获 panic）
 panics : (Unit -> a) -> String -> Unit
 ```
 
 - `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
 - `ok condition message`：`condition` 为 `true` 通过，否则 panic
-- `panics thunk message`：`thunk` 为 `Unit -> a` 函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`thunk` 可为纯函数或效应函数——`panics` 内部捕获 panic，无需 `!` 标注
+- `panics thunk message`：`thunk` 为 `Unit -> a` 纯函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`panics` 仅接受纯函数 thunk（无 `do` 块或效应命名空间调用），所有 `Test` 断言均为纯函数
 
 ### 示例
 

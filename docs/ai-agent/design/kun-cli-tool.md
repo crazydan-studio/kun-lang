@@ -195,8 +195,8 @@ main = \raw ->
 | `--no-sandbox` | 完全关闭沙箱隔离 |
 | `--force` | 强制运行，跳过安全确认 |
 | `--env=<strategy>` | 环境变量继承策略（见下方） |
-| `--cpu-limit <duration>` | CPU 时间限制（默认 60s） |
-| `--mem-limit <size>` | 内存限制（默认 512MB） |
+| `--cpu-limit <duration>` | CPU 时间限制，覆盖主进程及全部子进程（默认 60s） |
+| `--mem-limit <size>` | 内存限制，覆盖主进程及全部子进程（默认 512MB） |
 
 ### 使用示例
 
@@ -219,11 +219,11 @@ kun --force script.kun
 # 继承全部环境变量
 kun --env=inherit script.kun
 
-# 资源限制
+# 资源限制（覆盖主进程及全部子进程）
 kun --cpu-limit 120s --mem-limit 1G script.kun
 
 # 组合参数
-kun --allow-path /tmp --allow-net --cpu-limit 30s script.kun
+kun --cpu-limit 30s script.kun
 ```
 
 ### 环境变量策略
@@ -239,14 +239,14 @@ kun --allow-path /tmp --allow-net --cpu-limit 30s script.kun
 
 运行时采用两层安全机制叠加：
 
-1. **父进程层**（初始化阶段一次性安装）：Landlock（首选：5.13+ 文件控制；6.7+ 文件 + 网络控制）→ mount namespace（兜底，内核 3.8+）→ 拒绝运行（内核 < 3.8）
+1. **父进程层**（初始化阶段一次性安装）：Mount namespace `/proc`/`/sys`/`/dev` 加固（内核 3.8+，始终执行）→ Landlock（首选：5.13+ 文件控制；6.7+ 文件 + 网络控制）→ mount namespace 目录级隔离（兜底，内核 3.8+，Landlock 不可用时）→ 拒绝运行（内核 < 3.8）
 2. **子进程层**（每次 fork 后始终安装）：seccomp-BPF 系统调用过滤 + rlimit 资源限制
 
 详细实现见[系统基线](../architecture/system-baseline.md#安全隔离)。
 
 ### 资源限制
 
-子进程 fork 后、exec 前自动设置 rlimit：
+rlimit 在进程启动时一次性设置，覆盖主进程（解释器自身）及所有 `fork` 的子进程——每一字节内存和 CPU 秒数来自同一预算。任一超出限制触发 panic（`SIGXCPU` 或超出 `RLIMIT_AS` 时内核拒绝分配）。
 
 | 限制 | 默认值 | CLI 覆盖 |
 |---|---|---|
@@ -254,6 +254,8 @@ kun --allow-path /tmp --allow-net --cpu-limit 30s script.kun
 | `RLIMIT_AS` | 512MB | `--mem-limit` |
 | `RLIMIT_NOFILE` | 256 | — |
 | `RLIMIT_NPROC` | 32 | — |
+
+> 默认值适用于常规脚本场景。超出限制触发 panic（`SIGXCPU` 或内核拒绝内存分配）。如需更宽松限制，通过 `--cpu-limit`/`--mem-limit` 调整。
 
 ## Kun Shell
 

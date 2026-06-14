@@ -83,6 +83,36 @@ if x /= Nil then
   String.length x         // 此分支 x 收窄为非 Nil 的 String（安全）
 ```
 
+#### 表达式 scrutinee 收窄
+
+`case` 的 scrutinee 可以是任意表达式（非仅变量）。编译器对表达式 scrutinee 引入隐式临时绑定：
+
+```kun
+case someFunc() of          // someFunc : -> ?String
+  Nil -> "absent"
+  s   -> String.length s    // s 收窄为 String
+```
+
+收窄作用于模式绑定的变量——`Nil` 分支中无绑定，`s` 分支中 `s` 的类型收窄为 `String`。每个分支对 scrutinee 的求值次数为一次（编译器插入临时绑定保证）。
+
+#### 复合模式收窄
+
+元组和 Record 模式中，每个子模式独立收窄：
+
+```kun
+case (x, y) of              // x : ?Int, y : ?String
+  (Nil, Nil) -> "both absent"
+  (a, Nil)   -> Int.neg a   // a : Int（收窄），第二项仍为 Nil
+  (Nil, b)   -> b           // b : String（收窄），第一项为 Nil
+  (a, b)     ->             // a : Int, b : String（均收窄）
+    Int.toString a ++ b
+```
+
+规则：
+- 元组模式 `(p1, p2, ...)`：每个位置根据该位置的值类型独立收窄。`Nil` 子模式收窄对应位置为 `Nil`；变量子模式在非 `Nil` 分支中收窄为 `T`
+- Record 模式 `{f1 = p1, f2 = p2, ...}`：每个字段根据其子模式独立收窄，规则同元组
+- 守卫子句中的变量类型为 scrutinee 原始类型（不收窄）
+
 ## 基础类型
 
 ### 概览
@@ -98,7 +128,7 @@ if x /= Nil then
 | `Regex` | 编译后正则 | `r"[0-9]+"` | 内部编译表示 | 编译期验证 |
 | `Duration` | 纳秒精度时间段 | `5s`, `100ms`, `2h` | i64 (纳秒) | 时间跨度 |
 | `Unit` | 零宽度类型 | 无（编译器隐式值） | void | 无返回值标记，不可作为参数类型 |
-| `Path` | 文件系统路径 | `p"/tmp/foo"`, `p"./foo"` | `[]u8` | 与 `String` 语义区分 |
+| `Path` | 文件系统路径（不保证 UTF-8） | `p"/tmp/foo"`, `p"./foo"` | `[]u8` | 与 `String` 语义区分；内部可为任意非 NUL 字节 |
 
 ### 类型详述
 
@@ -218,7 +248,7 @@ p = p"/tmp/foo"
 Kun 通过 AST 扫描自动推断函数的效应性：
 
 - 含 `do` 块的函数自动标记为效应函数
-- 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`；`Signal.on` 为效应函数（`Signal` 模块其余函数为纯函数）
+- 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*`；`Signal.on` 为效应函数（`Signal` 模块其余函数为纯函数）
 - `Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
 - `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）为效应函数
 - `Cmd.exec : Command -> Unit` 执行 Command 值，为效应函数

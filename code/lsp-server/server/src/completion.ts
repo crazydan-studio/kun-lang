@@ -71,7 +71,7 @@ const BUILTIN_TYPE_COMPLETIONS: CompletionItem[] = BUILTIN_TYPES.map(t => ({
 }))
 
 const COMMENT_SNIPPET: CompletionItem = {
-  label: '///',
+  label: '//',
   kind: CompletionItemKind.Snippet,
   insertText: [
     '// ${1:description}',
@@ -117,6 +117,8 @@ function getKeywordDoc(kw: string): string | undefined {
     let: 'Local bindings',
     defer: 'Deferred cleanup expression',
     export: 'Export declaration',
+    import: 'Import a module',
+    as: 'Module or import alias',
     when: 'Guard clause in pattern matching',
   }
   return docs[kw]
@@ -138,6 +140,8 @@ function getBuiltinTypeDoc(t: string): string | undefined {
     Set: 'Set data structure',
     Map: 'Key-value map',
     Stream: 'Lazy pull-based sequence',
+    Unit: 'Zero-width type (like void), no value',
+    Tuple: 'Fixed-length heterogeneous product type',
   }
   return docs[t]
 }

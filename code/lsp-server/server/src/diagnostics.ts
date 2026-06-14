@@ -204,8 +204,12 @@ function checkEffectContext(
   lineNum: number,
   allLines: string[],
 ): void {
-  // Check that effect function calls (Cmd.*/IO.*/File.*/etc.) are inside do blocks
-  const hasEffectCall = /\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+/.test(line)
+  // Effect namespaces (all functions are effectful): Cmd, IO, File, Env, Process, Sys, Random, Task
+  // Signal.on is effectful; other Signal functions are pure
+  // Cmd.<bin> (construct Command) and Cmd decoration (pipe, withEnv etc.) are pure operations
+  const hasEffectCall =
+    /\b(Cmd|IO|File|Env|Process|Sys|Random|Task)\.\w+/.test(line) ||
+    /\bSignal\.on\b/.test(line)
   if (hasEffectCall) {
     let foundDo = false
     for (let j = lineNum; j >= 0; j--) {
@@ -215,9 +219,10 @@ function checkEffectContext(
       }
     }
     if (!foundDo) {
-      const idx = line.search(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+/)
+      const namespaceRe = /\b(Cmd|IO|File|Env|Process|Sys|Random|Task)\.\w+|\bSignal\.on\b/
+      const idx = line.search(namespaceRe)
       diagnostics.push(
-        error('Effect functions (Cmd.*/IO.*/File.*/etc.) can only be called inside a do block.', lineNum, idx, idx + line.match(/\b\w+\.\w+/)![0].length),
+        error('Effect functions (Cmd.*/IO.*/File.*/etc.) can only be called inside a do block.', lineNum, idx, idx + line.match(/\b\w+(\.\w+)+/)![0].length),
       )
     }
   }

@@ -288,6 +288,14 @@ do
 
 `Cmd.retry` 内部调用 `Cmd.timeout`，每次重试独立 fork 子进程。失败时重试 `n` 次，全部失败后返回最后一次 `Err`。
 
+#### 时钟源
+
+`Cmd.timeout` 使用 `CLOCK_MONOTONIC` 作为计时时钟源（通过 `timerfd_create` 实现，Linux 3.17+；低于 3.17 回退到 `clock_gettime(CLOCK_MONOTONIC, ...)` 轮询）。选择 `CLOCK_MONOTONIC` 而非 `CLOCK_REALTIME` 的原因：
+
+- `CLOCK_REALTIME` 受 NTP 时间同步和系统管理员手动修改影响——时间向前跳变可能导致超时提前触发，时间向后跳变（闰秒、NTP 回拨）可能导致超时无限延长
+- `CLOCK_MONOTONIC` 单调递增且不受外部时间调整影响，确保超时语义的确定性
+- 与 Kun 的安全设计原则一致：运行时行为不因环境（NTP 配置、时钟调整）产生不可预期的差异
+
 #### 修饰函数链式组合顺序
 
 修饰函数通过 `|>` 链式应用时按从左到右的顺序累积属性，最终由 `timeout`/`retry` 或 `|>` 隐式触发/`do` 块边界触发 fork：

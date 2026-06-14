@@ -79,9 +79,11 @@ const KEYWORD_DOCS: Record<string, string> = {
     '',
     '```kun',
     'do',
-    '  tmp = TempFile.create',
-    '  defer (File.remove tmp)',
-    '  Cmd.ffmpeg {} "input.mp4" tmp',
+    '  case File.createTempFile of',
+    '    Ok tmp ->',
+    '      defer (File.remove tmp)',
+    '      Cmd.ffmpeg {} "input.mp4" tmp',
+    '    Err _ -> IO.println "failed to create temp file"',
     '```',
   ].join('\n'),
   let: [
@@ -118,18 +120,18 @@ const KEYWORD_DOCS: Record<string, string> = {
     '```kun',
     'import List                    // module alias',
     'import List as L               // short alias',
-    'import List with (map, filter) // selective',
-    'import List with (..)          // wildcard',
+    'import List (map, filter)      // selective',
+    'import List (..)               // wildcard',
     '```',
   ].join('\n'),
-  with: [
-    '### `with` — Import Selection',
+  as: [
+    '### `as` — Module or Import Alias',
     '',
-    'Used in imports for selective symbol import.',
+    'Used in imports to create a short alias or rename imported symbols.',
     '',
     '```kun',
-    'import List with (map, filter)',
-    'import Result with (Result(..))',
+    'import List as L              // module alias',
+    'import List (map as m)       // symbol rename',
     '```',
   ].join('\n'),
   main: [
@@ -167,6 +169,8 @@ const TYPE_DOCS: Record<string, string> = {
   Set: '`Set t` — Set data structure. Literal: `#[1, 2, 3]`.',
   Map: '`Map k v` — Key-value map. Literal: `#{ "a" = 1 }`.',
   Stream: '`Stream t` — Lazy pull-based sequence. Use `Stream` module to construct.',
+  Unit: '`Unit` — Zero-width type (like void). Return type for functions with no meaningful value. Cannot be used as a parameter type.',
+  Tuple: '`Tuple` — Fixed-length heterogeneous product type. Literal: `(1, "hello", true)`. Index access: `tuple.0`, `tuple.1`.',
 }
 
 const OPERATOR_DOCS: Record<string, string> = {

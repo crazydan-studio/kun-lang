@@ -130,7 +130,9 @@ function runDiagnostics(content: string): Diagnostic[] {
     }
 
     // 7. Effect function calls outside do blocks
-    const effectCallMatch = line.match(/\b(Cmd|IO|File|Env|Process|Time|Signal|Sys|TempFile)\.\w+/)
+    // Effect namespaces: Cmd, IO, File, Env, Process, Sys, Random, Task (+ Signal.on)
+    const effectCallMatch = line.match(/\b(Cmd|IO|File|Env|Process|Sys|Random|Task)\.\w+/)
+      || line.match(/\bSignal\.on\b/)
     if (effectCallMatch) {
       let foundDo = false
       for (let j = i; j >= 0; j--) {
