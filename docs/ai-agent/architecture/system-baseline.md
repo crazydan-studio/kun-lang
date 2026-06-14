@@ -97,7 +97,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 | `if`/三元 | 按需 | 仅条件匹配的分支被求值 |
 | `&&`/`\|\|` | 短路 | 左侧确定结果时右侧不求值 |
 | `Stream` | 惰性 | 元素在消费时按需拉取 |
-| `let ... in` 绑定 | 延迟 | `let` 与 `in` 之间的绑定仅在 `in` 之后被引用时才真正求值，绑定时不求值。`let ... in` 不可出现在 `do` 块内——`do` 块的顺序执行语义与延迟求值不兼容 |
+| `let ... in` 绑定：延迟 | `let` 与 `in` 之间的绑定仅在 `in` 之后被引用时才真正求值，绑定时不求值。`let ... in` 不可出现在 `do` 块内——`do` 块的顺序执行语义与延迟求值不兼容。`let` 绑定的表达式必须是纯的——不得包含效应函数调用（`IO.*`、`File.*` 等）、`do` 块、或 `Cmd.<bin>?` 等立即执行操作。效应代码必须使用 `do` 块内的 `=` 绑定 |
 
 ### 递归深度限制与尾调用优化
 
@@ -246,6 +246,70 @@ let f = \x -> x
 - 验证 `do` 块内未被消费的 `Command` 值：未被 `Cmd.exec`、`|>` 管道或 `?` 后缀消费的 `Command` 值为编译错误
 
 效应检查失败也产生 `TypeError`，纳入统一的错误报告。
+
+### Typed AST
+
+类型检查的输出是 Typed AST——在原始 AST 节点上附加完整类型标注的中间表示（IR）。Typed AST 是 HM 推断器与求值器之间的契约，定义了求值器的输入格式。
+
+#### 结构设计
+
+Typed AST 不复制 AST 树结构。每个原始 AST 节点附加 `TypeId` 字段，指向类型环境中的具体类型：
+
+```zig
+const TypeId = u32;  // 类型环境中的索引
+
+const TypedExpr = struct {
+    expr: *const Expr,   // 指向原始 AST 节点的指针（Arena 分配）
+    ty: TypeId,          // 该表达式的推断类型
+};
+```
+
+#### 类型标注粒度
+
+**每个子表达式**均标注类型——求值器无需类型信息即可求值基础类型（`Int`/`Float`/`Bool`/`Char`），但以下节点需要运行时类型信息进行分发：
+
+| 节点类型 | 需要的类型信息 | 运行时使用方式 |
+|---------|--------------|--------------|
+| ADT 模式匹配 | 变体 tag 值（`uint8_t`） | 选择 `case` 分支 |
+| `?T` 模式匹配 | Nil/非 Nil 区分 | 选择 `Nil` 分支或值分支 |
+| Record 字段访问 | 字段偏移量（编译期计算） | 直接内存偏移访问，tag 为 `uint8_t` |
+
+Record 字段偏移量在编译期计算（已知字段顺序和类型排列），编码在 Typed AST 的 Record 访问节点中。无运行时虚表分发。
+
+#### 类型环境
+
+```zig
+const TypeEnv = struct {
+    types: std.ArrayListUnmanaged(Type),
+    // TypeId = types 列表索引
+};
+
+const Type = union(enum) {
+    int_t,
+    float_t,
+    bool_t,
+    char_t,
+    string_t,
+    bytes_t,
+    path_t,
+    duration_t,
+    unit_t,
+    variable: struct { id: u32, level: u32 },
+    list: TypeId,
+    map: struct { key: TypeId, value: TypeId },
+    set: TypeId,
+    record: struct { fields: []const RecordField },
+    tuple: struct { elements: []const TypeId },
+    adt: struct { name: []const u8, variants: []const ADTVariant },
+    nilable: TypeId,
+    function: struct { param: TypeId, result: TypeId },
+    effect_fn: struct { param: TypeId, result: TypeId },
+};
+```
+
+#### 生命周期
+
+Typed AST 分配在脚本级 Arena 上，与原始 AST 共享同一 Arena。类型检查完成后，原始 AST 不再被引用——求值器仅遍历 Typed AST。Arena 销毁时两种 AST 同时释放。
 
 #### 错误报告
 
@@ -556,9 +620,92 @@ Set 运行时采用与 Map 相同的哈希表结构，仅使用键部分。
 
 ADT 在运行时表示为带标记的联合体（tagged union），tag 使用 `uint8_t`。
 
-### Stream
+```c
+// ADT 运行时布局：tag-first design
+// 变体 'Ok 42' (tag=0) 的内存布局：
+//   [0x00] [padding 7 bytes] [int64_t value]
+//     ^tag
+// 变体 'Err "msg"' (tag=1) 的内存布局：
+//   [0x01] [padding 7 bytes] [Slice payload]
+typedef struct {
+    uint8_t tag;
+    union {
+        // 各变体 payload 在此展开，编译器按最大变体分配空间
+        uint8_t _max_size[0];  // 占位
+    } payload;
+} ADT;
+```
 
-Stream 运行时表示采用 tagged union，定义见上方「Stream 惰性求值」章节。
+#### `?T` (Nilable 类型)
+
+`?T` 的运行时表示分两个策略：
+
+- **引用类型**（`String`、`Bytes`、`Path`、`List`、`Map`、`Set`、`Closure`）：使用 **null 指针** 表示 `Nil`。底层 `Slice.ptr == NULL` 且 `Slice.len == 0` 时值为 `Nil`，否则值为 `T`。零额外存储开销。
+- **值类型**（`Int`、`Float`、`Bool`、`Char`、`Duration`、`ADT`、`Record`、`Tuple`）：使用 **tagged union** 表示。tag=0 → `Nil`，tag=1 → `T`。与 ADT 布局一致（`uint8_t` tag + payload）。
+
+```c
+// ?Int 的运行时表示（值类型策略）
+typedef struct {
+    uint8_t tag;          // 0 = Nil, 1 = Int value present
+    union {
+        int64_t value;    // tag=1 时有效
+    };
+} NilableInt;
+```
+
+#### Record
+
+Record 字段按**声明顺序**排列，使用 **C 兼容对齐**（`alignof` 取所有字段中最大者）。编译器按字段类型的大小和对齐自动插入 padding：
+
+```c
+// type User = { name : String, age : Int, active : Bool }
+typedef struct {
+    Slice   name;         // offset 0,  size 16 (ptr 8 + len 8)
+    int64_t age;          // offset 16, size 8
+    uint8_t active;       // offset 24, size 1
+    // padding: 7 bytes → total 32 bytes (alignof 8)
+} UserRecord;
+```
+
+Record 无运行时类型 tag——编译器在编译期确保 Record 类型的结构等价，求值器通过字段偏移直接访问。
+
+#### Tuple
+
+Tuple 在运行时表示为**匿名 Record**，字段名为索引（`_0`、`_1`、...）。布局规则与 Record 相同：
+
+```c
+// (Int, String) — 二元组
+typedef struct {
+    int64_t _0;
+    Slice   _1;           // alignof=8, 无需额外 padding
+} Tuple_Int_String;       // total 24 bytes
+```
+
+#### `Map k v`
+
+Map 运行时采用开地址哈希表。C ABI 表示为：
+
+```c
+typedef struct {
+    uint8_t* entries;      // 桶数组指针：每个桶为 { hash: u64, key: k, value: v, occupied: bool }
+    uint64_t len;          // 当前键值对数量
+    uint64_t cap;          // 桶数组容量
+} Map;
+```
+
+#### `Set t`
+
+Set 运行时与 Map 共用同一结构，仅使用键部分（value 为空或忽略）：
+
+```c
+typedef struct {
+    uint8_t* entries;      // 桶数组指针：每个桶为 { hash: u64, key: t, occupied: bool }
+    uint64_t len;          // 当前元素数量
+    uint64_t cap;          // 桶数组容量
+} Set;
+```
+
+### Stream
 
 ### 函数值
 
@@ -586,6 +733,21 @@ typedef struct {
 Arena 分配器特性：线性分配（bump allocation），无释放操作；Arena 在阶段结束时整体销毁。
 
 脚本模式（`kun` CLI）使用以上三层 Arena 模型。Kun Shell 扩展为双 Arena + 绑定表三层内存模型以支持跨 REPL 求值的绑定持久化，完整设计见 [`kun-shell.md`](../design/kun-shell.md#内存模型)。
+
+#### Arena 与 Stream 生命周期契约
+
+Stream tagged union 的缓冲区所有权遵循以下规则：
+
+| Stream 变体 | 缓冲区所在 Arena | 原因 |
+|------------|-----------------|------|
+| `cmd` | 脚本级 Arena | `cmd.buf` 为堆分配缓冲区，在构造该 Stream 的脚本执行期间存活 |
+| `mapped`、`filtered`、`taken`、`dropped` | 同一 Arena（上游的 Arena） | 纯变换操作不分配新缓冲区——它们包裹上游 Stream 并共享其 Arena |
+| `lines` | 构造时所属 Arena | `lines.buf` 为跨 chunk 累积缓冲区，分配在 `Stream.lines` 调用时的当前 Arena 上 |
+
+**关键约束**：
+- Stream 的终端操作（`toList`/`iter`/`fold`/`string`/`bytes`）必须在创建该 Stream 的 Arena 销毁前完成。编译器通过 Stream 消费强制检查隐含此保证——未被消费的 Stream 是编译错误，确保消费发生在 Arena 存活期间
+- 上游 Stream 链共享同一 Arena：`Cmd.find |> Stream.lines |> Stream.filter` 中，所有节点的缓冲区分配在同一 Arena，一旦消费开始，Arena 不可提前销毁
+- Stream 不再被引用后，其缓冲区在 Arena 统一销毁时释放——无需逐个节点追踪释放
 
 ### 资源清理
 
