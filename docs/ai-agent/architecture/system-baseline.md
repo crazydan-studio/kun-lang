@@ -103,7 +103,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 
 `do` 块按顺序执行效应操作。含 `do` 块的函数通过编译器 AST 标记自动识别为效应函数。签名中声明了 `(a -> b)!` 效应回调参数的函数同样自动标记为效应函数。纯函数（无 `do` 块、无 `!` 参数）不能调用效应函数——编译期拒绝。
 
-效应函数涵盖以下命名空间的所有函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`Task.*`。`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作。`Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）及 `Cmd.exec`（显式执行 Command 并丢弃输出）为效应函数。
+效应函数涵盖以下命名空间的所有函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`，以及 `Signal.on`（信号注册）。`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作。`Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）及 `Cmd.exec`（显式执行 Command 并丢弃输出）为效应函数。
 
 `do` 块内使用 `=` 绑定值（纯值或效应函数的返回值）。`do in` 形式在副作用执行后返回纯值。语法细节见 [`syntax.md`](../design/syntax.md) do 块章节。
 
@@ -121,11 +121,18 @@ const Stream = union(enum) {
     mapped: struct { upstream: *Stream, f: FnPtr },
     filtered: struct { upstream: *Stream, pred: FnPtr },
     taken: struct { upstream: *Stream, remaining: usize },
+    dropped: struct { upstream: *Stream, remaining: usize },
+    lines: struct { upstream: *Stream, buf: []u8, pos: usize },
+    parse_mapped: struct { upstream: *Stream, f: FnPtr },
+    parse_mapped_keep: struct { upstream: *Stream, f: FnPtr },
 };
 ```
 
 - `cmd` 变体持有子进程的 pipe fd 和 pid，`buf` 为堆分配
-- 变换操作（`map`、`filter`、`take`）通过包裹上游 Stream 构造新节点
+- 变换操作（`map`、`filter`、`take`、`drop`）通过包裹上游 Stream 构造新节点
+- `lines` 变体：按 `\n` 切分输入流——`buf` 为跨 chunk 的累积缓冲区，`pos` 追踪下一行起始位置
+- `parse_mapped`：映射并丢弃 `Err` 结果（对应 `Stream.parseMap`）
+- `parse_mapped_keep`：映射并保留 `Result`（对应 `Stream.parseMapKeep`）
 - 终端操作（`toList`、`iter`、`fold`）循环消费直到 stream 终止
 - 编译器检测相邻的纯参数操作（`map`/`take`）在代码生成阶段合并为单循环
 
@@ -199,7 +206,7 @@ let f = \x -> x
 - 验证纯函数体中无效应函数调用
 - 验证纯函数签名中无 `!` 参数声明
 - 验证 `!` 参数的传入实参为效应函数（实参的类型为 `EffectFn(a, b)`，效应检查器验证该函数含 `do` 块或效应命名空间调用）
-- 验证 `do` 块外的代码无效应命名空间（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`Task.*`）函数调用
+- 验证 `do` 块外的代码无效应命名空间（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`，以及 `Signal.on`）函数调用
 - 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.exec` 仅在 `do` 块内使用
 - Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
 - 验证 `do` 块内未被消费的 `Command` 值：未被 `Cmd.exec`、`|>` 管道或 `?` 后缀消费的 `Command` 值为编译错误
@@ -325,7 +332,7 @@ seccomp-BPF 过滤规则禁止以下系统调用类别：
 | 内核模块 | `init_module`、`finit_module`、`delete_module` |
 | 内核执行 | `kexec_load`、`kexec_file_load` |
 | BPF 逃逸 | `bpf`（可加载 eBPF 程序绕过 seccomp 或注入内核钩子） |
-| 文件系统重挂载 | `mount`、`umount2`、`pivot_root`（子进程禁止） |
+| 文件系统重挂载 | `mount`、`umount2`、`pivot_root`（子进程禁止）；`fsopen`、`fsmount`、`fsconfig`、`open_tree`、`move_mount`（Linux 5.2+ 新 mount API，可绕过传统 mount 限制） |
 | 容器逃逸 | `unshare`、`clone`（含 `CLONE_NEWNS`/`CLONE_NEWUSER`/`CLONE_NEWNET` 等标志时） |
 | 原始套接字 | `socket`（`AF_PACKET` 协议族） |
 | Landlock 逃逸 | `open_by_handle_at`、`name_to_handle_at`（按 inode 打开文件可绕过 Landlock 路径级限制） |
@@ -493,6 +500,7 @@ import File
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | 效应函数列表修正：`Signal.*` → `Signal.on`；Stream tagged union 新增 `dropped`/`lines`/`parse_mapped`/`parse_mapped_keep` 变体；seccomp 新增新 mount API syscall（`fsopen`/`fsmount`/`fsconfig`/`open_tree`/`move_mount`）；用户定义效应函数自动获取 `EffectFn` 内部类型 |
 | 2026.06.14 | 安全加固：seccomp 新增 `bpf`/`perf_event_open`/`userfaultfd`/`memfd_create`；新增 `prctl(PR_SET_NO_NEW_PRIVS)` 沙箱前置条件；网络隔离新增 CLONE_NEWNET 覆盖内核 5.13–6.6；环境变量过滤新增 `BASH_FUNC_*`/`PYTHONPATH`/`PERL5LIB` 等注入防御；D-state 文档修正（`--cpu-limit` 无效 + wall-clock 超时方案）；`Cmd.withRunAs` 完整权限降级流程 |
 | 2026.06.14 | 效应检查算法更新：新增 `(a -> b)!` 效应回调参数检测（含 `!` 的函数标记为效应函数、纯函数禁止声明 `!`、`!` 实参必须为效应函数）；Command 执行模型更新：移除 `do` 块隐式执行，新增 `Cmd.exec` 显式执行，未被消费 Command 是编译错误；效应函数列表新增 `Cmd.exec` |
 | 2026.06.13 | 类型检查算法章节；初始化阶段顺序修正（模块解析在沙箱之前）；Stream 消费强制检查 + 管道非阻塞 IO 策略；Landlock 严格模式 + pivot_root + /proc 处理；panic 活跃子进程回收策略；env 白名单扩展；模块缓存失效策略 |

@@ -2253,13 +2253,13 @@ equal : a -> a -> String -> Unit
 // 断言条件为 true
 ok : Bool -> String -> Unit
 
-// 断言表达式触发 panic
-panics : (-> a) -> String -> Unit
+// 断言表达式触发 panic（thunk 可为纯函数或效应函数，panics 内部捕获 panic）
+panics : (Unit -> a) -> String -> Unit
 ```
 
 - `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
 - `ok condition message`：`condition` 为 `true` 通过，否则 panic
-- `panics thunk message`：`thunk()` 触发 panic 则通过，正常返回则 panic（"expected panic"）
+- `panics thunk message`：`thunk` 为 `Unit -> a` 函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`thunk` 可为纯函数或效应函数——`panics` 内部捕获 panic，无需 `!` 标注
 
 ### 示例
 
@@ -2272,7 +2272,7 @@ main = \_ ->
   do
     Test.equal 4 (2 + 2) "basic arithmetic"
     Test.ok (List.length [1, 2, 3] == 3) "list length"
-    Test.panics (\ -> List.head []) "head of empty list panics"
+    Test.panics (\_ -> List.head []) "head of empty list panics"
     IO.println "all tests passed"
 ```
 
@@ -2328,7 +2328,7 @@ main = \_ ->
 | `SocketAddr` | `import SocketAddr` | 套接字地址（`Tcp`/`Udp` + `IpAddress` + `Port`） |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
-| `Test` | `import Test` | 测试断言（`equal`/`true`/`false`/`panics`） |
+| `Test` | `import Test` | 测试断言（`equal`/`ok`/`panics`） |
 
 ## 版本历史
 
