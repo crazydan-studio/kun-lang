@@ -61,6 +61,7 @@ Type Universe
 | Record 字段 | 未提供的字段自动为 `Nil` |
 | 和类型字段 | 字段类型默认不可 Nil，`?` 需显式标注 |
 | 函数参数 | 默认不可 Nil。`?` 标注时可为 Nil |
+| 嵌套 `? ?T` | **编译期报错**。`Nil` 已表示"不存在"，嵌套 Nilable 不增加表达能力——`? ?T` 的取值空间与 `?T` 完全相同（值级折叠）。`Nil` 字面量在 `? ?T` 上下文中不可区分"外层 Nil"与"外层存在但内层 Nil" |
 
 操作符：
 
@@ -355,7 +356,7 @@ type CliSpec =
 
 - 递归必须通过 `type` 别名间接发生——直接在匿名 Record 中引用自身会被 occurs check
   拒绝（匿名类型无别名可供展开）
-- 编译器对递归 `type` 别名的展开有深度上限（默认 256 层），防止无限展开
+- 编译器对递归 `type` 别名的展开有深度上限（默认 256 层），防止无限展开。达到上限时产生编译错误（`TypeError`），错误信息报告展开路径（`A → B → A → B → ... → B`）和涉及的别名列表。交叉递归（A 引用 B，B 引用 A）中各别名的展开均计入同一深度计数器
 - 交叉递归（A 引用 B，B 引用 A）同样通过别名机制支持
 
 ### 无子类型
@@ -432,6 +433,223 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 ## 类型检查算法
 
 类型检查采用 HM（Hindley-Milner）推断，两阶段流程（约束生成 + 合一），详细实现见[系统基线](../architecture/system-baseline.md#类型检查算法)。
+
+### 错误信息设计
+
+HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"）对目标用户（Linux 运维/DevOps）不可理解。编译器将原始合一错误转化为面向运维的结构化错误消息，包含：源位置、期望类型、实际类型、错误原因、修复建议。
+
+#### 错误溯源
+
+类型检查器在约束生成阶段记录类型变量的**来源位置**：
+
+- 函数参数的绑定点（参数名 + 行号）
+- `let` 绑定的值表达式（绑定名 + 行号）
+- `case` 分支的 scrutinee（表达式 + 行号）
+- Record 字段的构造/访问点（字段名 + 行号）
+
+错误消息中的类型引用使用用户可见的类型名（如 `String`），而非内部类型 ID。模板中使用 `{expected}`、`{found}`、`{source}`、`{hint}` 占位符。
+
+#### 错误消息模板（20 个最常见场景）
+
+**基础类型不匹配**
+
+1. **`Mismatch`**（值类型不匹配）
+   ```
+   Error: Type Mismatch ─── src/main.kun:{line}:{col}
+     Expected: {expected}
+     Found:    {found}
+     ──┤ {context_line}
+     Hint: {source} 的类型为 {found}，但此处需要 {expected}
+   ```
+
+2. **`FunctionApplyArg`**（函数参数类型不匹配）
+   ```
+   Error: Argument Type Mismatch ─── src/main.kun:{line}:{col}
+     Function: {func_name} : {func_type}
+     Expected: {expected}
+     Found:    {found}
+     ──┤ {context_line}
+     Hint: 第 {arg_index} 个参数应为 {expected}，但传入值为 {found}
+   ```
+
+3. **`IfBranchMismatch`**（if 分支类型不一致）
+   ```
+   Error: Branch Type Mismatch ─── src/main.kun:{line}:{col}
+     then: {then_type}
+     else: {else_type}
+     ──┤ {context_line}
+     Hint: if 表达式的两个分支必须返回相同类型
+   ```
+
+**函数类型**
+
+4. **`NotAFunction`**（将非函数值作为函数调用）
+   ```
+   Error: Not A Function ─── src/main.kun:{line}:{col}
+     Value type: {found}
+     ──┤ {context_line}
+     Hint: {found} 不是函数类型，无法进行函数调用。是否拼写错误？
+   ```
+
+5. **`TooManyArgs`**（函数参数过多）
+   ```
+   Error: Too Many Arguments ─── src/main.kun:{line}:{col}
+     Function: {func_type}
+     Extra argument type: {extra_type}
+     ──┤ {context_line}
+     Hint: 函数已接收所有参数后仍有额外参数。Kun 使用柯里化——你是否需要括号调整调用顺序？
+   ```
+
+6. **`EffectCallbackMismatch`**（`!` 参数传入纯函数）
+   ```
+   Error: Effect Callback Required ─── src/main.kun:{line}:{col}
+     Expected: EffectFn({param}, {result})
+     Found:    Fn({param}, {result})
+     ──┤ {context_line}
+     Hint: 标记了 ! 的参数必须传入效应函数（含 do 块或调用 IO/File/Cmd 等）。传入的函数 {name} 为纯函数
+   ```
+
+**Nilable 类型**
+
+7. **`NilAssignedToT`**（Nil 赋值给非 Nilable 类型）
+   ```
+   Error: Nil For Non-Nilable ─── src/main.kun:{line}:{col}
+     Type: {expected} (not nilable)
+     ──┤ {context_line}
+     Hint: {expected} 不可为 Nil。使用 ?{expected} 标注为可选类型，或提供非 Nil 值
+   ```
+
+8. **`NullableUsedAsT`**（?T 用于期望 T 的位置）
+   ```
+   Error: Nilable Used As Non-Nilable ─── src/main.kun:{line}:{col}
+     Expected: {expected}
+     Found:    ?{inner_type}
+     ──┤ {context_line}
+     Hint: 值可能为 Nil。使用 case 模式匹配收窄、{var} ?? default 提供默认值、或 {var} ?. 可选链安全访问
+   ```
+
+**ADT / 模式匹配**
+
+9. **`NonExhaustive`**（模式匹配非穷举）
+   ```
+   Error: Non-Exhaustive Pattern ─── src/main.kun:{line}:{col}
+     Type: {adt_name}
+     Missing: {missing_variants}
+     ──┤ {context_line}
+     Hint: 类型 {adt_name} 有 {total} 个变体，当前仅覆盖 {covered} 个。添加缺失的 {missing_name} 分支
+   ```
+
+10. **`RedundantPattern`**（冗余模式分支）
+    ```
+    Error: Redundant Pattern ─── src/main.kun:{line}:{col}
+      Pattern: {pattern} (不会被执行)
+      ──┤ {context_line}
+      Hint: 此分支之前已有通配模式覆盖了所有剩余情况，此分支永不会到达
+    ```
+
+**Record / Tuple**
+
+11. **`UnknownField`**（Record 中不存在的字段）
+    ```
+    Error: Unknown Field ─── src/main.kun:{line}:{col}
+      Record: {record_type}
+      Field:  {field_name}
+      ──┤ {context_line}
+      Hint: {record_type} 不包含字段 {field_name}。可用字段：{available_fields}
+    ```
+
+12. **`MissingField`**（Record 构造缺少字段）
+    ```
+    Error: Missing Field ─── src/main.kun:{line}:{col}
+      Record: {record_type}
+      Missing: {missing_fields}
+      ──┤ {context_line}
+      Hint: {record_type} 要求以下字段：{required_fields}
+    ```
+
+13. **`TupleIndexOutOfRange`**（Tuple 索引越界）
+    ```
+    Error: Tuple Index Out Of Range ─── src/main.kun:{line}:{col}
+      Tuple: ({elements})
+      Index: {index}
+      ──┤ {context_line}
+      Hint: Tuple 有 {len} 个元素（索引 0-{len_minus_1}），但访问了索引 {index}
+    ```
+
+**效应系统**
+
+14. **`EffectInPure`**（纯函数调用效应函数）
+    ```
+    Error: Effect In Pure Function ─── src/main.kun:{line}:{col}
+      Effect call: {called_func} (效应函数)
+      ──┤ {context_line}
+      Hint: 纯函数不能调用效应函数 {called_func}。将函数体放入 do 块，或使用 ! 参数注入效应回调
+    ```
+
+15. **`CommandNotConsumed`**（Command 值未被消费）
+    ```
+    Error: Command Not Consumed ─── src/main.kun:{line}:{col}
+      Command: {cmd_name}
+      ──┤ {context_line}
+      Hint: Command 值未被消费——子进程不会启动。使用 |> 管道触发、Cmd.exec 显式执行、或 ? 后缀立即执行
+    ```
+
+16. **`StreamNotConsumed`**（Stream 未被消费）
+    ```
+    Error: Stream Not Consumed ─── src/main.kun:{line}:{col}
+      ──┤ {context_line}
+      Hint: Stream 未被终端操作消费，子进程可能变为僵尸进程。使用 Stream.toList / Stream.iter / Stream.fold 消费
+    ```
+
+**Unbound / 作用域**
+
+17. **`UnboundVariable`**（未定义变量）
+    ```
+    Error: Unbound Variable ─── src/main.kun:{line}:{col}
+      Name: {var_name}
+      ──┤ {context_line}
+      Hint: 变量 {var_name} 未定义。是否拼写错误？是否缺少 import？
+    ```
+
+18. **`UnboundType`**（未定义类型）
+    ```
+    Error: Unbound Type ─── src/main.kun:{line}:{col}
+      Name: {type_name}
+      ──┤ {context_line}
+      Hint: 类型 {type_name} 未定义。类型名必须以大写字母开头。是否拼写错误？是否缺少 import？
+    ```
+
+**泛型 / 递归**
+
+19. **`InfiniteType`**（无限类型——occurs check 失败）
+    ```
+    Error: Infinite Type ─── src/main.kun:{line}:{col}
+      Type: {var} 出现在自身定义中
+      ──┤ {context_line}
+      Hint: 类型变量 {var} 引用自身，需要 type 别名来定义递归类型。匿名类型中不能直接引用自身
+    ```
+
+20. **`RecursiveAliasDepth`**（递归别名展开达到上限）
+    ```
+    Error: Recursive Type Expansion Limit ─── src/main.kun:{line}:{col}
+      Expansion path: {path}
+      ──┤ {context_line}
+      Hint: 递归 type 别名展开超过 256 层限制。展开路径：{path}。检查是否存在意外的循环引用
+    ```
+
+#### 错误级别
+
+| 级别 | 含义 | 行为 |
+|------|------|------|
+| Error | 类型不匹配，程序无法安全执行 | 拒绝编译，退出码 1 |
+| Warning | 潜在问题（冗余模式、未消费 Stream） | 输出警告，编译通过 |
+
+#### 实现原则
+
+1. **用户导向**：错误消息使用运维人员可理解的术语（「类型不匹配」「字段不存在」），避免内部术语（「合一失败」「代换冲突」）
+2. **位置精确**：错误指向源码中的精确行和列，附带上下文代码行
+3. **建议可操作**：Hint 提供具体的修复代码示例（非仅描述问题）
+4. **累积报告**：一次编译报告所有类型错误（非遇到第一个就停止），在 Typed AST 上继续检查非阻塞错误
 
 ## 类型表示与运行时
 
