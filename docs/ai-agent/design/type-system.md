@@ -252,6 +252,7 @@ Kun 通过 AST 扫描自动推断函数的效应性：
 - `Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
 - `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）为效应函数
 - `Cmd.exec : Command -> Unit` 执行 Command 值，为效应函数
+- `Cmd.which : String -> ?Path` PATH 查找，为效应函数
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
 - 函数名不添加效应标记，效应性由编译器推断、文档生成（`kun doc`）和 IDE/LSP 提供可见性
 

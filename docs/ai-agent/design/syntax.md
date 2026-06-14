@@ -375,12 +375,12 @@ Record 类型：
 42              // Int 字面量
 "hello"         // String 字面量
 [1, 2, 3]       // List 字面量
-[1..10]         // List 范围字面量（惰性，等价于 range 1 11）
-[0..99999]      // 大范围惰性列表，不预分配内存
+[1..10]         // Stream 范围字面量（惰性，等价于 Stream.range 1 10）
+[0..99999]      // 大范围惰性流，不预分配内存
 myVariable      // 变量引用
 ```
 
-`[start..end]` 范围字面量：左闭右开区间 `[start, end)`，生成 `List Int`。元素**惰性求值**——不预分配内存，仅在遍历时按需计算。适用于大范围迭代：
+`[start..end]` 范围字面量：左闭右开区间 `[start, end)`，生成 `Stream Int`。元素**惰性求值**，仅在被消费时按需计算。适用于大范围迭代：
 
 ```kun
 [0..1000000] |> filter (\n -> n % 2 == 0) |> take 10
@@ -622,7 +622,7 @@ countFiles = \dir ->
 `do` 块规则：
 
 - `do` 块内使用 `=` 绑定值
-- 效应函数（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*` 命名空间的函数 + `Signal.on` + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.exec` + 用户定义含 `do` 块的函数 + 签名中声明了 `(a -> b)!` 参数的函数）只能在 `do` 块中调用；`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
+- 效应函数（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*` 命名空间的函数 + `Signal.on` + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.which`/`Cmd.exec` + 用户定义含 `do` 块的函数 + 签名中声明了 `(a -> b)!` 参数的函数）只能在 `do` 块中调用；`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
 - 含 `do` 块的函数自动标记为效应函数
 - 签名中声明了 `(a -> b)!` 参数的函数自动标记为效应函数
 - 纯函数（无 `do` 块、无 `!` 参数）不能调用效应函数
@@ -848,14 +848,14 @@ add1 = add 1
   &&
   ||
   >>       <<
-  |>       <|
   ? :
-  if/case/let-in             // 表达式形式，绑定弱于运算符但强于 =
+  if/case/let-in             // 表达式形式
+  |>       <|
 最低:  =
 ```
 
 - **函数应用** `f a b` 优先级高于所有运算符：`f a b + c` → `(f a b) + c`；`f a |> g` → `(f a) |> g`
-- **`if`/`case`/`let-in`** 为表达式形式（非运算符），其分支内部运算符按正常优先级求值，但整个表达式作为整体，优先级低于 `|>`、`<|`、`? :`：`if a then b else c |> f` → `(if a then b else c) |> f`；`case x of A -> y |> z` → `(case x of A -> y) |> z`
+- **`if`/`case`/`let-in`** 优先级高于管道操作符：`if a then b else c |> f` → `(if a then b else c) |> f`；`case x of A -> y |> z` → `(case x of A -> y) |> z`
 
 ## 模块
 

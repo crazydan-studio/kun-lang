@@ -1929,6 +1929,7 @@ type LineError =
   LineTruncated { partial_len: Int }
 ```
 
+```kun
 // 映射并跳过失败
 parseMap : (a -> Result b e) -> Stream a -> Stream b
 
