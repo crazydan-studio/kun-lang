@@ -198,6 +198,18 @@ toString : a -> String
 - `Regex`：正则模式字符串 `r"..."`
 - `Duration`：纳秒数
 
+### 示例
+
+```kun
+import String
+
+name = "  Kun  " |> String.trim          // → "Kun"
+parts = "a,b,c" |> String.split ","      // → ["a", "b", "c"]
+back = parts |> String.join ":"          // → "a:b:c"
+text = Int.toString 42                 // → "42"
+num  = Int.fromString "123"             // → Ok 123
+```
+
 ## `Bytes` — 二进制数据编解码
 
 ### 定位
@@ -316,19 +328,7 @@ Char.isWhitespace '\n'       // → true
 // 安全构造
 case Char.fromInt 0xD800 of    // 代理对，非法
   Ok c  -> c
-  Err _ -> Char.of 0xFFFD     // 回退到 Unicode 替换字符
-```
-
-### 示例
-
-```kun
-import String
-
-name = "  Kun  " |> String.trim          // → "Kun"
-parts = "a,b,c" |> String.split ","      // → ["a", "b", "c"]
-back = parts |> String.join ":"          // → "a:b:c"
-text = Int.toString 42                 // → "42"
-num  = Int.fromString "123"             // → Ok 123
+   Err _ -> Char.of 0xFFFD     // 回退到 Unicode 替换字符
 ```
 
 ## `Regex` — 正则操作

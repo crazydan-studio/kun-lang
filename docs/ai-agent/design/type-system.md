@@ -316,7 +316,7 @@ Task.spawn  : Int -> List Command -> ... (内部效应，无回调参数)
 - 验证纯函数签名中无 `!` 参数声明
 - 验证 `!` 参数的传入实参为效应函数（含 `do` 块或效应命名空间函数）
 - 验证 `do` 块外的代码无效应命名空间函数调用
-- 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.exec` 仅在 `do` 块内使用
+- 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.which`、`Cmd.exec` 仅在 `do` 块内使用
 - Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
 
 效应检查失败产生 `TypeError`，纳入统一的错误报告。

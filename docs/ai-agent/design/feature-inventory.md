@@ -38,8 +38,6 @@
 | FileStat | ✅ 设计定型 | 完整文件元数据（`size`/`type`/`mtime`/`mode`/`owner`/`device` 等） |
 | SocketAddr | ✅ 设计定型 | 套接字地址（`Tcp`/`Udp` + `IpAddress` + `Port`） |
 | IpAddress | ✅ 设计定型 | IPv4/IPv6 枚举，SocketAddr |
-| Parser.JSON | ✅ 设计定型 | `JsonInt`/`JsonFloat` 拆分，JSON 值类型与字符串互转 |
-| Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
 
 ### 标准库模块
 
