@@ -317,3 +317,13 @@ Error: option '--port' has invalid value: expected 1..65535, got 99999
 1. 在营销/文档中清晰传达 Kun 不是"又一个 shell"，而是"类型安全的脚本语言"
 2. 优先投资命令类型模块的自动生成工具（`kun cmd init`），降低生态冷启动成本
 3. 为最常见的 100 个 Linux 命令提供预置类型模块，让用户第一天就能体验类型安全的命令调用
+
+---
+
+## 2026.06.14 结项附注
+
+**发现 #4（Command 隐式执行陷阱）**：已通过移除 `do` 块语句边界隐式执行、新增 `Cmd.exec : Command -> Unit` 显式执行解决。未被消费的 `Command` 值是编译错误。相关设计文档（`command-system.md`、`syntax.md`、`system-baseline.md`、`standard-library.md`、`app-overview.md`、`module-boundaries.md`）均已同步更新。
+
+**发现 #1（学习曲线）和发现 #2（HM 错误消息）**：保留作为实施阶段的持续关注项——学习曲线通过文档和教学缓解，HM 错误消息格式在实现词法/语法分析器后设计。
+
+**其余发现**：保留作为后续版本迭代参考。

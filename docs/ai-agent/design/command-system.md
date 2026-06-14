@@ -93,17 +93,44 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 
 ### 延迟执行
 
-`Cmd.<bin>` 返回 `Command` 值——**不立即执行**。Command 在以下时机自动执行：
+`Cmd.<bin>` 返回 `Command` 值——**不立即执行**。Command 在以下时机执行：
 
 | 场景 | 触发条件 | 示例 |
 |---|---|---|
 | `\|>` 隐式触发 | 左侧 `Command`，右侧函数期望 `Stream` | `Cmd.cat p"/x" \|> Stream.lines` |
-| `do` 块语句边界 | 未被 `=` 绑定或 `|>` 消费的 `Command` 表达式作为独立语句执行 | `Cmd.ls { long = true }` |
 | `Cmd.<bin>?` | `?` 后缀，立即执行并返回 `Result` | `result = Cmd.cat? p"/x"` |
+| `Cmd.exec` | 显式执行 Command 值，执行失败 panic | `Cmd.exec (Cmd.ls { long = true })` |
 
 > `|>` 隐式触发的类型推断：编译器检测左侧 `Command` 类型与右侧函数期望的 `Stream String` 类型不匹配时，在两者之间插入 `Command → Stream String` 的执行步骤。若右侧函数为多态（如 `identity : a -> a`），编译器需先合一 `a ~ Stream String` 后确认触发。此多阶段类型检查（约束生成 → 合一 → Command 检测 → 插入执行节点）在 HM 框架内可实现，但相对常规合一增加了一步 AST 变换。编译期错误信息在无法确定触发条件时回退为"无法将 Command 用作 Stream，是否遗漏 `Cmd.<bin>?`？"
 
-> `do` 块边界规则：`Cmd.<bin>` 表达式若被 `=` 绑定（如 `c = Cmd.ls {}`）则视为"已消费"，不在此处触发执行——`c` 绑定为 `Command` 值，后续可通过 `|>` 或终端操作触发。若 `Cmd.<bin>` 表达式作为独立语句出现（无 `=` 绑定），则视为"未消费"，在语句边界自动触发执行。
+> `Cmd.exec` 签名：`Cmd.exec : Command -> Unit`。执行 Command 并丢弃 Stream 输出（stdout 被消费但不保留），stderr 透传到父进程。执行失败（非零退出码或命令未找到）时 panic，触发 unwind + defer 链。需要捕获 stdout 或处理错误请使用 `Cmd.<bin>?` 或 `|>` 管道。未被消费的 `Command` 值（未传给 `Cmd.exec`、未通过 `?` 执行、未经过 `|>` 管道）在 `do` 块内是**编译错误**——防止未预期的隐式执行。
+
+### Command 生命周期
+
+```kun
+// 构造：纯操作，不执行
+c = Cmd.ls { long = true } p"/tmp"
+
+// 修饰：纯操作，累积属性
+c2 = c |> Cmd.withCwd p"/home" |> Cmd.mergeStderr
+
+// 显式执行：效应操作，panic 失败
+do
+  Cmd.exec c2
+
+// 管道执行：|> 触发，隐式执行
+do
+  Cmd.ls { long = true } p"/tmp"
+    |> Cmd.mergeStderr
+    |> Stream.lines
+    |> Stream.iter IO.println
+
+// 立即执行+错误处理：? 后缀
+do
+  case Cmd.ls? { long = true } p"/nonexistent" of
+    Ok stream -> ...
+    Err e -> IO.println (CommandError.show e)
+```
 
 ### 错误处理
 
@@ -310,6 +337,7 @@ orElse  : Command -> Command -> Command
 
 // 工具
 which   : String -> ?Path
+exec    : Command -> Unit
 timeout : Duration -> Command -> Result (Stream String) CommandError
 retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 ```
@@ -326,5 +354,6 @@ retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | 移除 `do` 块语句边界隐式执行规则；新增 `Cmd.exec : Command -> Unit` 显式执行；未被消费的 Command 是编译错误；新增 Command 生命周期示例 |
 | 2026.06.13 | API 签名伪语法规范；锚点规范化 |
 | 2026.06.12 | 从 `app-overview.md` 和 `system-baseline.md` 中提取命令调用机制为独立文档 |

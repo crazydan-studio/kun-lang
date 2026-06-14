@@ -55,7 +55,7 @@ kun-lang/
 
 ### 运行时
 
-负责执行编译后的代码。通过 fork-exec 机制执行外部命令，以 pipe 捕获 stdout/stderr。Command 值延迟执行，在 `|>` 隐式触发或 `do` 块语句边界自动 fork-exec。
+负责执行编译后的代码。通过 fork-exec 机制执行外部命令，以 pipe 捕获 stdout/stderr。Command 值延迟执行，在 `|>` 管道隐式触发、`Cmd.exec` 显式执行或 `?` 后缀立即执行时 fork-exec。
 
 ### 命令调用系统
 

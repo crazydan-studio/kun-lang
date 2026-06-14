@@ -596,7 +596,7 @@ toInt : Signal -> Int
 
 ```kun
 // 注册信号处理函数
-on : Signal -> (Signal -> Unit) -> Unit
+on : Signal -> (Signal -> Unit)! -> Unit
 ```
 
 - `on` 注册信号处理函数，收到信号时执行并传递信号值；前一个处理器被替换
@@ -1375,7 +1375,7 @@ filter    : (a -> Bool) -> List a -> List a     // 保留满足条件的元素
 filterMap : (a -> ?b) -> List a -> List b      // 映射并丢弃 Nil
 fold      : (b -> a -> b) -> b -> List a -> b   // 左折叠
 reduce    : (a -> a -> a) -> List a -> ?a       // 无初始值的折叠，空列表返回 Nil
-iter      : (a -> Unit) -> List a -> Unit       // 遍历每个元素并调用回调
+iter      : (a -> Unit)! -> List a -> Unit       // 遍历每个元素并调用效应回调
 append    : List a -> List a -> List a          // 拼接两个列表
 reverse   : List a -> List a                   // 反转列表
 sort      : (a -> a -> Int) -> List a -> List a // 排序（比较函数返回 -1/0/1）
@@ -1389,9 +1389,9 @@ any       : (a -> Bool) -> List a -> Bool       // 任一满足条件
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素
 - `fold` 为左折叠，`fold (+) 0 [1, 2, 3]` → `6`
 - `reduce` 为无初始值的折叠，以首个元素作为起始累加器，空列表返回 `Nil`
-- `iter` 遍历每个元素并调用回调。回调可以是纯函数或效应函数——若回调为效应 lambda（函数体含 `do` 块或调用了效应函数），则整个 `List.iter ...` 表达式本身必须处于 `do` 块中，且效应 lambda 必须在 `do` 块内定义。纯回调无此限制
+- `iter` 遍历每个元素并调用回调。签名为 `(a -> Unit)! -> List a -> Unit`——`!` 标注回调**必须是**效应函数（含 `do` 块或效应命名空间函数），不可传入纯函数。`List.iter` 表达式本身必须在 `do` 块中调用（因为声明了 `!` 参数）
 
-> **回调纯函数约束**：除 `iter` 外，`List` 模块的所有高阶函数（`map`、`filter`、`filterMap`、`fold`、`reduce`、`all`、`any`、`take`、`drop`）的回调参数**必须为纯函数**。这些操作的语义是「从 A 计算出 B」的纯变换，不应掺杂副作用。若需逐元素执行副作用（如逐个调用 `Cmd.*`/`IO.*`），应使用 `iter`。
+> **回调纯函数约束**：除 `iter` 外，`List` 模块的所有高阶函数（`map`、`filter`、`filterMap`、`fold`、`reduce`、`all`、`any`、`take`、`drop`）的回调参数**必须为纯函数**。这些操作的语义是「从 A 计算出 B」的纯变换，不应掺杂副作用。`List.iter` 的回调必须为**效应函数**（签名标注 `(a -> Unit)!`），用于逐元素执行副作用。
 
 当回调是 `Cmd.*` 调用时，每次循环独立 fork 子进程（fork ~0.1ms + exec ~0.3ms ≈ ~0.5ms/次）。按规模选择策略：
 
@@ -1726,7 +1726,7 @@ parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 toList : Stream a -> List a
 
 // 遍历每个元素
-iter : (a -> Unit) -> Stream a -> Unit
+iter : (a -> Unit)! -> Stream a -> Unit
 
 // 折叠
 fold : (b -> a -> b) -> b -> Stream a -> b
@@ -1755,11 +1755,11 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 | `Stream.map` / `Stream.filter` / `Stream.take` | **纯** | 惰性变换，不触发 IO |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
-| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；纯 Stream（`range`/`fromList`）可在 `do` 外使用；IO 绑定 Stream 仅 `do` 块可用 |
+| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit)!` 回调，自身为效应函数（必须在 `do` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在 `do` 外使用 |
 | `Stream.string` / `Stream.bytes` | **终端** | 同上 |
 | `Stream.fromList` | **纯** | 从纯 List 构造，无 IO 绑定 |
 
-> **回调纯函数约束**：`Stream.map`、`Stream.filter`、`Stream.take`、`Stream.parseMap`、`Stream.parseMapKeep` 的回调参数**必须为纯函数**。这些是惰性变换，不应掺杂副作用。仅 `Stream.iter` 的回调可为效应函数（前提是外层在 `do` 块中）。
+> **回调纯函数约束**：`Stream.map`、`Stream.filter`、`Stream.take`、`Stream.parseMap`、`Stream.parseMapKeep` 的回调参数**必须为纯函数**。这些是惰性变换，不应掺杂副作用。`Stream.iter` 的回调必须为**效应函数**（签名标注 `(a -> Unit)!`），用于逐元素执行副作用。
 
 ### 示例
 
@@ -1774,11 +1774,10 @@ Stream.range 0 100
 
 // IO 消费
 do
-  Cmd.cat? p"/var/log/syslog"
-    |> Result.withDefault (Stream.fromList [])
+  Cmd.cat p"/var/log/syslog"
     |> Stream.lines
     |> Stream.filter (String.contains "ERROR")
-    |> Stream.iter (\line -> do IO.println line)
+    |> Stream.iter IO.println
 ```
 
 ## `IO` — 控制台 IO
@@ -1960,6 +1959,8 @@ do
 ## `Cmd` — Command 工具与命令调用
 
 命令调用语法、选项映射、执行模型、API 签名及完整示例见 [OS 命令调用机制](command-system.md)。
+
+`Cmd.exec : Command -> Unit` 显式执行 Command 值，执行失败 panic。替代原有的 `do` 块隐式执行。
 
 需显式导入：
 
@@ -2261,6 +2262,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | `List.iter`/`Stream.iter`/`Signal.on` 签名新增 `(a -> b)!` 效应回调标注——回调必须是效应函数；新增 `Cmd.exec : Command -> Unit` 显式执行；Stream IO 消费示例更新 |
 | 2026.06.13 | 示例代码语法合规修复；新增 `Regex`/`Duration`/`Set`/`Task` 模块；`Map` API 签名泛化（`k`/`v`）；`List` 新增 `sort`/`slice`/`take`/`drop`/`all`/`any`；`Process` 新增 `kill`/`wait`；`File` 新增 `glob`；`Regex` 新增 `fromString` |
 | 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |
 | 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |

@@ -211,17 +211,72 @@ p = p"/tmp/foo"
 
 ## 效应跟踪
 
-> **编译器内置**：效应跟踪通过编译器 AST 标记实现，不可在纯 Kun 代码中模拟。`do` 块和效应命名空间（`Cmd.*`、`IO.*` 等）由编译器直接识别和处理。
+> **编译器内置**：效应跟踪通过编译器 AST 标记 + 类型签名中的 `!` 标注实现。`do` 块和效应命名空间（`Cmd.*`、`IO.*` 等）由编译器直接识别和处理。
 
-Kun 采用 AST 标记方案替代 `IO T` 类型包装器：
+### 效应函数自动推断
+
+Kun 通过 AST 扫描自动推断函数的效应性：
 
 - 含 `do` 块的函数自动标记为效应函数
 - 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Signal.*`、`Sys.*`、`Task.*`
-- `Cmd.pipe` 及 `Cmd` 装饰函数（`Cmd.withEnv`、`Cmd.withStdin`、`Cmd.withRawOpt`、`Cmd.mergeStderr`、`Cmd.withCwd`、`Cmd.withRunAs`、`Cmd.andThen`、`Cmd.orElse`）接收并返回 `Command` 值，为纯操作，可在 `do` 块外使用
-- `Cmd.<bin>?` 立即执行及 `Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry` 返回 `Result`，为效应函数
+- `Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
+- `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）为效应函数
+- `Cmd.exec : Command -> Unit` 执行 Command 值，为效应函数
 - 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
-- 效应性不扩散到类型签名——函数签名中不出现 `IO` 标记
-- Lambda 含有效应函数调用时，该 lambda 必须在 `do` 块内定义
+- 函数名不添加效应标记，效应性由编译器推断、文档生成（`kun doc`）和 IDE/LSP 提供可见性
+
+### 效应回调标记 `!`
+
+在函数类型签名中，`(a -> b)!` 标注**效应回调参数**——该参数**必须是**效应函数，不能传入纯函数：
+
+```kun
+// iter 的回调参数标注为效应回调
+iter : (a -> Unit)! -> List a -> Unit
+
+// 调用时：传入效应函数
+do
+  List.iter IO.println files       // ✅ IO.println 是效应函数
+
+// 传入纯函数 → 编译错误
+purePrint = \s -> ()              // 纯函数
+List.iter purePrint files          // ❌ 编译错误：期望效应函数，传入了纯函数
+```
+
+`!` 标注的规则：
+
+| 规则 | 说明 |
+|------|------|
+| `!` 位置 | `!` 紧跟在被标注的**函数类型参数**之后：`(a -> b)!` |
+| 回调约束 | 含 `!` 标注的参数**必须传入效应函数**，纯函数传入是编译错误 |
+| 效应传播 | 声明了 `!` 参数的函数**自身是效应函数**（必须在 `do` 块中调用） |
+| 纯函数限制 | **纯函数不能声明 `!` 参数**——编译期拒绝 |
+| 多参数 | 可在一个签名中标注多个 `!` 参数：`(a -> Unit)! -> b -> (c -> Unit)! -> d` |
+
+`!` 标注在标准库中包含以下函数：
+
+```kun
+List.iter  : (a -> Unit)! -> List a -> Unit
+Stream.iter : (a -> Unit)! -> Stream a -> Unit
+Signal.on   : Signal -> (Signal -> Unit)! -> Unit
+Task.spawn  : Int -> List Command -> ... (内部效应，无回调参数)
+```
+
+`List.map`、`List.filter`、`List.fold`、`Stream.map`、`Stream.filter`、`Stream.fold` 等其余高阶函数**不包含 `!` 标注**——它们的回调必须是纯函数。需要逐元素执行副作用时使用 `List.iter` 或 `Stream.iter`。
+
+### 效应检查
+
+在类型合一的同时，效应检查器（Effect Checker）执行以下验证：
+
+- 识别含 `do` 块的函数，标记为效应函数
+- 识别签名中声明了 `!` 参数的函数，标记为效应函数
+- 验证纯函数体中无效应函数调用
+- 验证纯函数签名中无 `!` 参数声明
+- 验证 `!` 参数的传入实参为效应函数（含 `do` 块或效应命名空间函数）
+- 验证 `do` 块外的代码无效应命名空间函数调用
+- 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.exec` 仅在 `do` 块内使用
+- Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
+
+效应检查失败产生 `TypeError`，纳入统一的错误报告。
 
 ## 类型等价与类型关系
 
@@ -343,6 +398,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | 新增效应回调标记 `(a -> b)!`——标注参数必须为效应函数；含 `!` 参数的函数自身为效应函数；纯函数禁止声明 `!` 参数；新增 `Cmd.exec` 效应函数（Command 显式执行） |
 | 2026.06.13 | `Cmd` 效应分类细化（装饰函数为纯操作/立即执行为效应）；效应跟踪提升为独立 H2；锚点规范化 |
 | 2026.06.12 | 新增 `Float` 精度局限说明与 `toString` 截断语义；编译器内置标注（`Nil`/`?T`/效应跟踪）；新增 `Decimal` 精确十进制类型；`TempFile`/`TempDir` 整合为 `File.createTempFile`/`File.createTempDir` |
 | 2026.06.10 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base \| field : T }`）；效应跟踪改为 AST 标记方案 |

@@ -16,7 +16,7 @@
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
 | 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |
 | 泛型 | ✅ 设计定型 | 无约束参数化多态（简单泛型） |
-| 效应跟踪 | ✅ 设计定型 | AST 标记：含 `do` 块的函数 + `IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*`/`Task.*` 命名空间函数 + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry` 为效应函数；`Cmd.<bin>` 构造及 `Cmd` 装饰函数为纯操作 |
+| 效应跟踪 | ✅ 设计定型 | AST 标记 + 类型签名 `(a -> b)!` 效应回调标注：含 `do` 块的函数 + `!` 参数声明 + `IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*`/`Task.*` 命名空间函数 + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.exec` 为效应函数；`Cmd.<bin>` 构造及 `Cmd` 装饰函数为纯操作；`!` 标注的回调必须是效应函数；纯函数禁止声明 `!` 参数 |
 | 类型等价 | ✅ 设计定型 | 结构等价，无子类型 |
 
 ### 标准库类型
@@ -94,7 +94,8 @@
 | Cmd.timeout | ✅ 设计定型 | 命令超时（SIGKILL + waitpid） |
 | Cmd.retry | ✅ 设计定型 | 命令重试（内部调用 Cmd.timeout） |
 | Cmd.which | ✅ 设计定型 | PATH 查找命令 |
-| Command 执行模型 | ✅ 设计定型 | 延迟执行，`\|>` 隐式触发 / do 块边界 / ? 后缀立即执行 |
+| Command 执行模型 | ✅ 设计定型 | 延迟执行，`\|>` 管道隐式触发 / `Cmd.exec` 显式执行 / `?` 后缀立即执行；未被消费的 Command 是编译错误 |
+| Cmd.exec | ✅ 设计定型 | 显式执行 Command 值，丢弃输出，失败 panic |
 | camelCase→kebab-case 映射 | ✅ 设计定型 | 多大写断词、全小写不断词、单字符短 flag；非标准 flag 用 Cmd.withRawOpt |
 | Cmd.withRunAs | ✅ 设计定型 | 指定命令执行用户（setuid） |
 | 预置高频命令模块 | ✅ 设计定型 | 首批 20 个高频命令类型定义（git、docker、curl 等） |
@@ -188,5 +189,6 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | 效应跟踪更新：新增 `(a -> b)!` 效应回调标注；命令系统更新：移除 `do` 块隐式执行，新增 `Cmd.exec` 显式执行 |
 | 2026.06.13 | REPL 重命名为 Kun Shell 并扩展设计（SQLite 日志、函数收藏、AST 哈希） |
 | 2026.06.10 | 架构重设计：功能清单全面刷新 |
