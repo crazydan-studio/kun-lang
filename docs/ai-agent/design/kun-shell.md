@@ -2,7 +2,7 @@
 
 ## 定位
 
-Kun Shell 是 Kun 的交互式环境。`kun-shell` 为独立可执行文件，与 `kun` CLI 工具通过动态链接库 `libkunlang.so` 共享解释器核心代码（词法分析、语法分析、类型检查、效应检查、求值引擎）。
+Kun Shell 是 Kun 的交互式环境。`kun-shell` 为独立可执行文件，与 `kun` CLI 工具通过动态链接库 `libkunlang.so` 共享解释器核心代码（词法分析、语法分析、类型检查、效应检查、求值引擎）。`kun-shell` 自身 CLI 参数解析与 `Cli` 模块共享同一 spec 模型与解析引擎，见 [`Cli` 模块](cli.md#与-CLI-二进制的关系)。
 
 启动命令：
 

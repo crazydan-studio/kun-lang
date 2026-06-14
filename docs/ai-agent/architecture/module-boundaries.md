@@ -10,6 +10,12 @@ kun-lang/
 │   ├── 类型检查器（Type Checker）
 │   ├── 效应检查器（Effect Checker）— AST 标记
 │   └── AST（抽象语法树）
+├── CLI 参数解析引擎
+│   ├── Spec 数据模型（CliSpec / CliArg / CliMeta / CliError）
+│   ├── token 分片与选项匹配
+│   ├── 子命令调度
+│   ├── 帮助与版本信息生成
+│   └── 错误报告
 ├── 运行时（Runtime）
 │   ├── Command 构造器（Cmd.<bin>）
 │   ├── Command 执行器（fork-exec + pipe 捕获）
@@ -25,7 +31,7 @@ kun-lang/
 │   ├── Cmd.pipe / Cmd.pipe? OS 管道链
 │   └── Cmd.which（PATH 查找）
 ├── 安全子系统
-│   ├── CLI 安全参数解析（--allow-path、--allow-net、--no-sandbox、--force、--env=、--cpu-limit、--mem-limit）
+│   ├── 安全参数定义（--allow-path、--allow-net、--no-sandbox、--force、--env=、--cpu-limit、--mem-limit）—— 解析由 CLI 参数解析引擎完成
 │   ├── Landlock 文件控制（5.13+）/ 网络控制（6.7+）首选
 │   ├── Mount namespace 兜底隔离（内核 3.8+）
 │   ├── seccomp-BPF 系统调用过滤（最低降级，per 子进程 fork 后安装）
@@ -76,22 +82,25 @@ Kun 的交互式环境，以独立可执行文件 `kun-shell` 提供。通过动
 ## 模块依赖关系
 
 ```
-Kun Shell → 解释器核心 → 运行时
-                           ↓
-     解释器核心 → 命令调用系统
-                           ↓
-                 运行时 → 安全子系统
-                           ↓
-                 运行时 → 标准库
+Kun Shell ───→ 解释器核心 ───→ 运行时
+                                    ↓
+                    CLI 参数解析引擎 ───→ 标准库（Cli 模块编译期展开）
+                                    ↓
+                    解释器核心 ───→ 命令调用系统
+                                    ↓
+                          运行时 → 安全子系统
+                                    ↓
+                          运行时 → 标准库
 
-libkunlang.so（解释器核心 + 运行时，kun 与 kun-shell 共享）
+libkunlang.so（解释器核心 + CLI 参数解析引擎 + 运行时，kun 与 kun-shell 共享）
 ```
 
-解释器核心依赖命令调用系统的类型化模块进行类型检查；运行时依赖安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用；Kun Shell 通过 `libkunlang.so` 共享解释器核心与运行时，是解释器核心的交互式包装。
+解释器核心依赖命令调用系统的类型化模块进行类型检查；CLI 参数解析引擎为 `kun`、`kun-shell`、`Cli` 模块提供共享的 spec 模型与解析算法；运行时依赖安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用（其中 `Cli` 模块在编译期展开为对 CLI 参数解析引擎的调用）；Kun Shell 通过 `libkunlang.so` 共享解释器核心、CLI 参数解析引擎与运行时，是解释器核心的交互式包装。
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | 新增 CLI 参数解析引擎模块，与安全子系统的关系同步更新 |
 | 2026.06.13 | 标准库模块列表扩展；依赖图统一；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心） |
 | 2026.06.10 | 架构重设计初始版本

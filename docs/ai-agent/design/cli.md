@@ -1355,9 +1355,19 @@ Try 'build.kun --help' for more information.
 
 `--help`/`-h` 始终自动可用，不可禁用。`--version`/`-V` 同样自动可用。出现解析错误时自动提示 `--help`。
 
+## 与 CLI 二进制的关系
+
+`Cli` 模块的 spec 模型（`CliSpec`、`CliArg`、`CliMeta`、`CliError`）同时也是 `kun` 和 `kun-shell` 二进制自身参数解析的数据模型。解析引擎（token 分片、选项匹配、子命令调度、帮助生成、错误报告）实现为 `libkunlang.so` 中的 Zig 库：
+
+- `kun` 和 `kun-shell` 在 Zig 入口直接定义 `CliSpec` 字面量，调用同一引擎解析自身参数
+- `Cli` 模块在编译期展开阶段将 `CliSpec` Record 编译为 Zig 级引擎调用
+
+三者共享 spec 模型与解析算法，避免重复实现。`kun` 和 `kun-shell` 的 CLI 参数解析设计分别见 [`kun-cli-tool.md`](kun-cli-tool.md) 和 [`kun-shell.md`](kun-shell.md)。
+
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | 新增「与 CLI 二进制的关系」章节，明确 spec 模型与解析引擎的共享策略 |
 | 2026.06.13 | 定位描述调整：明确 Cli 依赖编译器编译期反射 API |
 | 2026.06.10 | 架构重设计：Cli 模块设计定型 |
