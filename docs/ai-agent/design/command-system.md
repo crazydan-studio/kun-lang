@@ -239,7 +239,14 @@ do
 
 ## 执行用户：`Cmd.withRunAs`
 
-`Cmd.withRunAs : String -> Command -> Command` 指定子进程的执行用户。fork 后、exec 前调用 `setuid()`，需 Kun 进程具备 OS 级权限（root 或 `CAP_SETUID`）。
+`Cmd.withRunAs : String -> Command -> Command` 指定子进程的执行用户。fork 后、exec 前按序执行完整的权限降级流程：
+
+1. `initgroups(username, primary_gid)` — 设置附加组列表（清除父进程继承的组）
+2. `setgid(primary_gid)` — 设置主组
+3. `setuid(target_uid)` — 设置用户（必须在 `setgid` 之后）
+4. 验证 `setuid(0)` 返回 `-1`（确认无法重新提升权限）
+
+需 Kun 进程具备 OS 级权限（root 或 `CAP_SETUID` + `CAP_SETGID`）。若父进程为 root，子进程 fork 后自动继承 `PR_SET_NO_NEW_PRIVS` 标记（由父进程在沙箱初始化阶段设置），进一步阻止子进程通过 setuid binary 重新提升特权。
 
 ```kun
 do
@@ -354,6 +361,7 @@ retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | `Cmd.withRunAs` 权限降级流程补全：`initgroups` → `setgid` → `setuid` → 验证 |
 | 2026.06.14 | 移除 `do` 块语句边界隐式执行规则；新增 `Cmd.exec : Command -> Unit` 显式执行；未被消费的 Command 是编译错误；新增 Command 生命周期示例 |
 | 2026.06.13 | API 签名伪语法规范；锚点规范化 |
 | 2026.06.12 | 从 `app-overview.md` 和 `system-baseline.md` 中提取命令调用机制为独立文档 |
