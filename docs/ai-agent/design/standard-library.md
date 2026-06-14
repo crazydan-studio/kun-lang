@@ -167,6 +167,9 @@ toLower : String -> String
 
 // 替换第一个匹配
 replace : String -> String -> String -> String
+
+// 替换所有匹配
+replaceAll : String -> String -> String -> String
 ```
 
 #### `toString` — 编译器级泛型
@@ -214,6 +217,12 @@ fromHex : String -> Result Bytes String
 
 // 编码为十六进制字符串
 toHex : Bytes -> String
+
+// 从 String 转换为 Bytes（始终成功，UTF-8 编码）
+fromString : String -> Bytes
+
+// 从 Bytes 转换为 String（非法 UTF-8 序列运行时 Panic）
+toString : Bytes -> String
 ```
 
 ### 示例
@@ -222,6 +231,8 @@ toHex : Bytes -> String
 import Bytes
 
 Bytes.toHex 0x48656C6C6F                    // → "48656C6C6F"
+Bytes.fromString "hello"                     // → 0x68656C6C6F
+Bytes.toString 0x68656C6C6F                  // → "hello"
 
 case Bytes.fromHex "48656C6C6F" of
   Ok b  -> b
@@ -1443,6 +1454,7 @@ isEmpty : Map k v -> Bool                     // 是否为空
 
 // 变换
 insert   : k -> v -> Map k v -> Map k v             // 插入/覆写键值对
+remove   : k -> Map k v -> Map k v                  // 移除键值对（键不存在时无操作）
 update   : (v -> v) -> k -> Map k v -> Map k v      // 更新已有值
 fromList : List (k, v) -> Map k v                   // 从列表构造
 toList   : Map k v -> List (k, v)                   // 转为列表
@@ -1872,6 +1884,15 @@ import File
 // 列出目录内容
 list : Path -> Result (List Path) IOError
 
+// 创建目录
+mkdir : Path -> Result Unit IOError
+
+// 递归创建目录树（等价于 mkdir -p）
+mkdirAll : Path -> Result Unit IOError
+
+// 检查路径是否存在
+exists : Path -> Result Bool IOError
+
 // 读取文件为字符串
 readString : Path -> Result String IOError
 
@@ -2211,6 +2232,56 @@ main = \_ ->
         IO.println "failed to read config"
 ```
 
+## `Test` — 测试断言
+
+### 定位
+
+`Test` 模块提供基础测试断言函数，用于编写自测试 Kun 脚本。`kun test` 子命令发现并执行测试文件，收集断言失败报告。所有断言函数在失败时通过 panic 报告错误（含文件名、行号、期望值、实际值），由测试运行器捕获。
+
+需显式导入：
+
+```kun
+import Test
+```
+
+### API
+
+```kun
+// 断言两个值相等
+equal : a -> a -> String -> Unit
+
+// 断言条件为 true
+ok : Bool -> String -> Unit
+
+// 断言表达式触发 panic
+panics : (-> a) -> String -> Unit
+```
+
+- `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
+- `ok condition message`：`condition` 为 `true` 通过，否则 panic
+- `panics thunk message`：`thunk()` 触发 panic 则通过，正常返回则 panic（"expected panic"）
+
+### 示例
+
+```kun
+import Test
+
+// 测试脚本（tests/test-example.kun）
+main : List String -> Unit
+main = \_ ->
+  do
+    Test.equal 4 (2 + 2) "basic arithmetic"
+    Test.ok (List.length [1, 2, 3] == 3) "list length"
+    Test.panics (\ -> List.head []) "head of empty list panics"
+    IO.println "all tests passed"
+```
+
+测试文件约定：
+- 测试文件放置在 `tests/` 目录下
+- 文件名遵循 `test-*.kun` 模式
+- 入口函数签名为 `main : List String -> Unit`
+- `kun test` 自动发现并运行所有测试文件，报告通过/失败统计
+
 ## 导入一览
 
 | 模块 | 导入方式 | 说明 |
@@ -2257,11 +2328,13 @@ main = \_ ->
 | `SocketAddr` | `import SocketAddr` | 套接字地址（`Tcp`/`Udp` + `IpAddress` + `Port`） |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
+| `Test` | `import Test` | 测试断言（`equal`/`true`/`false`/`panics`） |
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | `File` 新增 `mkdir`/`mkdirAll`/`exists`；`Bytes` 新增 `fromString`/`toString`；`Map` 新增 `remove`；`String` 新增 `replaceAll`；新增 `Test` 模块（`equal`/`ok`/`panics`） |
 | 2026.06.14 | `List.iter`/`Stream.iter`/`Signal.on` 签名新增 `(a -> b)!` 效应回调标注——回调必须是效应函数；新增 `Cmd.exec : Command -> Unit` 显式执行；Stream IO 消费示例更新 |
 | 2026.06.13 | 示例代码语法合规修复；新增 `Regex`/`Duration`/`Set`/`Task` 模块；`Map` API 签名泛化（`k`/`v`）；`List` 新增 `sort`/`slice`/`take`/`drop`/`all`/`any`；`Process` 新增 `kill`/`wait`；`File` 新增 `glob`；`Regex` 新增 `fromString` |
 | 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |

@@ -16,7 +16,7 @@
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
 | 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |
 | 泛型 | ✅ 设计定型 | 无约束参数化多态（简单泛型） |
-| 效应跟踪 | ✅ 设计定型 | AST 标记 + 类型签名 `(a -> b)!` 效应回调标注：含 `do` 块的函数 + `!` 参数声明 + `IO.*`/`File.*`/`Env.*`/`Process.*`/`Signal.*`/`Sys.*`/`Task.*` 命名空间函数 + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.exec` 为效应函数；`Cmd.<bin>` 构造及 `Cmd` 装饰函数为纯操作；`!` 标注的回调必须是效应函数；纯函数禁止声明 `!` 参数 |
+| 效应跟踪 | ✅ 设计定型 | AST 标记 + 类型签名 `(a -> b)!` 效应回调标注（内部退糖为 `EffectFn(a, b)`，与 `Fn(a, b)` 在结构等价下不兼容） |
 | 类型等价 | ✅ 设计定型 | 结构等价，无子类型 |
 
 ### 标准库类型
@@ -73,6 +73,7 @@
 | Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
 | Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
+| Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令 |
 
 ### 命令系统
 
@@ -131,10 +132,11 @@
 | CLI `--env=` | ✅ 设计定型 | 环境变量继承策略 |
 | CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 | rlimit 资源限制 |
 | Landlock | ✅ 设计定型 | 内核 5.13+：文件控制；6.7+：文件 + 网络控制（首选） |
-| Mount namespace 兜底 | ✅ 设计定型 | 内核 3.8+：目录级隔离 |
-| seccomp-BPF 降级 | ✅ 设计定型 | 内核 3.5+：系统调用类型过滤 |
-| 环境变量安全过滤 | ✅ 设计定型 | 干净白名单 + 始终剔除列表 |
-| 安全降级 warning | ✅ 设计定型 | 降级到纯 seccomp 时输出 stderr 警告 |
+| Network namespace 网络隔离 | ✅ 设计定型 | `CLONE_NEWNET`（内核 3.0+），覆盖 Landlock 网络控制不可用场景 |
+| Mount namespace 兜底 | ✅ 设计定型 | 内核 3.8+：目录级隔离（`pivot_root`） |
+| seccomp-BPF | ✅ 设计定型 | 系统调用类型过滤（含 `bpf`/`perf_event_open`/`userfaultfd`/`memfd_create`/`io_uring_*`） |
+| `PR_SET_NO_NEW_PRIVS` | ✅ 设计定型 | 阻止 setuid/setgid 特权提升，Landlock 前置条件 |
+| 环境变量安全过滤 | ✅ 设计定型 | 干净白名单 + 始终剔除列表（含 `BASH_FUNC_*`/`LD_*`/解释器注入向量） |
 
 ### IO 与数据
 
@@ -189,6 +191,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.14 | 安全加固：网络隔离 CLONE_NEWNET + seccomp 扩展 + PR_SET_NO_NEW_PRIVS + env 过滤扩展；标准库增补：`File.mkdir`/`mkdirAll`/`exists`、`Bytes.fromString`/`toString`、`Map.remove`、`String.replaceAll`；新增 `Test` 测试断言模块；效应跟踪：`!` → `EffectFn` 独立类型构造器 |
 | 2026.06.14 | 效应跟踪更新：新增 `(a -> b)!` 效应回调标注；命令系统更新：移除 `do` 块隐式执行，新增 `Cmd.exec` 显式执行 |
 | 2026.06.13 | REPL 重命名为 Kun Shell 并扩展设计（SQLite 日志、函数收藏、AST 哈希） |
 | 2026.06.10 | 架构重设计：功能清单全面刷新 |
