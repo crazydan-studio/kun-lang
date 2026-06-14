@@ -1040,7 +1040,7 @@ import Duration
 (*) : Int -> Duration -> Duration
 (/) : Duration -> Int -> Duration
 
-// 比较
+// 比较（== / /= / < / > / <= / >= 运算符直接可用，底层委托 compare）
 compare : Duration -> Duration -> Int    // -1 / 0 / 1
 
 // 单位提取
@@ -1051,7 +1051,41 @@ toSecs : Duration -> Int
 toMinutes : Duration -> Int
 toHours : Duration -> Int
 toDays : Duration -> Int
+
+// 解析与格式化
+fromString : String -> Result Duration String    // 解析 "5s" / "100ms" / "2h30m" / "1d"
+toString : Duration -> String                    // 纳秒数（如 "5100000000"）
+format : String -> Duration -> Result String String  // 自定义格式
+
+// 负值支持
+negate : Duration -> Duration    // 取反，-(5s) → -5000000000ns
+isNegative : Duration -> Bool
+abs : Duration -> Duration       // 绝对值
 ```
+
+`fromString` 支持的格式：
+
+| 单位 | 后缀 | 示例 |
+|------|------|------|
+| 纳秒 | `ns` | `"500ns"` |
+| 微秒 | `us` | `"500us"` |
+| 毫秒 | `ms` | `"100ms"` |
+| 秒 | `s` | `"5s"` |
+| 分钟 | `m` | `"30m"` |
+| 小时 | `h` | `"2h"` |
+| 天 | `d` | `"1d"` |
+| 组合 | 多单位拼接 | `"2h30m"`、`"1d12h"` |
+
+`format` 格式说明符：
+
+| 说明符 | 输出 | 示例（输入=3661000000000ns） |
+|--------|------|------|
+| `"H:MM:SS"` | 时:分:秒 | `"1:01:01"` |
+| `"M:SS"` | 分:秒 | `"61:01"` |
+| `"S"` | 总秒数 | `"3661"` |
+| `"s"` | 带单位的简短格式 | `"1h1m1s"` |
+
+**负 Duration**：字面量 `-5s` 合法（等同于 `negate 5s`）。负 Duration 的算术运算按符号处理——`(-5s) + 10s = 5s`，`(-5s) * 2 = -10s`。比较运算符按符号比较——`-5s < 0s < 5s`。除法向零截断——`(-5s) / 2 = -2s`。
 
 #### 示例
 
