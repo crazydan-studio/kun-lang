@@ -2440,7 +2440,13 @@ all : Stream (Result a e) -> List (Result a e)
 - `spawn n cmds` 并发 fork 最多 `n` 个子进程，返回结果流（按完成顺序，非提交顺序）
 - `all` 消费结果流，等待全部子进程退出后收集为 List
 - 子进程仍受 `seccomp + rlimit` 约束，沙箱策略与单命令一致
-- `Cmd.timeout`/`Cmd.retry` 是立即执行函数（返回 `Result`），**不可与 `Task.spawn` 组合**——`spawn` 需要 `List Command`（未执行）。批量超时控制通过 `Task.spawn` 的并发度参数间接实现：并发度限制 + 子进程各自的 rlimit CPU 限制 (`--cpu-limit`) 提供超时兜底。
+- `Cmd.timeout`/`Cmd.retry` 是立即执行函数（返回 `Result`），**不可与 `Task.spawn` 组合**——`spawn` 需要 `List Command`（未执行）。批量超时控制通过 `Task.spawn` 的并发度参数间接实现：并发度限制 + 子进程各自的 rlimit CPU 限制 (`--cpu-limit`) 提供超时兜底
+
+#### 运行时模型
+
+`Task.spawn` 通过主线程的 **epoll/poll 事件循环**管理多个子进程的 stdout/stderr pipe——不引入额外线程。子进程 fork 后各自独立，彼此无共享内存。文件冲突由内核文件系统锁定处理（多进程写同一文件的行为由 OS 定义），Kun 不做额外管理。
+
+> **MVP 不包含**：`Task` 模块（`spawn`/`all`）列为 v0.5 特性（见 [MVP 定义](../requirements/mvp.md)）。。
 
 ### 示例
 
