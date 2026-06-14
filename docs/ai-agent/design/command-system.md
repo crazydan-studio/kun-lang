@@ -103,7 +103,7 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 
 > `|>` 隐式触发的类型推断：编译器检测左侧 `Command` 类型与右侧函数期望的 `Stream String` 类型不匹配时，在两者之间插入 `Command → Stream String` 的执行步骤。若右侧函数为多态（如 `identity : a -> a`），编译器需先合一 `a ~ Stream String` 后确认触发。此多阶段类型检查（约束生成 → 合一 → Command 检测 → 插入执行节点）在 HM 框架内可实现，但相对常规合一增加了一步 AST 变换。编译期错误信息在无法确定触发条件时回退为"无法将 Command 用作 Stream，是否遗漏 `Cmd.<bin>?`？"
 
-> `Cmd.exec` 签名：`Cmd.exec : Command -> Unit`。执行 Command 并丢弃 Stream 输出（stdout 被消费但不保留），stderr 透传到父进程。执行失败（非零退出码或命令未找到）时 panic，触发 unwind + defer 链。需要捕获 stdout 或处理错误请使用 `Cmd.<bin>?` 或 `|>` 管道。未被消费的 `Command` 值（未传给 `Cmd.exec`、未通过 `?` 执行、未经过 `|>` 管道）在 `do` 块内是**编译错误**——防止未预期的隐式执行。
+> `Cmd.exec` 签名：`Cmd.exec : Command -> Unit`。执行 Command 并丢弃 Stream 输出（stdout 被消费但不保留），stderr 透传到父进程。执行失败（非零退出码或命令未找到）时 panic，触发 unwind + defer 链。需要捕获 stdout 或处理错误请使用 `Cmd.<bin>?` 或 `|>` 管道。未被消费的 `Command` 值在 `do` 块内是**编译错误**——防止未预期的隐式执行。`do` 块外的 `Command` 值可自由作为纯数据传递（赋值、传入函数、存入数据结构），不触发执行。
 
 ### Command 生命周期
 

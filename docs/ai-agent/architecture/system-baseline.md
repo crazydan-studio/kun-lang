@@ -129,10 +129,11 @@ const Stream = union(enum) {
 ```
 
 - `cmd` 变体持有子进程的 pipe fd 和 pid，`buf` 为堆分配
-- 变换操作（`map`、`filter`、`take`、`drop`）通过包裹上游 Stream 构造新节点
+- 变换操作（`map`、`filter`、`take`、`drop`）通过包裹上游 Stream 构造新节点；`take`/`drop` 的 `remaining` 为 `usize`，API 层 `Int` 参数 ≤ 0 时：`take 0` 返回空 Stream，`take n (n < 0)` 编译期报错（或 panic）；`drop 0` 等同原 Stream，`drop n (n < 0)` 同 `take` 处理
 - `lines` 变体：按 `\n` 切分输入流——`buf` 为跨 chunk 的累积缓冲区，`pos` 追踪下一行起始位置
 - `parse_mapped`：映射并丢弃 `Err` 结果（对应 `Stream.parseMap`）
 - `parse_mapped_keep`：映射并保留 `Result`（对应 `Stream.parseMapKeep`）
+- `filterMap` 无独立 tagged union 变体——在代码生成阶段展开为 `mapped` + 过滤 `Nil` 的复合操作
 - 终端操作（`toList`、`iter`、`fold`）循环消费直到 stream 终止
 - 编译器检测相邻的纯参数操作（`map`/`take`）在代码生成阶段合并为单循环
 
