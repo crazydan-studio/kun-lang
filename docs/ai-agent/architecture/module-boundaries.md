@@ -71,7 +71,7 @@ kun-lang/
 
 ### Kun Shell
 
-Kun 的交互式环境，以独立可执行文件 `kun-shell` 提供。通过动态链接库 `libkun_core.so` 与 `kun` 共享解释器核心代码。包含 SQLite/DuckDB 日志存储、函数收藏（AST 哈希唯一引用）、历史回放、编辑器集成等功能。完整设计见 [Kun Shell](../design/kun-shell.md)。
+Kun 的交互式环境，以独立可执行文件 `kun-shell` 提供。通过动态链接库 `libkunlang.so` 与 `kun` 共享解释器核心代码。包含 SQLite/DuckDB 日志存储、函数收藏（AST 哈希唯一引用）、历史回放、编辑器集成等功能。完整设计见 [Kun Shell](../design/kun-shell.md)。
 
 ## 模块依赖关系
 
@@ -84,14 +84,14 @@ Kun Shell → 解释器核心 → 运行时
                            ↓
                  运行时 → 标准库
 
-libkun_core.so（解释器核心 + 运行时，kun 与 kun-shell 共享）
+libkunlang.so（解释器核心 + 运行时，kun 与 kun-shell 共享）
 ```
 
-解释器核心依赖命令调用系统的类型化模块进行类型检查；运行时依赖安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用；Kun Shell 通过 `libkun_core.so` 共享解释器核心与运行时，是解释器核心的交互式包装。
+解释器核心依赖命令调用系统的类型化模块进行类型检查；运行时依赖安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用；Kun Shell 通过 `libkunlang.so` 共享解释器核心与运行时，是解释器核心的交互式包装。
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.13 | 标准库模块列表扩展；依赖图统一；REPL 更名为 Kun Shell（独立可执行文件 + libkun_core.so 共享核心） |
+| 2026.06.13 | 标准库模块列表扩展；依赖图统一；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心） |
 | 2026.06.10 | 架构重设计初始版本
