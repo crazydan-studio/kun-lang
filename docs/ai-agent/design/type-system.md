@@ -449,6 +449,37 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 
 错误消息中的类型引用使用用户可见的类型名（如 `String`），而非内部类型 ID。模板中使用 `{expected}`、`{found}`、`{source}`、`{hint}` 占位符。
 
+> **i18n**：以下模板为中文 locale（zh_CN）的展示格式。英文 locale（en）下，模板标题和字段标签使用英文 msgid（如 `"Type Mismatch"`、`"Expected"`），提示文本替换为对应的英文翻译。消息的 msgid 体系、`.po` 文件管理与运行时 locale 检测见 [i18n 子系统](../architecture/i18n.md)。
+>
+> 模板中 msgid 与中文翻译的对应关系：
+>
+> | msgid | zh_CN |
+> |-------|-------|
+> | `Type Mismatch` | 类型不匹配 |
+> | `Argument Type Mismatch` | 函数参数类型不匹配 |
+> | `Branch Type Mismatch` | 分支类型不一致 |
+> | `Not A Function` | 非函数调用 |
+> | `Too Many Arguments` | 参数过多 |
+> | `Effect Callback Required` | 效应回调必需 |
+> | `Nil For Non-Nilable` | Nil 赋值给非 Nilable |
+> | `Nilable Used As Non-Nilable` | ?T 用于非 Nilable 位置 |
+> | `Non-Exhaustive Pattern` | 模式匹配非穷举 |
+> | `Redundant Pattern` | 冗余模式 |
+> | `Unknown Field` | 未知字段 |
+> | `Missing Field` | 缺少字段 |
+> | `Tuple Index Out Of Range` | 元组索引越界 |
+> | `Effect In Pure Function` | 纯函数调用效应函数 |
+> | `Command Not Consumed` | Command 未消费 |
+> | `Stream Not Consumed` | Stream 未消费 |
+> | `Unbound Variable` | 未定义变量 |
+> | `Unbound Type` | 未定义类型 |
+> | `Infinite Type` | 无限类型 |
+> | `Recursive Type Expansion Limit` | 递归展开超限 |
+> | `Expected` | 期望 |
+> | `Found` | 发现 |
+> | `Hint` | 提示 |
+> | `Reason` | 原因 |
+
 #### 错误消息模板（20 个最常见场景）
 
 **基础类型不匹配**
