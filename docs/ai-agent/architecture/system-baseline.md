@@ -806,17 +806,145 @@ import File
 
 ## 标准库集成
 
-标准库模块分为两类：
+标准库模块的实现分为两类：纯 Kun 实现（`.kun` 文件，用语言自身编写）和 Primitive 实现（Zig 原生函数，注册到内置 Primitive 函数表）。编译器语法级结构（`Cmd.<bin>`、`do`/`defer`、`case`、`?T`/`Nil`、`|>` 管道等）不在此列——它们由编译器直接解析和代码生成。
 
-| 类别 | 实现方式 | 示例 |
-|---|---|---|
-| 纯 Kun 实现 | `.kun` 文件，用语言自身实现 | `List`、`Map`、`Set`、`Result` |
-| Primitive 实现 | Zig 原生函数，注册到内置表 | `IO` 操作、`File` 操作、`Stream` |
+### 分类标准
+
+函数是否内置为 Primitive 取决于**是否能**用纯 Kun 实现，而非是否方便：
+
+| 条件 | 类别 | 说明 |
+|------|------|------|
+| 需要系统调用（fork/exec/read/write/stat/getenv/signalfd 等） | Primitive | Kun 无 FFI，无法从用户态发起 syscall |
+| 需要编译期类型内省（`toString` 泛型分发、`Cli.parse` Record 展开等） | Primitive | 需访问编译器的类型环境，纯 Kun 无法实现 |
+| 需要直接操作运行时数据结构（哈希表桶数组、切片指针、列表扩容等） | Primitive | Kun 不可变语义 + 无指针操作能力 |
+| 纯数据变换/组合子（仅涉及已有数据结构的遍历/构造，无副作用、无指针操作） | PureKun | 完全可用 Kun 表达 |
+| 编译器级语法结构 | 不归类为函数 | 由编译器直接处理，非标准库函数 |
+
+### 决策原则
+
+**"保守内置"原则**：不确定时标记为 Primitive。Primitive 函数可在后续版本降级为 PureKun（用 Kun 重写实现），反向迁移则不可能——从 PureKun 升级为 Primitive 意味着原本可行的用户代码在新版本中编译/行为变化，属于破坏性变更。
+
+### Primitive 函数表
+
+#### 数据结构
+
+Primitive 函数表在编译期以 Zig `comptime` 生成，运行时为静态只读数组：
+
+```zig
+const PrimitiveFn = *const fn (env: *RuntimeEnv, args: *const Value) Value;
+
+const PrimitiveBinding = struct {
+    module: []const u8,   // 所属模块名，如 "IO"
+    name: []const u8,     // 函数名，如 "println"
+    fn_ptr: PrimitiveFn,  // Zig 实现函数指针
+};
+
+const PrimitiveTable = struct {
+    bindings: []const PrimitiveBinding,  // 按 module+name 排序的静态数组
+    protected_modules: []const []const u8,  // 受保护模块名集合
+};
+```
+
+表在编译期生成、全局堆分配、初始化后即不可变。运行时无修改入口（无 setter API，指针为 `const`）。
+
+#### 初始化流程
+
+Primitive 函数表在运行时初始化阶段（创建 Arena 分配器后、模块解析前）载入：
+
+```
+运行时环境建立
+  ├── 创建 Arena 分配器
+  ├── 设置全局求值环境（变量帧栈）
+  └── 注册 Primitive 函数表
+        ├── 编译期常量表直接载入（无运行时分配）
+        ├── 表引用标记为 const（不可再修改）
+        └── 构建受保护模块名索引 {IO, File, Env, Process, Sys, Cmd, Random, Stream, Signal}
+```
+
+#### 函数查找
+
+运行时通过二分查找（按 `module + "." + name` 字符串比较）定位 Primitive 绑定。查找发生在模块加载时，非每次函数调用时——加载后函数值缓存在模块导出环境中。
+
+### 模块加载时的绑定规则
+
+模块加载器在解析 `import M` 时执行以下流程：
+
+```
+import M
+  │
+  ├── 1. M 在受保护模块名集合中？
+  │     ├── 是 → 跳过文件系统搜索（不检查 lib/M.kun、$KUN_PATH/M.kun）
+  │     │       ├── 加载 <runtime>/lib/kun/M.kun（仅获取签名声明和文档注释）
+  │     │       ├── 对每个 export 函数 f：
+  │     │       │     ├── Primitive 表中存在 (M, f) → 绑定 Zig 函数指针为函数体
+  │     │       │     └── Primitive 表中不存在 → 使用 .kun 文件中的 Kun 实现
+  │     │       └── 若用户在 lib/M.kun 或 $KUN_PATH/M.kun 定义了同名模块：
+  │     │             → 编译警告（不是错误）："module `M` is a protected built-in;
+  │     │                user definition at <path> is ignored; the built-in
+  │     │                implementation takes precedence"
+  │     │             → 用户定义不生效，以受保护绑定为准
+  │     │
+  │     └── 否 → 走常规文件系统搜索路径（lib/ → $KUN_PATH → <runtime>/lib/kun/）
+  │
+  └── 2. 函数名冲突检测（在加载 .kun 文件时执行）：
+        ├── Primitive 绑定的函数名 f 在 .kun 文件中只能出现在类型签名声明中
+        ├── 若 .kun 文件尝试为 Primitive 绑定的函数提供实现体：
+        │     → 编译错误："function `f` is a protected built-in;
+        │        implementation is provided by the runtime;
+        │        only type signatures are allowed in module M"
+        └── 若 .kun 文件中未声明 Primitive 绑定函数 f 的签名：
+              → 编译错误："function `f` is a protected built-in;
+                 a type signature declaration is required in module M
+                 for documentation purposes"
+```
+
+### 混合模块
+
+部分模块混合 Primitive 和 PureKun 函数（如 `File` 模块：`File.readString` 为 Primitive，`File.copy` 为 PureKun）。其 `<runtime>/lib/kun/File.kun` 源文件中：
+
+- Primitive 函数：仅声明类型签名（无函数体），附 `doc` 注释
+- PureKun 函数：正常定义完整实现
+
+加载器在处理 `File.kun` 时：
+1. 解析 Kun 文件得到所有函数的签名和文档
+2. 对每个函数查询 Primitive 表：存在 → 以 Zig 实现替换函数体；不存在 → 保留 .kun 中的实现
+3. 签名声明必须存在（文档需要），缺失则编译错误
+
+### 安全防护
+
+| 攻击面 | 防护机制 |
+|--------|---------|
+| 用户用受保护模块名创建 `lib/M.kun` 覆盖内置 | 受保护模块跳过文件系统搜索；用户定义不生效，编译警告提示 |
+| 运行时修改 Primitive 表 | 编译期常量静态数组，无运行时修改入口（`const` 引用 + 无 setter API） |
+| 用户在同模块 .kun 中定义与 Primitive 同名的函数 | 编译错误："function is a protected built-in; only type signatures allowed" |
+| 用户 `import IO` 后重新绑定 `IO = { println = myPrintln }` | Record 字面量创建当前作用域新绑定，不修改模块导出环境；模块绑定不可变 |
+| 用户通过 `export (f)` 重新导出受保护函数 | `export` 仅转发已有绑定；受保护函数的绑定来源始终为 Primitive 表 |
+| 恶意文件以受保护模块名放置在 `$KUN_PATH` 中 | 受保护模块名跳过所有文件系统搜索路径 |
+
+### 逐函数实现类别总表
+
+详见 `design/standard-library.md` 中每个函数签名后的 `[Primitive]` / `[PureKun]` 标注。以下为汇总：
+
+| 模块 | Primitive 占比 | 说明 |
+|------|--------------|------|
+| `Int`、`Float`、`String`、`Bytes`、`Char` | 少量 Primitive | 基础运算符由编译器内置；`String.length`/`slice` 需直接操作内存 |
+| `Regex` | 几乎全部 Primitive | 正则引擎依赖 C 库（PCRE2/regexec） |
+| `Math`、`Function`、`Result`、`Nil` | 全部 PureKun | 纯组合子 |
+| `List`、`Map`、`Set` | 结构操作为 Primitive | `map`/`filter`/`fold` 为 PureKun，`get`/`insert`/`append` 等为 Primitive |
+| `IO`、`File`(大部分)、`Env`、`Process`、`Sys`、`Random`、`Task` | 全部 Primitive | 需要系统调用 |
+| `Cmd` 执行 (`exec`/`pipe`/`which`/`timeout`/`retry`) | Primitive | fork-exec |
+| `Cmd` 修饰 (`withEnv`/`withStdin` 等) | PureKun | 纯 `Command` 值变换 |
+| `Stream` 构造/终端 (`fromList`/`toList`/`lines` 等) | Primitive | tagged union 操作 |
+| `Stream` 变换 (`map`/`filter`/`take`/`drop`) | PureKun | 包裹上游 Stream |
+| `Path`、`Duration`、`Decimal`、newtype 模块 | 全部 PureKun | 基于已有基础类型的变换 |
+| `Cli` (`parse`/`show`) | Primitive | 需编译期代码展开 |
+| `Parser` | Primitive | 需编译期代码展开 |
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | 标准库集成章节重写：新增 Primitive 函数表数据结构、初始化流程、模块加载绑定规则、受保护模块安全防护、逐函数实现类别汇总 |
 | 2026.06.14 | 效应函数列表修正：`Signal.*` → `Signal.on`；Stream tagged union 新增 `dropped`/`lines`/`parse_mapped`/`parse_mapped_keep` 变体；seccomp 新增新 mount API syscall（`fsopen`/`fsmount`/`fsconfig`/`open_tree`/`move_mount`）；用户定义效应函数自动获取 `EffectFn` 内部类型 |
 | 2026.06.14 | 安全加固：seccomp 新增 `bpf`/`perf_event_open`/`userfaultfd`/`memfd_create`；新增 `prctl(PR_SET_NO_NEW_PRIVS)` 沙箱前置条件；网络隔离新增 CLONE_NEWNET 覆盖内核 5.13–6.6；环境变量过滤新增 `BASH_FUNC_*`/`PYTHONPATH`/`PERL5LIB` 等注入防御；D-state 文档修正（`--cpu-limit` 无效 + wall-clock 超时方案）；`Cmd.withRunAs` 完整权限降级流程 |
 | 2026.06.14 | 效应检查算法更新：新增 `(a -> b)!` 效应回调参数检测（含 `!` 的函数标记为效应函数、纯函数禁止声明 `!`、`!` 实参必须为效应函数）；Command 执行模型更新：移除 `do` 块隐式执行，新增 `Cmd.exec` 显式执行，未被消费 Command 是编译错误；效应函数列表新增 `Cmd.exec` |

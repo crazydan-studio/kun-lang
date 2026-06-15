@@ -44,7 +44,8 @@ kun-lang/
 │   ├── IO 操作（IO、File、Env、Cmd、Process、Sys 等）
 │   ├── CLI 工具（Cli、Validator、Path 等）
 │   ├── 类型安全解析（Parser.JSON、Parser.Record）
-│   └── 系统与安全（Random、Signal、Port、Pid、ExitCode、DateTime、IpAddress、Errno、FileType、FileMode、FileStat、IOError、CommandError、Uid、Gid 等）
+│   ├── 系统与安全（Random、Signal、Port、Pid、ExitCode、DateTime、IpAddress、Errno、FileType、FileMode、FileStat、IOError、CommandError、Uid、Gid 等）
+│   └── Primitive 函数表（运行时与标准库之间的 Zig 级绑定接口）
 └── Kun Shell
     ├── 交互式环境
     ├── SQLite/DuckDB 日志存储
@@ -73,7 +74,7 @@ kun-lang/
 
 ### 标准库
 
-提供内置的数据类型和函数。包括列表、映射、集合、流等数据结构，管道和高阶函数组合工具，模式匹配机制，以及结构化的 IO 和文件操作。
+提供内置的数据类型和函数。实现分为两类：Primitive 实现（Zig 原生函数，通过 Primitive 函数表绑定到模块导出，适用于需要系统调用、编译期类型内省或直接操作运行时数据结构的函数）和纯 Kun 实现（`.kun` 文件，用语言自身编写，适用于纯数据变换和组合子）。逐函数分类详见 `design/standard-library.md` 中的 `[Primitive]` / `[PureKun]` 标注。模块加载时的绑定规则（受保护模块名防护、同名覆盖检测）见 `system-baseline.md` 标准库集成章节。
 
 ### Kun Shell
 
@@ -82,25 +83,26 @@ Kun 的交互式环境，以独立可执行文件 `kun-shell` 提供。通过动
 ## 模块依赖关系
 
 ```
-Kun Shell ───→ 解释器核心 ───→ 运行时
-                                    ↓
-                    CLI 参数解析引擎 ───→ 标准库（Cli 模块编译期展开）
-                                    ↓
-                    解释器核心 ───→ 命令调用系统
-                                    ↓
-                          运行时 → 安全子系统
-                                    ↓
-                          运行时 → 标准库
+Kun Shell ───→ 解释器核心 ───→ 运行时（含 Primitive 函数表）
+                                     ↓
+                     CLI 参数解析引擎 ───→ 标准库（Cli 模块编译期展开）
+                                     ↓
+                     解释器核心 ───→ 命令调用系统
+                                     ↓
+                           运行时 → 安全子系统
+                                     ↓
+                           运行时 → 标准库（Primitive 绑定接口）
 
-libkunlang.so（解释器核心 + CLI 参数解析引擎 + 运行时，kun 与 kun-shell 共享）
+libkunlang.so（解释器核心 + CLI 参数解析引擎 + 运行时 + Primitive 函数表，kun 与 kun-shell 共享）
 ```
 
-解释器核心依赖命令调用系统的类型化模块进行类型检查；CLI 参数解析引擎为 `kun`、`kun-shell`、`Cli` 模块提供共享的 spec 模型与解析算法；运行时依赖安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用（其中 `Cli` 模块在编译期展开为对 CLI 参数解析引擎的调用）；Kun Shell 通过 `libkunlang.so` 共享解释器核心、CLI 参数解析引擎与运行时，是解释器核心的交互式包装。
+解释器核心依赖命令调用系统的类型化模块进行类型检查；CLI 参数解析引擎为 `kun`、`kun-shell`、`Cli` 模块提供共享的 spec 模型与解析算法；运行时通过 Primitive 函数表将 Zig 原生实现绑定到标准库的受保护模块导出，并通过安全子系统进行沙箱管理；标准库由运行时加载并提供给用户代码使用（其中 `Cli` 模块在编译期展开为对 CLI 参数解析引擎的调用）；Kun Shell 通过 `libkunlang.so` 共享解释器核心、CLI 参数解析引擎、运行时及 Primitive 函数表，是解释器核心的交互式包装。
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | 标准库模块补充 Primitive 函数表绑定接口；模块职责说明细化实现分类；依赖图标注 Primitive 绑定 |
 | 2026.06.14 | 新增 CLI 参数解析引擎模块，与安全子系统的关系同步更新 |
 | 2026.06.13 | 标准库模块列表扩展；依赖图统一；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心） |
 | 2026.06.10 | 架构重设计初始版本
