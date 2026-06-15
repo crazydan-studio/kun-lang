@@ -176,6 +176,7 @@ Cmd.pipe
 | `Cmd.withStdin` | 注入 stdin（字符串或字节流） |
 | `Cmd.withRawOpt` | 追加原始 argv token（见下方说明） |
 | `Cmd.mergeStderr` | stderr 合并到 stdout |
+| `Cmd.withStdinFile` | 从文件路径注入 stdin |
 | `Cmd.withCwd` | 指定子进程工作目录 |
 | `Cmd.withRunAs` | 指定执行用户 |
 | `Cmd.andThen` | 短路条件：前一个成功时执行后一个 |
@@ -352,24 +353,34 @@ fork 在 `timeout` 处触发，子进程内依次执行 `chdir("/work")` → `se
 // <bin>? : ?[options] -> posArgs... -> Result (Stream String) CommandError
 
 // OS 管道链
+// [PureKun]
 pipe  : List Command -> Command
+// [Primitive]
 pipe? : List Command -> Result (Stream String) CommandError
 
 // 修饰函数
+// [PureKun]
 withEnv     : Map String String -> Command -> Command
+// [PureKun]
 withRawOpt  : String -> ?String -> Command -> Command
+// [PureKun]
 withStdin   : String -> Command -> Command
+// [PureKun]
 withStdin   : Stream Bytes -> Command -> Command
 
-// [Primitive] 从文件路径注入 stdin——读取文件内容并通过 pipe 写入子进程
+// [PureKun] 从文件路径注入 stdin——读取文件内容并通过 pipe 写入子进程
 withStdinFile : Path -> Command -> Command
 
+// [PureKun]
 mergeStderr : Command -> Command
+// [PureKun]
 withCwd     : Path -> Command -> Command
 withRunAs   : String -> Command -> Command  // [推迟 v1.0]
 
 // 短路条件组合
+// [PureKun]
 andThen : Command -> Command -> Command
+// [PureKun]
 orElse  : Command -> Command -> Command
 
 // [Primitive] 在 PATH 中查找可执行文件

@@ -420,6 +420,7 @@ const Type = union(enum) {
     // 标准库类型（编译器内置支持但非基础类型）
     decimal_t,
     command_t,   // Cmd.<bin> 构造的 Command 值，不透明类型
+    datetime_t,
 };
 
 > `command_t` 为不透明单元变体——所有 `Cmd.<bin>` 产生的 Command 值在类型系统中等价（结构等价）。编译器不对 Command 值的特定命令名或选项类型做类型级区分——选项错误在运行时 fork/exec 阶段由命令本身报告。若后续版本引入类型化命令模块（v0.5），`command_t` 可扩展为携带 `<bin>_options` 参数的变体。

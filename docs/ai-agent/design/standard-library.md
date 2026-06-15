@@ -698,7 +698,7 @@ toString : Signal -> String
 #### 信号接收
 
 ```kun
-// [Primitive] 注册信号处理函数
+// [Primitive] 注册信号处理函数——收到信号时执行回调并传递信号值；前一个处理器被替换 [推迟 v1.0]
 on : Signal -> (Signal -> Unit)! -> Unit
 ```
 
@@ -959,6 +959,9 @@ type CommandError
   | IoError IOError
   | PipeFailed { commands : List String, failedAt : Int, error : CommandError }
   | Timeout { duration : Duration, command : Command }
+
+// [PureKun] 将 CommandError 转换为人类可读的字符串
+show : CommandError -> String
 ```
 
 - `CommandFailed` 包含命令名、退出码和完整 stderr 输出
@@ -2100,8 +2103,6 @@ fromList : List t -> Stream t
 // [Primitive] 从 start 到 end（不含），步长为 step
 range : Int -> Int -> Int -> Stream Int
 
-`range start end` 为 `range start end 1` 的语法糖——编译器在约束生成阶段将 2 参数的 `range` 调用自动脱糖为 3 参数形式，HM 类型检查仅需处理 `Int -> Int -> Int -> Stream Int` 单一签名。
-
 // [PureKun] — 变化为一对多映射然后展平
 flatMap : (a -> Stream b) -> Stream a -> Stream b
 
@@ -2141,6 +2142,8 @@ iterate : (a -> a) -> a -> Stream a
 // [PureKun] 创建无限循环的 Stream
 cycle : List a -> Stream a
 ```
+
+`range start end` 为 `range start end 1` 的语法糖——编译器在约束生成阶段将 2 参数的 `range` 调用自动脱糖为 3 参数形式，HM 类型检查仅需处理 `Int -> Int -> Int -> Stream Int` 单一签名。
 
 #### 变换（惰性）
 
