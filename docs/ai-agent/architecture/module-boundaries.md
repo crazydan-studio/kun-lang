@@ -9,7 +9,8 @@ kun-lang/
 │   ├── 语法分析器（Parser）
 │   ├── 类型检查器（Type Checker）
 │   ├── 效应检查器（Effect Checker）— AST 标记
-│   └── AST（抽象语法树）
+│   ├── AST（抽象语法树）
+│   └── i18n（locale 检测 + 消息翻译）
 ├── CLI 参数解析引擎
 │   ├── Spec 数据模型（CliSpec / CliArg / CliMeta / CliError）
 │   ├── token 分片与选项匹配
@@ -102,6 +103,7 @@ libkunlang.so（解释器核心 + CLI 参数解析引擎 + 运行时 + Primitive
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | 解释器核心新增 i18n 子系统（locale 检测 + 消息翻译） |
 | 2026.06.15 | 标准库模块补充 Primitive 函数表绑定接口；模块职责说明细化实现分类；依赖图标注 Primitive 绑定 |
 | 2026.06.14 | 新增 CLI 参数解析引擎模块，与安全子系统的关系同步更新 |
 | 2026.06.13 | 标准库模块列表扩展；依赖图统一；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心） |
