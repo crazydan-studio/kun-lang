@@ -937,10 +937,14 @@ type CommandError
   | KilledBySignal { command : String, signal : Int, stderr : String }
   | IoError IOError
   | PipeFailed { commands : List String, failedAt : Int, error : CommandError }
+  | Timeout { duration : Duration, command : Command }
 ```
 
 - `CommandFailed` 包含命令名、退出码和完整 stderr 输出
+- `Timeout` — 命令执行超时（由 `Cmd.timeout` 触发），含超时时长和原始命令值
 - `PipeFailed` 包含管道链中按序的命令名列表和失败位置
+
+> **嵌套限制**：`Cmd.pipe` 链中若 `andThen` 或 `orElse` 产生嵌套 `PipeFailed`（内层 `error` 字段为 `CommandError`，其中含另一个 `PipeFailed`），嵌套深度上限为 16。超出时 panic 并返回最外层 `PipeFailed`，内层错误信息通过 stderr `warn` 日志输出。
 - `show : CommandError -> String` 返回格式化的错误描述字符串
 
 #### 示例
@@ -2240,7 +2244,7 @@ symlink : Path -> Path -> Result Unit IOError
 // [Primitive] 读取符号链接目标
 readlink : Path -> Result Path IOError
 
-// [Primitive] 按 glob 模式匹配文件
+// [Primitive] — 需要 opendir/readdir/closedir 系统调用；glob 遍历的路径受 Landlock 规则约束——仅返回 Landlock 允许路径内的匹配项
 glob : String -> Path -> Result (List Path) IOError
 ```
 
@@ -2424,12 +2428,13 @@ import Process
 
 ```kun
 // [Primitive] 以指定退出码终止进程
+// 若 n 超出 0..255 范围，运行时 panic（纯运行时错误 → 退出码 1）
 exit : Int -> Unit
 
 // [Primitive] 获取当前进程 ID
 pid : -> Pid
 
-// [Primitive] 向指定进程发送信号
+// [Primitive] — 可向任意 PID 发送信号；实际效果取决于 OS 级权限（CAP_KILL 或同 UID）；无沙箱模式下可影响系统服务
 kill : Signal -> Pid -> Result Unit IOError
 
 // [Primitive] 等待子进程退出，返回退出码

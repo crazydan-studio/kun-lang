@@ -29,7 +29,8 @@ Kun 采用两级种类系统：
 | 种类 | 含义 | 示例 |
 |------|------|------|
 | `Type` | 具体类型（值可居留其中） | `Int`、`Bool`、`String` |
-| `Type -> Type` | 类型构造器（接受一个类型参数返回具体类型） | `List`、`Set` |
+| `Type -> Type` | 类型构造器（接受一个类型参数返回具体类型） | `List`、`Set`、`Stream` |
+| `Map` | `Type -> Type -> Type` | 接收键类型和值类型，返回具体字典类型 |
 
 所有完整应用的类型构造器（如 `List Int`）归约到种类 `Type`。
 
@@ -37,7 +38,7 @@ Kun 采用两级种类系统：
 
 ```
 Type Universe
-├── Base Types         (Int, Float, Bool, String, Bytes, Char, Regex, Duration, Unit, Path)
+├── Base Types         (Int, Float, Bool, String, Bytes, Char, Regex, Duration, DateTime, Unit, Path)
 ├── Compound Types     (List, Map, Set, Stream, Tuple)
 ├── Product Types      (Record/Tuple)
 ├── Sum Types / ADTs   (custom sum types, Result)
@@ -128,6 +129,7 @@ case (x, y) of              // x : ?Int, y : ?String
 | `Char` | Unicode 标量值 | `'A'`, `'\n'` | u32 | Unicode 标量值 |
 | `Regex` | 编译后正则 | `r"[0-9]+"` | 内部编译表示 | 编译期验证 |
 | `Duration` | 纳秒精度时间段 | `5s`, `100ms`, `2h` | i64 (纳秒) | 时间跨度 |
+| `DateTime` | i64 | 时间戳（纳秒） | Unix 纪元以来的纳秒数 |
 | `Unit` | 零宽度类型 | 无（编译器隐式值） | void | 无返回值标记，不可作为参数类型 |
 | `Path` | 文件系统路径（不保证 UTF-8） | `p"/tmp/foo"`, `p"./foo"` | `[]u8` | 与 `String` 语义区分；内部可为任意非 NUL 字节 |
 
@@ -240,6 +242,28 @@ getPid = \ ->
 p = p"/tmp/foo"
 ```
 
+### 复合类型
+
+#### `List t`
+
+不可变同质列表，运行时表示为 `{ptr, len, cap}` 数组。元素类型必须一致。
+
+#### `Map k v`
+
+不可变键值字典。键类型必须可哈希（`Int`、`String`、`Bool`、`Char`、`Path`、`Duration`）。运行时表示为开地址哈希表。
+
+#### `Set t`
+
+不可变无序集合。元素类型同 `Map` 的键类型约束——必须可哈希。
+
+#### `Stream t`
+
+惰性序列。元素按需拉取，运行时表示为 Zig tagged union（`cmd`/`mapped`/`filtered`/`taken`/`dropped`/`lines`/`parse_mapped`/`parse_mapped_keep`）。`Stream` 的消费必须在创建其的 Arena 销毁前完成——编译器对未被消费的 `Stream` 进行流敏感检测。
+
+#### `Command`
+
+`Cmd.<bin>` 构造的延迟执行值。`Command` 为不透明类型——编译器内置，不可用 Kun 代码构造。`Cmd.exec : Command -> Unit` 显式执行并丢弃输出；`|>` 管道左侧为 `Command` 时隐式触发执行，输出 `Stream String`；`?` 后缀立即执行，返回 `Result (Stream String) CommandError`。未被消费的 `Command` 值是编译错误。
+
 ## 效应跟踪
 
 > **编译器内置**：效应跟踪通过编译器 AST 标记 + 类型签名中的 `!` 标注实现。`do` 块和效应命名空间（`Cmd.*`、`IO.*` 等）由编译器直接识别和处理。
@@ -254,7 +278,7 @@ Kun 通过 AST 扫描自动推断函数的效应性：
 - `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）为效应函数
 - `Cmd.exec : Command -> Unit` 执行 Command 值，为效应函数
 - `Cmd.which : String -> ?Path` PATH 查找，为效应函数
-- 纯函数（无 `do` 块）不能调用效应函数——编译期拒绝
+- 纯函数（无 `do` 块、无 `!` 参数声明）不能调用效应函数——编译期拒绝。`(a -> b)!` 参数使函数自身成为效应函数。
 - 函数名不添加效应标记，效应性由编译器推断、文档生成（`kun doc`）和 IDE/LSP 提供可见性
 
 ### 效应回调标记 `!`
@@ -315,12 +339,21 @@ Task.spawn  : Int -> List Command -> ... (内部效应，无回调参数)
 - 识别签名中声明了 `!` 参数的函数，标记为效应函数
 - 验证纯函数体中无效应函数调用
 - 验证纯函数签名中无 `!` 参数声明
+- 验证 `do` 块内未被消费的 `Command` 值（未被 `Cmd.exec`、`|>` 或 `?` 消费的 `Command` 是编译错误）
+- 验证 `do` 块内未被消费的 `Stream`（未被 `toList`/`iter`/`fold`/`string`/`bytes` 等终端操作消费的 `Stream` 是编译错误，防止子进程变为僵尸和 fd 泄漏）
+- `do` 块内条件消费路径的所有分支均需消费 `Stream`；`Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError` 返回 `Result`，其 `Ok` 分支的 `Stream` 仍须消费
 - 验证 `!` 参数的传入实参为效应函数（含 `do` 块或效应命名空间函数）
 - 验证 `do` 块外的代码无效应命名空间函数调用
 - 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.which`、`Cmd.exec` 仅在 `do` 块内使用
 - Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
 
 效应检查失败产生 `TypeError`，纳入统一的错误报告。
+
+> **注意**：`let ... in` 绑定、`defer` 资源清理和 f-string 插值均有类型检查级语义：
+> - `let ... in` 绑定表达式必须为纯（不得含 `do` 块或效应调用），绑定采用延迟求值
+> - `do in` 形式在副作用执行后返回纯值——`in` 之后的表达式处于纯上下文，不需 `do` 块
+> - `defer expr` 的类型为 `Unit`，不影响所在 `do` 块的类型
+> - f-string 的插值表达式在编译期校验——验证 `toString` 存在性（若类型的 `toString` 缺失且编译器无缺省构造，编译期报错）
 
 ## 类型等价与类型关系
 
@@ -690,6 +723,7 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | 审计修复：补全 DateTime/Map/Set/Stream/Command 类型定义；纯函数定义统一；let in/do in/defer/f-string 类型检查引用；kind 表补充 Map/Stream |
 | 2026.06.14 | 效应跟踪修正：用户定义含 `do` 块的函数自动获取 `EffectFn` 内部类型（而非 `Fn`），可传入 `!` 参数；`Signal.*` 效应规则缩小为 `Signal.on` |
 | 2026.06.14 | `(a -> b)!` 退糖为 `EffectFn(a, b)` 独立类型构造器——与 `Fn(a, b)` 在结构等价下不兼容；补充嵌套 `!` 语义说明、别名保留规则 |
 | 2026.06.14 | 新增效应回调标记 `(a -> b)!`——标注参数必须为效应函数；含 `!` 参数的函数自身为效应函数；纯函数禁止声明 `!` 参数；新增 `Cmd.exec` 效应函数（Command 显式执行） |
