@@ -184,20 +184,25 @@ toString : a -> String
 
 `toString` 是编译器层面的泛型函数。其分发策略为：
 1. 若类型定义了 `toString` 函数（显式实现或标准库 newtype 提供），则调用该类型的 `toString`
-2. 若是编译器内置基础类型（`Int`、`Float`、`Bool`、`String`、`Char`、`Bytes`、`Regex`、`Duration`、`Path`、`Unit`），使用编译器缺省的字符串构造（见下方内置类型缺省行为）
-3. 对于用户自定义 ADT，若未实现 `toString`，在 f-string 或直接调用 `toString` 时产生编译期错误——编译器不自动为自定义类型生成字符串表示。提示信息："type `Xxx` does not implement `toString`；implement `toString : Xxx -> String` or use a format specifier to select fields explicitly"
+2. 其他所有类型（编译器内置基础类型、标准库 ADT、用户自定义 ADT/Record/Tuple）均由编译器自动生成缺省表示
+3. 自动生成的路径标注为 `#[auto]`——若类型同时定义了显式 `toString`，显式定义优先
 
-各标准库中定义了 `toString` 的类型包括：`Port`、`Pid`、`ExitCode`、`DateTime`、`IpAddress`、`Path`、`Uid`、`Gid`、`FileMode`、`FileType`、`Signal`、`Errno`、`Duration`。
+编译器自动生成的缺省 `toString` 行为统一遵循 **类型名 + 负载数据** 格式：
 
-内置类型的缺省 `toString` 行为：
-- `Int`：十进制字符串
-- `Float`：`"3.14"` 形式的十进制字符串
-- `Bool`：`"true"` / `"false"`
-- `String`：直接返回自身
-- `Char`：单字符字符串
-- `Bytes`：十六进制字符串 `"48656C6C6F"`
-- `Regex`：正则模式字符串 `r"..."`
-- `Duration`：纳秒数
+| 类别 | 生成格式 | 示例 |
+|------|---------|------|
+| 内置基础类型 | `TypeName(value)` | `Int(42)`、`Float(3.14)`、`Bool(true)`、`Char('A')`、`Duration(5s)`、`Unit()` |
+| 字符串/Bytes | `TypeName("content")` | `String("hello")`、`Bytes("48656C6C6F")` |
+| ADT 变体 | `VariantName` 或 `VariantName(fields)` | `Ok(42)`、`Err("not found")`、`None` |
+| Record | `TypeName{ field = value, ... }` | `{ name = "Kun", age = 1 }` |
+| Tuple | `(value, value, ...)` | `(42, "hello")` |
+| List | `[value, value, ...]` | `[1, 2, 3]` |
+| Map | `#{ key = value, ... }` | `#{ "a" = 1, "b" = 2 }` |
+| Set | `#[ value, value, ... ]` | `#[ 1, 2, 3 ]` |
+| Nilable `?T` | `Nil` 或 内层 T 的表示 | `Nil`、`"hello"`（?String 自动收窄） |
+| 不透明类型（Command/Regex/Stream） | `TypeName(<opaque>)` | `Command(<opaque>)`、`Regex(r"[0-9]+")` |
+
+> 内置基础类型中，`Path`、`Regex`、`Duration`、`Decimal` 的缺省 `toString` 由各自标准库模块提供显式实现（已在上述各行列出），编译器通过分发策略步骤 1 调用。
 
 ### 示例
 
