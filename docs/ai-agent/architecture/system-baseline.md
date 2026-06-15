@@ -648,12 +648,14 @@ seccomp-BPF 过滤规则禁止以下系统调用类别：
 | `Bool` | `uint8_t` | 1 字节 | 1 |
 | `Char` | `uint32_t` | 4 字节 | 4 |
 | `Duration` | `int64_t` | 8 字节 | 8 |
-| `Unit` | `void` | 0 字节 | — |
+| `Unit` | `void` | 0 字节 | 1 |
 | `Regex` | `*const RegexHandle` | 8 字节 | 8 |
 | `Decimal` | `struct { int64_t mantissa, int32_t exponent }` | 12 字节 | 8 |
-| `Command` | `struct { ... }` | 实现内部 | — |
+| `Command` | `struct { uint8_t tag, uint8_t payload[32] }` | 33 字节 | 8 |
 
 > `Regex` 的运行时表示为指向编译后正则引擎句柄的不透明指针。`Command` 为 `Cmd.<bin>` 构造的不透明值，内部结构为编译器实现细节；`Decimal` 以尾数+指数二元组表示。
+>
+> `Unit` 在 Record/Tuple 作为字段时占用 0 字节（编译器优化省略），但对齐视为 1（与 Zig 0 大小类型的对齐行为一致）。
 
 ### 字符串与字节类型
 

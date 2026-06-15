@@ -20,7 +20,8 @@
 | I/O | 0.16 引入 I/O as an Interface：`std.Io` 替代旧 `std.io`，`std.Io.File`/`stream`/`Event` 等新 API |
 | 入口点 | "Juicy Main"：`pub fn main(init: std.process.Init) !void`；环境变量非全局，通过 `init` 参数传入 |
 | 文件系统 | `std.fs.path` API 重命名（如 `cwd` → `process.Cwd`）；`Dir.readFileAlloc` / `File.readToEndAlloc` 新增便利方法 |
-| 类型系统 | `@FieldType` 新增；`@splat` 支持数组；匿名结构体类型移除，元组统一为结构等价；packed struct/union 支持等值比较和原子操作 |
+| 数组初始化 | `@splat` 支持数组（0.14）；注意：后续版本中 `@splat` 正被数组乘法语法 `[_]T{x} ** n` 替代 |
+| 类型系统 | `@FieldType` 新增；匿名结构体类型移除，元组统一为结构等价；packed struct/union 支持等值比较和原子操作 |
 | 构建系统 | 包哈希格式变更；新增 `WriteFile`/`RemoveDir` 步骤；`addLibrary` 函数用于创建共享库 |
 
 ## 内存管理
@@ -229,21 +230,23 @@ const U8 = @Type(.{ .Int = .{ .signedness = .unsigned, .bits = 8 } });
 const U8 = @Int(.unsigned, 8);
 
 // 结构体类型构造
-const MyStruct = @Struct(
-    .auto,
-    null,
-    &.{ "x", "y" },
-    &.{ i32, f64 },
-    &.{ .{}, .{} },
-);
+const MyStruct = @Struct(.{
+    .layout = .auto,
+    .backing_integer = null,
+    .fields = &.{
+        .{ .name = "x", .type = i32, .default_value_ptr = null, .is_comptime = false, .alignment = 0 },
+        .{ .name = "y", .type = f64, .default_value_ptr = null, .is_comptime = false, .alignment = 0 },
+    },
+    .decls = &.{},
+    .is_tuple = false,
+});
 
 // 函数类型构造
-const MyFn = @Fn(
-    &.{ i32, bool },
-    &.{ .{}, .{} },
-    void,
-    .{},
-);
+const MyFn = @Fn(.{
+    .params = &.{ i32, bool },
+    .return_type = void,
+    .cc = .C,
+});
 ```
 
 ### @FieldType 内置函数

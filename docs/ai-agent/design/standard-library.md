@@ -901,6 +901,9 @@ type IOError
   | AlreadyExists Path
   | Unsupported String
   | Other String
+
+// [PureKun] 将 IOError 转换为人类可读的字符串
+toString : IOError -> String
 ```
 
 与 `Errno` 的关系：`IOError` 是面向用户的语义封装，`Errno` 是底层 POSIX 码。
@@ -1256,7 +1259,8 @@ type Gid = Gid Int       // 组 ID
 
 - `Uid` 函数
   ```kun
-  // [PureKun] 获取当前用户 ID
+  // [PureKun] 当前进程的用户 ID（脚本启动时冻结，后续更改不反映）
+  // 若需实时查询，使用 Sys.uid : -> Int
   current : -> Uid
 
   // [PureKun] 构造 `Uid`，调用者须确保参数合法，非法输入 panic
@@ -1269,7 +1273,8 @@ type Gid = Gid Int       // 组 ID
   ```
 - `Gid` 函数
   ```kun
-  // [PureKun] 获取当前组 ID
+  // [PureKun] 当前进程的组 ID（脚本启动时冻结，后续更改不反映）
+  // 若需实时查询，使用 Sys.gid : -> Int
   current : -> Gid
 
   // [PureKun] 构造 `Gid`，调用者须确保参数合法，非法输入 panic
@@ -1343,7 +1348,7 @@ do
 
 ### 定位
 
-`Decimal` 为精确十进制浮点类型。以整数尾数和指数表示数值，避免 IEEE 754 二进制浮点的舍入误差。适用于金融计算、配置文件解析等需要精确小数的场景。`Decimal` 为标准库实现，非编译器内置。
+`Decimal` 为精确十进制浮点类型。以整数尾数和指数表示数值，避免 IEEE 754 二进制浮点的舍入误差。适用于金融计算、配置文件解析等需要精确小数的场景。`Decimal` 为标准库类型——编译器提供 TypeEnv 变体 (`decimal_t`) 和固定运行时表示 (`struct { int64_t mantissa, int32_t exponent }`, 12 字节)，但 `Decimal` 模块中的函数（`of`/`fromString`/算术/`round` 等）为标准库实现，非 Primitive。
 
 需显式导入：
 
@@ -2195,7 +2200,7 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 
 | 操作 | 类别 | 说明 |
 |------|------|------|
-| `Stream.map` / `Stream.filter` / `Stream.take` | **纯** | 惰性变换，不触发 IO |
+| `Stream.map` / `Stream.filter` / `Stream.take` / `Stream.flatMap` / `Stream.append` / `Stream.zip` / `Stream.scan` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` / `Stream.cycle` | **纯** | 惰性变换，不触发 IO |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
 | `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit)!` 回调，自身为效应函数（必须在 `do` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在 `do` 外使用 |
@@ -2709,11 +2714,11 @@ uptime : Float
 // [Primitive] 逻辑 CPU 数量
 cpuCount : Int
 
-// [Primitive] 当前进程的用户 ID
-uid : Int
+// [Primitive] 当前进程的实时用户 ID
+uid : -> Int
 
-// [Primitive] 当前进程的组 ID
-gid : Int
+// [Primitive] 当前进程的实时组 ID
+gid : -> Int
 ```
 
 ### 示例

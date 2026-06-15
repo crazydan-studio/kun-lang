@@ -38,14 +38,21 @@ Kun 采用两级种类系统：
 
 ```
 Type Universe
-├── Base Types         (Int, Float, Bool, String, Bytes, Char, Regex, Duration, DateTime, Unit, Path)
+├── Base Types         (Int, Float, Bool, String, Bytes, Char, Regex, Duration, Unit, Path)
 ├── Compound Types     (List, Map, Set, Stream, Tuple)
 ├── Product Types      (Record/Tuple)
 ├── Sum Types / ADTs   (custom sum types, Result)
 ├── Nilable Types      (?T — Nil or T)
 ├── Function Types     (pure functions, command functions)
 └── Type Variables     (a, b, etc. — for generics)
+
+├── Standard Library Types (compiler-supported)
+│   ├── Decimal    (mantissa + exponent)
+│   ├── Command    (opaque, Cmd.\<bin\>)
+│   └── DateTime   (Int newtype)
 ```
+
+> `DateTime`、`Decimal`、`Command` 为标准库类型——由编译器提供 TypeEnv 变体和运行时表示支持，但非语言内置基础类型。`DateTime` 为 `Int` 的 newtype，`Decimal` 为尾数+指数二元组，`Command` 为不透明值。
 
 ### Nilable 类型（`?T`）
 

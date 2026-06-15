@@ -464,6 +464,18 @@ a =
 
 `let ... in` 并非仅针对多条绑定，它的作用与 Elm 中的 `let ... in` 一致：在一个表达式中引入局部定义，并最终产生一个明确的返回值。
 
+多绑定使用换行分隔（不可在同一行逗号分隔）：
+
+```kun
+let
+  name = expr
+  f = \x -> expr
+in
+  use name f
+```
+
+多绑定的求值顺序：绑定之间按声明顺序求值（前面的绑定在后继绑定的表达式中可见）。相互引用（如 `a = ... b ...` 和 `b = ... a ...`）需通过 Lambda 包装实现：`a = \x -> ... b x ...`。
+
 > **纯性约束**：`let ... in` 绑定的表达式必须是纯的——不得包含 `do` 块、效应命名空间调用（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*`、`Signal.on`）及 `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.which`/`Cmd.exec`。`let` 绑定采用延迟求值（仅在 `in` 之后被引用时才求值），若允许效应代码，效应执行时机不确定且可能被多次触发（泛化后多次引用）。效应代码必须在 `do` 块内使用 `=` 绑定顺序执行。
 
 ### Case 表达式（模式匹配）
@@ -662,6 +674,20 @@ countFiles = \dir ->
 - 签名中声明了 `(a -> b)!` 参数的函数自动标记为效应函数
 - 纯函数（无 `do` 块、无 `!` 参数）不能调用效应函数
 - 外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支
+
+`case` 分支内嵌 `do` 块时，内层 `do` 开始新的效应上下文——内层 `do` 注册的 `defer` 在该分支退出时执行（先于外层 `do` 的 `defer`）：
+
+case command of
+  Deploy config ->
+    do
+      defer cleanupDeploy   // 内层：本分支退出时执行
+      ...
+  Rollback version ->
+    do
+      defer cleanupRollback // 内层：本分支退出时执行
+      ...
+// 内层 defer 已在上述分支退出时执行
+
 - `let ... in` 表达式不可出现在 `do` 块内——`do` 块内使用 `=` 绑定（顺序求值）和 `do in` 形式（绑定后返回值）。若需在 `do` 块内引入局部定义并立即求值，使用 `=` 绑定；若需在副作用后返回纯值，使用 `do in`
 - `do` 块内的 `Cmd.<bin>` 表达式不会被隐式执行——需通过 `|>` 管道触发、`Cmd.exec` 显式执行或 `?` 后缀立即执行。未被消费的 `Command` 值在 `do` 块内是编译错误
 
@@ -980,6 +1006,8 @@ import Result (Result(Ok))    // 仅导入 Ok 变体
 
 导入变体后，变体名称可直接在代码中使用（`Ok`、`Err`），无需模块限定。
 
+> **重复导入**：同一文件中对相同模块的重复 `import`（如 `import List` 后 `import List (map, filter)`）编译期报错——模块仅需导入一次。使用限制性导入扩大导入范围时，更新原有的 `import` 语句（而非新增第二条）。
+
 ### 模块名冲突
 
 不同路径下的模块可能同名（如 `./lib/json.kun` 和 `./vendor/json.kun`）。搜索优先级决定哪个模块被导入：
@@ -1021,7 +1049,7 @@ Stream.filter : (a -> Bool) -> Stream a -> Stream a
 Stream.take   : Int -> Stream a -> Stream a
 Stream.drop   : Int -> Stream a -> Stream a
 Stream.lines  : Stream String -> Stream (Result String LineError)
-Stream.linesMax : Int -> Stream String -> Stream String
+Stream.linesMax : Int -> Stream String -> Stream (Result String LineError)
 Stream.parseMap     : (a -> Result b e) -> Stream a -> Stream b
 Stream.parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 ```
