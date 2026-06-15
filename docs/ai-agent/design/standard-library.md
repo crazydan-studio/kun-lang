@@ -1259,10 +1259,6 @@ type Gid = Gid Int       // 组 ID
 
 - `Uid` 函数
   ```kun
-  // [PureKun] 当前进程的用户 ID（脚本启动时冻结，后续更改不反映）
-  // 若需实时查询，使用 Sys.uid : -> Int
-  current : -> Uid
-
   // [PureKun] 构造 `Uid`，调用者须确保参数合法，非法输入 panic
   of : Int -> Uid
 
@@ -1273,10 +1269,6 @@ type Gid = Gid Int       // 组 ID
   ```
 - `Gid` 函数
   ```kun
-  // [PureKun] 当前进程的组 ID（脚本启动时冻结，后续更改不反映）
-  // 若需实时查询，使用 Sys.gid : -> Int
-  current : -> Gid
-
   // [PureKun] 构造 `Gid`，调用者须确保参数合法，非法输入 panic
   of : Int -> Gid
 
