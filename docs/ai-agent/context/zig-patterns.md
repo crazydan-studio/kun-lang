@@ -159,7 +159,7 @@ fn installSeccomp() !void {
     const filter = try buildSeccompFilter(allocator, allows);
     const rc = linux.seccomp(
         linux.SECCOMP.SET_MODE_FILTER,
-        linux.SECCOMP.FILTER.FLAG_TSYNC,
+        linux.SECCOMP.FILTER.FLAG.TSYNC,
         @intFromPtr(&filter),
     );
     if (rc != 0) return error.SeccompInstallFailed;

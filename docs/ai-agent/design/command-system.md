@@ -372,8 +372,8 @@ withRunAs   : String -> Command -> Command  // [推迟 v1.0]
 andThen : Command -> Command -> Command
 orElse  : Command -> Command -> Command
 
-// 工具
-which   : String -> ?Path
+// [Primitive] 在 PATH 中查找可执行文件
+which : String -> ?Path
 
 // [Primitive] 立即执行 Command——fork-exec 阻塞等待，失败 panic
 exec : Command -> Unit

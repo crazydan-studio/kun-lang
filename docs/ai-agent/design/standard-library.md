@@ -686,6 +686,8 @@ name : Signal -> String
 fromInt : Int -> Result Signal String
 // [PureKun] 获取信号编号
 toInt : Signal -> Int
+// [PureKun] 转换为信号名称
+toString : Signal -> String
 ```
 
 #### 信号接收
@@ -756,6 +758,8 @@ number : Errno -> Int
 fromInt : Int -> Result Errno String
 // [PureKun] 获取错误码编号
 toInt : Errno -> Int
+// [PureKun] 转换为错误码名称
+toString : Errno -> String
 ```
 
 #### 示例
@@ -785,6 +789,13 @@ type FileType
 ```
 
 `Unknown` 变体用于兜底未预期的文件类型。
+
+#### API
+
+```kun
+// [PureKun] 转换为文件类型名称
+toString : FileType -> String
+```
 
 #### 示例
 
@@ -832,6 +843,8 @@ isSticky : FileMode -> Bool
 fromInt : Int -> Result FileMode String
 // [PureKun] 提取八进制权限值
 toInt : FileMode -> Int
+// [PureKun] 转换为八进制权限字符串
+toString : FileMode -> String
 ```
 
 #### 示例
@@ -1266,6 +1279,8 @@ type Gid = Gid Int       // 组 ID
   fromInt : Int -> Result Uid String
   // [PureKun] 提取整数值
   toInt : Uid -> Int
+  // [PureKun] 转换为字符串
+  toString : Uid -> String
   ```
 - `Gid` 函数
   ```kun
@@ -1276,6 +1291,8 @@ type Gid = Gid Int       // 组 ID
   fromInt : Int -> Result Gid String
   // [PureKun] 提取整数值
   toInt : Gid -> Int
+  // [PureKun] 转换为字符串
+  toString : Gid -> String
   ```
 
 #### 示例
@@ -2135,10 +2152,11 @@ take : Int -> Stream a -> Stream a
 // [PureKun] 丢弃前 n 个元素
 drop : Int -> Stream a -> Stream a
 
-// [Primitive] 按 \n 切分（默认行长上限 1 MiB，超长行返回 Err LineTruncated）
+// [PureKun] 按 \n 切分
 lines : Stream String -> Stream (Result String LineError)
 
-// [Primitive] 同上，指定行长上限（n ≤ 0 编译期报错）
+// [PureKun] 同上，指定行长上限
+linesMax : Int -> Stream String -> Stream (Result String LineError)
 linesMax : Int -> Stream String -> Stream (Result String LineError)
 ```
 
