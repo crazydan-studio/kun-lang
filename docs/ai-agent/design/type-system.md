@@ -345,6 +345,7 @@ Task.spawn  : Int -> List Command -> ... (内部效应，无回调参数)
 - 验证 `!` 参数的传入实参为效应函数（含 `do` 块或效应命名空间函数）
 - 验证 `do` 块外的代码无效应命名空间函数调用
 - 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.which`、`Cmd.exec` 仅在 `do` 块内使用
+- 验证 `|>` 管道操作符的左侧为 `Command` 类型时仅在 `do` 块内出现——`do` 块外的 `|>` 收到 `Command` 值时编译期报错（提示："Command pipe requires a do block; use Cmd.<bin>? instead if you need immediate execution in pure context"）。`|>` 左侧为 `Stream` 或其他非 Command 类型时不受此限
 - Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
 
 效应检查失败产生 `TypeError`，纳入统一的错误报告。
@@ -715,6 +716,26 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 3. **建议可操作**：Hint 提供具体的修复代码示例（非仅描述问题）
 4. **累积报告**：一次编译报告所有类型错误（非遇到第一个就停止），在 Typed AST 上继续检查非阻塞错误
 
+### 编译期类型内省 API
+
+编译器向标准库中的 Primitive 函数提供以下编译期类型内省接口（基于 Zig `comptime` + `@typeInfo` 实现）：
+
+```zig
+/// 返回给定 TypeId 的用户可见类型名称
+fn getTypeName(env: *TypeEnv, ty: TypeId) []const u8;
+
+/// 返回 Record 类型的字段信息列表（字段名 + 字段 TypeId + 偏移量）
+fn getRecordFields(env: *TypeEnv, ty: TypeId) []const RecordFieldInfo;
+
+/// 返回 ADT 类型的变体信息列表（变体名 + 变体 tag 值 + 各变体的字段类型）
+fn getADTVariants(env: *TypeEnv, ty: TypeId) []const ADTVariantInfo;
+
+/// 返回指定 Record 字段的编译期偏移量（字节）
+fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
+```
+
+这些函数仅在编译期（`comptime`）可用，由 `Cli.parse`（v0.5）、`Parser.Record.fromJson`（v0.5）和 `toString` 泛型分发等 Primitive 函数调用。API 在 `TypeEnv` 已完全构造（类型检查完成后）方可使用。
+
 ## 类型表示与运行时
 
 类型在编译后的运行时表示及 C ABI 映射见[系统基线](../architecture/system-baseline.md#类型运行时表示)。类型系统专注于编译期语义，运行时内存布局属于架构实现细节。
@@ -723,6 +744,7 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | 审计修复二轮：效应检查器新增 `\|>` 管道执行守卫（do 块外拒绝 Command 类型）；新增编译器类型内省 API 定义 |
 | 2026.06.15 | 审计修复：补全 DateTime/Map/Set/Stream/Command 类型定义；纯函数定义统一；let in/do in/defer/f-string 类型检查引用；kind 表补充 Map/Stream |
 | 2026.06.14 | 效应跟踪修正：用户定义含 `do` 块的函数自动获取 `EffectFn` 内部类型（而非 `Fn`），可传入 `!` 参数；`Signal.*` 效应规则缩小为 `Signal.on` |
 | 2026.06.14 | `(a -> b)!` 退糖为 `EffectFn(a, b)` 独立类型构造器——与 `Fn(a, b)` 在结构等价下不兼容；补充嵌套 `!` 语义说明、别名保留规则 |
