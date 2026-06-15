@@ -30,6 +30,8 @@ Cmd.date                                         // 无选项时直接省略 Rec
 Cmd.date {}
 ```
 
+> **参数传递**：Kun 使用 `execve(2)` 直接执行命令——**不经过 shell 解析**。因此 shell 元字符（`$`、`\`、`"`、`'`、`;`、`|`）**无需转义**。位置参数和选项值按原字符串传递为 `argv[]` 数组元素，每个值独立为一个 `argv` 条目。唯一约束：`String` 为 UTF-8 编码，不含 NUL 字节（`\0`），满足 `execve` 的参数要求。`Cmd["name"]` 转义语法用于命令名含特殊字符（如 `Cmd["g++"]`），参数本身无需转义。
+
 ### 子命令
 
 多层子命令以 `.` 链接：
@@ -105,6 +107,8 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 
 > `Cmd.exec` 签名：`Cmd.exec : Command -> Unit`。**阻塞执行** Command ——内部 `fork → exec → waitpid`，子进程退出后才返回。执行失败（非零退出码或命令未找到）时 panic，触发 unwind + defer 链。需要捕获 stdout 或处理错误请使用 `Cmd.<bin>?` 或 `Cmd.pipe?`。未被消费的 `Command` 值在 `do` 块内是编译错误。`do` 块外的 `Command` 值可自由作为纯数据传递（赋值、传入函数、存入数据结构），但不触发执行——`|>` 管道触发被效应检查器限制在 `do` 块内。
 
+> **空输出管道**：子进程退出码为 0 但 stdout 无输出时，`|>` 产生的 `Stream String` 为空流（零元素）。终端操作 `Stream.toList` 返回 `[]`；`Stream.iter` 不执行回调；`Stream.string` 返回空字符串 `""`。`Cmd.exec` 在子进程无输出时正常返回 `Unit`（stdout 被静默丢弃）。子进程非零退出码时行为取决于调用方式——`?` 后缀返回 `Err`、`Cmd.exec` 触发 panic。
+
 ### Command 生命周期
 
 ```kun
@@ -148,6 +152,8 @@ Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = 10 }]
 
 - `Cmd.pipe`：链中任一命令非零退出 → panic（等价 `set -o pipefail`）
 - `Cmd.pipe?`：链中任一命令失败 → 返回 `Err (PipeFailed ...)`
+
+`Cmd.pipe` 接收非空 `List Command`——传入空列表 `[]` 时编译期报错（"Cmd.pipe requires at least one command"）。`Cmd.pipe?` 同理。
 
 `Cmd.pipe` 的结果可继续接入进程内管道 `|>` 链：
 
@@ -288,6 +294,10 @@ do
 
 `Cmd.retry` 内部调用 `Cmd.timeout`，每次重试独立 fork 子进程。失败时重试 `n` 次，全部失败后返回最后一次 `Err`。
 
+`Cmd.timeout` 超时时：向子进程发送 `SIGTERM` → 等待 2 秒 → 若进程未退出则发送 `SIGKILL` → `waitpid` 回收。子进程在超时前的部分 stdout 输出不保留（`Result` 的 `Err` 分支不含部分输出）。超时错误通过 `CommandError.Timeout` 变体返回。
+
+`n = 0` 时等同于调用 `Cmd.timeout duration command`（仅执行一次，不重试）。`n < 0` 时编译期报错。
+
 #### 时钟源
 
 `Cmd.timeout` 使用 `CLOCK_MONOTONIC` 作为计时时钟源（通过 `timerfd_create` 实现，Linux 3.17+；低于 3.17 回退到 `clock_gettime(CLOCK_MONOTONIC, ...)` 轮询）。选择 `CLOCK_MONOTONIC` 而非 `CLOCK_REALTIME` 的原因：
@@ -312,7 +322,13 @@ fork 在 `timeout` 处触发，子进程内依次执行 `chdir("/work")` → `se
 
 ## PATH 查找
 
-`Cmd.<bin>` 的命令查找发生在**运行时**（每次调用时解析 PATH）。编译时不检查命令是否存在。首次 PATH 解析成功后结果被缓存（每次 `do` 块入口刷新）。`Cmd.which : String -> ?Path` 可用于显式 PATH 查找。
+`Cmd.<bin>` 的命令查找发生在**运行时**（每次调用时解析 PATH）。编译时不检查命令是否存在。首次 PATH 解析成功后结果被缓存（每次 `do` 块入口刷新）。`Cmd.which : String -> ?Path` 可用于显式 PATH 查找：
+
+- 搜索逻辑：按 PATH 中目录顺序遍历，每个目录内检查文件是否存在且可执行（`access(X_OK)`）
+- PATH 中不存在的目录静默跳过；非目录条目（如文件）跳过并 stderr warn 记录
+- PATH 为空或未设置时使用默认值 `/usr/local/bin:/usr/bin:/bin`
+- 符号链接跟随——最终目标的可执行权限决定结果；循环符号链接静默跳过
+- 找到返回 `Path`，未找到返回 `Nil`
 
 ## 类型化模块自动发现
 
@@ -369,6 +385,7 @@ retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | 审计修复三轮：参数转义/execve 语义文档化；0 字节管道输出行为；空 pipe 列表编译期报错；Cmd.which PATH 搜索细节；Cmd.timeout kill 流程；Cmd.retry 边界值处理 |
 | 2026.06.15 | 审计修复：`\|>` 管道执行限制为 `do` 块内（效应检查器守卫）；`Cmd.exec` 阻塞语义文档化 |
 | 2026.06.14 | `Cmd.withRunAs` 权限降级流程补全：`initgroups` → `setgid` → `setuid` → 验证 |
 | 2026.06.14 | 移除 `do` 块语句边界隐式执行规则；新增 `Cmd.exec : Command -> Unit` 显式执行；未被消费的 Command 是编译错误；新增 Command 生命周期示例 |
