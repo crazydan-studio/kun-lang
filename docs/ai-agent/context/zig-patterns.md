@@ -1,17 +1,33 @@
 # Zig 模式指南
 
 > 本文件记录 Kun 项目实现中 Zig 语言的惯用模式、注意事项和最佳实践，供 LLM 代码生成时参考。
+>
+> **最后更新**：2026.06.15，基于 Zig 0.17.0-dev。
 
 ## 版本
 
-- **Zig 版本**：0.13.0
+- **Zig 版本**：0.17.0-dev（版本包位于 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`）
 - **构建系统**：`build.zig`
+
+### 0.13 → 0.17 关键变更摘要
+
+| 类别 | 变更 |
+|------|------|
+| 类型反射 | `std.builtin.Type` 字段全小写（`.int`、`.@"struct"`）；`@Type` 移除，改用独立内置函数（`@Int`、`@Struct`、`@Union`、`@Fn`、`@Pointer`、`@Tuple`、`@EnumLiteral`） |
+| C 互通 | `@cImport` 废弃，迁移到构建系统 `b.addTranslateC(.{...})` |
+| 分配器 | `GeneralPurposeAllocator` 初始化用 `.init` decl literal；`ArrayListUnmanaged` 用 `.empty`；`ArenaAllocator` 线程安全且无锁 |
+| 控制流 | 标记 switch 支持 `continue :label`（适合解释器分发循环）；`@branchHint(.cold/.likely/.unlikely)` 替代 `@setCold` |
+| I/O | 0.16 引入 I/O as an Interface：`std.Io` 替代旧 `std.io`，`std.Io.File`/`stream`/`Event` 等新 API |
+| 入口点 | "Juicy Main"：`pub fn main(init: std.process.Init) !void`；环境变量非全局，通过 `init` 参数传入 |
+| 文件系统 | `std.fs.path` API 重命名（如 `cwd` → `process.Cwd`）；`Dir.readFileAlloc` / `File.readToEndAlloc` 新增便利方法 |
+| 类型系统 | `@FieldType` 新增；`@splat` 支持数组；匿名结构体类型移除，元组统一为结构等价；packed struct/union 支持等值比较和原子操作 |
+| 构建系统 | 包哈希格式变更；新增 `WriteFile`/`RemoveDir` 步骤；`addLibrary` 函数用于创建共享库 |
 
 ## 内存管理
 
 ### Arena 分配器（首选策略）
 
-Kun 项目以 Arena 分配器为主要内存管理策略。Arena 在阶段开始时创建，阶段结束时整体释放。
+Kun 项目以 Arena 分配器为主要内存管理策略。Arena 在阶段开始时创建，阶段结束时整体释放。Zig 0.17 中 `ArenaAllocator` 为线程安全且无锁（lock-free）。
 
 ```zig
 const std = @import("std");
@@ -27,10 +43,25 @@ fn processPhase(allocator: std.mem.Allocator) !void {
 }
 ```
 
-**规则**：
-- 临时分配优先使用 Arena
-- 长期存活的对象使用传入的 `allocator` 参数
-- 不在 Arena 中分配有独立生命周期的对象
+### 通用分配器初始化
+
+```zig
+// 0.17 使用 decl literal 初始化
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+defer _ = gpa.deinit();
+const allocator = gpa.allocator();
+```
+
+### Unmanaged 容器初始化
+
+```zig
+// ❌ 旧方式
+var list: std.ArrayListUnmanaged(u32) = .{};
+
+// ✅ 0.17 使用 .empty decl literal
+var list: std.ArrayListUnmanaged(u32) = .empty;
+defer list.deinit(allocator);
+```
 
 ### 分配器传递
 
@@ -45,6 +76,15 @@ fn parse(allocator: std.mem.Allocator, input: []const u8) !Ast {
 // ❌ 错误：不应使用堆分配或全局分配器
 ```
 
+### 分配器接口（remap）
+
+Zig 0.14+ 的分配器接口包含 `remap` 方法，用于原地扩缩容（类似 C 的 `realloc`）。部分场景下 `remap` 可替代 `free` + `alloc` 组合以提升性能：
+
+```zig
+// 使用 remap 扩展现有分配
+const new_mem = try allocator.remap(old_mem, new_len);
+```
+
 ### 字符串处理
 
 ```zig
@@ -56,18 +96,21 @@ const eq = std.mem.eql(u8, "hello", "world");
 
 // 子串
 const sub = slice[start..end];
+
+// 子串查找（0.16 重命名：indexOf → find）
+const pos = std.mem.find(u8, haystack, needle);
 ```
 
 ## 子进程管理
 
-### fork-exec + pipe 捕获
+### fork-exec + pipe 捕获（0.16+ I/O 接口）
 
 Kun 通过 fork-exec 执行外部命令，stdout/stderr 通过 pipe 捕获：
 
 ```zig
 const std = @import("std");
 
-fn execCommand(allocator: std.mem.Allocator, bin: []const u8, argv: []const []const u8) !std.process.Child {
+fn execCommand(allocator: std.mem.Allocator, argv: []const []const u8) !std.process.Child {
     var child = std.process.Child.init(argv, allocator);
     child.stdin_behavior = .Pipe;
     child.stdout_behavior = .Pipe;
@@ -82,22 +125,36 @@ fn execCommand(allocator: std.mem.Allocator, bin: []const u8, argv: []const []co
 ```zig
 fn readStdout(allocator: std.mem.Allocator, child: *std.process.Child) ![]u8 {
     const stdout = child.stdout.?;
-    const result = try stdout.reader().readAllAlloc(allocator, 1024 * 1024); // 1MB max
+    const result = try stdout.reader().readAllAlloc(allocator, 1024 * 1024); // 1 MiB max
     _ = try child.wait();
     return result;
 }
 ```
 
-### Landlock / seccomp 安装
+### 入口点（Juicy Main）
+
+Zig 0.16+ 推荐的 main 签名：
+
+```zig
+pub fn main(init: std.process.Init) !void {
+    // 环境变量通过 init.env 访问，非全局
+    const home = init.env.get("HOME") orelse "/";
+
+    // 标准输出使用 std.Io
+    const stdout = init.io.stdout_writer();
+    try stdout.writeAll("Hello, World!\n");
+}
+```
+
+## Landlock / seccomp 安装
 
 在 fork 后、exec 前安装安全策略：
 
 ```zig
 fn installSeccomp() !void {
-    const std = @import("std");
     const linux = std.os.linux;
 
-    // seccomp 过滤规则（使用 libseccomp 或直接 BPF）
+    // seccomp-BPF 过滤规则
     const filter = try buildSeccompFilter(allocator, allows);
     const rc = linux.seccomp(
         linux.SECCOMP.SET_MODE_FILTER,
@@ -117,55 +174,104 @@ fn installLandlock(rules: []const LandlockRule) !void {
 
 ### 直接系统调用（无 libc）
 
+Zig 0.17 继续支持通过 `syscall` 函数直接调用 Linux 系统调用，无需内联汇编：
+
 ```zig
-// Linux x86_64 系统调用示例
-fn getdents(fd: i32, buf: [*]u8, count: u32) !usize {
-    const rc = asm volatile (
-        \\syscall
-        : [ret] "={rax}" (-> usize),
-        : [number] "{rax}" (78),  // SYS_getdents
-          [fd] "{rdi}" (@as(u64, @intCast(fd))),
-          [buf] "{rsi}" (@as(u64, @intCast(@intFromPtr(buf)))),
-          [count] "{rdx}" (@as(u64, count)),
-        : "rcx", "r11", "memory"
-    );
-    // ...
-}
+const linux = std.os.linux;
+
+// 使用 std.os.linux.syscall 系列函数
+const rc = linux.syscall3(
+    linux.SYS.read,
+    @as(usize, @bitCast(@as(isize, fd))),
+    @intFromPtr(buf),
+    count,
+);
 ```
 
-### libc 调用（当更方便时）
+### C 头文件翻译（0.16+ 构建系统方式）
+
+`@cImport` 已废弃，C 翻译通过构建系统执行：
 
 ```zig
-const c = @cImport({
-    @cInclude("unistd.h");
+// build.zig
+const translate_c = b.addTranslateC(.{
+    .root_source_file = b.path("src/c_headers.h"),
+    .target = target,
+    .optimize = optimize,
 });
-
-const result = c.read(fd, buf, len);
+exe.root_module.addImport("c", translate_c.createModule());
 ```
 
 ## Comptime 编译期代码
 
-### 编译期类型注册
+### 类型反射（0.17 字段名）
 
-```zig
-const BuiltinCommands = struct {
-    const commands = comptime blk: {
-        // 编译期展开命令表
-        break :blk .{ "ls", "stat", "grep" };
-    };
-};
-```
-
-### 编译期函数
+`std.builtin.Type` 字段在 0.14 起全部为小写：
 
 ```zig
 fn FieldType(comptime T: type, comptime name: []const u8) type {
-    for (@typeInfo(T).Struct.fields) |field| {
+    for (@typeInfo(T).@"struct".fields) |field| {
         if (std.mem.eql(u8, field.name, name)) {
             return field.type;
         }
     }
     @compileError("field " ++ name ++ " not found");
+}
+```
+
+### 类型构造（0.16 独立内置函数替代 @Type）
+
+```zig
+// ❌ 0.13 方式
+const U8 = @Type(.{ .Int = .{ .signedness = .unsigned, .bits = 8 } });
+
+// ✅ 0.17 方式
+const U8 = @Int(.unsigned, 8);
+
+// 结构体类型构造
+const MyStruct = @Struct(
+    .auto,
+    null,
+    &.{ "x", "y" },
+    &.{ i32, f64 },
+    &.{ .{}, .{} },
+);
+
+// 函数类型构造
+const MyFn = @Fn(
+    &.{ i32, bool },
+    &.{ .{}, .{} },
+    void,
+    .{},
+);
+```
+
+### @FieldType 内置函数
+
+```zig
+const S = struct { x: i32, y: []const u8 };
+comptime {
+    const field_ty = @FieldType(S, "x"); // i32
+}
+```
+
+### 标记 switch（0.14+ 适合解释器分发）
+
+```zig
+fn evalExpr(expr: *Expr) Value {
+    // 标记 switch 配合 continue 实现高效分发
+    return switch (expr) {
+        .int_literal => |e| Value{ .int = e.val },
+        .add => |e| {
+            const lhs = evalExpr(e.lhs);
+            const rhs = evalExpr(e.rhs);
+            return Value{ .int = lhs.int + rhs.int };
+        },
+        .call => |e| {
+            // ... 函数调用
+        },
+        else => unreachable,
+    };
 }
 ```
 
@@ -256,3 +362,56 @@ const Value = extern union {
     ptr: ?*anyopaque,
 };
 ```
+
+### 分支预测提示（0.14+ @branchHint）
+
+```zig
+fn coldPath() void {
+    @branchHint(.cold); // 告知优化器此路径不太可能到达
+    // 处理罕见的错误恢复逻辑
+}
+
+fn hotLoop() void {
+    if (condition) {
+        @branchHint(.likely); // 常见路径
+        // ...
+    }
+}
+```
+
+### 测试检测
+
+```zig
+const builtin = @import("builtin");
+
+fn isTestBuild() bool {
+    return builtin.is_test;
+}
+```
+
+### 入口点注意事项
+
+```zig
+// kun 脚本执行器
+pub fn main(init: std.process.Init) !void {
+    // init.io: I/O 接口
+    // init.env: 环境变量（非全局）
+    // init.args: 命令行参数
+    _ = init;
+}
+```
+
+### @src 包含模块字段
+
+```zig
+// @src() 现在包含 .module 字段，可用于诊断
+const src = @src();
+std.log.debug("in {s}:{d}", .{ src.file, src.line });
+```
+
+## 版本历史
+
+| 版本 | 变更 |
+|------|------|
+| 2026.06.15 | 全面更新至 Zig 0.17.0-dev：类型反射字段小写、@Type 移除使用独立内置函数、@cImport 废弃、I/O as Interface、标记 switch/@branchHint、构建系统变更、Unmanaged 容器 .empty 初始化、文件系统 API 更新 |
+| 2026.06.10 | 初始版本，基于 Zig 0.13.0 |
