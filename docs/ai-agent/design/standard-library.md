@@ -2525,7 +2525,10 @@ mergeStderr : Command -> Command
 withCwd : Path -> Command -> Command
 
 // [PureKun] 指定子进程执行用户（需 OS 级权限）
-withRunAs : String -> Command -> Command
+withRunAs : String -> Command -> Command  // [推迟 v1.0]
+
+// [PureKun] 从文件路径注入 stdin
+withStdinFile : Path -> Command -> Command
 ```
 
 #### 短路条件组合（纯操作，返回 Command）
@@ -2545,10 +2548,10 @@ orElse : Command -> Command -> Command
 exec : Command -> Unit
 
 // [Primitive] 超时执行，过期返回 Err（立即 fork）
-timeout : Duration -> Command -> Result (Stream String) CommandError
+timeout : Duration -> Command -> Result (Stream String) CommandError  // [推迟 v1.0]
 
 // [Primitive] 重试 n 次执行，每次失败后等待 interval（立即 fork）
-retry : Int -> Duration -> Command -> Result (Stream String) CommandError
+retry : Int -> Duration -> Command -> Result (Stream String) CommandError  // [推迟 v1.0]
 
 // [Primitive] PATH 查找命令位置，不可执行/未找到返回 Nil
 which : String -> ?Path
@@ -2559,9 +2562,6 @@ stdoutToString : Command -> Result String CommandError
 // [Primitive] 收集合并后的 stderr 到 String（需先 mergeStderr）
 stderrToString : Command -> Result String CommandError
 
-// [Primitive] 从文件路径注入 stdin
-withStdinFile : Path -> Command -> Command
-
 // [Primitive] 执行 Command 的安全变体——失败返回 Err 而不 panic
 execSafe : Command -> Result Unit CommandError
 ```
@@ -2571,10 +2571,10 @@ execSafe : Command -> Result Unit CommandError
 | 操作 | 类别 | 说明 |
 |------|------|------|
 | `Cmd.<bin>` | **纯** | 构造 Command 值，不执行 |
-| `Cmd.pipe` / `Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` / `Cmd.withCwd` / `Cmd.withRunAs` | **纯** | 修饰函数，接收并返回 Command |
+| `Cmd.pipe` / `Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` / `Cmd.withCwd` / `Cmd.withRunAs` / `Cmd.withStdinFile` | **纯** | 修饰函数，接收并返回 Command |
 | `Cmd.andThen` / `Cmd.orElse` | **纯** | 短路条件组合，返回 Command |
 | `Cmd.<bin>?` / `Cmd.pipe?` | **效应** | 立即执行并返回 Result |
-| `Cmd.exec` / `Cmd.timeout` / `Cmd.retry` | **效应** | 立即执行 |
+| `Cmd.exec` / `Cmd.execSafe` / `Cmd.stdoutToString` / `Cmd.stderrToString` / `Cmd.timeout` / `Cmd.retry` | **效应** | 立即执行 |
 | `Cmd.which` | **效应** | PATH 查找（需文件系统访问） |
 
 > 完整语法、执行模型、选项映射及示例见 [OS 命令调用机制](command-system.md)。
@@ -3008,6 +3008,8 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | 审计修复四轮：73 函数 API 补全（List/Map/Set/Stream/IO/File/Cmd/Process/Sys/Test 模块）；Test 模块推迟 v1.0；Uid.current/Gid.current 移除（Sys.uid/gid 替代） |
+| 2026.06.15 | 审计修复六轮：分类表更新 + 效应列表补全 + Cmd 函数推迟标注 |
 | 2026.06.14 | `File` 新增 `mkdir`/`mkdirAll`/`exists`；`Bytes` 新增 `fromString`/`toString`；`Map` 新增 `remove`；`String` 新增 `replaceAll`；新增 `Test` 模块（`equal`/`ok`/`panics`） |
 | 2026.06.14 | `List.iter`/`Stream.iter`/`Signal.on` 签名新增 `(a -> b)!` 效应回调标注——回调必须是效应函数；新增 `Cmd.exec : Command -> Unit` 显式执行；Stream IO 消费示例更新 |
 | 2026.06.13 | 示例代码语法合规修复；新增 `Regex`/`Duration`/`Set`/`Task` 模块；`Map` API 签名泛化（`k`/`v`）；`List` 新增 `sort`/`slice`/`take`/`drop`/`all`/`any`；`Process` 新增 `kill`/`wait`；`File` 新增 `glob`；`Regex` 新增 `fromString` |

@@ -136,7 +136,6 @@ case (x, y) of              // x : ?Int, y : ?String
 | `Char` | Unicode 标量值 | `'A'`, `'\n'` | u32 | Unicode 标量值 |
 | `Regex` | 编译后正则 | `r"[0-9]+"` | 内部编译表示 | 编译期验证 |
 | `Duration` | 纳秒精度时间段 | `5s`, `100ms`, `2h` | i64 (纳秒) | 时间跨度 |
-| `DateTime` | i64 | 时间戳（纳秒） | Unix 纪元以来的纳秒数 |
 | `Unit` | 零宽度类型 | 无（编译器隐式值） | void | 无返回值标记，不可作为参数类型 |
 | `Path` | 文件系统路径（不保证 UTF-8） | `p"/tmp/foo"`, `p"./foo"` | `[]u8` | 与 `String` 语义区分；内部可为任意非 NUL 字节 |
 
@@ -295,7 +294,7 @@ Kun 通过 AST 扫描自动推断函数的效应性：
 - 含 `do` 块的函数自动标记为效应函数
 - 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*`；`Signal.on` 为效应函数（`Signal` 模块其余函数为纯函数）
 - `Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
-- `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`（立即执行并返回 `Result`）为效应函数
+- `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.execSafe`、`Cmd.stdoutToString`、`Cmd.stderrToString`（立即执行并返回 `Result`）为效应函数
 - `Cmd.exec : Command -> Unit` 执行 Command 值，为效应函数
 - `Cmd.which : String -> ?Path` PATH 查找，为效应函数
 - 纯函数（无 `do` 块、无 `!` 参数声明）不能调用效应函数——编译期拒绝。`(a -> b)!` 参数使函数自身成为效应函数。
