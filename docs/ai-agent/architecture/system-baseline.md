@@ -4,7 +4,7 @@
 
 | 层 | 技术选择 | 说明 |
 |---|---|---|
-| 宿主语言 | Zig 0.13.0 | 高性能、无 hidden control flow、直接操作内存 |
+| 宿主语言 | Zig 0.17.0-dev | 高性能、无 hidden control flow、直接操作内存 |
 | 目标平台 | Linux | 使用 fork/exec、namespace、Landlock、seccomp 等 Linux 特有机制 |
 | 二进制产物 | `kun`（脚本执行器）+ `kun-shell`（交互式环境）+ `libkunlang.so`（共享解释器核心） | 单体可执行文件 + 动态链接库 |
 | 文档构建 | VitePress + pnpm | 现代化的静态文档站点 |
@@ -947,6 +947,7 @@ import M
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.15 | Zig 宿主语言版本从 0.13.0 升级至 0.17.0-dev；技术栈表更新版本号 |
 | 2026.06.15 | i18n 国际化：初始化阶段新增 locale 检测步骤；错误报告章节补充 i18n 策略说明和文档引用 |
 | 2026.06.15 | 标准库集成章节重写：新增 Primitive 函数表数据结构、初始化流程、模块加载绑定规则、受保护模块安全防护、逐函数实现类别汇总 |
 | 2026.06.14 | 效应函数列表修正：`Signal.*` → `Signal.on`；Stream tagged union 新增 `dropped`/`lines`/`parse_mapped`/`parse_mapped_keep` 变体；seccomp 新增新 mount API syscall（`fsopen`/`fsmount`/`fsconfig`/`open_tree`/`move_mount`）；用户定义效应函数自动获取 `EffectFn` 内部类型 |

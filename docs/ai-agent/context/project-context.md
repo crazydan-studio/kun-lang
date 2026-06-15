@@ -9,7 +9,7 @@
 | 当前版本 | 2026.06.14 |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
 | 里程碑 | 架构重设计完成，语言设计定型 |
-| 宿主语言 | Zig（锁定 0.13.0） |
+| 宿主语言 | Zig（锁定 0.17.0-dev，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
 
@@ -19,8 +19,8 @@
 |---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | i18n 国际化子系统设计（msgid 体系 + .po 管理 + 构建时生成 + locale 检测）；标准库内置函数绑定机制设计（已完成）；实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | 架构重设计；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心）；kun doc 子命令（模块文档生成）；--trace 函数调用追踪；类型检查算法补充；八轮跨文档审计（52+ 项问题修复） |
+| 活跃计划 | Zig 0.13 → 0.17 宿主语言升级与规范文档同步；i18n 国际化子系统设计（msgid 体系 + .po 管理 + 构建时生成 + locale 检测）；标准库内置函数绑定机制设计（已完成）；实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
+| 最近完成 | Zig 宿主语言升级至 0.17.0-dev + zig-patterns.md 全面刷新；架构重设计；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心）；kun doc 子命令（模块文档生成）；--trace 函数调用追踪；类型检查算法补充；八轮跨文档审计（52+ 项问题修复） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -28,7 +28,7 @@
 
 | 层 | 技术栈 |
 |---|---|
-| 语言实现 | Zig 0.13.0（宿主语言，版本锁定） |
+| 语言实现 | Zig 0.17.0-dev（宿主语言，版本锁定，版本包 `/opt/ai-agent/tools/`） |
 | 运行时 | fork-exec + pipe 捕获 stdout/stderr |
 | 二进制产物 | `kun`（脚本执行器）+ `kun-shell`（交互式环境）+ `libkunlang.so`（共享解释器核心） |
 | 安全模型 | CLI 参数（`--allow-path`/`--allow-net`）+ Landlock + mount namespace 兜底 + seccomp + rlimit |
@@ -49,6 +49,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-15 | Zig 0.13 → 0.17 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
 | 2026-06-15 | 错误消息国际化（i18n）子系统设计——msgid 体系、.po 文件管理、构建时代码生成、运行时 locale 检测、消息格式化 API | 设计 | ✅ system-baseline、module-boundaries、type-system、i18n | ✅ writing-conventions | `plan-first`（先计划后实施） |
 | 2026-06-15 | 标准库内置函数绑定机制设计——Primitive 函数表结构、模块加载绑定规则、安全防护（防同名覆盖/防篡改）、逐函数实现类别标注 | 设计 | ✅ system-baseline、module-boundaries、standard-library | ✅ writing-conventions | `plan-first`（先计划后实施） |
 | 2026-06-13 | 八轮跨文档一致性审计（52+ 项修复）；REPL → Kun Shell 独立文档；kun doc/--trace 设计；类型检查算法补充；libkunlang.so 共享库架构 | 设计+审计 | ✅ 全部 owner docs | ✅ document-audit、closure-audit | `implement` |
