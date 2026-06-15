@@ -202,7 +202,7 @@ toString : a -> String
 | Nilable `?T` | `Nil` 或 内层 T 的表示 | `Nil`、`"hello"`（?String 自动收窄） |
 | 不透明类型（Command/Regex/Stream） | `TypeName(<opaque>)` | `Command(<opaque>)`、`Regex(r"[0-9]+")` |
 
-> 内置基础类型中，`Path`、`Regex`、`Duration`、`Decimal` 的缺省 `toString` 由各自标准库模块提供显式实现（已在上述各行列出），编译器通过分发策略步骤 1 调用。
+> `Path`、`Duration`、`Decimal` 的标准库模块提供了显式 `toString` 实现（优先于编译器缺省生成）。`Regex` 的 `toString` 由编译器内置（格式 `Regex(r"...")`）——见上方不透明类型行。
 
 ### 示例
 
@@ -561,7 +561,7 @@ sqrt <| add1 3                         // → sqrt (add1 3)
 
 // 函数组合
 doubleThenAdd1 = add1 << double         // \x -> add1 (double x)
-add1ThenDouble = double >> add1         // \x -> double (add1 x)
+add1ThenDouble = add1 >> double         // \x -> double (add1 x)
 ```
 
 ## 系统类型
