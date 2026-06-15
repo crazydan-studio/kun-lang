@@ -25,19 +25,19 @@ import Int
 ### API
 
 ```kun
-// 取反
+// [PureKun] 取反
 neg : Int -> Int
 
-// 绝对值
+// [PureKun] 绝对值
 abs : Int -> Int
 
-// 从 String 转换为 Int（可能失败）
+// [PureKun] 从 String 转换为 Int（可能失败）
 fromString : String -> Result Int String
 
-// 从 Int 转换为 Float（可能精度损失）
+// [PureKun] 从 Int 转换为 Float（可能精度损失）
 toFloat : Int -> Float
 
-// 从 Int 转换为 String
+// [PureKun] 从 Int 转换为 String
 toString : Int -> String
 ```
 
@@ -67,34 +67,34 @@ import Float
 ### API
 
 ```kun
-// 取反
+// [PureKun] 取反
 neg : Float -> Float
 
-// 绝对值
+// [PureKun] 绝对值
 abs : Float -> Float
 
-// 向下取整
+// [PureKun] 向下取整
 floor : Float -> Float
 
-// 向上取整
+// [PureKun] 向上取整
 ceil : Float -> Float
 
-// 四舍五入到最近整数
+// [PureKun] 四舍五入到最近整数
 round : Float -> Float
 
-// 平方根
+// [PureKun] 平方根
 sqrt : Float -> Float
 
-// 容差比较：|a - b| < epsilon
+// [PureKun] 容差比较：|a - b| < epsilon
 approxEqual : Float -> Float -> Float -> Bool
 
-// 从 String 转换为 Float（可能失败）
+// [PureKun] 从 String 转换为 Float（可能失败）
 fromString : String -> Result Float String
 
-// 从 Float 转换为 Int（截断小数）
+// [PureKun] 从 Float 转换为 Int（截断小数）
 toInt : Float -> Int
 
-// 从 Float 转换为 String（输出舍入到 15 位有效数字）
+// [PureKun] 从 Float 转换为 String（输出舍入到 15 位有效数字）
 toString : Float -> String
 ```
 
@@ -132,43 +132,43 @@ import String
 #### 查询与变换
 
 ```kun
-// 拼接两个字符串
+// [PureKun] 拼接两个字符串
 (++) : String -> String -> String
 
-// 字符串长度（Unicode 标量值数量）
+// [Primitive] 字符串长度（Unicode 标量值数量）
 length : String -> Int
 
-// 切片 [start, end)，左闭右开
+// [Primitive] 切片 [start, end)，左闭右开
 slice : Int -> Int -> String -> String
 
-// 是否包含子串
+// [PureKun] 是否包含子串
 contains : String -> String -> Bool
 
-// 是否以指定前缀开头
+// [PureKun] 是否以指定前缀开头
 startsWith : String -> String -> Bool
 
-// 是否以指定后缀结尾
+// [PureKun] 是否以指定后缀结尾
 endsWith : String -> String -> Bool
 
-// 按分隔符切分
+// [PureKun] 按分隔符切分
 split : String -> String -> List String
 
-// 用分隔符拼接列表
+// [PureKun] 用分隔符拼接列表
 join : String -> List String -> String
 
-// 去除首尾空白
+// [PureKun] 去除首尾空白
 trim : String -> String
 
-// 转为大写
+// [PureKun] 转为大写
 toUpper : String -> String
 
-// 转为小写
+// [PureKun] 转为小写
 toLower : String -> String
 
-// 替换第一个匹配
+// [PureKun] 替换第一个匹配
 replace : String -> String -> String -> String
 
-// 替换所有匹配
+// [PureKun] 替换所有匹配
 replaceAll : String -> String -> String -> String
 ```
 
@@ -177,7 +177,8 @@ replaceAll : String -> String -> String -> String
 > **编译器内置**：`toString` 是编译器层面的泛型函数，不可在纯 Kun 代码中实现。其分发依赖编译期类型内省。
 
 ```kun
-// 将任意标准库类型转换为字符串
+// [Primitive] 将任意标准库类型转换为字符串
+// 编译器内置泛型，分发依赖编译期类型内省
 toString : a -> String
 ```
 
@@ -225,16 +226,16 @@ import Bytes
 ### API
 
 ```kun
-// 从十六进制字符串解码
+// [PureKun] 从十六进制字符串解码
 fromHex : String -> Result Bytes String
 
-// 编码为十六进制字符串
+// [PureKun] 编码为十六进制字符串
 toHex : Bytes -> String
 
-// 从 String 转换为 Bytes（始终成功，UTF-8 编码）
+// [PureKun] 从 String 转换为 Bytes（始终成功，UTF-8 编码）
 fromString : String -> Bytes
 
-// 从 Bytes 转换为 String（非法 UTF-8 序列运行时 Panic）
+// [PureKun] 从 Bytes 转换为 String（非法 UTF-8 序列运行时 Panic）
 toString : Bytes -> String
 ```
 
@@ -269,46 +270,46 @@ import Char
 #### 构造
 
 ```kun
-// 从 Int 构造 Char（调用者自保证合法性，非法码点 panic）
+// [PureKun] 从 Int 构造 Char（调用者自保证合法性，非法码点 panic）
 // 合法范围：0..0x10FFFF，排除代理对 0xD800..0xDFFF
 of : Int -> Char
 
-// 从 Int 安全构造 Char（非法码点返回 Err）
+// [PureKun] 从 Int 安全构造 Char（非法码点返回 Err）
 fromInt : Int -> Result Char String
 ```
 
 #### 分类
 
 ```kun
-// 是否为数字字符 '0'..'9'
+// [PureKun] 是否为数字字符 '0'..'9'
 isDigit : Char -> Bool
 
-// 是否为字母字符（Unicode 字母类别）
+// [PureKun] 是否为字母字符（Unicode 字母类别）
 isAlpha : Char -> Bool
 
-// 是否为大写字母
+// [PureKun] 是否为大写字母
 isUpper : Char -> Bool
 
-// 是否为小写字母
+// [PureKun] 是否为小写字母
 isLower : Char -> Bool
 
-// 是否为空白字符（空格、制表、换行等，Unicode 空白）
+// [PureKun] 是否为空白字符（空格、制表、换行等，Unicode 空白）
 isWhitespace : Char -> Bool
 
-// 是否为控制字符（C0 和 C1 控制码、U+007F DEL）
+// [PureKun] 是否为控制字符（C0 和 C1 控制码、U+007F DEL）
 isControl : Char -> Bool
 ```
 
 #### 转换
 
 ```kun
-// 转为大写（非字母字符返回自身）
+// [PureKun] 转为大写（非字母字符返回自身）
 toUpper : Char -> Char
 
-// 转为小写（非字母字符返回自身）
+// [PureKun] 转为小写（非字母字符返回自身）
 toLower : Char -> Char
 
-// 提取 Unicode 码点值
+// [PureKun] 提取 Unicode 码点值
 toInt : Char -> Int
 ```
 
@@ -346,25 +347,25 @@ import Regex
 ### API
 
 ```kun
-// 检查字符串是否匹配整个正则
+// [Primitive] 检查字符串是否匹配整个正则
 isMatch : Regex -> String -> Bool
 
-// 返回第一个匹配（含捕获组），无匹配返回 Nil
+// [Primitive] 返回第一个匹配（含捕获组），无匹配返回 Nil
 firstMatch : Regex -> String -> ?{ matched : String, groups : List String }
 
-// 返回所有匹配
+// [Primitive] 返回所有匹配
 allMatches : Regex -> String -> List { matched : String, groups : List String }
 
-// 替换第一个匹配
+// [Primitive] 替换第一个匹配
 replace : Regex -> String -> String -> String
 
-// 替换所有匹配
+// [Primitive] 替换所有匹配
 replaceAll : Regex -> String -> String -> String
 
-// 分割字符串
+// [Primitive] 分割字符串
 split : Regex -> String -> List String
 
-// 从字符串编译正则（运行时动态构造）
+// [PureKun] 从字符串编译正则（运行时动态构造）
 fromString : String -> Result Regex String
 ```
 
@@ -403,100 +404,100 @@ import Math
 #### 常量
 
 ```kun
-// 圆周率 π ≈ 3.141592653589793
+// [PureKun] 圆周率 π ≈ 3.141592653589793
 pi : Float
 
-// 自然常数 e ≈ 2.718281828459045
+// [PureKun] 自然常数 e ≈ 2.718281828459045
 e : Float
 
-// τ = 2π ≈ 6.283185307179586
+// [PureKun] τ = 2π ≈ 6.283185307179586
 tau : Float
 ```
 
 #### 三角函数
 
 ```kun
-// 正弦，参数为弧度
+// [PureKun] 正弦，参数为弧度
 sin : Float -> Float
 
-// 余弦，参数为弧度
+// [PureKun] 余弦，参数为弧度
 cos : Float -> Float
 
-// 正切，参数为弧度
+// [PureKun] 正切，参数为弧度
 tan : Float -> Float
 
-// 反正弦，返回值域 [-π/2, π/2]
+// [PureKun] 反正弦，返回值域 [-π/2, π/2]
 asin : Float -> Float
 
-// 反余弦，返回值域 [0, π]
+// [PureKun] 反余弦，返回值域 [0, π]
 acos : Float -> Float
 
-// 反正切，返回值域 [-π/2, π/2]
+// [PureKun] 反正切，返回值域 [-π/2, π/2]
 atan : Float -> Float
 
-// 二参数反正切 atan2(y, x)，返回值域 [-π, π]
+// [PureKun] 二参数反正切 atan2(y, x)，返回值域 [-π, π]
 atan2 : Float -> Float -> Float
 ```
 
 #### 双曲函数
 
 ```kun
-// 双曲正弦
+// [PureKun] 双曲正弦
 sinh : Float -> Float
 
-// 双曲余弦
+// [PureKun] 双曲余弦
 cosh : Float -> Float
 
-// 双曲正切
+// [PureKun] 双曲正切
 tanh : Float -> Float
 ```
 
 #### 指数与对数
 
 ```kun
-// e^x
+// [PureKun] e^x
 exp : Float -> Float
 
-// 自然对数 ln(x)，x 须 > 0
+// [PureKun] 自然对数 ln(x)，x 须 > 0
 log : Float -> Float
 
-// 以 2 为底的对数
+// [PureKun] 以 2 为底的对数
 log2 : Float -> Float
 
-// 以 10 为底的对数
+// [PureKun] 以 10 为底的对数
 log10 : Float -> Float
 ```
 
 #### 幂与根
 
 ```kun
-// x^y
+// [PureKun] x^y
 pow : Float -> Float -> Float
 
-// sqrt(x² + y²)，避免溢出
+// [PureKun] sqrt(x² + y²)，避免溢出
 hypot : Float -> Float -> Float
 ```
 
 #### 角度转换
 
 ```kun
-// 角度转弧度
+// [PureKun] 角度转弧度
 degToRad : Float -> Float
 
-// 弧度转角度
+// [PureKun] 弧度转角度
 radToDeg : Float -> Float
 ```
 
 #### 实用函数
 
 ```kun
-// 取较小值
+// [PureKun] 取较小值
 min : Float -> Float -> Float
 
-// 取较大值
+// [PureKun] 取较大值
 max : Float -> Float -> Float
 
-// clamp(x, lo, hi) 将 x 限制在 [lo, hi] 内
+// [PureKun] clamp(x, lo, hi) 将 x 限制在 [lo, hi] 内
 clamp : Float -> Float -> Float -> Float
 ```
 
@@ -521,24 +522,24 @@ Math.degToRad 180                     // → 3.1415...
 ### API
 
 ```kun
-// 恒等函数
+// [PureKun] 恒等函数
 identity : a -> a
 identity = \x -> x
 
-// 始终返回第一个参数
+// [PureKun] 始终返回第一个参数
 always : a -> b -> a
 always = \x _ -> x
 
-// 反向管道：将右侧值传入左侧函数
+// [PureKun] 反向管道：将右侧值传入左侧函数
 (<|) : (a -> b) -> a -> b
 
-// 正向管道：将左侧值传入右侧函数
+// [PureKun] 正向管道：将左侧值传入右侧函数
 (|>) : a -> (a -> b) -> b
 
-// 函数组合（从右向左）：(f << g) x = f (g x)
+// [PureKun] 函数组合（从右向左）：(f << g) x = f (g x)
 (<<) : (b -> c) -> (a -> b) -> a -> c
 
-// 函数组合（从左向右）：(f >> g) x = g (f x)
+// [PureKun] 函数组合（从左向右）：(f >> g) x = g (f x)
 (>>) : (a -> b) -> (b -> c) -> a -> c
 ```
 
@@ -573,23 +574,23 @@ type Port = Port Int
 #### API
 
 ```kun
-// 构造 `Port`，调用者须确保参数在 `0..65535` 内，非法输入 panic
+// [PureKun] 构造 `Port`，调用者须确保参数在 `0..65535` 内，非法输入 panic
 of : Int -> Port
 
-// 检查端口号是否在合法范围 `0..65535` 内
+// [PureKun] 检查端口号是否在合法范围 `0..65535` 内
 isValid : Port -> Bool
-// 端口号 < 1024
+// [PureKun] 端口号 < 1024
 isPrivileged : Port -> Bool
-// 端口号在 1024-49151 之间
+// [PureKun] 端口号在 1024-49151 之间
 isRegistered : Port -> Bool
-// 端口号在 49152-65535 之间
+// [PureKun] 端口号在 49152-65535 之间
 isDynamic : Port -> Bool
 
-// 安全构造，超出 `0..65535` 返回 `Err`
+// [PureKun] 安全构造，超出 `0..65535` 返回 `Err`
 fromInt : Int -> Result Port String
-// 提取端口号整数值
+// [PureKun] 提取端口号整数值
 toInt : Port -> Int
-// 返回端口号的字符串表示
+// [PureKun] 返回端口号的字符串表示
 toString : Port -> String
 ```
 
@@ -623,19 +624,19 @@ type Pid = Pid Int
 #### API
 
 ```kun
-// 构造 `Pid`，调用者须确保参数为合法进程 ID，非法输入 panic
+// [PureKun] 构造 `Pid`，调用者须确保参数为合法进程 ID，非法输入 panic
 of : Int -> Pid
 
-// 检查 PID 是否在合法范围 `1..2^22-1` 内
+// [PureKun] 检查 PID 是否在合法范围 `1..2^22-1` 内
 isValid : Pid -> Bool
-// 是否为 init 进程（PID == 1）
+// [PureKun] 是否为 init 进程（PID == 1）
 isInit : Pid -> Bool
 
-// 安全构造，非法值（≤ 0 或 > 2^22-1）返回 `Err`
+// [PureKun] 安全构造，非法值（≤ 0 或 > 2^22-1）返回 `Err`
 fromInt : Int -> Result Pid String
-// 提取进程 ID 整数值
+// [PureKun] 提取进程 ID 整数值
 toInt : Pid -> Int
-// 返回进程 ID 的字符串表示
+// [PureKun] 返回进程 ID 的字符串表示
 toString : Pid -> String
 ```
 
@@ -676,17 +677,21 @@ type Signal
 #### API
 
 ```kun
+// [PureKun] 信号编号
 number : Signal -> Int
+// [PureKun] 信号名称
 name : Signal -> String
 
+// [PureKun] 从编号构造
 fromInt : Int -> Result Signal String
+// [PureKun] 获取信号编号
 toInt : Signal -> Int
 ```
 
 #### 信号接收
 
 ```kun
-// 注册信号处理函数
+// [Primitive] 注册信号处理函数
 on : Signal -> (Signal -> Unit)! -> Unit
 ```
 
@@ -742,10 +747,14 @@ type Errno
 #### API
 
 ```kun
+// [PureKun] 返回错误码的描述字符串
 message : Errno -> String
+// [PureKun] 返回错误码编号
 number : Errno -> Int
 
+// [PureKun] 从编号安全构造
 fromInt : Int -> Result Errno String
+// [PureKun] 获取错误码编号
 toInt : Errno -> Int
 ```
 
@@ -803,25 +812,25 @@ type FileMode = FileMode Int    // 八进制权限位，如 0o755、0o644
 #### API
 
 ```kun
-// 构造 `FileMode`，调用者须确保参数为合法八进制权限位，非法输入 panic
+// [PureKun] 构造 `FileMode`，调用者须确保参数为合法八进制权限位，非法输入 panic
 of : Int -> FileMode
 
-// 所有者是否可读
+// [PureKun] 所有者是否可读
 isReadable : FileMode -> Bool
-// 所有者是否可写
+// [PureKun] 所有者是否可写
 isWritable : FileMode -> Bool
-// 所有者是否可执行
+// [PureKun] 所有者是否可执行
 isExecutable : FileMode -> Bool
-// 是否设置 setuid 位
+// [PureKun] 是否设置 setuid 位
 isSetuid : FileMode -> Bool
-// 是否设置 setgid 位
+// [PureKun] 是否设置 setgid 位
 isSetgid : FileMode -> Bool
-// 是否设置 sticky 位
+// [PureKun] 是否设置 sticky 位
 isSticky : FileMode -> Bool
 
-// 安全构造，非法权限位（超出 0o777）返回 `Err`
+// [PureKun] 安全构造，非法权限位（超出 0o777）返回 `Err`
 fromInt : Int -> Result FileMode String
-// 提取八进制权限值
+// [PureKun] 提取八进制权限值
 toInt : FileMode -> Int
 ```
 
@@ -963,37 +972,37 @@ type DateTime = DateTime Int
 #### API
 
 ```kun
-// 从 Unix 纳秒数构造 `DateTime`（调用者自保证合法性，非法输入 panic）
+// [PureKun] 从 Unix 纳秒数构造 `DateTime`（调用者自保证合法性，非法输入 panic）
 of : Int -> DateTime
 
-// 从 Unix 秒数构造 `DateTime`
+// [PureKun] 从 Unix 秒数构造 `DateTime`
 fromUnixSecs : Int -> DateTime
-// 提取 Unix 秒数
+// [PureKun] 提取 Unix 秒数
 toUnixSecs : DateTime -> Int
-// 提取 Unix 纳秒数
+// [PureKun] 提取 Unix 纳秒数
 toUnixNanos : DateTime -> Int
 
-// 按格式模板格式化时间，格式非法时返回 `Err`
+// [Primitive] 按格式模板格式化时间，格式非法时返回 `Err`
 format : String -> DateTime -> Result String String
 // 格式字段名：`yyyy`（年）、`yy`（年两位数）、`MM`（月）、`dd`（日）、`HH`（时）、`mm`（分）、`ss`（秒）、`SSS`（毫秒）、`Z`（时区偏移）
 
-// 按格式模板解析时间字符串
+// [Primitive] 按格式模板解析时间字符串
 parse : String -> String -> Result DateTime String
 
-// 提取年份
+// [PureKun] 提取年份
 year : DateTime -> Int
-// 提取月份（1-12）
+// [PureKun] 提取月份（1-12）
 month : DateTime -> Int
-// 提取日期（1-31）
+// [PureKun] 提取日期（1-31）
 day : DateTime -> Int
-// 提取小时（0-23）
+// [PureKun] 提取小时（0-23）
 hour : DateTime -> Int
-// 提取分钟（0-59）
+// [PureKun] 提取分钟（0-59）
 minute : DateTime -> Int
-// 提取秒（0-59）
+// [PureKun] 提取秒（0-59）
 second : DateTime -> Int
 
-// 返回 ISO 8601 格式字符串
+// [PureKun] 返回 ISO 8601 格式字符串
 toString : DateTime -> String
 ```
 
@@ -1034,16 +1043,19 @@ import Duration
 #### API
 
 ```kun
-// 算术运算（均返回 Duration）
+// [PureKun] 算术运算（均返回 Duration）
 (+) : Duration -> Duration -> Duration
+// [PureKun] 算术运算（均返回 Duration）
 (-) : Duration -> Duration -> Duration
+// [PureKun] 算术运算（均返回 Duration）
 (*) : Int -> Duration -> Duration
+// [PureKun] 算术运算（均返回 Duration）
 (/) : Duration -> Int -> Duration
 
-// 比较（== / /= / < / > / <= / >= 运算符直接可用，底层委托 compare）
+// [PureKun] 比较（== / /= / < / > / <= / >= 运算符直接可用，底层委托 compare）
 compare : Duration -> Duration -> Int    // -1 / 0 / 1
 
-// 单位提取
+// [PureKun] 单位提取
 toNanos : Duration -> Int
 toMicros : Duration -> Int
 toMillis : Duration -> Int
@@ -1052,12 +1064,12 @@ toMinutes : Duration -> Int
 toHours : Duration -> Int
 toDays : Duration -> Int
 
-// 解析与格式化
+// [PureKun] 解析与格式化
 fromString : String -> Result Duration String    // 解析 "5s" / "100ms" / "2h30m" / "1d"
 toString : Duration -> String                    // 纳秒数（如 "5100000000"）
 format : String -> Duration -> Result String String  // 自定义格式
 
-// 负值支持
+// [PureKun] 负值支持
 negate : Duration -> Duration    // 取反，-(5s) → -5000000000ns
 isNegative : Duration -> Bool
 abs : Duration -> Duration       // 绝对值
@@ -1113,28 +1125,28 @@ type ExitCode = ExitCode Int
 #### API
 
 ```kun
-// 0 — 成功
+// [PureKun] 0 — 成功
 success : ExitCode
-// 1 — 一般错误
+// [PureKun] 1 — 一般错误
 generalError : ExitCode
-// 127 — 命令未找到
+// [PureKun] 127 — 命令未找到
 commandNotFound : ExitCode
 
-// 构造 `ExitCode`，调用者须确保参数在 `0..255` 内，非法输入 panic
+// [PureKun] 构造 `ExitCode`，调用者须确保参数在 `0..255` 内，非法输入 panic
 of : Int -> ExitCode
 
-// 检查退出码是否在合法范围 `0..255` 内
+// [PureKun] 检查退出码是否在合法范围 `0..255` 内
 isValid : ExitCode -> Bool
-// 退出码 == 0
+// [PureKun] 退出码 == 0
 isSuccess : ExitCode -> Bool
-// 退出码 ≠ 0
+// [PureKun] 退出码 ≠ 0
 isFailure : ExitCode -> Bool
 
-// 安全构造，超出 `0..255` 返回 `Err`
+// [PureKun] 安全构造，超出 `0..255` 返回 `Err`
 fromInt : Int -> Result ExitCode String
-// 提取退出码整数值
+// [PureKun] 提取退出码整数值
 toInt : ExitCode -> Int
-// 返回退出码的字符串表示
+// [PureKun] 返回退出码的字符串表示
 toString : ExitCode -> String
 ```
 
@@ -1166,43 +1178,43 @@ import Path
 #### API
 
 ```kun
-// 当前工作目录，脚本启动时冻结
+// [PureKun] 当前工作目录，脚本启动时冻结
 cwd : Path
 
-// 父目录路径
+// [PureKun] 父目录路径
 parent : Path -> Path
-// 文件名（含扩展名）——尝试 UTF-8 解码，非 UTF-8 字节用 U+FFFD 替换
+// [PureKun] 文件名（含扩展名）——尝试 UTF-8 解码，非 UTF-8 字节用 U+FFFD 替换
 fileName : Path -> String
-// 文件扩展名（含 `.`）——同 fileName 的 UTF-8 规则
+// [PureKun] 文件扩展名（含 `.`）——同 fileName 的 UTF-8 规则
 extension : Path -> String
 
-// 拼接路径段
+// [PureKun] 拼接路径段
 join : Path -> String -> Path
-// 拼接左右两个路径，自动处理分隔符
+// [PureKun] 拼接左右两个路径，自动处理分隔符
 (++) : Path -> Path -> Path
 
-// 从 UTF-8 字符串构造路径（始终安全，不做文件系统校验）
+// [PureKun] 从 UTF-8 字符串构造路径（始终安全，不做文件系统校验）
 // 任意有效 UTF-8 字符串均可为路径，故不返回 Result
 fromString : String -> Path
 
-// 从字节数组构造路径（覆盖非 UTF-8 文件系统场景）
+// [PureKun] 从字节数组构造路径（覆盖非 UTF-8 文件系统场景）
 // 验证规则：拒绝含 `\0` 字节 → Err "Path contains NUL byte"
 //            允许非 UTF-8 字节序列（不做编码验证）
 fromBytes : Bytes -> Result Path String
 
-// 从字节数组构造单路径组件（文件名/目录名）
+// [PureKun] 从字节数组构造单路径组件（文件名/目录名）
 // 验证规则：拒绝含 `\0` 字节 → Err "Path component contains NUL byte"
 //           拒绝含 `/` 字节  → Err "Path component contains '/' byte"
 //           拒绝空字节序列    → Err "Path component is empty"
 //           允许非 UTF-8 字节序列（不做编码验证）
 component : Bytes -> Result Path String
 
-// 返回路径的字符串表示
+// [PureKun] 返回路径的字符串表示
 // 若内部字节为合法 UTF-8 → 返回等价 String
 // 若内部字节含非法 UTF-8 序列 → 非法字节用 U+FFFD（replacement character）替换
 toString : Path -> String
 
-// 以 Bytes 返回路径的原始字节表示（零开销，无验证）
+// [PureKun] 以 Bytes 返回路径的原始字节表示（零开销，无验证）
 toBytes : Path -> Bytes
 ```
 
@@ -1240,26 +1252,28 @@ type Gid = Gid Int       // 组 ID
 
 - `Uid` 函数
   ```kun
+  // [PureKun] 获取当前用户 ID
   current : -> Uid
 
-  // 构造 `Uid`，调用者须确保参数合法，非法输入 panic
+  // [PureKun] 构造 `Uid`，调用者须确保参数合法，非法输入 panic
   of : Int -> Uid
 
-  // 安全构造，非法值（< 0）返回 `Err`
+  // [PureKun] 安全构造，非法值（< 0）返回 `Err`
   fromInt : Int -> Result Uid String
-  // 提取整数值
+  // [PureKun] 提取整数值
   toInt : Uid -> Int
   ```
 - `Gid` 函数
   ```kun
+  // [PureKun] 获取当前组 ID
   current : -> Gid
 
-  // 构造 `Gid`，调用者须确保参数合法，非法输入 panic
+  // [PureKun] 构造 `Gid`，调用者须确保参数合法，非法输入 panic
   of : Int -> Gid
 
-  // 安全构造，非法值（< 0）返回 `Err`
+  // [PureKun] 安全构造，非法值（< 0）返回 `Err`
   fromInt : Int -> Result Gid String
-  // 提取整数值
+  // [PureKun] 提取整数值
   toInt : Gid -> Int
   ```
 
@@ -1286,17 +1300,17 @@ type IpAddress
 #### API
 
 ```kun
-// 从字符串解析 IP 地址
+// [PureKun] 从字符串解析 IP 地址
 parse : String -> Result IpAddress String
 
-// 是否为回环地址
+// [PureKun] 是否为回环地址
 isLoopback : IpAddress -> Bool
-// 是否为私有地址（RFC 1918 / RFC 4193）
+// [PureKun] 是否为私有地址（RFC 1918 / RFC 4193）
 isPrivate : IpAddress -> Bool
-// 是否为未指定地址（0.0.0.0 / ::）
+// [PureKun] 是否为未指定地址（0.0.0.0 / ::）
 isUnspecified : IpAddress -> Bool
 
-// 返回 IP 地址的字符串表示
+// [PureKun] 返回 IP 地址的字符串表示
 toString : IpAddress -> String
 ```
 
@@ -1338,34 +1352,34 @@ import Decimal
 ```kun
 type Decimal
 
-// 从字符串构造（调用者自保证合法性，非法输入 panic）
+// [PureKun] 从字符串构造（调用者自保证合法性，非法输入 panic）
 of : String -> Decimal
 
-// 从 Int 构造（精确）
+// [PureKun] 从 Int 构造（精确）
 fromInt : Int -> Decimal
 
-// 从字符串安全构造（非法格式返回 Err）
+// [PureKun] 从字符串安全构造（非法格式返回 Err）
 fromString : String -> Result Decimal String
 
-// 加法
+// [PureKun] 加法
 (+) : Decimal -> Decimal -> Decimal
 
-// 减法
+// [PureKun] 减法
 (-) : Decimal -> Decimal -> Decimal
 
-// 乘法
+// [PureKun] 乘法
 (*) : Decimal -> Decimal -> Decimal
 
-// 除法（可能产生无限小数，需指定精度；精度不足时返回 Err）
+// [PureKun] 除法（可能产生无限小数，需指定精度；精度不足时返回 Err）
 divide : Int -> Decimal -> Decimal -> Result Decimal String
 
-// 舍入到指定小数位数
+// [PureKun] 舍入到指定小数位数
 round : Int -> Decimal -> Decimal
 
-// 比较（返回 -1 / 0 / 1，同 Int 比较语义）
+// [PureKun] 比较（返回 -1 / 0 / 1，同 Int 比较语义）
 compare : Decimal -> Decimal -> Int
 
-// 转换为字符串
+// [PureKun] 转换为字符串
 toString : Decimal -> String
 ```
 
@@ -1420,19 +1434,19 @@ import Nil
 // 以下为编译器内置伪代码，用户无需自行定义
 type Nil = Nil   // 始终缺省自动导入
 
-// Nil 时返回缺省值（解包，返回 a）
+// [PureKun] Nil 时返回缺省值（解包，返回 a）
 withDefault : a -> ?a -> a
 
-// 非 Nil 时应用函数
+// [PureKun] 非 Nil 时应用函数
 map : (a -> b) -> ?a -> ?b
 
-// 依次尝试，取首个非 Nil（链式回退，保持 ?a）
+// [PureKun] 依次尝试，取首个非 Nil（链式回退，保持 ?a）
 orElse : ?a -> ?a -> ?a
 
-// Nil 转为 Err e
+// [PureKun] Nil 转为 Err e
 toResult : e -> ?a -> Result a e
 
-// 非 Nil 时链式调用可能返回 Nil 的函数（单子绑定）
+// [PureKun] 非 Nil 时链式调用可能返回 Nil 的函数（单子绑定）
 andThen : (a -> ?b) -> ?a -> ?b
 ```
 
@@ -1513,28 +1527,46 @@ import List
 ### API
 
 ```kun
-// 查询
+// [Primitive] 列表元素个数
 length  : List a -> Int               // 列表元素个数
+// [Primitive] 是否为空列表
 isEmpty : List a -> Bool              // 是否为空列表
+// [Primitive] 首个元素，空列表返回 Nil
 head    : List a -> ?a                // 首个元素，空列表返回 Nil
+// [Primitive] 末尾元素，空列表返回 Nil
 last    : List a -> ?a                // 末尾元素，空列表返回 Nil
+// [Primitive] 索引访问，越界返回 Nil
 get     : Int -> List a -> ?a         // 索引访问，越界返回 Nil
 
 // 变换
-map       : (a -> b) -> List a -> List b        // 对每个元素应用函数
-filter    : (a -> Bool) -> List a -> List a     // 保留满足条件的元素
-filterMap : (a -> ?b) -> List a -> List b      // 映射并丢弃 Nil
-fold      : (b -> a -> b) -> b -> List a -> b   // 左折叠
-reduce    : (a -> a -> a) -> List a -> ?a       // 无初始值的折叠，空列表返回 Nil
-iter      : (a -> Unit)! -> List a -> Unit       // 遍历每个元素并调用效应回调
-append    : List a -> List a -> List a          // 拼接两个列表
-reverse   : List a -> List a                   // 反转列表
-sort      : (a -> a -> Int) -> List a -> List a // 排序（比较函数返回 -1/0/1）
-slice     : Int -> Int -> List a -> List a      // 子列表 [start, end)
-take      : Int -> List a -> List a             // 取前 n 个元素
-drop      : Int -> List a -> List a             // 丢弃前 n 个元素
-all       : (a -> Bool) -> List a -> Bool       // 全部满足条件
-any       : (a -> Bool) -> List a -> Bool       // 任一满足条件
+// [PureKun] 对每个元素应用函数
+map       : (a -> b) -> List a -> List b
+// [PureKun] 保留满足条件的元素
+filter    : (a -> Bool) -> List a -> List a
+// [PureKun] 映射并丢弃 Nil
+filterMap : (a -> ?b) -> List a -> List b
+// [PureKun] 左折叠
+fold      : (b -> a -> b) -> b -> List a -> b
+// [PureKun] 无初始值的折叠，空列表返回 Nil
+reduce    : (a -> a -> a) -> List a -> ?a
+// [PureKun] 遍历每个元素并调用效应回调
+iter      : (a -> Unit)! -> List a -> Unit
+// [Primitive] 拼接两个列表
+append    : List a -> List a -> List a
+// [Primitive] 反转列表
+reverse   : List a -> List a
+// [Primitive] 排序（比较函数返回 -1/0/1）
+sort      : (a -> a -> Int) -> List a -> List a
+// [Primitive] 子列表 [start, end)
+slice     : Int -> Int -> List a -> List a
+// [Primitive] 取前 n 个元素
+take      : Int -> List a -> List a
+// [Primitive] 丢弃前 n 个元素
+drop      : Int -> List a -> List a
+// [PureKun] 全部满足条件
+all       : (a -> Bool) -> List a -> Bool
+// [PureKun] 任一满足条件
+any       : (a -> Bool) -> List a -> Bool
 ```
 
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素
@@ -1585,19 +1617,29 @@ import Map
 ### API
 
 ```kun
-// 查询
+// [Primitive] 获取键值，不存在返回 Nil
 get     : k -> Map k v -> ?v                 // 获取键值，不存在返回 Nil
+// [Primitive] 所有键
 keys    : Map k v -> List k                   // 所有键
+// [Primitive] 所有值
 values  : Map k v -> List v                   // 所有值
+// [Primitive] 键值对数量
 size    : Map k v -> Int                      // 键值对数量
+// [Primitive] 是否为空
 isEmpty : Map k v -> Bool                     // 是否为空
 
 // 变换
+// [Primitive] 插入/覆写键值对
 insert   : k -> v -> Map k v -> Map k v             // 插入/覆写键值对
+// [Primitive] 移除键值对（键不存在时无操作）
 remove   : k -> Map k v -> Map k v                  // 移除键值对（键不存在时无操作）
+// [PureKun] 更新已有值
 update   : (v -> v) -> k -> Map k v -> Map k v      // 更新已有值
+// [PureKun] 从列表构造
 fromList : List (k, v) -> Map k v                   // 从列表构造
+// [PureKun] 转为列表
 toList   : Map k v -> List (k, v)                   // 转为列表
+// [PureKun] 并集合并，右侧覆盖左侧
 merge    : Map k v -> Map k v -> Map k v            // 并集合并，右侧覆盖左侧
 ```
 
@@ -1637,20 +1679,29 @@ import Set
 ### API
 
 ```kun
-// 查询
+// [Primitive] 集合元素数量
 size    : Set a -> Int                 // 集合元素数量
+// [Primitive] 是否为空
 isEmpty : Set a -> Bool                // 是否为空
+// [Primitive] 是否包含元素
 contains : a -> Set a -> Bool          // 是否包含元素
 
 // 变换
+// [Primitive] 插入元素（幂等）
 insert  : a -> Set a -> Set a          // 插入元素（幂等）
+// [Primitive] 移除元素
 remove  : a -> Set a -> Set a          // 移除元素
+// [PureKun] 并集
 union   : Set a -> Set a -> Set a      // 并集
+// [PureKun] 交集
 intersect : Set a -> Set a -> Set a    // 交集
+// [PureKun] 差集
 diff    : Set a -> Set a -> Set a      // 差集
 
 // 转换
+// [PureKun] 转为去重列表（顺序非确定）
 toList  : Set a -> List a              // 转为去重列表（顺序非确定）
+// [PureKun] 从列表构造（自动去重）
 fromList : List a -> Set a             // 从列表构造（自动去重）
 ```
 
@@ -1682,19 +1733,25 @@ import Result
 ### API
 
 ```kun
-// 映射
+// [PureKun] 对 Ok 应用函数
 map      : (a -> b) -> Result a e -> Result b e     // 对 Ok 应用函数
+// [PureKun] 对 Err 应用函数
 mapError : (e -> f) -> Result a e -> Result a f     // 对 Err 应用函数
 
 // 链式
+// [PureKun] Ok 时链式调用，Err 短路
 andThen : (a -> Result b e) -> Result a e -> Result b e   // Ok 时链式调用，Err 短路
 
 // 解包
+// [PureKun] Ok 返回值，Err 返回缺省值
 withDefault : a -> Result a e -> a                  // Ok 返回值，Err 返回缺省值
 
 // 查询
+// [PureKun] Ok → 值，Err → Nil
 ok    : Result a e -> ?a                            // Ok → 值，Err → Nil
+// [PureKun] 是否为 Ok
 isOk  : Result a e -> Bool                          // 是否为 Ok
+// [PureKun] 是否为 Err
 isErr : Result a e -> Bool                          // 是否为 Err
 ```
 
@@ -1738,16 +1795,16 @@ import Validator
 ### API
 
 ```kun
-// 枚举约束：值必须在列表中
+// [PureKun] 枚举约束：值必须在列表中
 oneOf : List String -> a -> Result a String
 
-// 数值范围：[min, max] 闭区间
+// [PureKun] 数值范围：[min, max] 闭区间
 range : Int -> Int -> Int -> Result Int String
 
-// 非空字符串
+// [PureKun] 非空字符串
 nonEmpty : String -> Result String String
 
-// 正则匹配：模式必须匹配整个字符串
+// [PureKun] 正则匹配：模式必须匹配整个字符串
 regex : String -> String -> Result String String
 ```
 
@@ -1787,49 +1844,49 @@ import Cli
 #### 声明器
 
 ```kun
-// 布尔开关（--name / -c），不出现 → false
+// [PureKun] 布尔开关（--name / -c），不出现 → false
 flag : String -> ?Char -> String -> CliArg
 
-// 带值选项（--name VAL / -c VAL）
+// [PureKun] 带值选项（--name VAL / -c VAL）
 //   字段为 ?T → 不出现 → Nil；字段为 T → 无缺省则必填；字段为 List T → 可重复
 option : String -> ?Char -> String -> CliArg
 
-// 计数型标志（-c → 1，-ccc → 3），不出现 → 0
+// [PureKun] 计数型标志（-c → 1，-ccc → 3），不出现 → 0
 count : String -> ?Char -> String -> CliArg
 
-// 位置参数（按声明顺序消费 token）
+// [PureKun] 位置参数（按声明顺序消费 token）
 arg : String -> String -> CliArg
 ```
 
 #### 修饰器
 
 ```kun
-// 设置缺省值（编译期序列化，解析时按目标字段类型反序列化）
+// [PureKun] 设置缺省值（编译期序列化，解析时按目标字段类型反序列化）
 withDefault : a -> CliArg -> CliArg
 
-// 选项依赖
+// [PureKun] 选项依赖
 withRequires : String -> CliArg -> CliArg
 
-// 为 Bool 型 flag 自动生成 --no-<name> 否定形式
+// [PureKun] 为 Bool 型 flag 自动生成 --no-<name> 否定形式
 withNegation : CliArg -> CliArg
 
-// 环境变量回退：命令行未提供时从指定环境变量读取
+// [PureKun] 环境变量回退：命令行未提供时从指定环境变量读取
 withEnvVar : String -> CliArg -> CliArg
 
-// 自定义校验（签名 a -> Result a String）
+// [PureKun] 自定义校验（签名 a -> Result a String）
 withValidator : (a -> Result a String) -> CliArg -> CliArg
 ```
 
 #### 解析
 
 ```kun
-// 互斥组（at most one：成员中最多允许一个出现）
+// [PureKun] 互斥组（at most one：成员中最多允许一个出现）
 oneOf : String -> List CliArg -> CliArgGroup
 
-// 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断）
+// [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断）
 parse : CliSpec -> List String -> Result a CliError
 
-// 将解析错误转为人类可读字符串
+// [Primitive] 将解析错误转为人类可读字符串
 show : CliError -> String
 ```
 
@@ -1885,16 +1942,16 @@ import Random
 ### API
 
 ```kun
-// [min, max] 闭区间随机整数
+// [Primitive] [min, max] 闭区间随机整数
 int : Int -> Int -> Int
 
-// 指定长度的随机字节序列
+// [Primitive] 指定长度的随机字节序列
 bytes : Int -> Bytes
 
-// [0, 1) 半开区间随机浮点数（零参效应函数）
+// [Primitive] [0, 1) 半开区间随机浮点数（零参效应函数）
 float : -> Float
 
-// Fisher-Yates 洗牌
+// [Primitive] Fisher-Yates 洗牌
 shuffle : List a -> List a
 ```
 
@@ -1927,32 +1984,32 @@ import Stream
 #### 纯构造
 
 ```kun
-// 从 List 构造
+// [Primitive] 从 List 构造
 fromList : List t -> Stream t
 
-// 左闭右开区间 [start, end)
+// [Primitive] 左闭右开区间 [start, end)
 range : Int -> Int -> Stream Int
 ```
 
 #### 变换（惰性）
 
 ```kun
-// 对每个元素应用函数
+// [PureKun] 对每个元素应用函数
 map : (a -> b) -> Stream a -> Stream b
 
-// 保留满足条件的元素
+// [PureKun] 保留满足条件的元素
 filter : (a -> Bool) -> Stream a -> Stream a
 
-// 取前 n 个元素
+// [PureKun] 取前 n 个元素
 take : Int -> Stream a -> Stream a
 
-// 丢弃前 n 个元素
+// [PureKun] 丢弃前 n 个元素
 drop : Int -> Stream a -> Stream a
 
-// 按 \n 切分（默认行长上限 1 MiB，超长行返回 Err LineTruncated）
+// [Primitive] 按 \n 切分（默认行长上限 1 MiB，超长行返回 Err LineTruncated）
 lines : Stream String -> Stream (Result String LineError)
 
-// 同上，指定行长上限（n ≤ 0 编译期报错）
+// [Primitive] 同上，指定行长上限（n ≤ 0 编译期报错）
 linesMax : Int -> Stream String -> Stream (Result String LineError)
 ```
 
@@ -1964,10 +2021,10 @@ type LineError =
 ```
 
 ```kun
-// 映射并跳过失败
+// [PureKun] 映射并跳过失败
 parseMap : (a -> Result b e) -> Stream a -> Stream b
 
-// 映射并保留 Result
+// [PureKun] 映射并保留 Result
 parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 ```
 
@@ -1976,19 +2033,19 @@ parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 #### 消费（终端）
 
 ```kun
-// 收集为 List
+// [Primitive] 收集为 List
 toList : Stream a -> List a
 
-// 遍历每个元素
+// [Primitive] 遍历每个元素
 iter : (a -> Unit)! -> Stream a -> Unit
 
-// 折叠
+// [Primitive] 折叠
 fold : (b -> a -> b) -> b -> Stream a -> b
 
-// 全文收集为 String
+// [Primitive] 全文收集为 String
 string : Stream String -> String
 
-// 二进制读取
+// [Primitive] 二进制读取
 bytes : Stream a -> Bytes
 ```
 
@@ -1997,7 +2054,7 @@ bytes : Stream a -> Bytes
 #### 错误处理辅助
 
 ```kun
-// 映射并丢弃 Nil
+// [PureKun] 映射并丢弃 Nil
 filterMap : (a -> ?b) -> Stream a -> Stream b
 // -> Stream.filterMap Result.ok stream — 过滤掉所有 Err 元素
 ```
@@ -2049,13 +2106,13 @@ import IO
 ### API
 
 ```kun
-// 输出字符串到 stdout（无换行）
+// [Primitive] 输出字符串到 stdout（无换行）
 print : String -> Unit
 
-// 输出字符串到 stdout（自动换行）
+// [Primitive] 输出字符串到 stdout（自动换行）
 println : String -> Unit
 
-// 从 stdin 读取一行
+// [Primitive] 从 stdin 读取一行
 readln : -> String
 ```
 
@@ -2085,13 +2142,13 @@ import Env
 ### API
 
 ```kun
-// 读取环境变量，不存在返回 Nil
+// [Primitive] 读取环境变量，不存在返回 Nil
 getenv : String -> ?String
 
-// 设置环境变量
+// [Primitive] 设置环境变量
 setenv : String -> String -> Unit
 
-// 删除环境变量
+// [Primitive] 删除环境变量
 unsetenv : String -> Unit
 ```
 
@@ -2123,67 +2180,67 @@ import File
 ### API
 
 ```kun
-// 列出目录内容
+// [Primitive] 列出目录内容
 list : Path -> Result (List Path) IOError
 
-// 创建目录
+// [Primitive] 创建目录
 mkdir : Path -> Result Unit IOError
 
-// 递归创建目录树（等价于 mkdir -p）
+// [Primitive] 递归创建目录树（等价于 mkdir -p）
 mkdirAll : Path -> Result Unit IOError
 
-// 检查路径是否存在
+// [Primitive] 检查路径是否存在
 exists : Path -> Result Bool IOError
 
-// 读取文件为字符串
+// [Primitive] 读取文件为字符串
 readString : Path -> Result String IOError
 
-// 读取文件为 Bytes 流
+// [Primitive] 读取文件为 Bytes 流
 readBytes : Path -> Result (Stream Bytes) IOError
 
-// 写入字符串到文件
+// [Primitive] 写入字符串到文件
 writeString : Path -> String -> Result Unit IOError
 
-// 写入 Bytes 流到文件
+// [Primitive] 写入 Bytes 流到文件
 writeBytes : Path -> Stream Bytes -> Result Unit IOError
 
-// 获取文件元数据
+// [Primitive] 获取文件元数据
 stat : Path -> Result FileStat IOError
 
-// 创建/更新时间戳
+// [Primitive] 创建/更新时间戳
 touch : Path -> Result Unit IOError
 
-// 删除文件
+// [Primitive] 删除文件
 remove : Path -> Result Unit IOError
 
-// 删除目录
+// [Primitive] 删除目录
 removeDir : Path -> Result Unit IOError
 
-// 创建临时文件，脚本退出时自动清理，返回路径
+// [Primitive] 创建临时文件，脚本退出时自动清理，返回路径
 createTempFile : -> Result Path IOError
 
-// 创建临时目录，脚本退出时自动清理，返回路径
+// [Primitive] 创建临时目录，脚本退出时自动清理，返回路径
 createTempDir : -> Result Path IOError
 
-// 复制文件/目录
+// [PureKun] 复制文件/目录
 copy : Path -> Path -> Result Unit IOError
 
-// 移动/重命名文件
+// [Primitive] 移动/重命名文件
 rename : Path -> Path -> Result Unit IOError
 
-// 修改文件权限
+// [Primitive] 修改文件权限
 chmod : FileMode -> Path -> Result Unit IOError
 
-// 修改文件所有者
+// [Primitive] 修改文件所有者
 chown : Uid -> Gid -> Path -> Result Unit IOError
 
-// 创建符号链接
+// [Primitive] 创建符号链接
 symlink : Path -> Path -> Result Unit IOError
 
-// 读取符号链接目标
+// [Primitive] 读取符号链接目标
 readlink : Path -> Result Path IOError
 
-// 按 glob 模式匹配文件
+// [Primitive] 按 glob 模式匹配文件
 glob : String -> Path -> Result (List Path) IOError
 ```
 
@@ -2243,68 +2300,68 @@ import Cmd
 
 ```kun
 // <bin> 为动态命令名——Cmd.ls、Cmd.git、Cmd["ntfs-3g"] 等均为合法形式
-// <bin>   : ?[options] -> posArgs... -> Command          // 延迟执行，返回 Command 值
-// <bin>?  : ?[options] -> posArgs... -> Result (Stream String) CommandError  // 立即执行
+// [PureKun] <bin>   : ?[options] -> posArgs... -> Command          // 延迟执行，返回 Command 值
+// [Primitive] <bin>?  : ?[options] -> posArgs... -> Result (Stream String) CommandError  // 立即执行
 ```
 
 #### OS 管道
 
 ```kun
-// 将多个 Command 连接为 OS 管道链（纯操作，延迟执行）
+// [PureKun] 将多个 Command 连接为 OS 管道链（纯操作，延迟执行）
 pipe : List Command -> Command
 
-// 同上，失败时返回 Err 而非 panic（效应函数，立即执行）
+// [Primitive] 同上，失败时返回 Err 而非 panic（效应函数，立即执行）
 pipe? : List Command -> Result (Stream String) CommandError
 ```
 
 #### 修饰函数（纯操作，接收并返回 Command）
 
 ```kun
-// 添加环境变量到子进程
+// [PureKun] 添加环境变量到子进程
 withEnv : Map String String -> Command -> Command
 
-// 追加原始 argv token（用于不适合 camelCase 自动映射的 flag）
+// [PureKun] 追加原始 argv token（用于不适合 camelCase 自动映射的 flag）
 withRawOpt : String -> ?String -> Command -> Command
 
-// 注入 stdin（字符串模式）
+// [PureKun] 注入 stdin（字符串模式）
 withStdin : String -> Command -> Command
 
-// 注入 stdin（流式模式，适用于大体积输入）
+// [PureKun] 注入 stdin（流式模式，适用于大体积输入）
 withStdin : Stream Bytes -> Command -> Command
 
-// 将 stderr 合并到 stdout 流
+// [PureKun] 将 stderr 合并到 stdout 流
 mergeStderr : Command -> Command
 
-// 指定子进程工作目录（fork 后、exec 前 chdir）
+// [PureKun] 指定子进程工作目录（fork 后、exec 前 chdir）
 withCwd : Path -> Command -> Command
 
-// 指定子进程执行用户（需 OS 级权限）
+// [PureKun] 指定子进程执行用户（需 OS 级权限）
 withRunAs : String -> Command -> Command
 ```
 
 #### 短路条件组合（纯操作，返回 Command）
 
 ```kun
-// 前一个成功时执行后一个
+// [PureKun] 前一个成功时执行后一个
 andThen : Command -> Command -> Command
 
-// 前一个失败时执行备选
+// [PureKun] 前一个失败时执行备选
 orElse : Command -> Command -> Command
 ```
 
 #### 立即执行（效应函数）
 
 ```kun
-// 显式执行 Command 值，执行失败 panic（stdout 被消费但不保留）
+// [Primitive] 显式执行 Command 值，执行失败 panic（stdout 被消费但不保留）
 exec : Command -> Unit
 
-// 超时执行，过期返回 Err（立即 fork）
+// [Primitive] 超时执行，过期返回 Err（立即 fork）
 timeout : Duration -> Command -> Result (Stream String) CommandError
 
-// 重试 n 次执行，每次失败后等待 interval（立即 fork）
+// [Primitive] 重试 n 次执行，每次失败后等待 interval（立即 fork）
 retry : Int -> Duration -> Command -> Result (Stream String) CommandError
 
-// PATH 查找命令位置，不可执行/未找到返回 Nil
+// [Primitive] PATH 查找命令位置，不可执行/未找到返回 Nil
 which : String -> ?Path
 ```
 
@@ -2366,19 +2423,19 @@ import Process
 ### API
 
 ```kun
-// 以指定退出码终止进程
+// [Primitive] 以指定退出码终止进程
 exit : Int -> Unit
 
-// 获取当前进程 ID
+// [Primitive] 获取当前进程 ID
 pid : -> Pid
 
-// 向指定进程发送信号
+// [Primitive] 向指定进程发送信号
 kill : Signal -> Pid -> Result Unit IOError
 
-// 等待子进程退出，返回退出码
+// [Primitive] 等待子进程退出，返回退出码
 wait : -> ExitCode
 
-// 阻塞等待指定时长
+// [Primitive] 阻塞等待指定时长
 sleep : Duration -> Unit
 ```
 
@@ -2418,16 +2475,16 @@ import Sys
 ### API
 
 ```kun
-// 获取当前系统时间
+// [Primitive] 获取当前系统时间
 time : -> DateTime
 
-// /proc 遍历进程列表
+// [Primitive] /proc 遍历进程列表
 ps : -> Stream { pid : Pid, cmd : String }
 
-// sysinfo() 内存信息
+// [Primitive] sysinfo() 内存信息
 free : -> { total : Int, used : Int, free : Int }
 
-// statfs() 磁盘信息
+// [Primitive] statfs() 磁盘信息
 df : Path -> { fs : String, total : Int, used : Int, avail : Int }
 ```
 
@@ -2464,10 +2521,10 @@ import Task
 ### API
 
 ```kun
-// 并发执行命令列表，最大并行数为 n
+// [Primitive] 并发执行命令列表，最大并行数为 n
 spawn : Int -> List Command -> Stream (Result (Stream String) CommandError)
 
-// 等待所有 Task 完成，收集结果
+// [Primitive] 等待所有 Task 完成，收集结果
 all : Stream (Result a e) -> List (Result a e)
 ```
 
@@ -2530,7 +2587,9 @@ type JsonValue
   | JsonArray (List JsonValue)
   | JsonObject (Map String JsonValue)
 
+// [Primitive] 从 JSON 字符串解析
 fromString : String -> Result JsonValue String
+// [Primitive] 转换为 JSON 字符串
 toString   : JsonValue -> Result String String
 ```
 
@@ -2571,7 +2630,9 @@ export
   , toJson
   )
 
+// [Primitive] 从 JSON 字符串反序列化（编译期代码生成）
 fromJson : String -> Result a String
+// [Primitive] 序列化为 JSON 字符串（编译期代码生成）
 toJson   : a -> Result String String
 ```
 
@@ -2615,13 +2676,13 @@ import Test
 ### API
 
 ```kun
-// 断言两个值相等
+// [PureKun] 断言两个值相等
 equal : a -> a -> String -> Unit
 
-// 断言条件为 true
+// [PureKun] 断言条件为 true
 ok : Bool -> String -> Unit
 
-// 断言纯函数 thunk 触发 panic（thunk 为纯函数；panics 内部捕获 panic）
+// [PureKun] 断言纯函数 thunk 触发 panic（thunk 为纯函数；panics 内部捕获 panic）
 panics : (Unit -> a) -> String -> Unit
 ```
 
