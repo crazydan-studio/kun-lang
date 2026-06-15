@@ -2162,7 +2162,6 @@ lines : Stream String -> Stream (Result String LineError)
 
 // [PureKun] 同上，指定行长上限
 linesMax : Int -> Stream String -> Stream (Result String LineError)
-linesMax : Int -> Stream String -> Stream (Result String LineError)
 ```
 
 `LineError` 定义：
