@@ -19,7 +19,7 @@
 |---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Kun 设计优化（利用 Zig 0.17 labeled switch / packed equality / Arena 线程安全特性简化实现并提升性能）；Zig 0.13 → 0.17 宿主语言升级与规范文档同步（已完成）；i18n 国际化子系统设计（已完成）；标准库内置函数绑定机制设计（已完成）；实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
+| 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
 | 最近完成 | Zig 宿主语言升级至 0.17.0-dev + zig-patterns.md 全面刷新；架构重设计；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心）；kun doc 子命令（模块文档生成）；--trace 函数调用追踪；类型检查算法补充；八轮跨文档审计（52+ 项问题修复） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |

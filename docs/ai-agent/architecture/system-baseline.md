@@ -779,6 +779,14 @@ typedef struct {
 
 ### Stream
 
+Stream 在运行时表示为 Zig tagged union（详见执行模型 Stream 惰性求值段）。其 C ABI 表示为一个不透明句柄——Kun 用户代码不直接操作 Stream 的内存布局，而是通过 `Stream.map`/`Stream.filter`/`Stream.toList` 等 API 消费：
+
+| Kun 类型 | C ABI 表示 | 大小 |
+|---|---|---|
+| `Stream t` | `*const StreamHandle` | 8 字节 |
+
+> `StreamHandle` 为不透明指针——内部为 tagged union（`cmd`/`mapped`/`filtered`/`taken`/`dropped`/`lines`/`parse_mapped`/`parse_mapped_keep`），由运行时分配在 `Stream` 构造时的所属 Arena 上。
+
 ### 函数值
 
 ```c

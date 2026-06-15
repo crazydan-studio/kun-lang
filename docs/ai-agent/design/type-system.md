@@ -730,6 +730,17 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
       Hint: 递归 type 别名展开超过 256 层限制。展开路径：{path}。检查是否存在意外的循环引用
     ```
 
+#### 验证标准
+
+类型检查器的正确性通过以下验收标准确认（具体测试用例留到实现阶段编写）：
+
+1. 每个错误消息模板至少对应一个正例（通过类型检查的合法程序）和一个反例（产生该模板中指定错误的非法程序）
+2. HM 推断的回归测试覆盖以下关键场景：Let 多态、递归 let 绑定、互递归函数、泛型 ADT、嵌套 Nilable、EffectFn/Fn 结构不相容
+3. 效应检查器验证：纯函数内包含效应调用时精确报告 `Effect In Pure Function`；`do` 块内未消费的 Stream 精确报告 `Stream Not Consumed`；`do` 块外 `|>` 收到 Command 时精确报告类型错误
+4. 错误恢复：单文件内多个独立类型错误全部报告（非遇第一个停止）
+
+测试基础架构见 `standard-library.md` 的 `Test` 模块（推迟 v1.0）。
+
 #### 错误级别
 
 | 级别 | 含义 | 行为 |
@@ -770,6 +781,8 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 ```
 
 这些函数仅在编译期（`comptime`）可用，由 `Cli.parse`（v0.5）、`Parser.Record.fromJson`（v0.5）和 `toString` 泛型分发等 Primitive 函数调用。API 在 `TypeEnv` 已完全构造（类型检查完成后）方可使用。
+
+> **Kun TypeId ↔ Zig comptime type 映射**：`TypeId` 是 `TypeEnv.types` 数组的索引。在类型检查完成（Typed AST 构建后）的 `comptime` 上下文中，编译器通过 `@typeInfo(TypeEnv.types[id])` 获取 Zig 类型结构信息。此映射仅在编译期为有效——运行时 `TypeEnv` 中的类型表示为值，不可用作 Zig 类型。`getTypeName` 等 API 函数在 `comptime` 环境中通过此映射返回类型信息供 `Cli.parse`（v0.5）和 `Parser.Record.fromJson`（v0.5）使用。
 
 ## 类型表示与运行时
 

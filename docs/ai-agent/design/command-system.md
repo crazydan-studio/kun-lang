@@ -360,6 +360,10 @@ withEnv     : Map String String -> Command -> Command
 withRawOpt  : String -> ?String -> Command -> Command
 withStdin   : String -> Command -> Command
 withStdin   : Stream Bytes -> Command -> Command
+
+// [Primitive] 从文件路径注入 stdin——读取文件内容并通过 pipe 写入子进程
+withStdinFile : Path -> Command -> Command
+
 mergeStderr : Command -> Command
 withCwd     : Path -> Command -> Command
 withRunAs   : String -> Command -> Command
@@ -370,7 +374,19 @@ orElse  : Command -> Command -> Command
 
 // 工具
 which   : String -> ?Path
-exec    : Command -> Unit
+
+// [Primitive] 立即执行 Command——fork-exec 阻塞等待，失败 panic
+exec : Command -> Unit
+
+// [Primitive] 立即执行 Command 的安全变体——失败返回 Err 而不 panic
+execSafe : Command -> Result Unit CommandError
+
+// [Primitive] 执行 Command 并收集 stdout 到 String（等同于 |\> Stream.string）
+stdoutToString : Command -> Result String CommandError
+
+// [Primitive] 执行合并 stderr 后的 Command 并收集 stderr 到 String（需先 mergeStderr）
+stderrToString : Command -> Result String CommandError
+
 timeout : Duration -> Command -> Result (Stream String) CommandError
 retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 ```

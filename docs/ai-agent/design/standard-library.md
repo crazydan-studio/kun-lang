@@ -2080,8 +2080,8 @@ fromList : List t -> Stream t
 
 // [Primitive] 从 start 到 end（不含），步长为 step
 range : Int -> Int -> Int -> Stream Int
-// range start end step — step 默认为 1 时提供便捷重载
-// range start end 等价于 range start end 1
+
+`range start end` 为 `range start end 1` 的语法糖——编译器在约束生成阶段将 2 参数的 `range` 调用自动脱糖为 3 参数形式，HM 类型检查仅需处理 `Int -> Int -> Int -> Stream Int` 单一签名。
 
 // [PureKun] — 变化为一对多映射然后展平
 flatMap : (a -> Stream b) -> Stream a -> Stream b
@@ -2260,7 +2260,7 @@ readBytes : Int -> Result Bytes IOError
 isTerminal : Bool
 
 // [Primitive] 强制刷新标准输出缓冲区
-flush : Unit
+flush : -> Unit
 ```
 
 ### 示例
@@ -2565,7 +2565,7 @@ stderrToString : Command -> Result String CommandError
 // [Primitive] 从文件路径注入 stdin
 withStdinFile : Path -> Command -> Command
 
-// [Primitive] execute non-panicking variant (returns Result instead of panicking)
+// [Primitive] 执行 Command 的安全变体——失败返回 Err 而不 panic
 execSafe : Command -> Result Unit CommandError
 ```
 
@@ -2646,8 +2646,7 @@ sleep : Duration -> Unit
 // [Primitive] 改变当前进程的工作目录
 chdir : Path -> Unit
 
-// [Primitive] 设置 real-time 定时器（秒）
-sleep : Float -> Unit
+
 ```
 
 - `kill` 向任意进程发送信号，需要 OS 级权限（root 或进程所有者为当前用户）——失败返回 `Err (PermissionDenied)`
@@ -2896,6 +2895,8 @@ main = \_ ->
 
 `Test` 模块提供基础测试断言函数，用于编写自测试 Kun 脚本。`kun test` 子命令发现并执行测试文件，收集断言失败报告。所有断言函数在失败时通过 panic 报告错误（含文件名、行号、期望值、实际值），由测试运行器捕获。
 
+> **推迟至 v1.0**：Test 模块在 MVP（v0.1）中仅提供类型签名作为设计参考，不实现。`kun test` 子命令同样推迟 v1.0。在 v1.0 前，Kun 脚本的验证通过直接运行脚本并检查退出码（`Cmd.<bin>?` 返回 `Result`）完成。
+
 需显式导入：
 
 ```kun
@@ -2911,17 +2912,11 @@ equal : a -> a -> String -> Unit
 // [PureKun] 断言条件为 true
 ok : Bool -> String -> Unit
 
-// [PureKun] 断言纯函数 thunk 触发 panic（thunk 为纯函数；panics 内部捕获 panic）
-panics : (Unit -> a) -> String -> Unit
-
 // [PureKun] 断言不相等
 notEqual : a -> a -> Unit
 
 // [PureKun] 断言近似相等（浮点容差）
 approxEqual : Float -> Float -> Float -> Unit
-
-// [PureKun] 断言 panic 且消息匹配
-panicsWith : String -> (Unit -> a) -> Unit
 
 // [PureKun] 断言结果为 Ok
 isOk : Result a e -> a
@@ -2961,16 +2956,6 @@ main = \_ ->
 - 入口函数签名为 `main : List String -> Unit`
 - `kun test` 自动发现并运行所有测试文件，报告通过/失败统计
 
-### 测试生命周期
-
-- `Test.setup : (Unit -> Unit) -> Unit` — 在每个测试前执行
-- `Test.teardown : (Unit -> Unit) -> Unit` — 在每个测试后执行
-- `Test.beforeAll : (Unit -> Unit) -> Unit` — 在所有测试前执行一次
-- `Test.afterAll : (Unit -> Unit) -> Unit` — 在所有测试后执行一次
-- `Test.describe : String -> List (Unit -> Unit) -> Unit` — 将测试分组为命名套件
-- `Test.skip : (Unit -> Unit) -> Unit` — 跳过指定测试
-- `Test.only : (Unit -> Unit) -> Unit` — 仅运行指定测试
-- `Test.timeout : Duration -> (Unit -> Unit) -> Unit` — 设置测试超时
 
 ## 导入一览
 

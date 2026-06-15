@@ -1020,7 +1020,7 @@ Stream.map    : (a -> b) -> Stream a -> Stream b
 Stream.filter : (a -> Bool) -> Stream a -> Stream a
 Stream.take   : Int -> Stream a -> Stream a
 Stream.drop   : Int -> Stream a -> Stream a
-Stream.lines  : Stream String -> Stream String
+Stream.lines  : Stream String -> Stream (Result String LineError)
 Stream.linesMax : Int -> Stream String -> Stream String
 Stream.parseMap     : (a -> Result b e) -> Stream a -> Stream b
 Stream.parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
