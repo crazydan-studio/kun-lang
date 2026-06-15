@@ -155,6 +155,8 @@ Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = 10 }]
 
 `Cmd.pipe` 接收非空 `List Command`——传入空列表 `[]` 时编译期报错（"Cmd.pipe requires at least one command"）。`Cmd.pipe?` 同理。
 
+`Cmd.pipe` 返回 `Command`，延迟执行（由 `|>` 或 `Cmd.exec` 触发）。`Cmd.pipe?` 立即执行整个管道链并返回 `Result (Stream String) CommandError`——等价于 `Cmd.pipe` + `|>` 管道隐式触发 + `Cmd.<bin>?` 的 `?` 语义。
+
 `Cmd.pipe` 的结果可继续接入进程内管道 `|>` 链：
 
 ```kun

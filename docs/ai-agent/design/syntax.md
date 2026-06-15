@@ -681,6 +681,7 @@ do
 
 规则：
 - `defer` 仅在 `do` 块内有效
+- 嵌套 `do` 块各自管理独立的 `defer` 链——内层 `do` 块的 `defer` 在内层退出时执行，外层 `do` 块的 `defer` 在退出时执行。所有嵌套层的 `defer` 按 LIFO 逆序跨层执行（内层先于外层）
 - 多个 `defer` 按注册顺序的逆序（LIFO）执行
 - panic 触发 unwind 时 `defer` 始终执行
 - `defer` 表达式本身不返回值（类型为 `Unit`）
@@ -1018,6 +1019,9 @@ Stream.range 0 100           // [0, 1, ..., 99]
 Stream.map    : (a -> b) -> Stream a -> Stream b
 Stream.filter : (a -> Bool) -> Stream a -> Stream a
 Stream.take   : Int -> Stream a -> Stream a
+Stream.drop   : Int -> Stream a -> Stream a
+Stream.lines  : Stream String -> Stream String
+Stream.linesMax : Int -> Stream String -> Stream String
 Stream.parseMap     : (a -> Result b e) -> Stream a -> Stream b
 Stream.parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 ```

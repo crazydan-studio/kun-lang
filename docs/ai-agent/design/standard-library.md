@@ -1452,6 +1452,15 @@ toResult : e -> ?a -> Result a e
 
 // [PureKun] 非 Nil 时链式调用可能返回 Nil 的函数（单子绑定）
 andThen : (a -> ?b) -> ?a -> ?b
+
+// [PureKun] 是否为 Nil
+isNil : ?a -> Bool
+
+// [PureKun] 是否为非 Nil
+isSome : ?a -> Bool
+
+// [PureKun] 按谓词过滤可选值
+filter : (a -> Bool) -> ?a -> ?a
 ```
 
 - `withDefault` — 提供缺省值并解包。适合「取不到就用默认值」场景
@@ -1459,6 +1468,9 @@ andThen : (a -> ?b) -> ?a -> ?b
 - `orElse` — 链式尝试多个来源，取首个非 Nil。`orElse` 保持可选包装，可与 `withDefault` 组合使用：`a |> orElse b |> orElse c |> withDefault default`
 - `toResult` — 将可选值提升为 `Result`，Nil 携带错误信息
 - `andThen` — 串联返回 `?T` 的操作，前一步为 Nil 则短路。适合「取值 → 解析 → 查表」等多步可能失败的操作链
+- `isNil` — 检查可选值是否为 `Nil`
+- `isSome` — 检查可选值是否为非 `Nil`（即存在值）
+- `filter` — 在值存在且满足谓词时保留值，否则返回 `Nil`
 
 `?T` 为语言内置的类型构造器，`case` 和 `??` / `?.` 为内置操作符，不受 `import Nil` 影响。
 
@@ -1571,6 +1583,45 @@ drop      : Int -> List a -> List a
 all       : (a -> Bool) -> List a -> Bool
 // [PureKun] 任一满足条件
 any       : (a -> Bool) -> List a -> Bool
+
+// [PureKun] 查找第一个匹配元素
+find : (a -> Bool) -> List a -> ?a
+
+// [PureKun] 查找第一个匹配元素的索引
+findIndex : (a -> Bool) -> List a -> ?Int
+
+// [PureKun] 元素是否存在
+elem : a -> List a -> Bool
+
+// [PureKun] 两列表按元素配对
+zip : List a -> List b -> List (a, b)
+
+// [PureKun] 两列表按元素配对并应用函数
+zipWith : (a -> b -> c) -> List a -> List b -> List c
+
+// [PureKun] 按谓词分割为两列表
+partition : (a -> Bool) -> List a -> (List a, List a)
+
+// [PureKun] 展平嵌套列表
+concat : List (List a) -> List a
+
+// [PureKun] 求和（元素类型须支持 + 运算符）
+sum : List Int -> Int
+
+// [PureKun] 求积（元素类型须支持 * 运算符）
+product : List Int -> Int
+
+// [PureKun] 最小值
+minimum : List a -> ?a
+
+// [PureKun] 最大值
+maximum : List a -> ?a
+
+// [PureKun] 相邻元素间插入分隔符
+intersperse : a -> List a -> List a
+
+// [PureKun] 按 key 函数分组
+groupBy : (a -> k) -> Map k (List a)
 ```
 
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素
@@ -1645,6 +1696,24 @@ fromList : List (k, v) -> Map k v                   // 从列表构造
 toList   : Map k v -> List (k, v)                   // 转为列表
 // [PureKun] 并集合并，右侧覆盖左侧
 merge    : Map k v -> Map k v -> Map k v            // 并集合并，右侧覆盖左侧
+
+// [PureKun] 键是否存在
+containsKey : k -> Map k v -> Bool
+
+// [PureKun] 按值谓词过滤
+filter : (v -> Bool) -> Map k v -> Map k v
+
+// [PureKun] 变换值
+map : (v -> w) -> Map k v -> Map k w
+
+// [PureKun] 左优先合并两 Map
+union : Map k v -> Map k v -> Map k v
+
+// [PureKun] 交集（仅在两 Map 共有的键上保留值）
+intersect : Map k v -> Map k v -> Map k v
+
+// [PureKun] 差集（在左 Map 中移除右 Map 含有的键）
+difference : Map k v -> Map k v -> Map k v
 ```
 
 - `insert` 覆写已有键的值
@@ -1707,6 +1776,24 @@ diff    : Set a -> Set a -> Set a      // 差集
 toList  : Set a -> List a              // 转为去重列表（顺序非确定）
 // [PureKun] 从列表构造（自动去重）
 fromList : List a -> Set a             // 从列表构造（自动去重）
+
+// [PureKun] 按谓词过滤
+filter : (a -> Bool) -> Set a -> Set a
+
+// [PureKun] 变换元素（需结果可哈希）
+map : (a -> b) -> Set a -> Set b
+
+// [PureKun] 左 Set 是否为右 Set 的子集
+isSubset : Set a -> Set a -> Bool
+
+// [PureKun] 左 Set 是否为右 Set 的超集
+isSuperset : Set a -> Set a -> Bool
+
+// [PureKun] 两集合是否无交集
+disjoint : Set a -> Set a -> Bool
+
+// [PureKun] 折叠（与 List.fold 相同签名）
+fold : (a -> b -> b) -> b -> Set a -> b
 ```
 
 ### 示例
@@ -1991,8 +2078,49 @@ import Stream
 // [Primitive] 从 List 构造
 fromList : List t -> Stream t
 
-// [Primitive] 左闭右开区间 [start, end)
-range : Int -> Int -> Stream Int
+// [Primitive] 从 start 到 end（不含），步长为 step
+range : Int -> Int -> Int -> Stream Int
+// range start end step — step 默认为 1 时提供便捷重载
+// range start end 等价于 range start end 1
+
+// [PureKun] — 变化为一对多映射然后展平
+flatMap : (a -> Stream b) -> Stream a -> Stream b
+
+// [PureKun] 拼接两个 Stream
+append : Stream a -> Stream a -> Stream a
+
+// [PureKun] 逐元素配对
+zip : Stream a -> Stream b -> Stream (a, b)
+
+// [PureKun] 带状态的折叠（emit 中间状态）
+scan : (a -> b -> b) -> b -> Stream a -> Stream b
+
+// [PureKun] 查找第一个匹配元素
+find : (a -> Bool) -> Stream a -> ?a
+
+// [PureKun] 所有元素是否满足谓词
+all : (a -> Bool) -> Stream a -> Bool
+
+// [PureKun] 是否存在满足谓词的元素
+any : (a -> Bool) -> Stream a -> Bool
+
+// [PureKun] 排序（需完全物化，仅对有限 Stream）
+sort : Stream a -> Stream a
+
+// [PureKun] 连续分组
+group : (a -> a -> Bool) -> Stream a -> Stream (List a)
+
+// [PureKun] 取第 n 个元素
+nth : Int -> Stream a -> ?a
+
+// [Primitive] 创建无限重复元素的 Stream
+repeat : a -> Stream a
+
+// [Primitive] 创建无限迭代的 Stream
+iterate : (a -> a) -> a -> Stream a
+
+// [PureKun] 创建无限循环的 Stream
+cycle : List a -> Stream a
 ```
 
 #### 变换（惰性）
@@ -2118,6 +2246,21 @@ println : String -> Unit
 
 // [Primitive] 从 stdin 读取一行
 readln : -> String
+
+// [Primitive] 输出到标准错误（stderr）
+eprint : String -> Unit
+
+// [Primitive] 输出到标准错误并换行
+eprintln : String -> Unit
+
+// [Primitive] 从标准输入读取原始字节
+readBytes : Int -> Result Bytes IOError
+
+// [Primitive] 标准输出是否连接到终端
+isTerminal : Bool
+
+// [Primitive] 强制刷新标准输出缓冲区
+flush : Unit
 ```
 
 ### 示例
@@ -2154,6 +2297,12 @@ setenv : String -> String -> Unit
 
 // [Primitive] 删除环境变量
 unsetenv : String -> Unit
+
+// [Primitive] 列举所有环境变量
+list : Map String String
+
+// [Primitive] 检查环境变量是否存在
+contains : String -> Bool
 ```
 
 `setenv` 内置拒绝列表——以 `LD_` 开头的变量名始终拒绝设置，与子进程 env 始终剔除列表保持一致。
@@ -2246,6 +2395,45 @@ readlink : Path -> Result Path IOError
 
 // [Primitive] — 需要 opendir/readdir/closedir 系统调用；glob 遍历的路径受 Landlock 规则约束——仅返回 Landlock 允许路径内的匹配项
 glob : String -> Path -> Result (List Path) IOError
+
+// [Primitive] 追加字符串到文件末尾
+appendString : Path -> String -> Result Unit IOError
+
+// [Primitive] 追加二进制数据到文件末尾
+appendBytes : Path -> Bytes -> Result Unit IOError
+
+// [Primitive] 路径是否为常规文件
+isFile : Path -> Bool
+
+// [Primitive] 路径是否为目录
+isDir : Path -> Bool
+
+// [Primitive] 路径是否为符号链接
+isSymlink : Path -> Bool
+
+// [Primitive] 以字符流形式逐行读取文件
+readLines : Path -> Stream (Result String IOError)
+
+// [Primitive] 递归遍历目录
+walkDir : Path -> Stream Path
+
+// [Primitive] 获取当前工作目录
+currentDir : Path
+
+// [Primitive] 切换当前工作目录
+changeDir : Path -> Result Unit IOError
+
+// [Primitive] 递归删除目录及其内容
+removeAll : Path -> Result Unit IOError
+
+// [Primitive] 用户主目录路径
+homeDir : Path
+
+// [Primitive] 系统临时目录路径
+tempDir : Path
+
+// [Primitive] 原子写入——写入临时文件后 rename
+atomicWriteString : Path -> String -> Result Unit IOError
 ```
 
 > **MVP 已知限制 — 阻塞型文件**：`readString` 和 `readBytes` 通过 `read(2)` 系统调用实现，在 FIFO（命名管道）、socket、字符设备等阻塞型文件上会无限期阻塞直到对端写入或连接。MVP 不提供超时参数。
@@ -2367,6 +2555,18 @@ retry : Int -> Duration -> Command -> Result (Stream String) CommandError
 
 // [Primitive] PATH 查找命令位置，不可执行/未找到返回 Nil
 which : String -> ?Path
+
+// [Primitive] 收集 stdout 到 String（等同于 |> Stream.string）
+stdoutToString : Command -> Result String CommandError
+
+// [Primitive] 收集合并后的 stderr 到 String（需先 mergeStderr）
+stderrToString : Command -> Result String CommandError
+
+// [Primitive] 从文件路径注入 stdin
+withStdinFile : Path -> Command -> Command
+
+// [Primitive] execute non-panicking variant (returns Result instead of panicking)
+execSafe : Command -> Result Unit CommandError
 ```
 
 #### 效应分类
@@ -2437,11 +2637,17 @@ pid : -> Pid
 // [Primitive] — 可向任意 PID 发送信号；实际效果取决于 OS 级权限（CAP_KILL 或同 UID）；无沙箱模式下可影响系统服务
 kill : Signal -> Pid -> Result Unit IOError
 
-// [Primitive] 等待子进程退出，返回退出码
-wait : -> ExitCode
+// [Primitive] 等待子进程——返回 ?ExitCode（无子进程时返回 Nil）
+wait : -> ?ExitCode
 
 // [Primitive] 阻塞等待指定时长
 sleep : Duration -> Unit
+
+// [Primitive] 改变当前进程的工作目录
+chdir : Path -> Unit
+
+// [Primitive] 设置 real-time 定时器（秒）
+sleep : Float -> Unit
 ```
 
 - `kill` 向任意进程发送信号，需要 OS 级权限（root 或进程所有者为当前用户）——失败返回 `Err (PermissionDenied)`
@@ -2491,6 +2697,24 @@ free : -> { total : Int, used : Int, free : Int }
 
 // [Primitive] statfs() 磁盘信息
 df : Path -> { fs : String, total : Int, used : Int, avail : Int }
+
+// [Primitive] 系统主机名
+hostname : String
+
+// [Primitive] 系统信息（os/kernel/architecture）
+uname : { os : String, kernel : String, arch : String }
+
+// [Primitive] 系统启动以来的秒数
+uptime : Float
+
+// [Primitive] 逻辑 CPU 数量
+cpuCount : Int
+
+// [Primitive] 当前进程的用户 ID
+uid : Int
+
+// [Primitive] 当前进程的组 ID
+gid : Int
 ```
 
 ### 示例
@@ -2689,6 +2913,27 @@ ok : Bool -> String -> Unit
 
 // [PureKun] 断言纯函数 thunk 触发 panic（thunk 为纯函数；panics 内部捕获 panic）
 panics : (Unit -> a) -> String -> Unit
+
+// [PureKun] 断言不相等
+notEqual : a -> a -> Unit
+
+// [PureKun] 断言近似相等（浮点容差）
+approxEqual : Float -> Float -> Float -> Unit
+
+// [PureKun] 断言 panic 且消息匹配
+panicsWith : String -> (Unit -> a) -> Unit
+
+// [PureKun] 断言结果为 Ok
+isOk : Result a e -> a
+
+// [PureKun] 断言结果为 Err
+isErr : Result a e -> e
+
+// [PureKun] 断言值非 Nil
+isSome : ?a -> a
+
+// [PureKun] 断言值为 Nil
+isNil : ?a -> Unit
 ```
 
 - `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
@@ -2715,6 +2960,17 @@ main = \_ ->
 - 文件名遵循 `test-*.kun` 模式
 - 入口函数签名为 `main : List String -> Unit`
 - `kun test` 自动发现并运行所有测试文件，报告通过/失败统计
+
+### 测试生命周期
+
+- `Test.setup : (Unit -> Unit) -> Unit` — 在每个测试前执行
+- `Test.teardown : (Unit -> Unit) -> Unit` — 在每个测试后执行
+- `Test.beforeAll : (Unit -> Unit) -> Unit` — 在所有测试前执行一次
+- `Test.afterAll : (Unit -> Unit) -> Unit` — 在所有测试后执行一次
+- `Test.describe : String -> List (Unit -> Unit) -> Unit` — 将测试分组为命名套件
+- `Test.skip : (Unit -> Unit) -> Unit` — 跳过指定测试
+- `Test.only : (Unit -> Unit) -> Unit` — 仅运行指定测试
+- `Test.timeout : Duration -> (Unit -> Unit) -> Unit` — 设置测试超时
 
 ## 导入一览
 

@@ -31,6 +31,8 @@
 
 ## 实施步骤
 
+> **实施状态**：以下 8 个步骤均已完成——对应的设计内容已整合入 `architecture/system-baseline.md` 标准库集成章节、`architecture/module-boundaries.md` 模块边界、`architecture/i18n.md` 国际化子系统。本计划保留为历史设计记录。
+
 ### Step 1: 展开运行时生命周期
 
 新增章节，描述从启动到退出的完整流程：
