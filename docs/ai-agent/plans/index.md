@@ -24,3 +24,4 @@
 | [CDF 类型层与架构层修复](plan-cdf-type-and-arch-fixes.md) | CmdResult 定义、错误类型一致、process.exec 移除 | 已完成 |
 | [运行时架构设计](plan-runtime-architecture.md) | 运行时生命周期、执行模型、模块边界 | 已完成 |
 | [语法全面调整](plan-syntax-overhaul.md) | 20 项语法变更、15 个文件同步 | 已完成 |
+| [标准库内置函数绑定机制设计](plan-stdlib-builtin-binding.md) | Primitive 函数表、模块绑定规则、安全防护、逐函数实现类别标注 | 进行中 |
