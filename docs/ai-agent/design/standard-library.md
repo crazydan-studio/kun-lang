@@ -2668,9 +2668,6 @@ wait : -> ?ExitCode
 // [Primitive] 阻塞等待指定时长
 sleep : Duration -> Unit
 
-// [Primitive] 改变当前进程的工作目录
-chdir : Path -> Unit
-
 
 ```
 
@@ -2954,11 +2951,14 @@ isSome : ?a -> a
 
 // [PureKun] 断言值为 Nil
 isNil : ?a -> Unit
+
+// [PureKun] 断言 thunk 执行时 panic——捕获任何 panic 即通过
+panics : (-> a) -> Unit
 ```
 
 - `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
 - `ok condition message`：`condition` 为 `true` 通过，否则 panic
-- `panics thunk message`：`thunk` 为 `Unit -> a` 纯函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`panics` 仅接受纯函数 thunk（无 `do` 块或效应命名空间调用），所有 `Test` 断言均为纯函数
+- `panics thunk message`：`thunk` 为 `-> a` 纯函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`panics` 仅接受纯函数 thunk（无 `do` 块或效应命名空间调用），所有 `Test` 断言均为纯函数
 
 ### 示例
 
