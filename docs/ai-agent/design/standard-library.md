@@ -2507,7 +2507,7 @@ do
       IO.println "failed to create temp file"
 ```
 
-## Cmd — Command 工具与命令调用
+## `Cmd` — Command 工具与命令调用
 
 ### 定位
 

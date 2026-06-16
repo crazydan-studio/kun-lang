@@ -30,7 +30,7 @@ Kun 采用两级种类系统：
 |------|------|------|
 | `Type` | 具体类型（值可居留其中） | `Int`、`Bool`、`String` |
 | `Type -> Type` | 类型构造器（接受一个类型参数返回具体类型） | `List`、`Set`、`Stream` |
-| `Map` | `Type -> Type -> Type` | 接收键类型和值类型，返回具体字典类型 |
+| `Type -> Type -> Type` | 多参类型构造器（接受两个类型参数返回具体类型） | `Map` |
 
 所有完整应用的类型构造器（如 `List Int`）归约到种类 `Type`。
 
@@ -44,12 +44,11 @@ Type Universe
 ├── Sum Types / ADTs   (custom sum types, Result)
 ├── Nilable Types      (?T — Nil or T)
 ├── Function Types     (pure functions, command functions)
-└── Type Variables     (a, b, etc. — for generics)
-
 ├── Standard Library Types (compiler-supported)
 │   ├── Decimal    (mantissa + exponent)
 │   ├── Command    (opaque, Cmd.\<bin\>)
 │   └── DateTime   (Int newtype)
+└── Type Variables     (a, b, etc. — for generics)
 ```
 
 > `DateTime`、`Decimal`、`Command` 为标准库类型——由编译器提供 TypeEnv 变体和运行时表示支持，但非语言内置基础类型。`DateTime` 为 `Int` 的 newtype，`Decimal` 为尾数+指数二元组，`Command` 为不透明值。
