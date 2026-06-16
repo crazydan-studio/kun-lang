@@ -83,7 +83,7 @@ do
 | `Nil` | 省略不传 | Nil 值不生成 flag | |
 | `List a` | `--key v1 --key v2` | 每个元素一个重复 flag | |
 
-> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分——直接 `--` 前缀整个字段名（如 `readonly` → `--readonly`）。此规则确保与以全小写多字符 flag 为主的 CLI 工具兼容（如 `--oneline`、`--oneline` 等），但无法为全小写字段生成 kebab-case flag。需要非标准 flag 映射的用 `Cmd.withRawOpt` 按原样追加。
+> **断词规则**：仅大写字母触发 `-` 断词（`maxCount` → `--max-count`）。全小写多字符键（`readonly`、`stdout`、`oneline`）不做连字符拆分——直接 `--` 前缀整个字段名（如 `readonly` → `--readonly`）。此规则确保与以全小写多字符 flag 为主的 CLI 工具兼容（如 `--oneline`、`--readonly` 等），但无法为全小写字段生成 kebab-case flag。需要非标准 flag 映射的用 `Cmd.withRawOpt` 按原样追加。
 
 argv 生成顺序：
 

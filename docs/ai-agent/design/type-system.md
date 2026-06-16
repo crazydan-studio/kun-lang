@@ -618,7 +618,7 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
      Hint: {expected} 不可为 Nil。使用 ?{expected} 标注为可选类型，或提供非 Nil 值
    ```
 
-8. **`NullableUsedAsT`**（?T 用于期望 T 的位置）
+8. **`NilableUsedAsT`**（?T 用于期望 T 的位置）
    ```
    Error: Nilable Used As Non-Nilable ─── src/main.kun:{line}:{col}
      Expected: {expected}

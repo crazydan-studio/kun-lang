@@ -1646,7 +1646,7 @@ maximum : List a -> ?a
 intersperse : a -> List a -> List a
 
 // [PureKun] 按 key 函数分组
-groupBy : (a -> k) -> Map k (List a)
+groupBy : (a -> k) -> List a -> Map k (List a)
 ```
 
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素
@@ -1818,7 +1818,7 @@ isSuperset : Set a -> Set a -> Bool
 disjoint : Set a -> Set a -> Bool
 
 // [PureKun] 折叠（与 List.fold 相同签名）
-fold : (a -> b -> b) -> b -> Set a -> b
+fold : (b -> a -> b) -> b -> Set a -> b
 ```
 
 ### 示例
@@ -2517,7 +2517,7 @@ import Cmd
 
 ```kun
 // <bin> 为动态命令名——Cmd.ls、Cmd.git、Cmd["ntfs-3g"] 等均为合法形式
-// [PureKun] <bin>   : ?[options] -> posArgs... -> Command          // 延迟执行，返回 Command 值
+// [编译器内置语法] Cmd.<bin> 构造 Command 值
 // [Primitive] <bin>?  : ?[options] -> posArgs... -> Result (Stream String) CommandError  // 立即执行
 ```
 
@@ -2953,7 +2953,7 @@ isSome : ?a -> a
 isNil : ?a -> Unit
 
 // [PureKun] 断言 thunk 执行时 panic——捕获任何 panic 即通过
-panics : (-> a) -> Unit
+panics : (-> a) -> String -> Unit
 ```
 
 - `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
@@ -2971,7 +2971,7 @@ main = \_ ->
   do
     Test.equal 4 (2 + 2) "basic arithmetic"
     Test.ok (List.length [1, 2, 3] == 3) "list length"
-    Test.panics (\_ -> List.head []) "head of empty list panics"
+    Test.panics (\ -> List.head []) "head of empty list panics"
     IO.println "all tests passed"
 ```
 
