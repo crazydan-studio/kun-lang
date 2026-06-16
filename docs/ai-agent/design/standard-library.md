@@ -2077,7 +2077,7 @@ shuffle : List a -> List a
 import Random
 
 Random.int 1 100                     // → 随机整数 [1, 100]
-Random.float                         // → 随机浮点数 [0, 1)
+Random.float 0.0 1.0                 // → 随机浮点数 [0, 1)
 Random.shuffle [1, 2, 3, 4, 5]       // → 随机排列
 ```
 
@@ -2163,10 +2163,10 @@ take : Int -> Stream a -> Stream a
 // [PureKun] 丢弃前 n 个元素
 drop : Int -> Stream a -> Stream a
 
-// [PureKun] 按 \n 切分
+// [Primitive] 按 \n 切分
 lines : Stream String -> Stream (Result String LineError)
 
-// [PureKun] 同上，指定行长上限
+// [Primitive] 同上，指定行长上限
 linesMax : Int -> Stream String -> Stream (Result String LineError)
 ```
 

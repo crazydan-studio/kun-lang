@@ -198,7 +198,7 @@ do
 
 ## 工作目录
 
-Kun **不提供全局 `cd`**。`Cmd.withCwd : Path -> Command -> Command` 指定每个子进程独立的工作目录（fork 后、exec 前 `chdir`）。父进程 OS CWD 始终不变，缺省使用 `Path.cwd`（脚本启动时冻结的常量）。
+Kun **不提供全局 `cd`**。`Cmd.withCwd : Path -> Command -> Command` 指定每个子进程独立的工作目录（fork 后、exec 前 `chdir`）。父进程 OS CWD 推荐不变——命令工作目录使用 `Cmd.withCwd` 按命令指定；若需修改进程 CWD，使用 `File.changeDir`。`Path.cwd` 为脚本启动时冻结的常量，不随 `File.changeDir` 变化
 
 ```kun
 do
