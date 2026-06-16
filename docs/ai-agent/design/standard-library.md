@@ -1347,6 +1347,17 @@ type SocketAddr
   | Udp IpAddress Port
 ```
 
+### `SocketAddr`
+
+```kun
+// [PureKun] 从 IpAddress 和 Port 构造 SocketAddr
+tcp : IpAddress -> Port -> SocketAddr
+udp : IpAddress -> Port -> SocketAddr
+
+// [PureKun] 转换为字符串
+toString : SocketAddr -> String
+```
+
 #### 示例
 
 ```kun
@@ -1916,7 +1927,7 @@ range : Int -> Int -> Int -> Result Int String
 // [PureKun] 非空字符串
 nonEmpty : String -> Result String String
 
-// [PureKun] 正则匹配：模式必须匹配整个字符串
+// [Primitive] 正则匹配：模式必须匹配整个字符串（依赖 C 正则引擎）
 regex : String -> String -> Result String String
 ```
 
@@ -2496,7 +2507,7 @@ do
       IO.println "failed to create temp file"
 ```
 
-## `Cmd` — Command 工具与命令调用
+## Cmd — Command 工具与命令调用
 
 ### 定位
 
