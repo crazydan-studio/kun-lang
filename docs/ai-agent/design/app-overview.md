@@ -94,7 +94,7 @@ do
   case File.createTempFile of
     Ok tmp ->
       defer (File.remove tmp)
-      Cmd.ffmpeg {} "input.mp4" tmp
+      Cmd.ffmpeg {} "input.mp4" tmp |> Cmd.exec
     Err _ -> IO.println "failed to create temp file"
 // do 块退出时自动 remove tmp
 ```
@@ -122,6 +122,6 @@ do
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.14 | 命令调用描述更新：Command 执行模型同步（`Cmd.exec` 显式执行替代 `do` 块隐式执行） |
+| 2026.06.16 | 命令调用描述更新：Command 执行模型同步（`Cmd.exec` 显式执行替代 `do` 块隐式执行），修复 defer 示例中未消费 Command |
 | 2026.06.13 | 求值策略标题修正；User/Group 参考更正为 Uid/Gid |
 | 2026.06.10 | 架构重设计：应用概览与核心概念定义 |

@@ -126,7 +126,7 @@ deploy : Config -> Unit
 deploy = \cfg ->
   do
     IO.println "deploying..."
-    Cmd.rsync { archive = true } cfg.source cfg.target
+    Cmd.rsync { archive = true } cfg.source cfg.target |> Cmd.exec
 ```
 
 `do in` 形式用于执行副作用后返回纯值，`in` 与 `do` 对齐：
@@ -593,7 +593,7 @@ do
     (\item ->
       do
         IO.println f"processing {item.name}"
-        Cmd.process {} item.path
+        Cmd.process {} item.path |> Cmd.exec
     )
     items
 
@@ -615,7 +615,7 @@ do
   defer (File.remove tmp)
   defer (IO.println "cleanup complete")
 
-  Cmd.ffmpeg {} "input.mp4" tmp
+  Cmd.ffmpeg {} "input.mp4" tmp |> Cmd.exec
 ```
 
 多个 `defer` 按 LIFO 逆序执行。`defer` 适合"尽力清理"逻辑，不适合"必须成功"的操作。
@@ -628,12 +628,12 @@ do
 do
   if condition then
     IO.println "doing work..."
-    Cmd.tool {} target
+    Cmd.tool {} target |> Cmd.exec
   else
     IO.println "skipping"
     Process.exit 1
 
-  Cmd.cleanup {}
+  Cmd.cleanup {} |> Cmd.exec
 ```
 
 嵌套 `do` 仅在分支需要独立 `defer` 作用域时使用：
@@ -643,7 +643,7 @@ do
   if needsBackup then
     do
       defer (File.remove tmpBackup)
-      Cmd.tar {} sourcePath tmpBackup
+      Cmd.tar {} sourcePath tmpBackup |> Cmd.exec
   else
     IO.println "skipping backup"
 ```

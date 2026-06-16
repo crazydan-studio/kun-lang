@@ -727,7 +727,6 @@ case command of
       defer cleanupRollback ()
       ...
 ```
-// 内层 defer 已在上述分支退出时执行
 
 - `let ... in` 表达式不可出现在 `do` 块内——`do` 块内使用 `=` 绑定（顺序求值）和 `do in` 形式（绑定后返回值）。若需在 `do` 块内引入局部定义并立即求值，使用 `=` 绑定；若需在副作用后返回纯值，使用 `do in`
 - `do` 块内的 `Cmd.<bin>` 表达式不会被隐式执行——需通过 `|>` 管道触发、`Cmd.exec` 显式执行或 `?` 后缀立即执行。未被消费的 `Command` 值在 `do` 块内是编译错误
@@ -741,7 +740,7 @@ do
   case File.createTempFile of
     Ok tmp ->
       defer (File.remove tmp)
-      Cmd.ffmpeg {} "input.mp4" tmp
+      Cmd.ffmpeg {} "input.mp4" tmp |> Cmd.exec
     Err _ -> IO.println "failed to create temp file"
 // do 块退出时自动 remove tmp
 ```

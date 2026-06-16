@@ -202,10 +202,10 @@ Kun **不提供全局 `cd`**。`Cmd.withCwd : Path -> Command -> Command` 指定
 
 ```kun
 do
-  Cmd.ls {}                                       // CWD = Path.cwd
+  Cmd.ls {} |> Cmd.exec                                       // CWD = Path.cwd
   Cmd.tar { c = true, f = "backup.tar" } "."
-    |> Cmd.withCwd p"/build/output"               // 仅此子进程 CWD = /build/output
-  Cmd.ls {}                                       // CWD 仍为 Path.cwd
+    |> Cmd.withCwd p"/build/output" |> Cmd.exec              // 仅此子进程 CWD = /build/output
+  Cmd.ls {} |> Cmd.exec                                       // CWD 仍为 Path.cwd
 ```
 
 需要跨多个命令使用同一 CWD 时，用变量绑定：
@@ -213,8 +213,8 @@ do
 ```kun
 do
   workDir = p"/build/output"
-  Cmd.tar { c = true, f = "backup.tar" } "." |> Cmd.withCwd workDir
-  Cmd.ls { a = true } |> Cmd.withCwd workDir
+  Cmd.tar { c = true, f = "backup.tar" } "." |> Cmd.withCwd workDir |> Cmd.exec
+  Cmd.ls { a = true } |> Cmd.withCwd workDir |> Cmd.exec
 ```
 
 ## stdin 注入：`Cmd.withStdin`
@@ -271,9 +271,11 @@ do
 do
   Cmd.docker.build { tag = "app" } "."
     |> Cmd.andThen (Cmd.docker.push {} "app:latest")
+    |> Cmd.exec
 
   Cmd.ping { c = 3 } "192.168.1.1"
     |> Cmd.orElse (Cmd.echo {} "unreachable")
+    |> Cmd.exec
 ```
 
 `Cmd.andThen` / `Cmd.orElse` 返回 `Command`（延迟执行），不立即 fork。不引入 `&&`/`||` 运算符以避免与逻辑短路运算符冲突。
