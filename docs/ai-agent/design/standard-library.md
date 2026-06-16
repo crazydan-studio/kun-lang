@@ -1919,7 +1919,7 @@ import Validator
 
 ```kun
 // [PureKun] 枚举约束：值必须在列表中
-oneOf : List String -> a -> Result a String
+oneOf : List String -> String -> Result String String
 
 // [PureKun] 数值范围：[min, max] 闭区间
 range : Int -> Int -> Int -> Result Int String

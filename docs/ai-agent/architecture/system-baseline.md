@@ -114,7 +114,7 @@ Kun 采用**严格求值**（Strict Evaluation）作为默认策略：
 | `if`/三元 | 按需 | 仅条件匹配的分支被求值 |
 | `&&`/`\|\|` | 短路 | 左侧确定结果时右侧不求值 |
 | `Stream` | 惰性 | 元素在消费时按需拉取 |
-| `let ... in` 多绑定 / `let rec` | 延迟 | 绑定组中所有表达式同时被包装为 thunks；每个 thunk 的 env 捕获其他绑定的 thunk 引用（通过互引用循环完成）；首次引用任一绑定时，按依赖拓扑顺序求值并 memoize |
+| `let ... in` 多绑定 | 延迟 | 绑定组中所有表达式同时被包装为 thunks；每个 thunk 的 env 捕获其他绑定的 thunk 引用（通过互引用循环完成）；首次引用任一绑定时，按依赖拓扑顺序求值并 memoize |
 | `let ... in` 绑定 | 延迟 | `let` 与 `in` 之间的绑定仅在 `in` 之后被引用时才真正求值，绑定时不求值。`let ... in` 不可出现在 `do` 块内——`do` 块的顺序执行语义与延迟求值不兼容。`let` 绑定的表达式必须是纯的——不得包含效应函数调用（`IO.*`、`File.*` 等）、`do` 块、或 `Cmd.<bin>?` 等立即执行操作。效应代码必须使用 `do` 块内的 `=` 绑定 |
 | Record/List/Map/Set 字面量 | 严格 | 所有元素/字段在构造前求值 |
 | Record 字段访问/更新 | 严格 | 被访问的 Record 表达式先求值，然后按编译期偏移量读取/更新字段 |
@@ -714,7 +714,7 @@ seccomp-BPF 过滤规则禁止以下系统调用类别：
 | `Unit` | `void` | 0 字节 | 1 |
 | `Regex` | `*const RegexHandle` | 8 字节 | 8 |
 | `Decimal` | `struct { int64_t mantissa, int32_t exponent }` | 12 字节 | 8 |
-| `Command` | `struct { uint8_t tag, uint8_t payload[32] }` | 33 字节 | 8 |
+| `Command` | `struct { uint8_t tag, uint8_t payload[32] }` | 33 字节 | 1 |
 
 > `Regex` 的运行时表示为指向编译后正则引擎句柄的不透明指针。`Command` 为 `Cmd.<bin>` 构造的不透明值，内部结构为编译器实现细节；`Decimal` 以尾数+指数二元组表示。
 >
