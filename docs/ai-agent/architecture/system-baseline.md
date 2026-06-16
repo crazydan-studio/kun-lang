@@ -182,7 +182,7 @@ const Stream = union(enum) {
 
 - `cmd` 变体持有子进程的 pipe fd 和 pid，`buf` 为堆分配
 - 变换操作（`map`、`filter`、`take`、`drop`）通过包裹上游 Stream 构造新节点；`take`/`drop` 的 `remaining` 为 `usize`，API 层 `Int` 参数 ≤ 0 时：`take 0` 返回空 Stream，`take n (n < 0)` 编译期报错（或 panic）；`drop 0` 等同原 Stream，`drop n (n < 0)` 同 `take` 处理
-- `lines` 变体：按 `\n` 切分输入流——`buf` 为跨 chunk 的累积缓冲区，分配在构造时所属的 Arena 上。`max_len` 为行长上限（默认 1 MiB），超过上限时当前行被截断并产生 `Err LineTruncated` 错误作为元素值，缓冲区重置后继续下一行。缓冲区增长策略：正常行（len ≤ max_len）遇到 `\n` 时返回该行（不含 `\n`），buf 重置复用已分配空间；超长行（len > max_len）产生 `Err LineTruncated { partial_len: max_len }` 元素，丢弃当前缓冲内容（含后续 `\n` 前的所有字节）后重置下一行；上游终止时若 buf 非空返回最后一行（可能不含结尾 `\n`）。API 层提供 `Stream.lines`（默认 1 MiB）和 `Stream.linesMax n`（自定义上限，n ≤ 0 编译期报错）。n 的上限为 256 MiB（防止仲裁者传入极大值耗尽 Arena 内存）；超出上限编译期报错。
+- `lines` 变体：按 `\n` 切分输入流——`buf` 为跨 chunk 的累积缓冲区，分配在构造时所属的 Arena 上。`max_len` 为行长上限（默认 1 MiB），超过上限时当前行被截断并产生 `Err LineTruncated` 错误作为元素值，缓冲区重置后继续下一行。缓冲区增长策略：正常行（len ≤ max_len）遇到 `\n` 时返回该行（不含 `\n`），buf 重置复用已分配空间；超长行（len > max_len）产生 `Err LineTruncated { partial_len: max_len }` 元素，丢弃当前缓冲内容（含后续 `\n` 前的所有字节）后重置下一行；上游终止时若 buf 非空返回最后一行（可能不含结尾 `\n`）。API 层提供 `Stream.lines`（默认 1 MiB）和 `Stream.linesMax n`（自定义上限）。n ≤ 0 时编译期报错（n 为字面量或编译期已知值）。若 n 为运行时值且 ≤ 0，运行时 panic。n > 256 MiB 时编译期报错（编译期已知）或运行时 panic（运行时值）。
 - `parse_mapped`：映射并丢弃 `Err` 结果（对应 `Stream.parseMap`）
 - `parse_mapped_keep`：映射并保留 `Result`（对应 `Stream.parseMapKeep`）
 - `filterMap` 无独立 tagged union 变体——在代码生成阶段展开为 `mapped` + 过滤 `Nil` 的复合操作

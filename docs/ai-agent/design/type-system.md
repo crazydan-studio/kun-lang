@@ -144,7 +144,7 @@ case (x, y) of              // x : ?Int, y : ?String
 #### `Int`
 
 - 固定 64 位有符号整数（i64），补码表示。字面量支持十进制、`0x`、`0o`、`0b` 及 `_` 分隔
-- `Int` 的四则运算（`+`/`-`/`*`/`/`）在安全模式（Debug/ReleaseSafe）下溢出时 panic。ReleaseFast 和 ReleaseSmall 模式下溢出检测关闭——行为为 Zig 的默认行为（二进制补码回绕，wrapping）。需要精确溢出控制的代码使用标准库的 `Int.saturatingAdd` 等安全操作（标准库未提供时应在 MVP 后补充）。
+- `Int` 的四则运算（`+`/`-`/`*`/`/`）在安全模式（Debug/ReleaseSafe）下溢出时 panic。ReleaseFast 和 ReleaseSmall 模式下溢出检测关闭——行为为 Zig 的默认行为（二进制补码回绕，wrapping）。需要精确溢出控制的代码使用 wrapping 运算符（`+%`、`-%`、`*%` 等，wrapping 语义）或将操作数提升为 `Float` 后计算再截断。若后续引入饱和运算需求，可在标准库中补充 `Int.saturatingAdd` 等函数。
 
 `Int` 除零（`x / 0` 或 `x % 0`）在任何构建模式下均为 panic——不可通过模式关闭。`Float` 除零返回 `±Infinity` 或 `NaN`（见上方特殊浮点值表）。
 

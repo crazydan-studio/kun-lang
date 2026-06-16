@@ -2072,9 +2072,10 @@ shuffle : List a -> List a
 ```kun
 import Random
 
-Random.int 1 100                     // → 随机整数 [1, 100]
-Random.float 0.0 1.0                 // → 随机浮点数 [0, 1)
-Random.shuffle [1, 2, 3, 4, 5]       // → 随机排列
+do
+  n = Random.int 1 100
+  f = Random.float 0.0 1.0
+  s = Random.shuffle [1, 2, 3, 4, 5]
 ```
 
 语义场景：唯一 ID 生成、端口选择、测试数据、负载分配。
