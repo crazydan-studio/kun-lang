@@ -685,8 +685,6 @@ type Signal
 #### API
 
 ```kun
-// [PureKun] 信号编号
-number : Signal -> Int
 // [PureKun] 信号名称
 name : Signal -> String
 
@@ -759,8 +757,6 @@ type Errno
 ```kun
 // [PureKun] 返回错误码的描述字符串
 message : Errno -> String
-// [PureKun] 返回错误码编号
-number : Errno -> Int
 
 // [PureKun] 从编号安全构造
 fromInt : Int -> Result Errno String
