@@ -794,7 +794,7 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 
 类型在编译后的运行时表示及 C ABI 映射见[系统基线](../architecture/system-baseline.md#类型运行时表示)。类型系统专注于编译期语义，运行时内存布局属于架构实现细节。
 
-## 版本与演进
+## 版本历史
 
 | 版本 | 变更 |
 |------|------|

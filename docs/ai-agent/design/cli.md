@@ -533,7 +533,7 @@ handleSubCmd = \cfg ->
 
 `--help` 自动列出所有已注册子命令。对特定子命令使用 `--help`（如`deploy.kun push --help`）显示该子命令的详细帮助。子命令帮助文本取自子 spec 的`meta.intro`。
 
-`--version` 同样自动可用——显示 `meta.version`（若提供），否则输出「版本未知或未设定」。
+`--version` 同样自动可用——显示 `meta.version`（若提供），否则输出「版本未设定」。
 
 帮助输出中，参数名（选项名、位置参数名）的显示规则为：kebab-case 名全部大写，保留原 `-` 分隔符。否定标志以 `--no-NAME` 形式出现在帮助中；带 `withEnvVar` 的选项显示 `[env: VARNAME]` 提示。
 
