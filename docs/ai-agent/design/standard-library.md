@@ -920,7 +920,7 @@ type IOError
   | Other String
 
 // [PureKun] 将 IOError 转换为人类可读的字符串
-toString : IOError -> String
+show : IOError -> String
 ```
 
 与 `Errno` 的关系：`IOError` 是面向用户的语义封装，`Errno` 是底层 POSIX 码。

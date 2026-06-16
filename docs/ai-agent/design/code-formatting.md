@@ -554,7 +554,7 @@ Cmd.mysql { u = "root" }
 Cmd["ntfs-3g"] { force = true } "/dev/sda1"
 Cmd["g++"] { o = "a.out" } "main.cpp"
   |> Cmd.withRawOpt "-Wall" Nil
-Cmd["a-b.c"]["d-a"] { flag = true }
+Cmd["a-b-c"] { flag = true }
 ```
 
 ## do 块内多行绑定与管道
