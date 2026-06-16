@@ -375,7 +375,8 @@ withStdinFile : Path -> Command -> Command
 mergeStderr : Command -> Command
 // [PureKun]
 withCwd     : Path -> Command -> Command
-withRunAs   : String -> Command -> Command  // [推迟 v1.0]
+// [PureKun] 指定子进程执行用户  // [推迟 v1.0]
+withRunAs : String -> Command -> Command
 
 // 短路条件组合
 // [PureKun]
@@ -398,8 +399,11 @@ stdoutToString : Command -> Result String CommandError
 // [Primitive] 执行合并 stderr 后的 Command 并收集 stderr 到 String（需先 mergeStderr）
 stderrToString : Command -> Result String CommandError
 
-timeout : Duration -> Command -> Result (Stream String) CommandError  // [推迟 v1.0]
-retry   : Int -> Duration -> Command -> Result (Stream String) CommandError  // [推迟 v1.0]
+// [Primitive] 命令超时（SIGKILL + waitpid）  // [推迟 v1.0]
+timeout : Duration -> Command -> Result (Stream String) CommandError
+
+// [Primitive] 命令重试（内部调用 Cmd.timeout）  // [推迟 v1.0]
+retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 ```
 
 > `<bin>`、`?[options]`、`posArgs...` 为元语法占位符，非 Kun 语法。`Cmd.<bin>` 接收可选选项 Record（`?[options]`）和零或多个位置参数（`posArgs...`）。具体调用示例见[语法入口](#语法入口)。

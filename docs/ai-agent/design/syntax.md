@@ -716,15 +716,17 @@ countFiles = \dir ->
 
 `case` 分支内嵌 `do` 块时，内层 `do` 开始新的效应上下文——内层 `do` 注册的 `defer` 在该分支退出时执行（先于外层 `do` 的 `defer`）：
 
+```kun
 case command of
   Deploy config ->
     do
-      defer cleanupDeploy   // 内层：本分支退出时执行
+      defer cleanupDeploy ()
       ...
   Rollback version ->
     do
-      defer cleanupRollback // 内层：本分支退出时执行
+      defer cleanupRollback ()
       ...
+```
 // 内层 defer 已在上述分支退出时执行
 
 - `let ... in` 表达式不可出现在 `do` 块内——`do` 块内使用 `=` 绑定（顺序求值）和 `do in` 形式（绑定后返回值）。若需在 `do` 块内引入局部定义并立即求值，使用 `=` 绑定；若需在副作用后返回纯值，使用 `do in`

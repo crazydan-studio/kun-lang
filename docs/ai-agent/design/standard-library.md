@@ -231,6 +231,9 @@ import Bytes
 ### API
 
 ```kun
+// [PureKun] 拼接两个 Bytes 值
+(++) : Bytes -> Bytes -> Bytes
+
 // [PureKun] 从十六进制字符串解码
 fromHex : String -> Result Bytes String
 
@@ -370,7 +373,7 @@ replaceAll : Regex -> String -> String -> String
 // [Primitive] 分割字符串
 split : Regex -> String -> List String
 
-// [PureKun] 从字符串编译正则（运行时动态构造）
+// [Primitive] 从字符串编译正则（运行时动态构造）
 fromString : String -> Result Regex String
 ```
 
@@ -1087,7 +1090,7 @@ compare : Duration -> Duration -> Int    // -1 / 0 / 1
 toNanos : Duration -> Int
 toMicros : Duration -> Int
 toMillis : Duration -> Int
-toSecs : Duration -> Int
+toSeconds : Duration -> Int
 toMinutes : Duration -> Int
 toHours : Duration -> Int
 toDays : Duration -> Int
@@ -2055,16 +2058,16 @@ import Random
 ### API
 
 ```kun
-// [Primitive] [min, max] 闭区间随机整数
+// [Primitive] 生成随机整数  // [推迟 v0.5]
 int : Int -> Int -> Int
 
-// [Primitive] 指定长度的随机字节序列
+// [Primitive] 生成随机字节  // [推迟 v0.5]
 bytes : Int -> Bytes
 
-// [Primitive] [0, 1) 半开区间随机浮点数（零参效应函数）
-float : -> Float
+// [Primitive] 生成随机浮点数  // [推迟 v0.5]
+float : Float -> Float -> Float
 
-// [Primitive] Fisher-Yates 洗牌
+// [Primitive] 随机打乱列表  // [推迟 v0.5]
 shuffle : List a -> List a
 ```
 
@@ -2672,7 +2675,7 @@ chdir : Path -> Unit
 ```
 
 - `kill` 向任意进程发送信号，需要 OS 级权限（root 或进程所有者为当前用户）——失败返回 `Err (PermissionDenied)`
-- `wait` 等待任意已 fork 的子进程退出并返回退出码；若无可回收子进程（`ECHILD`）返回 `ExitCode.of 0`
+- `wait` 等待任意已 fork 的子进程退出并返回退出码；若无可回收子进程（`ECHILD`）返回 `Nil`
 
 ### 示例
 

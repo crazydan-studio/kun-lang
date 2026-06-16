@@ -1170,7 +1170,7 @@ parseCompile =
     }
 ```
 
-`output : Path` 无 `?` 无 default → 必填。`--o a.out` 之后所有 `-Wall`、`-O2`、`main.c` 均流入 `compilerArgs`。
+`output : Path` 无 `?` 无 default → 必填。`-o a.out` 之后所有 `-Wall`、`-O2`、`main.c` 均流入 `compilerArgs`。
 
 ### 14. 多个位置参数
 
