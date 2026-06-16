@@ -2784,7 +2784,7 @@ all : Stream (Result a e) -> List (Result a e)
 
 `Task.spawn` 通过主线程的 **epoll/poll 事件循环**管理多个子进程的 stdout/stderr pipe——不引入额外线程。子进程 fork 后各自独立，彼此无共享内存。文件冲突由内核文件系统锁定处理（多进程写同一文件的行为由 OS 定义），Kun 不做额外管理。
 
-> **MVP 不包含**：`Task` 模块（`spawn`/`all`）列为 v0.5 特性（见 [MVP 定义](../requirements/mvp.md)）。。
+> **MVP 不包含**：`Task` 模块（`spawn`/`all`）列为 v0.5 特性（见 [MVP 定义](../requirements/mvp.md)）。
 
 ### 示例
 
