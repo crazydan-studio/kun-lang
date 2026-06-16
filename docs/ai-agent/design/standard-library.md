@@ -1139,7 +1139,7 @@ d1 = 5s
 d2 = 100ms
 sum = d1 + d2                           // → 5100000000ns
 
-Duration.toSecs 2h                      // → 7200
+Duration.toSeconds 2h                      // → 7200
 Duration.toMillis (5s - 100ms)           // → 4900
 ```
 
