@@ -341,6 +341,12 @@ import Bytes
 // [Primitive] 字节长度
 length : Bytes -> Int
 
+// [Primitive] 切片 [start, end)，左闭右开
+slice : Int -> Int -> Bytes -> Bytes
+
+// [PureKun] 是否包含子序列
+contains : Bytes -> Bytes -> Bool
+
 // [PureKun] 从十六进制字符串解码
 fromHex : String -> Result Bytes String
 
@@ -551,45 +557,6 @@ add1ThenDouble = add1 >> double         // \x -> double (add1 x)
 
 ## 系统类型
 
-### `Pid`
-
-#### 定位
-
-进程 ID，值域 `1 .. 2^22-1`（Linux 默认 `pid_max`），以 newtype 形式定义。
-
-```kun
-type Pid = Pid Int
-```
-
-#### API
-
-```kun
-// [PureKun] 构造 `Pid`，调用者须确保参数为合法进程 ID，非法输入 panic
-of : Int -> Pid
-
-// [PureKun] 检查 PID 是否在合法范围 `1..2^22-1` 内
-isValid : Pid -> Bool
-// [PureKun] 是否为 init 进程（PID == 1）
-isInit : Pid -> Bool
-
-// [PureKun] 安全构造，非法值（≤ 0 或 > 2^22-1）返回 `Err`
-fromInt : Int -> Result Pid String
-// [PureKun] 提取进程 ID 整数值
-toInt : Pid -> Int
-// [PureKun] 返回进程 ID 的字符串表示
-toString : Pid -> String
-```
-
-#### 示例
-
-```kun
-pid = Pid.of 1234                    // 确信 1234 为合法 PID
-Pid.toInt pid                        // → 1234
-Pid.isInit pid                       // → false
-```
-
-语义场景：进程管理、服务监督、信号发送。
-
 ### `Signal`
 
 #### 定位
@@ -658,125 +625,6 @@ handleTerminate = \ ->
 ```
 
 > **Errno 集成**：POSIX 系统调用错误码（`ENOENT`、`EACCES`、`EPERM` 等）内置于 `IOError` 的运行时实现中，不做为独立模块暴露给用户。需要访问原始错误码的场景通过 `IOError` 的 `Other String` 变体返回描述信息。
-
-### `FileType`
-
-#### 定位
-
-文件类型枚举，标记文件系统条目的类型（运行时由 `stat` 确定）。
-
-```kun
-type FileType
-  = Regular
-  | Directory
-  | SymbolicLink
-  | Socket
-  | Fifo
-  | CharDevice
-  | BlockDevice
-  | Unknown
-```
-
-`Unknown` 变体用于兜底未预期的文件类型。
-
-#### API
-
-```kun
-// [PureKun] 转换为文件类型名称
-toString : FileType -> String
-```
-
-#### 示例
-
-```kun
-// stat : FileStat
-do
-  case stat.type of
-    Regular       -> IO.println "regular file"
-    Directory     -> IO.println "directory"
-    SymbolicLink  -> IO.println "symlink"
-    CharDevice    -> IO.println "char device"
-    _             -> IO.println "other"
-```
-
-### `FileMode`
-
-#### 定位
-
-文件权限位抽象，封装 Unix 权限位语义。
-
-```kun
-type FileMode = FileMode Int    // 八进制权限位，如 0o755、0o644
-```
-
-#### API
-
-```kun
-// [PureKun] 构造 `FileMode`，调用者须确保参数为合法八进制权限位，非法输入 panic
-of : Int -> FileMode
-
-// [PureKun] 所有者是否可读
-isReadable : FileMode -> Bool
-// [PureKun] 所有者是否可写
-isWritable : FileMode -> Bool
-// [PureKun] 所有者是否可执行
-isExecutable : FileMode -> Bool
-
-// [PureKun] 安全构造，非法权限位（超出 0o777）返回 `Err`
-fromInt : Int -> Result FileMode String
-// [PureKun] 提取八进制权限值
-toInt : FileMode -> Int
-// [PureKun] 转换为八进制权限字符串
-toString : FileMode -> String
-```
-
-#### 示例
-
-```kun
-mode = FileMode.of 0o755
-FileMode.isReadable mode             // → true
-FileMode.isExecutable mode           // → true
-FileMode.toInt mode                  // → 493
-```
-
-### `FileStat`
-
-#### 定位
-
-完整的文件/目录元数据结构，由 `File.stat` 返回。
-
-#### API
-
-```kun
-type FileStat =
-  { size      : Int
-  , type      : FileType
-  , mtime     : DateTime
-  , ctime     : DateTime
-  , atime     : DateTime
-  , mode      : FileMode
-  , owner     : Uid
-  , group     : Gid
-  , ownerName : String
-  , groupName : String
-  , device    : ?{ major : Int, minor : Int }
-  }
-```
-
-- `owner`/`group` 为数字 ID（`Uid`/`Gid`），源于 `stat` 系统调用的原始返回值
-- `device` 仅当 `type` 为 `CharDevice` 或 `BlockDevice` 时有值，其余文件类型为 `Nil`
-
-#### 示例
-
-```kun
-do
-  case File.stat p"/dev/sda" of
-    Ok stat ->
-      case stat.device of
-        { major, minor } -> IO.println f"device {major}:{minor}"
-        Nil              -> IO.println "not a device"
-    Err _ -> IO.println "stat failed"
-```
 
 ### `IOError`
 
@@ -1029,55 +877,6 @@ sum = d1 + d2                           // → 5100000000ns
 
 Duration.toSeconds 2h                      // → 7200
 Duration.toMillis (5s - 100ms)           // → 4900
-```
-
-### `ExitCode`
-
-#### 定位
-
-进程退出码，值域 `0 .. 255`（u8），以 newtype 形式定义。
-
-```kun
-type ExitCode = ExitCode Int
-```
-
-#### API
-
-```kun
-// [PureKun] 0 — 成功
-success : ExitCode
-// [PureKun] 1 — 一般错误
-generalError : ExitCode
-// [PureKun] 127 — 命令未找到
-commandNotFound : ExitCode
-
-// [PureKun] 构造 `ExitCode`，调用者须确保参数在 `0..255` 内，非法输入 panic
-of : Int -> ExitCode
-
-// [PureKun] 检查退出码是否在合法范围 `0..255` 内
-isValid : ExitCode -> Bool
-// [PureKun] 退出码 == 0
-isSuccess : ExitCode -> Bool
-// [PureKun] 退出码 ≠ 0
-isFailure : ExitCode -> Bool
-
-// [PureKun] 安全构造，超出 `0..255` 返回 `Err`
-fromInt : Int -> Result ExitCode String
-// [PureKun] 提取退出码整数值
-toInt : ExitCode -> Int
-// [PureKun] 返回退出码的字符串表示
-toString : ExitCode -> String
-```
-
-语义约定：`0` 表示成功，非零表示失败，`125`-`255` 有特殊含义（与 Shell 惯例对齐）。
-
-#### 示例
-
-```kun
-code = ExitCode.of 0
-ExitCode.isSuccess code               // → true
-ExitCode.isFailure code               // → false
-ExitCode.toInt ExitCode.generalError  // → 1
 ```
 
 ### `Path`
@@ -2231,7 +2030,7 @@ writeString : Path -> String -> Result Unit IOError
 writeBytes : Path -> Stream Bytes -> Result Unit IOError
 
 // [Primitive] 获取文件元数据
-stat : Path -> Result FileStat IOError
+stat : Path -> Result Stat IOError
 
 // [Primitive] 创建/更新时间戳
 touch : Path -> Result Unit IOError
@@ -2293,6 +2092,73 @@ tempDir : Path
 // [Primitive] 原子写入——写入临时文件后 rename
 atomicWriteString : Path -> String -> Result Unit IOError
 ```
+
+#### 关联类型
+
+##### `File.Type` — 文件类型枚举
+
+```kun
+type Type
+  = Regular
+  | Directory
+  | SymbolicLink
+  | Socket
+  | Fifo
+  | CharDevice
+  | BlockDevice
+  | Unknown
+```
+
+`Unknown` 变体用于兜底未预期的文件类型。
+
+```kun
+// [PureKun] 转换为文件类型名称
+toString : Type -> String
+```
+
+##### `File.Mode` — 文件权限位
+
+```kun
+type Mode = Mode Int    // 八进制权限位，如 0o755、0o644
+
+// [PureKun] 构造，调用者须确保参数为合法八进制权限位，非法输入 panic
+of : Int -> Mode
+// [PureKun] 所有者是否可读
+isReadable : Mode -> Bool
+// [PureKun] 所有者是否可写
+isWritable : Mode -> Bool
+// [PureKun] 所有者是否可执行
+isExecutable : Mode -> Bool
+// [PureKun] 安全构造，非法权限位（超出 0o777）返回 `Err`
+fromInt : Int -> Result Mode String
+// [PureKun] 提取八进制权限值
+toInt : Mode -> Int
+// [PureKun] 转换为八进制权限字符串
+toString : Mode -> String
+```
+
+##### `File.Stat` — 文件元数据
+
+由 `File.stat` 返回。
+
+```kun
+type Stat =
+  { size      : Int
+  , type      : Type
+  , mtime     : DateTime
+  , ctime     : DateTime
+  , atime     : DateTime
+  , mode      : Mode
+  , owner     : Uid
+  , group     : Gid
+  , ownerName : String
+  , groupName : String
+  , device    : ?{ major : Int, minor : Int }
+  }
+```
+
+- `owner`/`group` 为数字 ID（`Uid`/`Gid`），源于 `stat` 系统调用的原始返回值
+- `device` 仅当 `type` 为 `CharDevice` 或 `BlockDevice` 时有值，其余文件类型为 `Nil`
 
 > **MVP 已知限制 — 阻塞型文件**：`readString` 和 `readBytes` 通过 `read(2)` 系统调用实现，在 FIFO（命名管道）、socket、字符设备等阻塞型文件上会无限期阻塞直到对端写入或连接。MVP 不提供超时参数。
 >
@@ -2510,6 +2376,55 @@ sleep : Duration -> Unit
 
 ```
 
+#### 关联类型
+
+##### `Process.Pid` — 进程 ID
+
+```kun
+type Pid = Pid Int    // 值域 1 .. 2^22-1（Linux 默认 pid_max）
+
+// [PureKun] 构造 `Pid`，调用者须确保参数为合法进程 ID，非法输入 panic
+of : Int -> Pid
+// [PureKun] 检查 PID 是否在合法范围 `1..2^22-1` 内
+isValid : Pid -> Bool
+// [PureKun] 是否为 init 进程（PID == 1）
+isInit : Pid -> Bool
+// [PureKun] 安全构造，非法值（≤ 0 或 > 2^22-1）返回 `Err`
+fromInt : Int -> Result Pid String
+// [PureKun] 提取进程 ID 整数值
+toInt : Pid -> Int
+// [PureKun] 返回进程 ID 的字符串表示
+toString : Pid -> String
+```
+
+##### `Process.ExitCode` — 退出码
+
+```kun
+type ExitCode = ExitCode Int    // 值域 0 .. 255（u8），0 成功，非零失败
+
+// [PureKun] 0 — 成功
+success : ExitCode
+// [PureKun] 1 — 一般错误
+generalError : ExitCode
+// [PureKun] 127 — 命令未找到
+commandNotFound : ExitCode
+
+// [PureKun] 构造，调用者须确保参数在 `0..255` 内，非法输入 panic
+of : Int -> ExitCode
+// [PureKun] 检查退出码是否在合法范围 `0..255` 内
+isValid : ExitCode -> Bool
+// [PureKun] 退出码 == 0
+isSuccess : ExitCode -> Bool
+// [PureKun] 退出码 ≠ 0
+isFailure : ExitCode -> Bool
+// [PureKun] 安全构造，超出 `0..255` 返回 `Err`
+fromInt : Int -> Result ExitCode String
+// [PureKun] 提取退出码整数值
+toInt : ExitCode -> Int
+// [PureKun] 返回退出码的字符串表示
+toString : ExitCode -> String
+```
+
 - `kill` 向任意进程发送信号，需要 OS 级权限（root 或进程所有者为当前用户）——失败返回 `Err (PermissionDenied)`
 - `wait` 等待任意已 fork 的子进程退出并返回退出码；若无可回收子进程（`ECHILD`）返回 `Nil`
 
@@ -2519,11 +2434,11 @@ sleep : Duration -> Unit
 import Process
 
 do
-  currentPid = Process.pid               // → Pid.of <当前进程 ID>
-  IO.println f"pid: {Pid.toInt currentPid}"
+  currentPid = Process.pid                     // → Process.Pid.of <当前进程 ID>
+  IO.println f"pid: {Process.Pid.toInt currentPid}"
 
-  Process.sleep 5s                       // 等待 5 秒
-  Process.exit 0                         // 正常退出
+  Process.sleep 5s                             // 等待 5 秒
+  Process.exit 0                               // 正常退出
 
   // 向进程发送信号
   case Process.kill SIGTERM targetPid of
@@ -2870,21 +2785,16 @@ main = \_ ->
 | `Validator` | `import Validator` | 校验函数（`oneOf`/`range`/`nonEmpty`/`regex`），供 `Cli.withValidator` 等使用 |
 | `IO` | `import IO` | 控制台 IO |
 | `Env` | `import Env` | 环境变量 |
-| `File` | `import File` | 文件操作 |
+| `File` | `import File` | 文件操作及关联类型（`File.Type`/`File.Mode`/`File.Stat`） |
 | `Cmd` | `import Cmd` | 命令调用 |
 | `Task` | `import Task` | 并发命令执行（`spawn`/`all`） |
-| `Process` | `import Process` | 进程控制（`exit`/`pid`/`uid`/`gid`/`kill`/`wait`/`sleep`） |
+| `Process` | `import Process` | 进程控制（`exit`/`pid`/`uid`/`gid`/`kill`/`wait`/`sleep`）及关联类型（`Process.Pid`/`Process.ExitCode`） |
 | `Duration` | `import Duration` | 时间段操作 |
 | `Path` | `import Path` | 路径操作函数（类型标注无需导入） |
-| `Pid` | `import Pid` | 进程 ID 操作 |
 | `Signal` | `import Signal` | 信号枚举与注册 |
-| `FileType` | `import FileType` | 文件类型枚举 |
-| `FileMode` | `import FileMode` | 文件权限位操作 |
-| `FileStat` | `import FileStat` | 文件元数据结构（由 `File.stat` 返回） |
 | `IOError` | `import IOError` | 系统调用结构化错误 |
 | `CommandError` | `import CommandError` | 命令执行语义化错误 |
 | `DateTime` | `import DateTime` | 时间点操作（`format`/`parse`/`year` 等） |
-| `ExitCode` | `import ExitCode` | 退出码操作 |
 | `Uid` | `import Uid` | 用户 ID 操作 |
 | `Gid` | `import Gid` | 组 ID 操作 |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
@@ -2895,6 +2805,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | FileType/FileMode/FileStat 并入 File 模块（`File.Type`/`File.Mode`/`File.Stat`）；Pid/ExitCode 并入 Process 模块（`Process.Pid`/`Process.ExitCode`）；新增 `Bytes.slice`/`Bytes.contains`；净消除 5 模块（41→36） |
 | 2026.06.17 | 移除 `File.changeDir`（全局可变状态），`Cmd.withCwd` 更名为 `Cmd.withWorkDir` |
 | 2026.06.17 | 移除 `Path.cwd`（与 `File.currentDir` 冗余，`getcwd()` 归属 File 更合理） |
 | 2026.06.17 | 新增 `Bytes.length`、`IO.readAll`/`IO.readAllBytes`、`String.repeat`（P0+P1+P2 补全） |

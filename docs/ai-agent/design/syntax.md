@@ -316,7 +316,7 @@ Kun 使用 **Elm 风格**的空格分隔泛型参数，不使用尖括号：
 List Int                      // 单参数
 ?String                       // Nilable
 Result String IOError         // 多参数
-?(Result FileType IOError)    // Nilable + 多词类型用括号包裹
+?(Result File.Type IOError)    // Nilable + 多词类型用括号包裹
 ```
 
 规则：
@@ -386,7 +386,7 @@ add = \x y -> x + y
 identity : a -> a
 identity = \x -> x
 
-pid : -> Pid
+pid : -> Process.Pid
 pid = \ ->
   do
     Process.pid

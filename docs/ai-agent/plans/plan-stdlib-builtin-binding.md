@@ -133,7 +133,7 @@ import M
 | `Path` | 无 | `cwd`、`parent`、`fileName`、`extension`、`join`、`(++)`、`fromString`、`fromBytes`、`component`、`toString`、`toBytes` | 路径是 `[]u8` 切片，字符串操作即可 |
 | `Duration` | 无 | 全部为 PureKun | 运行时表示为 i64，算术即可 |
 | `DateTime` | `format`、`parse` | `of`、`fromUnixSecs`、`toUnixSecs`、字段访问、算术 | `format`/`parse` 需要时区数据处理 |
-| `Pid`、`Signal`、`FileType`、`FileMode`、`FileStat`、`ExitCode`、`Uid`、`Gid` | 无 | 全部为 PureKun | 这些是 newtype/enum/record，构造函数和访问器无需系统调用 |
+| `Signal`、`Uid`、`Gid` | 无 | 全部为 PureKun | 这些是 newtype/enum，构造函数和访问器无需系统调用 |
 | `IOError`、`CommandError` | 无 | 全部为 PureKun | ADT 构造和模式匹配 |
 | `Validator` | 无 | `oneOf`、`range`、`nonEmpty`、`regex` | |
 | `Decimal` | 无 | 全部为 PureKun | 基于 `Int` 尾数和指数的精确十进制 |

@@ -91,7 +91,7 @@ add = \x y ->
   x + y
 
 // 零参函数（仅效应函数）
-pid : -> Pid
+pid : -> Process.Pid
 pid = \ ->
   do
     Process.pid

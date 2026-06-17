@@ -23,17 +23,12 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| Pid | ✅ 设计定型 | newtype，`Pid.of` 构造 |
 | Signal | ✅ 设计定型 | POSIX 信号枚举，`Signal.on`（signalfd），仅可执行脚本可用 |
-| FileType | ✅ 设计定型 | 运行时文件类型枚举（Regular/Directory/SymbolicLink/Socket/Fifo/CharDevice/BlockDevice/Unknown） |
 | IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
 | CommandError | ✅ 设计定型 | 语义化命令错误类型（NotFound/PermissionDenied/CommandFailed/KilledBySignal/IoError/PipeFailed/Timeout） |
 | DateTime | ✅ 设计定型 | newtype，`format` 返回 `Result String String` |
-| ExitCode | ✅ 设计定型 | 0-255，newtype，`of` + `isValid`，预定义常量 |
 | Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型（Int newtype） |
 | Decimal | ✅ 设计定型 | 精确十进制数值（非编译器内置） |
-| FileMode | ✅ 设计定型 | 文件权限位（`of`/`isReadable`/`isWritable`/`isExecutable`/`fromInt`） |
-| FileStat | ✅ 设计定型 | 完整文件元数据（`size`/`type`/`mtime`/`mode`/`owner`/`device` 等） |
 
 ### 标准库模块
 
