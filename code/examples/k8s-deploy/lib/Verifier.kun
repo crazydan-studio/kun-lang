@@ -2,6 +2,12 @@
 // Verifier.kun — 部署健康检查模块
 // ============================================================
 
+export
+  ( HealthStatus, HealthStatus(..)
+  , HealthCheck
+  , checkEndpoint
+  )
+
 import String
 import Duration
 import DateTime
@@ -10,12 +16,6 @@ import Cmd
 import Int
 import CommandError
 import Result
-
-export
-  ( HealthStatus, HealthStatus(..)
-  , HealthCheck
-  , checkEndpoint
-  )
 
 type HealthStatus
   = Healthy
@@ -45,9 +45,10 @@ type HealthCheck =
   , timeout   : Duration
   }
 
-checkOnce : String -> Result Int CommandError
+checkOnce : String -> Result (Int, Duration) CommandError
 checkOnce = \endpoint ->
   do
+    started = DateTime.now
     Cmd.stdoutToString
       (Cmd.curl
         { silent   = true
@@ -56,7 +57,11 @@ checkOnce = \endpoint ->
         , writeOut = "%{http_code}" }
         endpoint)
     |> Result.map (\s ->
-      Int.fromString (String.trim s) |> Result.withDefault 0)
+      let
+        code    = Int.fromString (String.trim s) |> Result.withDefault 0
+        elapsed = DateTime.now - started
+      in
+        (code, elapsed))
 
 checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
@@ -64,27 +69,31 @@ checkEndpoint = \hc ->
     started = DateTime.now
 
     case checkOnce hc.endpoint of
-      Ok code ->
-        evaluateCode code hc.expect
+      Ok (code, elapsed) ->
+        evaluateCode code elapsed hc.expect
       Err err ->
         do
           retryLoop 0 started hc
 
-evaluateCode : Int -> ?Int -> HealthStatus
-evaluateCode = \code expected ->
+evaluateCode : Int -> Duration -> ?Int -> HealthStatus
+evaluateCode = \code elapsed expected ->
   case expected of
     Nil ->
       if code >= 200 && code < 400 then
-        Healthy { responseTime = 0s, statusCode = code, body = "" }
+        Healthy { responseTime = elapsed, statusCode = code, body = "" }
       else
-        Degraded { responseTime = 0s, statusCode = code
-                 , reason = f"status {code}" }
+        Degraded
+          { responseTime = elapsed, statusCode = code
+          , reason = f"status {code}"
+          }
     exp ->
       if code == exp then
-        Healthy { responseTime = 0s, statusCode = code, body = "" }
+        Healthy { responseTime = elapsed, statusCode = code, body = "" }
       else
-        Degraded { responseTime = 0s, statusCode = code
-                 , reason = f"expected {exp}, got {code}" }
+        Degraded
+          { responseTime = elapsed, statusCode = code
+          , reason = f"expected {exp}, got {code}"
+          }
 
 retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus
 retryLoop = \attempt started hc ->
@@ -95,19 +104,20 @@ retryLoop = \attempt started hc ->
       Timeout { waited = hc.timeout }
     else if attempt >= hc.retries then
       case checkOnce hc.endpoint of
-        Ok code ->
-          evaluateCode code hc.expect
+        Ok (code, elapsed) ->
+          evaluateCode code elapsed hc.expect
         Err err ->
           Unreachable { error = CommandError.show err, attempts = attempt }
     else
       case checkOnce hc.endpoint of
-        Ok code ->
+        Ok (code, elapsed) ->
           do
-            okCode = case hc.expect of
-              Nil -> code >= 200 && code < 400
-              exp -> code == exp
+            okCode =
+              case hc.expect of
+                Nil -> code >= 200 && code < 400
+                exp -> code == exp
             if okCode then
-              Healthy { responseTime = 0s, statusCode = code, body = "" }
+              Healthy { responseTime = elapsed, statusCode = code, body = "" }
             else
               do
                 Process.sleep hc.interval

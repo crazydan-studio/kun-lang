@@ -59,10 +59,11 @@ filterByNames = \svcs rawNames ->
     namesStr ->
       let
         trimmed = String.trim namesStr
-        names   = if String.length trimmed > 0 then
-                    String.split "," trimmed |> List.map String.trim
-                  else
-                    []
+        names =
+          if String.length trimmed > 0 then
+            String.split "," trimmed |> List.map String.trim
+          else
+            []
       in
         if List.length names > 0 then
           List.filter (\svc -> List.elem svc.name names) svcs
@@ -81,9 +82,11 @@ toTestSuites = \svcs ->
 main : List String -> Unit
 main = \rawArgs ->
   do
-    IO.println f"\n{String.repeat 60 "="}"
+    IO.println ""
+    IO.println (String.repeat 60 "=")
     IO.println "  Monorepo CI/CD Pipeline"
-    IO.println f"{String.repeat 60 "="}\n"
+    IO.println (String.repeat 60 "=")
+    IO.println ""
 
     case parseConfig rawArgs of
       Ok cfg ->
@@ -126,9 +129,9 @@ main = \rawArgs ->
                 []
             else
               do
-                IO.println f"\n{String.repeat 40 "-"}"
+                IO.println ""
                 IO.println "  TEST PHASE"
-                IO.println f"{String.repeat 40 "-"}"
+                IO.println (String.repeat 40 "-")
 
                 suites = toTestSuites services
                 T.runTests suites cfg.parallel
@@ -136,9 +139,9 @@ main = \rawArgs ->
           // -------------------------------------------------
           // Phase 3: Docker 镜像并行构建
           // -------------------------------------------------
-          IO.println f"\n{String.repeat 40 "-"}"
+          IO.println ""
           IO.println "  DOCKER PHASE"
-          IO.println f"{String.repeat 40 "-"}"
+          IO.println (String.repeat 40 "-")
 
           dockerCfg =
             { registry  = cfg.registry
@@ -158,34 +161,39 @@ main = \rawArgs ->
           dockerResults = Task.all dockerStream
 
           imageResults =
-            services
-              |> List.zip dockerResults
+            dockerResults
+              |> List.zip services
               |> List.map (\(svc, result) ->
                 case result of
                   Ok _ ->
                     let
                       tag = f"{cfg.registry}/{svc.name}:latest"
                     in
-                      D.ImageOk { service = svc.name
-                                , tag = tag
-                                , imageId = "<parallel>"
-                                , size = "N/A" }
+                      D.ImageOk
+                        { service = svc.name
+                        , tag = tag
+                        , imageId = "<parallel>"
+                        , size = "N/A"
+                        }
                   Err err ->
-                    D.ImageFailed { service = svc.name
-                                  , error = CommandError.show err })
+                    D.ImageFailed
+                      { service = svc.name
+                      , error = CommandError.show err
+                      })
 
           // -------------------------------------------------
           // Phase 4: 报告
           // -------------------------------------------------
           elapsed = DateTime.now - started
 
-          IO.println f"\n{String.repeat 40 "-"}"
+          IO.println ""
           IO.println "  REPORT"
-          IO.println f"{String.repeat 40 "-"}"
+          IO.println (String.repeat 40 "-")
 
-          timestamp  = case DateTime.format "yyyyMMdd-HHmmss" started of
-                         Ok s  -> s
-                         Err _ -> "unknown"
+          timestamp =
+            case DateTime.format "yyyyMMdd-HHmmss" started of
+              Ok s  -> s
+              Err _ -> "unknown"
 
           report     = R.generateReport buildResults testResults
                          imageResults started elapsed
@@ -195,7 +203,8 @@ main = \rawArgs ->
           case R.writeReport report reportPath of
             Ok _ ->
               do
-                IO.println f"\n  Total time: {Duration.toSeconds elapsed}s"
+                IO.println ""
+                IO.println f"  Total time: {Duration.toSeconds elapsed}s"
                 IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
                 if report.failed > 0 then
                   Process.exit 1
