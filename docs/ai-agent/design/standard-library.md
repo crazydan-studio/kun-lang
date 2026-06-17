@@ -262,6 +262,9 @@ toUpper : String -> String
 // [PureKun] 转为小写
 toLower : String -> String
 
+// [PureKun] 重复字符串 n 次
+repeat : Int -> String -> String
+
 // [PureKun] 替换第一个匹配
 replace : String -> String -> String -> String
 
@@ -310,6 +313,7 @@ name = "  Kun  " |> String.trim          // → "Kun"
 prefix = String.trimStart "  Kun  "      // → "Kun  "
 suffix = String.trimEnd "  Kun  "        // → "  Kun"
 col = String.padEnd 10 ' ' "Kun"         // → "Kun       "
+line = String.repeat 40 "="               // → "========================================"
 parts = "a,b,c" |> String.split ","      // → ["a", "b", "c"]
 back = parts |> String.join ":"          // → "a:b:c"
 text = Int.toString 42                 // → "42"
@@ -320,7 +324,7 @@ num  = Int.fromString "123"             // → Ok 123
 
 ### 定位
 
-`Bytes` 为内置类型（不可变二进制数据，`[]u8` 切片），`Bytes` 模块提供编解码函数。
+`Bytes` 为内置类型（不可变二进制数据，`[]u8` 切片），`Bytes` 模块提供长度、拼接及编解码函数。
 
 需显式导入：
 
@@ -333,6 +337,9 @@ import Bytes
 ```kun
 // [PureKun] 拼接两个 Bytes 值
 (++) : Bytes -> Bytes -> Bytes
+
+// [Primitive] 字节长度
+length : Bytes -> Int
 
 // [PureKun] 从十六进制字符串解码
 fromHex : String -> Result Bytes String
@@ -352,6 +359,7 @@ toString : Bytes -> String
 ```kun
 import Bytes
 
+Bytes.length 0x48656C6C6F                    // → 5
 Bytes.toHex 0x48656C6C6F                    // → "48656C6C6F"
 Bytes.fromString "hello"                     // → 0x68656C6C6F
 Bytes.toString 0x68656C6C6F                  // → "hello"
@@ -2119,6 +2127,12 @@ eprintln : String -> Unit
 // [Primitive] 从标准输入读取原始字节
 readBytes : Int -> Result Bytes IOError
 
+// [Primitive] 读取标准输入全部内容为字符串
+readAll : -> String
+
+// [Primitive] 读取标准输入全部内容为原始字节
+readAllBytes : -> Bytes
+
 // [Primitive] 标准输出是否连接到终端
 isTerminal : Bool
 
@@ -2135,6 +2149,14 @@ do
   IO.print "Enter name: "
   name = IO.readln
   IO.println f"hello, {name}"
+
+// 管道模式：读取全部 stdin
+do
+  content = IO.readAll
+  IO.println f"received {String.length content} bytes"
+
+  data = IO.readAllBytes
+  IO.println f"binary: {Bytes.length data} bytes"
 ```
 
 ## `Env` — 环境变量
@@ -2879,6 +2901,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 新增 `Bytes.length`、`IO.readAll`/`IO.readAllBytes`、`String.repeat`（P0+P1+P2 补全） |
 | 2026.06.17 | Math 模块并入 Float（pi/e/sin/cos/tan/exp/log/log2/log10/pow/min/max/clamp 迁入）；移除 Math 模块；Int 新增 pow/clamp |
 | 2026.06.17 | 标准库深度精简：移除 Math 反三角/双曲/角度转换/hypot/tau（11 项）、Int.neg、Float.neg、List.intersperse/product、Stream.cycle/repeat；新增 Int.min/max、String.trimStart/trimEnd/padStart/padEnd、Hash.sha256Stream、DateTime.fromUnixMillis、List.range |
 | 2026.06.17 | 标准库精简与补充：移除 `Sys`/`Port`/`IpAddress`/`SocketAddr`/`Errno` 模块（功能由 `Cmd.xxx` 替代或并入 IOError）；移除非必要的 File 函数（`chmod`/`chown`/`symlink`/`readlink`）和 Env 函数（`setenv`/`unsetenv`）、FileMode 低频谓词（`isSetuid`/`isSetgid`/`isSticky`）；新增 `DateTime` 算术（`+ Duration`/`- Duration`/`- DateTime`/`compare`/`before`/`after`）及 `DateTime.now`；新增 `Process.uid`/`Process.gid`；新增 `Path` 工具函数（`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`）；新增 `Hash` 模块（SHA-256）和 `Base64` 模块 |
