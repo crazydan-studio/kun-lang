@@ -102,11 +102,10 @@ retryLoop = \attempt started hc ->
     else
       case checkOnce hc.endpoint of
         Ok code ->
-          let
+          do
             okCode = case hc.expect of
               Nil -> code >= 200 && code < 400
               exp -> code == exp
-          in
             if okCode then
               Healthy { responseTime = 0s, statusCode = code, body = "" }
             else

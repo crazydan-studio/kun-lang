@@ -146,31 +146,41 @@ detectServices = \root ->
     entries = case File.list root of
       Ok es -> es
       Err _ -> []
-
-    candidates = entries
-      |> List.filter (\entry ->
-        File.isDir (root ++ entry))
-      |> List.map (\candidate ->
-        let
-          fullPath = root ++ candidate
-          lang     = detectLanguage fullPath
-        in
-          { name     = Path.toString candidate
-          , language = lang
-          , dir      = fullPath
-          , mainFile = Nil
-          , buildCmd = Nil
-          })
-
-    List.filter (\svc -> svc.language != "unknown") candidates
+    scanServices entries root
 
 detectLanguage : Path -> String
 detectLanguage = \dir ->
   do
-    case (File.exists (Path.join dir "go.mod"), File.exists (Path.join dir "package.json")) of
-      (Ok true, _)   -> "go"
-      (_, Ok true)   -> "js"
-      _              -> "unknown"
+    goStat   = File.stat (Path.join dir "go.mod")
+    pkgStat  = File.stat (Path.join dir "package.json")
+    case (goStat, pkgStat) of
+      (Ok _, _)   -> "go"
+      (_, Ok _)   -> "js"
+      _           -> "unknown"
+
+scanServices : List Path -> Path -> List Service
+scanServices = \entries root ->
+  case entries of
+    [] -> []
+    entry :: rest ->
+      let fullPath = root ++ entry
+      in case File.stat fullPath of
+        Ok s ->
+          if s.isDir then
+            let lang = detectLanguage fullPath
+            in if lang != "unknown" then
+              { name     = Path.toString entry
+              , language = lang
+              , dir      = fullPath
+              , mainFile = Nil
+              , buildCmd = Nil
+              } :: scanServices rest root
+            else
+              scanServices rest root
+          else
+            scanServices rest root
+        Err _ ->
+          scanServices rest root
 
 collectBuildArtifacts : List BuildResult -> List Path
 collectBuildArtifacts = \results ->

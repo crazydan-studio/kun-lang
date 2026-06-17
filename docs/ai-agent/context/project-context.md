@@ -20,7 +20,7 @@
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | 七轮标准库审计与精简（41→36 模块，−30 函数，+15 函数补全，Math→Float/FileType+FileMode+FileStat→File/Pid+ExitCode→Process 合并）；跨文档一致性修复（移除陈旧引用：Math/Path.cwd/Int.neg/Float.neg/Cmd.withStdinFile 遗漏；EffectFn/Fn 规则澄清；陈旧文档废弃标注；版本历史补全） |
+| 最近完成 | 七轮标准库审计与精简（41→36 模块，−30 函数，+15 函数补全，Math→Float/FileType+FileMode+FileStat→File/Pid+ExitCode→Process 合并）；跨文档一致性修复（移除陈旧引用：Math/Path.cwd/Int.neg/Float.neg/Cmd.withStdinFile 遗漏；EffectFn/Fn 规则澄清；陈旧文档废弃标注；版本历史补全）；File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`，新增 `Stat.isDir`/`Stat.isFile`/`Stat.isSymlink` 纯访问器）；示例修复（Verifier.kun `let…in`+`do` 违规、Builder.kun+Dockerizer.kun 适配 `File.stat`） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -49,6 +49,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`→`Stat` 纯访问器）；示例修复（Verifier.kun `let…in`+`do`、Builder.kun+Dockerizer.kun `File.stat` 适配） | 设计+修复 | ✅ standard-library、syntax、examples | ✅ writing-conventions | `implement` |
 | 2026-06-16 | 标准库模块必要性分析与精简（移除 5 模块 + 19 函数、新增 4 项 P0、跨 14 文件传播） | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions、closure-audit | `implement` |
 | 2026-06-15 | Zig 0.13 → 0.17 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
 | 2026-06-15 | 错误消息国际化（i18n）子系统设计——msgid 体系、.po 文件管理、构建时代码生成、运行时 locale 检测、消息格式化 API | 设计 | ✅ system-baseline、module-boundaries、type-system、i18n | ✅ writing-conventions | `plan-first`（先计划后实施） |
@@ -70,6 +71,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`）；示例重构（`File.stat` 替代多函数） |
 | 2026.06.17 | 标准库精简 + 跨文档一致性传播 |
 | 2026.06.16 | 持续设计审计与修复——活跃工作/任务路由更新 |
 | 2026.06.10 | 初始版本 |

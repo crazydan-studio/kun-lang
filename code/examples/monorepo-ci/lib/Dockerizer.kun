@@ -74,8 +74,8 @@ buildAndPush = \serviceName cfg contextDir ->
       Nil -> contextDir ++ p"Dockerfile"
       df  -> df
 
-    case File.exists dockerfilePath of
-      Ok true ->
+    case File.stat dockerfilePath of
+      Ok _ ->
         do
           buildResult = Cmd.docker? { t = tag } "build" (Path.toString contextDir)
 
@@ -109,9 +109,6 @@ buildAndPush = \serviceName cfg contextDir ->
             Err err ->
               ImageFailed { service = serviceName
                           , error = CommandError.show err }
-      Ok false ->
-        ImageSkipped { service = serviceName
-                      , reason = "Dockerfile not found" }
       Err _ ->
         ImageSkipped { service = serviceName
-                      , reason = "Unable to check Dockerfile existence" }
+                    , reason = "Dockerfile not found" }

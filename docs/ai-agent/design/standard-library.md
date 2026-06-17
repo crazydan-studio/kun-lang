@@ -2026,10 +2026,8 @@ mkdir : Path -> Result Unit IOError
 // [Primitive] 递归创建目录树（等价于 mkdir -p）
 mkdirAll : Path -> Result Unit IOError
 
-// [Primitive] 检查路径是否存在
-exists : Path -> Result Bool IOError
-
 // [Primitive] 读取文件为字符串
+// 注：`File.exists` 已移除——`File.stat p |> Result.isOk` 等价，且更高效（单次 stat 同时获取元数据）
 readString : Path -> Result String IOError
 
 // [Primitive] 读取文件为 Bytes 流
@@ -2073,15 +2071,6 @@ appendString : Path -> String -> Result Unit IOError
 
 // [Primitive] 追加二进制数据到文件末尾
 appendBytes : Path -> Bytes -> Result Unit IOError
-
-// [Primitive] 路径是否为常规文件
-isFile : Path -> Bool
-
-// [Primitive] 路径是否为目录
-isDir : Path -> Bool
-
-// [Primitive] 路径是否为符号链接
-isSymlink : Path -> Bool
 
 // [Primitive] 以字符流形式逐行读取文件
 readLines : Path -> Stream (Result String IOError)
@@ -2168,6 +2157,13 @@ type Stat =
   , device    : ?{ major : Int, minor : Int }
   }
 ```
+
+`Stat` 辅助函数（纯）：
+- `isDir : Stat -> Bool` — 等价于 `s.type == Directory`
+- `isFile : Stat -> Bool` — 等价于 `s.type == Regular`
+- `isSymlink : Stat -> Bool` — 等价于 `s.type == SymbolicLink`
+
+> 注：`File.isDir`/`File.isFile`/`File.isSymlink` 已移除——通过 `File.stat` 获取 `Stat` 记录后使用上述纯访问器即可，避免多次 stat 系统调用。`File.exists` 同理：`File.stat p |> Result.isOk`。
 
 - `owner`/`group` 为数字 ID（`Uid`/`Gid`），源于 `stat` 系统调用的原始返回值
 - `device` 仅当 `type` 为 `CharDevice` 或 `BlockDevice` 时有值，其余文件类型为 `Nil`
