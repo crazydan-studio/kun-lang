@@ -6,17 +6,20 @@
 
 - 文档文件使用 kebab-case：`project-vision.md`、`module-boundaries.md`
 - 图表文件使用描述性名称：`type-system-overview.puml`、`runtime-architecture.puml`
-- 代码文件遵循 Zig 命名规范（待定）
+- **Kun 模块文件**（`lib/` 内的 `.kun` 文件）使用 **PascalCase**：`Builder.kun`、`Cmd/Git.kun`、`MyApp/Config.kun`
+- **Kun 入口脚本**（含 `main` 的可执行文件）使用 **kebab-case**：`deploy.kun`、`build-all.kun`
+- Zig 源文件使用 snake_case：`lexer.zig`、`type_check.zig`
 
 ### 目录命名
 
 - 文档目录使用 kebab-case
 - 源代码目录遵循 Zig 项目结构规范
+- **Kun `lib/` 内子目录**使用 **PascalCase**：`lib/Cmd/`、`lib/Parser/`、`lib/MyApp/`
 
 ### 文件后缀
 
 - Kun 脚本文件使用 `.kun` 后缀
-- 库模块文件（有 `export` 声明）也使用 `.kun` 后缀
+- Kun 库模块文件（有 `export` 声明）也使用 `.kun` 后缀
 
 ## 文档格式
 
@@ -85,5 +88,6 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 命名规范：新增 Kun 模块文件（PascalCase）、入口脚本（kebab-case）、`lib/` 子目录（PascalCase）、Zig 源文件（snake_case）命名规则；移除"待定"占位 |
 | 2026.06.15 | 新增代码审查/版本管理/编码约定/注释标记规范 |
 | 2026.06.10 | 初始版本 |
