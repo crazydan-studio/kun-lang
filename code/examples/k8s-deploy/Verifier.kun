@@ -1,24 +1,22 @@
 // ============================================================
-// verifier.kun — 部署健康检查模块
-//   通过 HTTP 端点验证服务可用性
+// Verifier.kun — 部署健康检查模块
 // ============================================================
 
-import List
 import String
 import Duration
 import DateTime
+import Stream
 import Process
 import Cmd
 import IO
-import Regex
-import Map
+import List
+import Int
 
 export
   ( HealthStatus, HealthStatus(..)
   , HealthCheck
   , checkEndpoint
   , waitForHealthy
-  , verifyPodsRunning
   )
 
 // -------------------------------------------------------
@@ -46,131 +44,110 @@ type HealthStatus
 
 type HealthCheck =
   { endpoint  : String
-  , method    : String           // "GET" | "HEAD"
-  , expect    : ?Int             // 期望的 HTTP 状态码
+  , method    : String
+  , expect    : ?Int
   , retries   : Int
   , interval  : Duration
   , timeout   : Duration
   }
 
 // -------------------------------------------------------
-// 单次健康检查——使用 Cmd.curl 发起 HTTP 请求
+// 单次检查——构造 Command 然后 stdoutToString
 // -------------------------------------------------------
 
-checkOnce : String -> String -> Result { code : Int, body : String, time : Duration } String
-checkOnce = \endpoint method ->
-  do
-    // curl --max-time 5 -s -o /dev/null -w "%{http_code}\n%{time_total}"
-    start = DateTime.now
-
-    result = Cmd.curl? { silent = true
-                        , maxTime = "5"
-                        , output   = "/dev/null"
-                        , writeOut = "%{http_code}" }
-             endpoint
-
-    elapsed = DateTime.now - start
-
-    case result of
-      Ok output ->
-        let
-          statusStr = String.trim output
-          code      = case Int.fromString statusStr of
-            Ok c -> c
-            Err _ -> 0
-        in
-          Ok { code = code, body = statusStr, time = elapsed }
-      Err err ->
-        Err (CommandError.show err)
+checkOnce : String -> Result Int CommandError
+checkOnce = \endpoint ->
+  let
+    cmd = Cmd.curl
+      { silent   = true
+      , maxTime  = "5"
+      , output   = "/dev/null"
+      , writeOut = "%{http_code}" }
+      endpoint
+  in
+    Cmd.stdoutToString cmd
+      |> Result.map (\s ->
+        Int.fromString (String.trim s) |> Result.withDefault 0)
 
 // -------------------------------------------------------
-// 带重试的健康检查
+// 带重试的健康检查（Cmd.retry 语义）
 // -------------------------------------------------------
 
 checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
   do
-    checkEndpointWithRetry hc 0 DateTime.now
+    started = DateTime.now
 
-// -------------------------------------------------------
-// 递归重试——利用函数式 recursion
-// -------------------------------------------------------
+    checkSingle = \endpoint ->
+      do
+        let elapsed = DateTime.now - started
+        in
+          if elapsed >= hc.timeout then
+            Timeout { waited = hc.timeout }
+          else
+            case checkOnce endpoint of
+              Ok code ->
+                case hc.expect of
+                  expected ->
+                    if code == expected then
+                      Healthy { responseTime = 0s, statusCode = code, body = "" }
+                    else
+                      Degraded { responseTime = 0s, statusCode = code
+                               , reason = f"expected {expected}, got {code}" }
+                  Nil ->
+                    if code >= 200 && code < 400 then
+                      Healthy { responseTime = 0s, statusCode = code, body = "" }
+                    else
+                      Degraded { responseTime = 0s, statusCode = code
+                               , reason = f"status {code}" }
+              Err err ->
+                Unreachable { error = CommandError.show err, attempts = 0 }
 
-checkEndpointWithRetry : HealthCheck -> Int -> DateTime -> HealthStatus
-checkEndpointWithRetry = \hc attempts started ->
-  let
-    totalElapsed = DateTime.now - started
-  in
-    if totalElapsed > hc.timeout then
-      Timeout { waited = hc.timeout }
-    else if attempts >= hc.retries then
-      case checkOnce hc.endpoint hc.method of
-        Ok { code, body, time } ->
-          case hc.expect of
-            expected ->
-              if code == expected then
-                Healthy { responseTime = time, statusCode = code, body = body }
-              else
-                Degraded { responseTime = time, statusCode = code
-                         , reason = f"expected {expected}, got {code}" }
-            Nil ->
-              if code >= 200 && code < 400 then
-                Healthy { responseTime = time, statusCode = code, body = body }
-              else
-                Degraded { responseTime = time, statusCode = code
-                         , reason = f"status {code}" }
-        Err error ->
-          Unreachable { error = error, attempts = attempts }
-    else
-      case checkOnce hc.endpoint hc.method of
-        Ok { code, body, time } ->
-          case hc.expect of
-            expected ->
-              if code == expected then
-                Healthy { responseTime = time, statusCode = code, body = body }
-              else
-                // 非期望状态码，继续重试
-                do
-                  Process.sleep hc.interval
-                  checkEndpointWithRetry hc (attempts + 1) started
-            Nil ->
-              if code >= 200 && code < 400 then
-                Healthy { responseTime = time, statusCode = code, body = body }
-              else
-                do
-                  Process.sleep hc.interval
-                  checkEndpointWithRetry hc (attempts + 1) started
-        Err _ ->
-          do
-            Process.sleep hc.interval
-            checkEndpointWithRetry hc (attempts + 1) started
+    result = checkSingle hc.endpoint
+    case result of
+      Healthy _   -> result
+      Degraded _  -> result
+      _           -> do retryLoop 0 started hc
 
-// -------------------------------------------------------
-// 等待 Pod 全部就绪
-// -------------------------------------------------------
-
-verifyPodsRunning : String -> String -> String -> Int -> Duration -> HealthStatus
-verifyPodsRunning = \namespace deployment selector expectedReplicas timeout ->
+retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus
+retryLoop = \attempt started hc ->
   do
-    waitForHealthy
-      { endpoint  = "http://localhost:8080/healthz"  // 实际由 kubectl port-forward 暴露
-      , method    = "GET"
-      , expect    = 200
-      , retries   = 5
-      , interval  = 5s
-      , timeout   = timeout
-      }
+    let elapsed = DateTime.now - started
+    in
+      if elapsed >= hc.timeout then
+        Timeout { waited = hc.timeout }
+      else if attempt >= hc.retries then
+        case checkOnce hc.endpoint of
+          Ok code ->
+            if code >= 200 && code < 400 then
+              Healthy { responseTime = 0s, statusCode = code, body = "" }
+            else
+              Degraded { responseTime = 0s, statusCode = code
+                       , reason = f"status {code}" }
+          Err err ->
+            Unreachable { error = CommandError.show err, attempts = attempt }
+      else
+        case checkOnce hc.endpoint of
+          Ok code ->
+            let okCode = case hc.expect of
+                  expected -> code == expected
+                  Nil      -> code >= 200 && code < 400
+            in
+              if okCode then
+                Healthy { responseTime = 0s, statusCode = code, body = "" }
+              else
+                do
+                  Process.sleep hc.interval
+                  retryLoop (attempt + 1) started hc
+          Err _ ->
+            do
+              Process.sleep hc.interval
+              retryLoop (attempt + 1) started hc
 
 // -------------------------------------------------------
-// 等待健康检查通过或超时
+// 等待健康检查通过
 // -------------------------------------------------------
 
 waitForHealthy : HealthCheck -> HealthStatus
 waitForHealthy = \hc ->
-  let
-    result = checkEndpoint hc
-  in
-    case result of
-      Healthy _   -> result
-      Degraded _  -> result
-      _           -> result
+  checkEndpoint hc

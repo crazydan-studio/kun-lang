@@ -15,9 +15,9 @@
 ```
 monorepo-ci/
 ├── README.md         # 本文件
-├── build.kun         # 入口：CLI 参数 → 调度各阶段
-├── Builder.kun       # 服务发现 + 并行构建
-├── Tester.kun        # 测试执行器
+├── build.kun         # 入口：CLI 参数 → Task.spawn 并发编排
+├── Builder.kun       # 服务发现 + 并行构建（Task.spawn）
+├── Tester.kun        # 测试执行器（Task.spawn 并行）
 ├── Dockerizer.kun    # Docker 镜像构建/推送
 └── Reporter.kun      # Markdown 报告生成（纯/效应分离）
 ```

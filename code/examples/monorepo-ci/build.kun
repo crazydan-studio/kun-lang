@@ -4,29 +4,28 @@
 // 用法：
 //   kun build.kun --root-path=./repo --registry=docker.io/myorg
 //                  --parallel=4 --skip-tests --report-dir=./reports
-//
-// 覆盖特性：
-//   Cli 参数解析 | 模块导入 | do 块编排 | ADT 领域建模 |
-//   defer 清理 | 管道 | List 高阶函数 | DateTime 计时 |
-//   f-string 格式化 | ?T nilable
 // ============================================================
 
 import Cli
+import Validator
 import DateTime
 import Duration
 import List
 import String
 import Path
 import IO
-import File
-import Map
-import Builder    as B    // { BuildResult, Service, buildAll, detectServices }
-import Tester     as T    // { TestResult, TestSuite, runTests, summarizeTests }
-import Dockerizer as D    // { ImageResult, DockerConfig, buildAndPush }
-import Reporter   as R    // { BuildReport, generateReport, writeReport }
+import Process
+import Result
+import Nil
+import Task
+
+import Builder    as B
+import Tester     as T
+import Dockerizer as D
+import Reporter   as R
 
 // -------------------------------------------------------
-// 构建配置 Record 类型
+// 构建配置
 // -------------------------------------------------------
 
 type BuildConfig =
@@ -35,11 +34,11 @@ type BuildConfig =
   , parallel   : Int
   , skipTests  : Bool
   , reportDir  : Path
-  , services   : ?List String     // 可选：仅构建指定服务
+  , services   : ?String          // 逗号分隔的可选服务名列表
   }
 
 // -------------------------------------------------------
-// CLI 参数解析——类型驱动
+// CLI 参数解析
 // -------------------------------------------------------
 
 parseConfig : List String -> Result BuildConfig Cli.CliError
@@ -57,27 +56,43 @@ parseConfig =
         , Cli.flag "skip-tests" Nil "Skip test execution"
         , Cli.option "report-dir" 'o' "Report output directory"
             |> Cli.withDefault p"./reports"
-        , Cli.option "services" 's' "Comma-separated service names"
+        , Cli.option "services" 's' "Comma-separated service names (optional)"
         ]
     }
 
 // -------------------------------------------------------
-// 解析 --services 逗号分隔参数
+// 按名称过滤服务列表
 // -------------------------------------------------------
 
-parseServices : ?String -> ?List String
-parseServices = \raw ->
-  case raw of
-    s ->
+filterByNames : List B.Service -> ?String -> List B.Service
+filterByNames = \svcs rawNames ->
+  case rawNames of
+    namesStr ->
       let
-        trimmed = String.trim s
+        trimmed = String.trim namesStr
+        names   = if String.length trimmed > 0 then
+                    String.split "," trimmed |> List.map String.trim
+                  else []
       in
-        if String.length trimmed > 0 then
-          String.split "," trimmed
-            |> List.map (\x -> String.trim x)
+        if List.length names > 0 then
+          List.filter (\svc -> List.elem svc.name names) svcs
         else
-          Nil
-    Nil -> Nil
+          svcs
+    Nil ->
+      svcs
+
+// -------------------------------------------------------
+// 从服务列表构造 TestSuite
+// -------------------------------------------------------
+
+toTestSuites : List B.Service -> List T.TestSuite
+toTestSuites = \svcs ->
+  List.map (\svc ->
+    { name     = svc.name
+    , language = svc.language
+    , dir      = svc.dir
+    , filter   = Nil
+    }) svcs
 
 // -------------------------------------------------------
 // 主流程
@@ -90,28 +105,36 @@ main = \rawArgs ->
     IO.println "  Monorepo CI/CD Pipeline"
     IO.println f"{String.repeat 60 '='}\n"
 
-    // 1. 解析 CLI 参数
     case parseConfig rawArgs of
       Ok cfg ->
         do
-          started  = DateTime.now
-          services = case cfg.services of
-            Nil -> B.detectServices cfg.rootPath
-            _   -> [] // TODO: filter by name
+          started   = DateTime.now
+          allSvcs   = B.detectServices cfg.rootPath
+          services  = filterByNames allSvcs cfg.services
 
           IO.println f"Workspace : {Path.toString cfg.rootPath}"
           IO.println f"Services  : {List.length services} detected"
+          IO.println f"Parallel  : {cfg.parallel}"
           IO.println f"Registry  : {cfg.registry}"
           IO.println f""
 
-          // 2. 构建阶段
+          // -------------------------------------------------
+          // Phase 1: 并行构建
+          // -------------------------------------------------
           IO.println f"{String.repeat 40 '-'}"
           IO.println "  BUILD PHASE"
           IO.println f"{String.repeat 40 '-'}"
 
-          buildResults = B.buildAll services
+          buildResults = B.buildAll services cfg.parallel
 
-          // 3. 测试阶段（可选）
+          buildPassed =
+            List.fold (\n r -> case r of B.BuildOk {} -> n + 1; _ -> n)
+              0 buildResults
+          IO.println f"  {buildPassed}/{List.length services} services built"
+
+          // -------------------------------------------------
+          // Phase 2: 并行测试
+          // -------------------------------------------------
           testResults = if cfg.skipTests then
             do
               IO.println "\n  Tests skipped (--skip-tests)"
@@ -122,16 +145,12 @@ main = \rawArgs ->
               IO.println "  TEST PHASE"
               IO.println f"{String.repeat 40 '-'}"
 
-              suites = services
-                |> List.map (\svc ->
-                  { name     = svc.name
-                  , language = svc.language
-                  , dir      = svc.dir
-                  , filter   = Nil
-                  })
-              T.runTests suites
+              let suites = toTestSuites services
+              in T.runTests suites cfg.parallel
 
-          // 4. Docker 镜像构建
+          // -------------------------------------------------
+          // Phase 3: Docker 镜像并行构建
+          // -------------------------------------------------
           IO.println f"\n{String.repeat 40 '-'}"
           IO.println "  DOCKER PHASE"
           IO.println f"{String.repeat 40 '-'}"
@@ -141,31 +160,46 @@ main = \rawArgs ->
                       , dockerfile = Nil
                       }
 
-          imageResults = services
+          dockerCmds = services
             |> List.map (\svc ->
-              do D.buildAndPush svc.name dockerCfg svc.dir)
+              D.buildImage svc.name dockerCfg svc.dir)
 
-          // 5. 生成构建报告
+          dockerStream = Task.spawn cfg.parallel dockerCmds
+          dockerResults = Task.all dockerStream
+
+          imageResults = services
+            |> List.zip dockerResults
+            |> List.map (\(svc, result) ->
+              case result of
+                Ok _  -> let tag = D.generateTag svc.name cfg.registry
+                         in D.ImageOk { service = svc.name, tag = tag
+                                      , imageId = "<parallel>", size = "N/A" }
+                Err err -> D.ImageFailed { service = svc.name
+                                         , error = CommandError.show err })
+
+          // -------------------------------------------------
+          // Phase 4: 报告
+          // -------------------------------------------------
           elapsed = DateTime.now - started
+
           IO.println f"\n{String.repeat 40 '-'}"
           IO.println "  REPORT"
           IO.println f"{String.repeat 40 '-'}"
 
           let
-            report = R.generateReport buildResults testResults
-                       imageResults started elapsed
+            report     = R.generateReport buildResults testResults
+                           imageResults started elapsed
+            timestamp  = case DateTime.format "yyyyMMdd-HHmmss" started of
+                           Ok s -> s; Err _ -> "unknown"
             reportPath = cfg.reportDir
-              ++ Path.fromString ("build-report-" ++ timestampFile started ++ ".md")
+              ++ Path.fromString f"build-report-{timestamp}.md"
           in
             case R.writeReport report reportPath of
-              Ok path ->
-                IO.println f"\n  Total time: {Duration.toSeconds elapsed}s"
-                IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
-
-                if report.failed > 0 then
-                  Process.exit 1
-                else
-                  Process.exit 0
+              Ok _ ->
+                do
+                  IO.println f"\n  Total time: {Duration.toSeconds elapsed}s"
+                  IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
+                  if report.failed > 0 then Process.exit 1 else Process.exit 0
               Err _ ->
                 Process.exit 2
 
@@ -173,20 +207,3 @@ main = \rawArgs ->
         do
           IO.eprintln (Cli.show err)
           Process.exit 1
-
-// -------------------------------------------------------
-// 纯函数：生成文件名安全的时间戳
-// -------------------------------------------------------
-
-timestampFile : DateTime -> String
-timestampFile = \dt ->
-  case DateTime.format "yyyyMMdd-HHmmss" dt of
-    Ok s  -> s
-    Err _ -> "unknown"
-
-// -------------------------------------------------------
-// 占位：用于类型推断演示
-// -------------------------------------------------------
-
-always = \x _ -> x
-identity = \x -> x

@@ -1,5 +1,5 @@
 // ============================================================
-// reporter.kun — 构建报告生成模块
+// Reporter.kun — 构建报告生成模块
 //   纯函数 generateReport + 效应函数 writeReport
 //   体现 Kun 纯/效应分离设计
 // ============================================================
@@ -11,6 +11,9 @@ import String
 import Path
 import File
 import IO
+import Builder    as B
+import Tester     as T
+import Dockerizer as D
 
 export
   ( BuildReport
@@ -18,63 +21,6 @@ export
   , writeReport
   , formatLine
   )
-
-// -------------------------------------------------------
-// 领域类型（来自其他模块的引用）
-//   实际项目中这些类型由 builder/tester/dockerizer 模块导出
-//   此处为完整示例，内联定义
-// -------------------------------------------------------
-
-type BuildResult
-  = BuildOk
-      { service   : String
-      , language  : String
-      , duration  : Duration
-      , artifact  : Path
-      , checksum  : String
-      }
-  | BuildFailed
-      { service   : String
-      , language  : String
-      , error     : String
-      , exitCode  : Int
-      }
-  | BuildSkipped
-      { service   : String
-      , reason    : String
-      }
-
-type TestResult
-  = Passed
-      { suite     : String
-      , duration  : Duration
-      , cases     : Int
-      }
-  | Failed
-      { suite     : String
-      , error     : String
-      , duration  : Duration
-      , cases     : Int
-      }
-  | NoTests
-      { suite     : String
-      }
-
-type ImageResult
-  = ImageOk
-      { service  : String
-      , tag      : String
-      , imageId  : String
-      , size     : String
-      }
-  | ImageSkipped
-      { service  : String
-      , reason   : String
-      }
-  | ImageFailed
-      { service  : String
-      , error    : String
-      }
 
 type BuildReport =
   { title       : String
@@ -84,7 +30,7 @@ type BuildReport =
   , failed      : Int
   , buildTime   : Duration
   , artifacts   : List String
-  , images      : List ImageResult
+  , images      : List (String, String, String)   // (service, tag, imageId)
   , testSummary : String
   , details     : String
   }
@@ -100,94 +46,86 @@ separator = String.repeat 60 "="
 // 纯函数：格式化单行构建结果
 // -------------------------------------------------------
 
-formatLine : BuildResult -> String
+formatLine : B.BuildResult -> String
 formatLine = \result ->
   case result of
-    BuildOk { service, language, duration, checksum, .. } ->
+    B.BuildOk { service, language, duration, checksum, .. } ->
       let
         secs = Duration.toSeconds duration
         lang = String.toUpper language
       in
         f" ✓ {pad 20 service} {pad 8 lang} ({secs}s)  sha:{checksum}"
-    BuildFailed { service, language, error, .. } ->
+    B.BuildFailed { service, language, error, .. } ->
       let
         shortErr = String.slice 0 80 error
       in
         f" ✗ {pad 20 service} {pad 8 (String.toUpper language)} FAILED: {shortErr}"
-    BuildSkipped { service, reason } ->
+    B.BuildSkipped { service, reason } ->
       f" - {pad 20 service} SKIPPED: {reason}"
 
 // -------------------------------------------------------
 // 纯函数：格式化镜像结果
 // -------------------------------------------------------
 
-formatImage : ImageResult -> String
+formatImage : D.ImageResult -> String
 formatImage = \result ->
   case result of
-    ImageOk { service, tag, imageId, size } ->
+    D.ImageOk { service, tag, imageId, size } ->
       f" ^ {pad 20 service} {tag}  id:{imageId}  size:{size}"
-    ImageSkipped { service, reason } ->
+    D.ImageSkipped { service, reason } ->
       f" - {pad 20 service} SKIPPED: {reason}"
-    ImageFailed { service, error } ->
+    D.ImageFailed { service, error } ->
       f" - {pad 20 service} FAILED: {error}"
 
 // -------------------------------------------------------
-// 纯函数：右填充字符串到指定长度
+// 纯函数：右填充
 // -------------------------------------------------------
 
 pad : Int -> String -> String
 pad = \n s ->
-  let
-    len = String.length s
-  in
-    if len >= n then
-      s
-    else
-      s ++ (String.repeat (n - len) " ")
+  let len = String.length s
+  in if len >= n then s else s ++ String.repeat (n - len) " "
 
 // -------------------------------------------------------
-// 纯函数：生成构建摘要行
+// 纯函数：构建摘要
 // -------------------------------------------------------
 
 summarySection : String -> Int -> Int -> Int -> Duration -> String
 summarySection = \label total passed failed elapsed ->
   let
     passRate = if total > 0 then
-      let
-        rate = (Int.toFloat passed * 100.0) / (Int.toFloat total)
-      in
-        f" ({Float.floor rate}%)"
-    else
-      ""
-
-    timeStr = case DateTime.format "HH:mm:ss" (DateTime.of 0) of
-      Ok _ -> f"{Duration.toSeconds elapsed}s"
-      Err _ -> f"{Duration.toSeconds elapsed}s"
+      let rate = Int.toFloat passed * 100.0 / Int.toFloat total
+      in f" ({Float.floor rate}%)"
+    else ""
   in
-    f"{label}: {passed}/{total} passed{passRate}, {failed} failed  [{timeStr}]"
+    f"{label}: {passed}/{total} passed{passRate}, {failed} failed  [{Duration.toSeconds elapsed}s]"
 
 // -------------------------------------------------------
 // 纯函数：生成完整 Markdown 构建报告
 // -------------------------------------------------------
 
-generateReport : List BuildResult -> List TestResult -> List ImageResult -> DateTime -> Duration -> BuildReport
+generateReport
+  :  List B.BuildResult
+  -> List T.TestResult
+  -> List D.ImageResult
+  -> DateTime
+  -> Duration
+  -> BuildReport
 generateReport = \buildResults testResults imageResults started elapsed ->
   let
-    // 统计构建结果
     (buildPassed, buildFailed, buildSkipped) =
       List.fold
         (\acc r ->
-          let (p, f, s) = acc
-          in case r of
-               BuildOk {}     -> (p + 1, f, s)
-               BuildFailed {} -> (p, f + 1, s)
-               BuildSkipped {} -> (p, f, s + 1))
+          let (p, f, s) = acc in
+          case r of
+            B.BuildOk {}     -> (p + 1, f, s)
+            B.BuildFailed {} -> (p, f + 1, s)
+            B.BuildSkipped {} -> (p, f, s + 1))
         (0, 0, 0)
         buildResults
 
     totalBuilds = buildPassed + buildFailed + buildSkipped
 
-    // 详细信息
     buildDetails =
       buildResults
         |> List.map formatLine
@@ -198,32 +136,29 @@ generateReport = \buildResults testResults imageResults started elapsed ->
         |> List.map formatImage
         |> String.join "\n"
 
-    artifactList =
-      buildResults
+    imageInfo =
+      imageResults
         |> List.filterMap (\r ->
           case r of
-            BuildOk { artifact, .. } -> Path.toString artifact
-            _                       -> Nil)
+            D.ImageOk { service, tag, imageId } -> (service, tag, imageId)
+            _                                   -> Nil)
 
     testSummary =
       testResults
         |> List.map (\r ->
           case r of
-            Passed { suite, cases, duration, .. } ->
+            T.Passed { suite, cases, duration, .. } ->
               f"  ✓ {suite}: {cases} cases passed ({Duration.toSeconds duration}s)"
-            Failed { suite, error, .. } ->
+            T.Failed { suite, error, .. } ->
               f"  ✗ {suite}: {String.slice 0 60 error}"
-            NoTests { suite } ->
+            T.NoTests { suite } ->
               f"  - {suite}: no tests")
         |> String.join "\n"
 
     title =
-      let
-        stamp = case DateTime.format "yyyy-MM-dd HH:mm:ss" started of
-          Ok s -> s
-          Err _ -> "<unknown>"
-      in
-        f"Build Report — {stamp}"
+      case DateTime.format "yyyy-MM-dd HH:mm:ss" started of
+        Ok s -> f"Build Report — {s}"
+        Err _ -> "Build Report"
 
     details =
       f"{separator}\n## Build Results\n\n{buildDetails}\n\n## Tests\n\n{testSummary}\n\n## Docker Images\n\n{imageDetails}\n{separator}"
@@ -234,8 +169,12 @@ generateReport = \buildResults testResults imageResults started elapsed ->
     , passed      = buildPassed
     , failed      = buildFailed
     , buildTime   = elapsed
-    , artifacts   = artifactList
-    , images      = imageResults
+    , artifacts   = List.filterMap (\r ->
+                      case r of
+                        B.BuildOk { artifact, .. } -> Path.toString artifact
+                        _                          -> Nil)
+                      buildResults
+    , images      = imageInfo
     , testSummary = testSummary
     , details     = details
     }
@@ -250,14 +189,12 @@ writeReport = \report outputPath ->
     let
       summary = summarySection "Build" report.totalBuilds
                   report.passed report.failed report.buildTime
-
       content = f"# {report.title}\n\n{summary}\n\n{report.details}\n"
-
-    // 使用原子写入确保不产生半截文件
-    case File.atomicWriteString outputPath content of
-      Ok _ ->
-        IO.println f"Report written to {Path.toString outputPath}"
-        Ok outputPath
-      Err e ->
-        IO.eprintln f"Failed to write report: {IOError.show e}"
-        Err e
+    in
+      case File.atomicWriteString outputPath content of
+        Ok _ ->
+          IO.println f"Report written to {Path.toString outputPath}"
+          Ok outputPath
+        Err e ->
+          IO.eprintln f"Failed to write report: {IOError.show e}"
+          Err e

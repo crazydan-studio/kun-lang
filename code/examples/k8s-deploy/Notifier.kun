@@ -1,20 +1,19 @@
 // ============================================================
-// notifier.kun — 部署通知模块
-//   通过 webhook（Slack / 钉钉 / 企业微信）发送通知
+// Notifier.kun — 部署通知模块
 //   Kun 无内置 HTTP——所有网络操作通过 Cmd.curl 完成
 // ============================================================
 
 import String
+import Duration
+import DateTime
 import Cmd
 import IO
-import DateTime
-import Duration
+import Result
 
 export
   ( NotifyLevel, NotifyLevel(..)
   , DeploymentEvent
   , notifySlack
-  , notifyWebhook
   , notifyConsole
   , notify
   )
@@ -30,10 +29,6 @@ type NotifyLevel
   | Failure
   | Rollback
 
-// -------------------------------------------------------
-// 部署事件
-// -------------------------------------------------------
-
 type DeploymentEvent =
   { service   : String
   , version   : String
@@ -45,19 +40,18 @@ type DeploymentEvent =
   }
 
 // -------------------------------------------------------
-// 格式化消息为 Markdown
+// 纯函数：格式化 Markdown 消息
 // -------------------------------------------------------
-// 纯函数：无效应调用
 
 formatMessage : DeploymentEvent -> String
 formatMessage = \event ->
   let
     icon = case event.level of
-      Info     -> "ℹ"
-      Success  -> "✅"
-      Warning  -> "⚠"
-      Failure  -> "❌"
-      Rollback -> "🔄"
+      Info     -> ":information_source:"
+      Success  -> ":white_check_mark:"
+      Warning  -> ":warning:"
+      Failure  -> ":x:"
+      Rollback -> ":arrow_backward:"
 
     timeStr = case DateTime.format "HH:mm:ss" event.timestamp of
       Ok s -> s
@@ -70,7 +64,8 @@ formatMessage = \event ->
     f"{icon} *{event.service}* — {event.phase}{durationStr}\n> {event.message}\n _{timeStr}_"
 
 // -------------------------------------------------------
-// 发送 Slack Webhook 通知
+// 发送 Slack / Webhook 通知
+//   手动构造 JSON payload（Kun v1.0 可用 Parser.JSON.toString）
 // -------------------------------------------------------
 
 notifySlack : String -> DeploymentEvent -> Result String CommandError
@@ -81,31 +76,21 @@ notifySlack = \webhookUrl event ->
         Info     -> "#439FE0"
         Success  -> "good"
         Warning  -> "warning"
-        Failure  -> "danger"
-        Rollback -> "danger"
+        Failure | Rollback -> "danger"
 
-      payload = f"{{\"attachments\":[{{\"color\":\"{color}\",\"text\":\"{formatMessage event}\"}}]}}"
+      text  = formatMessage event
+      json  = f"{{\"attachments\":[{{\"color\":\"{color}\",\"text\":\"{text}\"}}]}}"
     in
-      Cmd.curl? { X = "POST", H = "Content-Type: application/json"
-                , silent = true, data = payload }
-        webhookUrl
+      Cmd.stdoutToString
+        (Cmd.curl { X = "POST"
+                  , H = "Content-Type: application/json"
+                  , silent = true
+                  , data = json }
+          webhookUrl)
+      |> Result.map (\_ -> "")
 
 // -------------------------------------------------------
-// 通用 Webhook 通知
-// -------------------------------------------------------
-
-notifyWebhook : String -> String -> DeploymentEvent -> Result String CommandError
-notifyWebhook = \url secret event ->
-  do
-    let
-      payload = f"{{\"event\":\"deploy\",\"level\":\"{event.level}\",\"service\":\"{event.service}\",\"message\":\"{event.message}\"}}"
-    in
-      Cmd.curl? { X = "POST", H = "Content-Type: application/json"
-                , silent = true, data = payload }
-        url
-
-// -------------------------------------------------------
-// 控制台通知（无外部依赖）
+// 控制台通知
 // -------------------------------------------------------
 
 notifyConsole : DeploymentEvent -> Unit
@@ -118,15 +103,14 @@ notifyConsole = \event ->
         Warning  -> "[WARN]"
         Failure  -> "[FAIL]"
         Rollback -> "[ROLL]"
+      msg = f"{prefix} {event.service}: {event.message}"
     in
       case event.level of
-        Failure | Rollback ->
-          IO.eprintln f"{prefix} {event.service}: {event.message}"
-        _ ->
-          IO.println f"{prefix} {event.service}: {event.message}"
+        Failure | Rollback -> IO.eprintln msg
+        _                  -> IO.println msg
 
 // -------------------------------------------------------
-// 统一通知入口——同时发送 Webhook 和控制台
+// 统一通知入口
 // -------------------------------------------------------
 
 notify : String -> DeploymentEvent -> Unit
@@ -134,13 +118,9 @@ notify = \webhookUrl event ->
   do
     notifyConsole event
 
-    case webhookUrl of
-      url ->
-        if String.length (String.trim url) > 0 then
-          case notifySlack url event of
-            Ok _  -> IO.println "  [notify] Webhook sent"
-            Err e -> IO.eprintln f"  [notify] Webhook failed: {CommandError.show e}"
-        else
-          Unit
-      _ ->
-        Unit
+    if String.length (String.trim webhookUrl) > 0 then
+      case notifySlack webhookUrl event of
+        Ok _  -> IO.println "  [notify] Webhook sent"
+        Err e -> IO.eprintln f"  [notify] Webhook failed: {CommandError.show e}"
+    else
+      Unit
