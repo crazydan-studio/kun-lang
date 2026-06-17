@@ -14,7 +14,7 @@
 
 ### 定位
 
-`Int` 为内置类型（i64），`Int` 模块提供取反、绝对值及类型互转函数。
+`Int` 为内置类型（i64），`Int` 模块提供绝对值、最值比较及类型互转函数。
 
 需显式导入：
 
@@ -25,11 +25,14 @@ import Int
 ### API
 
 ```kun
-// [PureKun] 取反
-neg : Int -> Int
-
 // [PureKun] 绝对值
 abs : Int -> Int
+
+// [PureKun] 取较小值
+min : Int -> Int -> Int
+
+// [PureKun] 取较大值
+max : Int -> Int -> Int
 
 // [PureKun] 从 String 转换为 Int（可能失败）
 fromString : String -> Result Int String
@@ -46,8 +49,9 @@ toString : Int -> String
 ```kun
 import Int
 
-n = Int.neg 5         // → -5
 m = Int.abs (-3)      // → 3
+n = Int.min 5 10       // → 5
+x = Int.max 5 10       // → 10
 x = Int.fromString "42"   // → Ok 42
 y = Int.toFloat 7          // → 7.0
 ```
@@ -56,7 +60,7 @@ y = Int.toFloat 7          // → 7.0
 
 ### 定位
 
-`Float` 为内置类型（f64），`Float` 模块提供取反、绝对值、取整、平方根、容差比较及类型互转函数。
+`Float` 为内置类型（f64），`Float` 模块提供绝对值、取整、平方根、容差比较及类型互转函数。
 
 需显式导入：
 
@@ -67,9 +71,6 @@ import Float
 ### API
 
 ```kun
-// [PureKun] 取反
-neg : Float -> Float
-
 // [PureKun] 绝对值
 abs : Float -> Float
 
@@ -159,6 +160,18 @@ join : String -> List String -> String
 // [PureKun] 去除首尾空白
 trim : String -> String
 
+// [PureKun] 去除首部空白
+trimStart : String -> String
+
+// [PureKun] 去除尾部空白
+trimEnd: String -> String
+
+// [PureKun] 左侧填充到指定长度
+padStart : Int -> Char -> String -> String
+
+// [PureKun] 右侧填充到指定长度
+padEnd : Int -> Char -> String -> String
+
 // [PureKun] 转为大写
 toUpper : String -> String
 
@@ -210,6 +223,9 @@ toString : a -> String
 import String
 
 name = "  Kun  " |> String.trim          // → "Kun"
+prefix = String.trimStart "  Kun  "      // → "Kun  "
+suffix = String.trimEnd "  Kun  "        // → "  Kun"
+col = String.padEnd 10 ' ' "Kun"         // → "Kun       "
 parts = "a,b,c" |> String.split ","      // → ["a", "b", "c"]
 back = parts |> String.join ":"          // → "a:b:c"
 text = Int.toString 42                 // → "42"
@@ -399,7 +415,7 @@ Regex.split r",\s*" "a, b, c"               // → ["a", "b", "c"]
 
 ### 定位
 
-`Math` 模块提供三角函数、指数对数、幂运算、角度转换及实用常量与函数。
+`Math` 模块提供三角函数、指数对数、幂运算及实用常量与函数。
 
 需显式导入：
 
@@ -417,9 +433,6 @@ pi : Float
 
 // [PureKun] 自然常数 e ≈ 2.718281828459045
 e : Float
-
-// [PureKun] τ = 2π ≈ 6.283185307179586
-tau : Float
 ```
 
 #### 三角函数
@@ -433,32 +446,6 @@ cos : Float -> Float
 
 // [PureKun] 正切，参数为弧度
 tan : Float -> Float
-
-// [PureKun] 反正弦，返回值域 [-π/2, π/2]
-asin : Float -> Float
-
-// [PureKun] 反余弦，返回值域 [0, π]
-acos : Float -> Float
-
-// [PureKun] 反正切，返回值域 [-π/2, π/2]
-atan : Float -> Float
-
-// [PureKun] 二参数反正切 atan2(y, x)，返回值域 [-π, π]
-atan2 : Float -> Float -> Float
-```
-
-#### 双曲函数
-
-```kun
-// [PureKun] 双曲正弦
-sinh : Float -> Float
-
-// [PureKun] 双曲余弦
-cosh : Float -> Float
-
-// [PureKun] 双曲正切
-tanh : Float -> Float
-```
 
 #### 指数与对数
 
@@ -481,19 +468,6 @@ log10 : Float -> Float
 ```kun
 // [PureKun] x^y
 pow : Float -> Float -> Float
-
-// [PureKun] sqrt(x² + y²)，避免溢出
-hypot : Float -> Float -> Float
-```
-
-#### 角度转换
-
-```kun
-// [PureKun] 角度转弧度
-degToRad : Float -> Float
-
-// [PureKun] 弧度转角度
-radToDeg : Float -> Float
 ```
 
 #### 实用函数
@@ -517,8 +491,6 @@ import Math
 Math.sin (Math.pi / 2)               // → 1.0
 Math.clamp 1.5 0.0 1.0               // → 1.0
 Math.log Math.e                       // → 1.0
-Math.hypot 3.0 4.0                    // → 5.0
-Math.degToRad 180                     // → 3.1415...
 ```
 
 ## `Function` — 函数组合子
@@ -898,6 +870,8 @@ of : Int -> DateTime
 
 // [PureKun] 从 Unix 秒数构造 `DateTime`
 fromUnixSecs : Int -> DateTime
+// [PureKun] 从 Unix 毫秒数构造 `DateTime`
+fromUnixMillis : Int -> DateTime
 // [PureKun] 提取 Unix 秒数
 toUnixSecs : DateTime -> Int
 // [PureKun] 提取 Unix 纳秒数
@@ -1500,20 +1474,17 @@ partition : (a -> Bool) -> List a -> (List a, List a)
 // [PureKun] 展平嵌套列表
 concat : List (List a) -> List a
 
+// [PureKun] 生成整数范围列表 [start, end)，不含 end
+range : Int -> Int -> List Int
+
 // [PureKun] 求和（元素类型须支持 + 运算符）
 sum : List Int -> Int
-
-// [PureKun] 求积（元素类型须支持 * 运算符）
-product : List Int -> Int
 
 // [PureKun] 最小值
 minimum : List a -> ?a
 
 // [PureKun] 最大值
 maximum : List a -> ?a
-
-// [PureKun] 相邻元素间插入分隔符
-intersperse : a -> List a -> List a
 
 // [PureKun] 按 key 函数分组
 groupBy : (a -> k) -> List a -> Map k (List a)
@@ -2007,14 +1978,8 @@ group : (a -> a -> Bool) -> Stream a -> Stream (List a)
 // [PureKun] 取第 n 个元素
 nth : Int -> Stream a -> ?a
 
-// [Primitive] 创建无限重复元素的 Stream
-repeat : a -> Stream a
-
 // [Primitive] 创建无限迭代的 Stream
 iterate : (a -> a) -> a -> Stream a
-
-// [PureKun] 创建无限循环的 Stream
-cycle : List a -> Stream a
 ```
 
 `range start end` 为 `range start end 1` 的语法糖——编译器在约束生成阶段将 2 参数的 `range` 调用自动脱糖为 3 参数形式，HM 类型检查仅需处理 `Int -> Int -> Int -> Stream Int` 单一签名。
@@ -2091,7 +2056,7 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 
 | 操作 | 类别 | 说明 |
 |------|------|------|
-| `Stream.map` / `Stream.filter` / `Stream.take` / `Stream.flatMap` / `Stream.append` / `Stream.zip` / `Stream.scan` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` / `Stream.cycle` | **纯** | 惰性变换，不触发 IO |
+| `Stream.map` / `Stream.filter` / `Stream.take` / `Stream.flatMap` / `Stream.append` / `Stream.zip` / `Stream.scan` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` | **纯** | 惰性变换，不触发 IO |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
 | `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit)!` 回调，自身为效应函数（必须在 `do` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在 `do` 外使用 |
@@ -2568,6 +2533,9 @@ sha256 : Bytes -> Bytes
 // [Primitive] SHA-256 哈希，返回十六进制字符串
 sha256Hex : Bytes -> String
 
+// [Primitive] SHA-256 流式哈希——逐块处理 Stream，避免大文件全部加载到内存
+sha256Stream : Stream Bytes -> Bytes
+
 // [Primitive] MD5 哈希 [推迟 v0.5]
 md5 : Bytes -> Bytes
 // [Primitive] MD5 哈希，返回十六进制字符串 [推迟 v0.5]
@@ -2584,6 +2552,15 @@ do
     Ok data ->
       hash = Hash.sha256Hex data
       IO.println f"SHA-256: {hash}"
+    Err _ ->
+      IO.println "read failed"
+
+// 大文件流式哈希
+do
+  case File.readBytes p"/path/to/large.iso" of
+    Ok stream ->
+      hash = Hash.sha256Stream stream
+      IO.println f"SHA-256: {Bytes.toHex hash}"
     Err _ ->
       IO.println "read failed"
 ```
@@ -2901,6 +2878,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 标准库深度精简：移除 Math 反三角/双曲/角度转换/hypot/tau（11 项）、Int.neg、Float.neg、List.intersperse/product、Stream.cycle/repeat；新增 Int.min/max、String.trimStart/trimEnd/padStart/padEnd、Hash.sha256Stream、DateTime.fromUnixMillis、List.range |
 | 2026.06.17 | 标准库精简与补充：移除 `Sys`/`Port`/`IpAddress`/`SocketAddr`/`Errno` 模块（功能由 `Cmd.xxx` 替代或并入 IOError）；移除非必要的 File 函数（`chmod`/`chown`/`symlink`/`readlink`）和 Env 函数（`setenv`/`unsetenv`）、FileMode 低频谓词（`isSetuid`/`isSetgid`/`isSticky`）；新增 `DateTime` 算术（`+ Duration`/`- Duration`/`- DateTime`/`compare`/`before`/`after`）及 `DateTime.now`；新增 `Process.uid`/`Process.gid`；新增 `Path` 工具函数（`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`）；新增 `Hash` 模块（SHA-256）和 `Base64` 模块 |
 | 2026.06.15 | 审计修复四轮：73 函数 API 补全（List/Map/Set/Stream/IO/File/Cmd/Process/Test 模块）；Test 模块推迟 v1.0；Uid.current/Gid.current 移除（Sys.uid/gid 替代） |
 | 2026.06.15 | 审计修复六轮：分类表更新 + 效应列表补全 + Cmd 函数推迟标注 |
