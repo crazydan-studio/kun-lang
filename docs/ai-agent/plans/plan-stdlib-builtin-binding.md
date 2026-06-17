@@ -127,7 +127,7 @@ import M
 | `IO` | `print`、`println`、`readln` | 无 | 全部需要 `write`/`read` syscall |
 | `File` | `list`、`mkdir`、`mkdirAll`、`exists`、`readString`、`writeString`、`readBytes`、`writeBytes`、`stat`、`touch`、`remove`、`removeDir`、`createTempFile`、`createTempDir`、`rename`、`glob` | `copy` | `copy` 可用 `readString`+`writeString` 组合 |
 | `Env` | `getenv` | 无 | 需要环境变量 syscall |
-| `Cmd` | `exec`、`exec?`、`pipe`、`pipe?`、`which`、`timeout`、`retry` | `withEnv`、`withStdin`、`mergeStderr`、`withCwd`、`withRunAs`、`withRawOpt`、`andThen`、`orElse`、`xargs` | 装饰函数为纯 Command 值变换 |
+| `Cmd` | `exec`、`exec?`、`pipe`、`pipe?`、`which`、`timeout`、`retry` | `withEnv`、`withStdin`、`mergeStderr`、`withWorkDir`、`withRunAs`、`withRawOpt`、`andThen`、`orElse`、`xargs` | 装饰函数为纯 Command 值变换 |
 | `Process` | `exit`、`pid`、`uid`、`gid`、`kill`、`wait`、`sleep` | 无 | |
 | `Random` | `int`、`bytes`、`float`、`shuffle` | 无 | 需要 `getrandom` syscall |
 | `Path` | 无 | `cwd`、`parent`、`fileName`、`extension`、`join`、`(++)`、`fromString`、`fromBytes`、`component`、`toString`、`toBytes` | 路径是 `[]u8` 切片，字符串操作即可 |

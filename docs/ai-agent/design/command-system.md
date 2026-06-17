@@ -116,7 +116,7 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 c = Cmd.ls { long = true } p"/tmp"
 
 // 修饰：纯操作，累积属性
-c2 = c |> Cmd.withCwd p"/home" |> Cmd.mergeStderr
+c2 = c |> Cmd.withWorkDir p"/home" |> Cmd.mergeStderr
 
 // 显式执行：效应操作，panic 失败
 do
@@ -177,7 +177,7 @@ Cmd.pipe
 | `Cmd.withRawOpt` | 追加原始 argv token（见下方说明） |
 | `Cmd.mergeStderr` | stderr 合并到 stdout |
 | `Cmd.withStdinFile` | 从文件路径注入 stdin |
-| `Cmd.withCwd` | 指定子进程工作目录 |
+| `Cmd.withWorkDir` | 指定子进程工作目录 |
 | `Cmd.withRunAs` | 指定执行用户 |
 | `Cmd.andThen` | 短路条件：前一个成功时执行后一个 |
 | `Cmd.orElse` | 短路条件：前一个失败时执行备选 |
@@ -199,14 +199,14 @@ do
 
 ## 工作目录
 
-Kun **不提供全局 `cd`**。`Cmd.withCwd : Path -> Command -> Command` 指定每个子进程独立的工作目录（fork 后、exec 前 `chdir`）。父进程 OS CWD 推荐不变——命令工作目录使用 `Cmd.withCwd` 按命令指定；若需修改进程 CWD，使用 `File.changeDir`。`Path.cwd` 为脚本启动时冻结的常量，不随 `File.changeDir` 变化
+Kun **不提供全局 `cd`** 或 `chdir`。`Cmd.withWorkDir : Path -> Command -> Command` 指定每个子进程独立的工作目录（fork 后、exec 前 `chdir`）。父进程 CWD 在脚本启动时冻结为 `File.currentDir`，不可变——需使用相对路径的场景通过 `Path.resolve` 基于 `File.currentDir` 转为绝对路径后显式传递，或对各命令使用 `Cmd.withWorkDir` 隔离设置。
 
 ```kun
 do
-  Cmd.ls {} |> Cmd.exec                                       // CWD = Path.cwd
+  Cmd.ls {} |> Cmd.exec                                            // CWD = File.currentDir
   Cmd.tar { c = true, f = "backup.tar" } "."
-    |> Cmd.withCwd p"/build/output" |> Cmd.exec              // 仅此子进程 CWD = /build/output
-  Cmd.ls {} |> Cmd.exec                                       // CWD 仍为 Path.cwd
+    |> Cmd.withWorkDir p"/build/output" |> Cmd.exec               // 仅此子进程 CWD = /build/output
+  Cmd.ls {} |> Cmd.exec                                            // CWD 仍为 File.currentDir
 ```
 
 需要跨多个命令使用同一 CWD 时，用变量绑定：
@@ -214,8 +214,8 @@ do
 ```kun
 do
   workDir = p"/build/output"
-  Cmd.tar { c = true, f = "backup.tar" } "." |> Cmd.withCwd workDir |> Cmd.exec
-  Cmd.ls { a = true } |> Cmd.withCwd workDir |> Cmd.exec
+  Cmd.tar { c = true, f = "backup.tar" } "." |> Cmd.withWorkDir workDir |> Cmd.exec
+  Cmd.ls { a = true } |> Cmd.withWorkDir workDir |> Cmd.exec
 ```
 
 ## stdin 注入：`Cmd.withStdin`
@@ -321,12 +321,12 @@ do
 ```kun
 do
   Cmd.someCmd {} dir
-    |> Cmd.withCwd p"/work"          // 1. 设置工作目录
+    |> Cmd.withWorkDir p"/work"          // 1. 设置工作目录
     |> Cmd.withRunAs "appuser"       // 2. 设置执行用户
     |> Cmd.timeout 5s                // 3. 立即 fork → chdir → setuid → exec
 ```
 
-fork 在 `timeout` 处触发，子进程内依次执行 `chdir("/work")` → `setuid(appuser)` → `exec`。若顺序不满足需求（如先 `timeout` 后 `withCwd`），`withCwd` 之后的修饰属性在 `timeout` fork 后无法应用——修饰函数必须在触发执行的操作之前。
+fork 在 `timeout` 处触发，子进程内依次执行 `chdir("/work")` → `setuid(appuser)` → `exec`。若顺序不满足需求（如先 `timeout` 后 `withWorkDir`），`withWorkDir` 之后的修饰属性在 `timeout` fork 后无法应用——修饰函数必须在触发执行的操作之前。
 
 ## PATH 查找
 
@@ -379,7 +379,7 @@ withStdinFile : Path -> Command -> Command
 // [PureKun]
 mergeStderr : Command -> Command
 // [PureKun]
-withCwd     : Path -> Command -> Command
+withWorkDir     : Path -> Command -> Command
 // [PureKun] 指定子进程执行用户  // [推迟 v1.0]
 withRunAs : String -> Command -> Command
 

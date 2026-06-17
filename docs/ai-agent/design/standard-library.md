@@ -2278,11 +2278,8 @@ readLines : Path -> Stream (Result String IOError)
 // [Primitive] 递归遍历目录
 walkDir : Path -> Stream Path
 
-// [Primitive] 获取当前工作目录
+// [Primitive] 获取当前工作目录（脚本启动时冻结）
 currentDir : Path
-
-// [Primitive] 切换当前工作目录
-changeDir : Path -> Result Unit IOError
 
 // [Primitive] 递归删除目录及其内容
 removeAll : Path -> Result Unit IOError
@@ -2386,7 +2383,7 @@ withStdin : Stream Bytes -> Command -> Command
 mergeStderr : Command -> Command
 
 // [PureKun] 指定子进程工作目录（fork 后、exec 前 chdir）
-withCwd : Path -> Command -> Command
+withWorkDir : Path -> Command -> Command
 
 // [PureKun] 指定子进程执行用户（需 OS 级权限）
 withRunAs : String -> Command -> Command  // [推迟 v1.0]
@@ -2435,7 +2432,7 @@ execSafe : Command -> Result Unit CommandError
 | 操作 | 类别 | 说明 |
 |------|------|------|
 | `Cmd.<bin>` | **纯** | 构造 Command 值，不执行 |
-| `Cmd.pipe` / `Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` / `Cmd.withCwd` / `Cmd.withRunAs` / `Cmd.withStdinFile` | **纯** | 修饰函数，接收并返回 Command |
+| `Cmd.pipe` / `Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` / `Cmd.withWorkDir` / `Cmd.withRunAs` / `Cmd.withStdinFile` | **纯** | 修饰函数，接收并返回 Command |
 | `Cmd.andThen` / `Cmd.orElse` | **纯** | 短路条件组合，返回 Command |
 | `Cmd.<bin>?` / `Cmd.pipe?` | **效应** | 立即执行并返回 Result |
 | `Cmd.exec` / `Cmd.execSafe` / `Cmd.stdoutToString` / `Cmd.stderrToString` / `Cmd.timeout` / `Cmd.retry` | **效应** | 立即执行 |
@@ -2450,7 +2447,7 @@ import Cmd
 
 // 构造 Command（纯操作，可在外层使用）
 c = Cmd.ls { long = true, all = true } p"/tmp"
-  |> Cmd.withCwd p"/home"
+  |> Cmd.withWorkDir p"/home"
   |> Cmd.mergeStderr
 
 do
@@ -2898,6 +2895,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 移除 `File.changeDir`（全局可变状态），`Cmd.withCwd` 更名为 `Cmd.withWorkDir` |
 | 2026.06.17 | 移除 `Path.cwd`（与 `File.currentDir` 冗余，`getcwd()` 归属 File 更合理） |
 | 2026.06.17 | 新增 `Bytes.length`、`IO.readAll`/`IO.readAllBytes`、`String.repeat`（P0+P1+P2 补全） |
 | 2026.06.17 | Math 模块并入 Float（pi/e/sin/cos/tan/exp/log/log2/log10/pow/min/max/clamp 迁入）；移除 Math 模块；Int 新增 pow/clamp |

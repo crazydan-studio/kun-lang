@@ -15,7 +15,7 @@ Kun 作为面向 Linux 的函数式脚本语言，其安全模型的设计直接
 ```kun
 // 脚本级声明
 with caps
-  fs.read = [Path.cwd, p"/tmp/"]
+  fs.read = [File.currentDir, p"/tmp/"]
 
 // 函数级（do 表达式块）
 readConfig =
