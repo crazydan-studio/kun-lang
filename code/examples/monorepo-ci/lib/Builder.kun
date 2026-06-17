@@ -147,23 +147,22 @@ detectServices = \root ->
       Ok es -> es
       Err _ -> []
 
-    let
-      candidates = entries
-        |> List.filter (\entry ->
-          File.isDir (root ++ entry))
-        |> List.map (\candidate ->
-          let
-            fullPath = root ++ candidate
-            lang     = detectLanguage fullPath
-          in
-            { name     = Path.toString candidate
-            , language = lang
-            , dir      = fullPath
-            , mainFile = Nil
-            , buildCmd = Nil
-            })
-    in
-      List.filter (\svc -> svc.language != "unknown") candidates
+    candidates = entries
+      |> List.filter (\entry ->
+        File.isDir (root ++ entry))
+      |> List.map (\candidate ->
+        let
+          fullPath = root ++ candidate
+          lang     = detectLanguage fullPath
+        in
+          { name     = Path.toString candidate
+          , language = lang
+          , dir      = fullPath
+          , mainFile = Nil
+          , buildCmd = Nil
+          })
+
+    List.filter (\svc -> svc.language != "unknown") candidates
 
 detectLanguage : Path -> String
 detectLanguage = \dir ->

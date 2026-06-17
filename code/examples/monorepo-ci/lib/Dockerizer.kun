@@ -60,7 +60,7 @@ generateTag = \serviceName registry ->
 
 buildImage : String -> Path -> Command
 buildImage = \tag contextDir ->
-  Cmd.docker { t = tag } "build" Path.toString contextDir
+  Cmd.docker { t = tag } "build" (Path.toString contextDir)
     |> Cmd.withWorkDir contextDir
 
 buildAndPush : String -> DockerConfig -> Path -> ImageResult
@@ -77,7 +77,7 @@ buildAndPush = \serviceName cfg contextDir ->
     case File.exists dockerfilePath of
       Ok true ->
         do
-          buildResult = Cmd.docker? { t = tag } "build" Path.toString contextDir
+          buildResult = Cmd.docker? { t = tag } "build" (Path.toString contextDir)
 
           case buildResult of
             Ok _ ->
