@@ -1097,9 +1097,6 @@ import Path
 #### API
 
 ```kun
-// [PureKun] 当前工作目录，脚本启动时冻结
-cwd : Path
-
 // [PureKun] 父目录路径
 parent : Path -> Path
 // [PureKun] 文件名（含扩展名）——尝试 UTF-8 解码，非 UTF-8 字节用 U+FFFD 替换
@@ -1136,7 +1133,7 @@ toString : Path -> String
 // [PureKun] 以 Bytes 返回路径的原始字节表示（零开销，无验证）
 toBytes : Path -> Bytes
 
-// [PureKun] 解析相对路径为绝对路径（基于 cwd）
+// [PureKun] 解析相对路径为绝对路径（基于 File.currentDir）
 resolve : Path -> Path
 // [PureKun] 规范化路径（解析 `.` 和 `..`）
 normalize : Path -> Path
@@ -2901,6 +2898,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 移除 `Path.cwd`（与 `File.currentDir` 冗余，`getcwd()` 归属 File 更合理） |
 | 2026.06.17 | 新增 `Bytes.length`、`IO.readAll`/`IO.readAllBytes`、`String.repeat`（P0+P1+P2 补全） |
 | 2026.06.17 | Math 模块并入 Float（pi/e/sin/cos/tan/exp/log/log2/log10/pow/min/max/clamp 迁入）；移除 Math 模块；Int 新增 pow/clamp |
 | 2026.06.17 | 标准库深度精简：移除 Math 反三角/双曲/角度转换/hypot/tau（11 项）、Int.neg、Float.neg、List.intersperse/product、Stream.cycle/repeat；新增 Int.min/max、String.trimStart/trimEnd/padStart/padEnd、Hash.sha256Stream、DateTime.fromUnixMillis、List.range |
