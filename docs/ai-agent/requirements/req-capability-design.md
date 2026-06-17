@@ -1,5 +1,7 @@
 # 需求综合：能力安全系统重新设计
 
+> **已废弃**（2026.06.10 架构重设计）：`with caps` 语法方案被 CLI 安全参数（`--allow-path`/`--allow-net`/`--no-sandbox`）替代，运行时沙箱通过 Landlock + mount namespace + seccomp + rlimit 实现。本文件保留作为设计演进记录。当前安全模型见 `architecture/system-baseline.md` 安全子系统和 `design/kun-cli-tool.md` 安全参数。
+
 ## 背景与动机
 
 Kun 作为面向 Linux 的函数式脚本语言，其安全模型的设计直接决定了语言的实用性和可信度。原有的能力系统存在语法不统一、语义模糊、层级过重三个核心问题，需要通过本次重新设计解决。

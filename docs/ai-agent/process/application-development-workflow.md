@@ -83,7 +83,7 @@ grep -c 'ai-autonomy-policy' docs/ai-agent/context/ai-autonomy-policy.md
 |---------|--------------|
 | 语法设计 | `design/syntax.md`、`design/code-formatting.md`、`design/index.md` |
 | 类型系统 | `design/type-system.md`、`design/syntax.md`、`design/index.md` |
-| 安全模型 | `design/roles-and-permissions.md`、`architecture/system-baseline.md`、`context/ai-autonomy-policy.md` |
+| 安全模型 | `architecture/system-baseline.md`、`context/ai-autonomy-policy.md` |
 | 运行时 | `architecture/system-baseline.md`、`architecture/module-boundaries.md` |
 | Zig 实现 | `context/zig-patterns.md`、`architecture/system-baseline.md`、`conventions.md` |
 | 示例/文档 | `design/code-formatting.md`、`skills/writing-conventions.md` |

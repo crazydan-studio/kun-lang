@@ -25,7 +25,7 @@ kun-lang/
 │   ├── Cmd.<bin> 语法入口
 │   ├── camelCase → kebab-case 自动映射
 │   ├── 类型化模块自动发现（~/.kun/cmd/）
-│   ├── Cmd.withEnv / Cmd.withStdin / Cmd.withRawOpt / Cmd.mergeStderr
+│   ├── Cmd.withEnv / Cmd.withStdin / Cmd.withStdinFile / Cmd.withRawOpt / Cmd.mergeStderr
 │   ├── Cmd.withWorkDir / Cmd.withRunAs
 │   ├── Cmd.andThen / Cmd.orElse（短路条件组合）
 │   ├── Cmd.timeout / Cmd.retry（立即执行，返回 Result，与修饰函数不同）
@@ -39,7 +39,7 @@ kun-lang/
 │   ├── rlimit 资源限制
 │   └── 环境变量安全过滤
 ├── 标准库
-│   ├── 数据类型（Int、Float、String、Math、Decimal、List、Map、Set、Stream 等）
+│   ├── 数据类型（Int、Float、String、Bytes、Char、Decimal、List、Map、Set、Stream 等）
 │   ├── 管道与高阶函数（Function、Nil、Result 等）
 │   ├── 模式匹配
 │   ├── IO 操作（IO、File、Env、Cmd、Process 等）

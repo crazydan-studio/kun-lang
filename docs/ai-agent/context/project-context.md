@@ -20,7 +20,7 @@
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | 标准库精简（移除 Sys/Port/IpAddress/SocketAddr/Errno 5 模块 + 19 函数；新增 DateTime 算术/Process.uid gid/Path 归一化/Hash Base64 4 项 P0）；跨 14 文件一致性传播；累计 315+ 跨文档问题修复 |
+| 最近完成 | 七轮标准库审计与精简（41→36 模块，−30 函数，+15 函数补全，Math→Float/FileType+FileMode+FileStat→File/Pid+ExitCode→Process 合并）；跨文档一致性修复（移除陈旧引用：Math/Path.cwd/Int.neg/Float.neg/Cmd.withStdinFile 遗漏；EffectFn/Fn 规则澄清；陈旧文档废弃标注；版本历史补全） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -43,7 +43,7 @@
 | 构建文档 | `cd docs && pnpm build` |
 | 本地预览 | `cd docs && pnpm dev` |
 | 检查 Markdown 语法 | `cd docs && pnpm lint` |
-| 单元测试 | 待定 |
+| 单元测试 | 未定义（v0.1 仅通过运行脚本 + 退出码验证） |
 
 ## 最近任务路由
 

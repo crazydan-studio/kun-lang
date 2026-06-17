@@ -34,7 +34,6 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| Math | ✅ 设计定型 | 三角函数、指数对数、幂运算、角度转换、常量 |
 | Function | ✅ 设计定型 | `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`，始终缺省可用 |
 | Nil | ✅ 设计定型 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`，变体 `Nil` 缺省可用，函数需显式导入 |
 | String | ✅ 设计定型 | `toString`（编译器级泛型）+ 类型互转函数 |
@@ -59,9 +58,9 @@
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
 | Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
-| Path | ✅ 设计定型 | `cwd`/`parent`/`fileName`/`extension`/`join`/`(++)`/`toString` |
-| Int | ✅ 设计定型 | 整数取反/绝对值/类型互转，需显式导入 |
-| Float | ✅ 设计定型 | 浮点取反/绝对值/取整/平方根/容差比较(`approxEqual`)/类型互转，需显式导入 |
+| Path | ✅ 设计定型 | `parent`/`fileName`/`extension`/`join`/`(++)`/`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`/`toString` |
+| Int | ✅ 设计定型 | 整数绝对值/最值/幂/钳制/类型互转，需显式导入 |
+| Float | ✅ 设计定型 | 浮点绝对值/取整/三角/指数对数/幂/常量/类型互转，Math 已并入 Float |
 | Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
 
 > **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型，但不在 MVP（v0.1.0）范围。Cli 和 Parser.Record 均推迟到 v0.5 实施，届时编译期内省基础设施（基于 Zig comptime + @typeInfo）与二者同时实现。

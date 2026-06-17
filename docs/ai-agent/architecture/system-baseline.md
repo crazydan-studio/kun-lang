@@ -1142,7 +1142,7 @@ HM 约束生成器在处理 Primitive 函数调用时：
 |------|--------------|------|
 | `Int`、`Float`、`String`、`Bytes`、`Char` | 少量 Primitive | 基础运算符由编译器内置；`String.length`/`slice` 需直接操作内存 |
 | `Regex` | 几乎全部 Primitive | 正则引擎依赖 C 库（PCRE2/regexec） |
-| `Math`、`Function`、`Result`、`Nil` | 全部 PureKun | 纯组合子 |
+| `Function`、`Result`、`Nil` | 全部 PureKun | 纯组合子 |
 | `List`、`Map`、`Set` | 结构操作为 Primitive | `map`/`filter`/`fold` 为 PureKun，`get`/`insert`/`append` 等为 Primitive |
 | `IO`、`File`(大部分)、`Env`、`Process`、`Random`、`Task` | 全部 Primitive | 需要系统调用 |
 | `Cmd` 执行 (`exec`/`pipe`/`which`/`timeout`/`retry`) | Primitive | fork-exec |

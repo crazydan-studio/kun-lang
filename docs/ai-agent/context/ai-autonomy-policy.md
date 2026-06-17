@@ -32,4 +32,5 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 跨文档一致性修复：标准库精简（移除 7 模块 + ~30 函数）+ Math→Float 合并 + FileType/FileMode/FileStat→File + Pid/ExitCode→Process；受保护区域不变 |
 | 2026.06.10 | 初始版本 |
