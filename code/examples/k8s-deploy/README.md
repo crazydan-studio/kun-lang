@@ -32,7 +32,7 @@ k8s-deploy/
 | ADT 状态机 | `Deployer.kun` | `DeployPhase = Staging \| Canary ... \| Rollback ... \| Done \| Failed` |
 | ADT 健康状态 | `Verifier.kun` | `HealthStatus = Healthy \| Degraded \| Unreachable \| Timeout` |
 | 穷举匹配 | `deploy.kun` | `case healthStatus of V.Healthy ... → V.Degraded ... → V.Unreachable ... → V.Timeout` |
-| Record 配置 | `deploy.kun` | `Config = { namespace, deployment, image, replicas, ... }` |
+| Record 配置 | `deploy.kun` | `type Config = { namespace : String, deployment : String, image : String, replicas : Int, ... }` |
 | 通配模式 `_` | `Canary.kun` / `Verifier.kun` | `case result of Ok _ -> ...` 忽略负载 |
 
 ### 效应系统

@@ -49,7 +49,7 @@
 - **`Stream`**：`string`（消费流为 String）
 - **`Hash` / `Bytes`**：`sha256Stream`、`sha256Hex`、`toHex`
 - **`Path`**：`join`、`++`、`fromString`、`toString`
-- **`File`**：`readBytes`、`writeString`、`stat`、`atomicWriteString`、`exists`
+- **`File`**：`readBytes`、`writeString`、`stat`、`atomicWriteString`
 - **`IO`**：`println`、`eprintln`
 - **`Cli`**：类型驱动命令行参数解析
 - **`Validator`**：`nonEmpty`、`range`、`oneOf`

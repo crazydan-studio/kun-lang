@@ -31,7 +31,7 @@ monorepo-ci/
 |------|------|------|
 | ADT 枚举 | `Builder.kun` | `type BuildResult = BuildOk ... \| BuildFailed ... \| BuildSkipped ...` |
 | ADT 穷举匹配 | `Reporter.kun` | `case result of BuildOk { ... } -> BuildFailed { ... } ->` 全匹配 |
-| Record 类型 | `build.kun` | `type BuildConfig = { rootPath: Path, registry: String, ... }` |
+| Record 类型 | `build.kun` | `type BuildConfig = { rootPath : Path, registry : String, ... }` |
 | Result 错误处理 | `Dockerizer.kun` | `case buildResult of Ok _ -> ... \| Err err -> ...` 嵌套匹配 |
 | Optional ?T | `build.kun` | `services : ?String` 逗号分隔的服务名列表 |
 | 纯/效应分离 | `Reporter.kun` | `generateReport` 纯计算 vs `writeReport` 效应写入 |
