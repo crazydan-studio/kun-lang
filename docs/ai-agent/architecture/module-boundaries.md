@@ -42,10 +42,10 @@ kun-lang/
 │   ├── 数据类型（Int、Float、String、Math、Decimal、List、Map、Set、Stream 等）
 │   ├── 管道与高阶函数（Function、Nil、Result 等）
 │   ├── 模式匹配
-│   ├── IO 操作（IO、File、Env、Cmd、Process、Sys 等）
+│   ├── IO 操作（IO、File、Env、Cmd、Process 等）
 │   ├── CLI 工具（Cli、Validator、Path 等）
 │   ├── 类型安全解析（Parser.JSON、Parser.Record）
-│   ├── 系统与安全（Random、Signal、Port、Pid、ExitCode、DateTime、IpAddress、Errno、FileType、FileMode、FileStat、IOError、CommandError、Uid、Gid 等）
+│   ├── 系统与安全（Random、Signal、Pid、ExitCode、DateTime、FileType、FileMode、FileStat、IOError、CommandError、Uid、Gid 等）
 │   └── Primitive 函数表（运行时与标准库之间的 Zig 级绑定接口）
 └── Kun Shell
     ├── 交互式环境

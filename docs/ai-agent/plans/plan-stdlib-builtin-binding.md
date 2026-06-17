@@ -58,7 +58,7 @@
   └── 注册 Primitive 函数表
         ├── 编译期常量表直接载入
         ├── 表标记为只读（const 指针）
-        └── 记录受保护模块名集合 {IO, File, Env, Process, Sys, Cmd, Random, Stream, Signal}
+        └── 记录受保护模块名集合 {IO, File, Env, Process, Cmd, Random, Stream, Signal}
 ```
 
 #### 1.3 模块加载时的绑定规则
@@ -125,17 +125,16 @@ import M
 | `Nil` | 无 | `withDefault`、`map`、`orElse`、`toResult`、`andThen` | `Nil` 变体本身是编译器内置 |
 | `Stream` | `fromList`、`range`、`lines`、`linesMax`、`string`、`bytes`、`toList`、`iter`、`fold` | `map`、`filter`、`take`、`drop`、`parseMap`、`parseMapKeep` | tagged union 构造/消费需 Primitive |
 | `IO` | `print`、`println`、`readln` | 无 | 全部需要 `write`/`read` syscall |
-| `File` | `list`、`mkdir`、`mkdirAll`、`exists`、`readString`、`writeString`、`readBytes`、`writeBytes`、`stat`、`touch`、`remove`、`removeDir`、`createTempFile`、`createTempDir`、`rename`、`chmod`、`chown`、`symlink`、`readlink`、`glob` | `copy` | `copy` 可用 `readString`+`writeString` 组合 |
-| `Env` | `getenv`、`setenv`、`unsetenv` | 无 | 全部需要环境变量 syscall |
+| `File` | `list`、`mkdir`、`mkdirAll`、`exists`、`readString`、`writeString`、`readBytes`、`writeBytes`、`stat`、`touch`、`remove`、`removeDir`、`createTempFile`、`createTempDir`、`rename`、`glob` | `copy` | `copy` 可用 `readString`+`writeString` 组合 |
+| `Env` | `getenv` | 无 | 需要环境变量 syscall |
 | `Cmd` | `exec`、`exec?`、`pipe`、`pipe?`、`which`、`timeout`、`retry` | `withEnv`、`withStdin`、`mergeStderr`、`withCwd`、`withRunAs`、`withRawOpt`、`andThen`、`orElse`、`xargs` | 装饰函数为纯 Command 值变换 |
-| `Process` | `exit`、`pid`、`kill`、`wait`、`sleep` | 无 | |
-| `Sys` | `time`、`ps`、`free`、`df` | 无 | |
+| `Process` | `exit`、`pid`、`uid`、`gid`、`kill`、`wait`、`sleep` | 无 | |
 | `Random` | `int`、`bytes`、`float`、`shuffle` | 无 | 需要 `getrandom` syscall |
 | `Path` | 无 | `cwd`、`parent`、`fileName`、`extension`、`join`、`(++)`、`fromString`、`fromBytes`、`component`、`toString`、`toBytes` | 路径是 `[]u8` 切片，字符串操作即可 |
 | `Duration` | 无 | 全部为 PureKun | 运行时表示为 i64，算术即可 |
 | `DateTime` | `format`、`parse` | `of`、`fromUnixSecs`、`toUnixSecs`、字段访问、算术 | `format`/`parse` 需要时区数据处理 |
-| `Port`、`Pid`、`Signal`、`Errno`、`FileType`、`FileMode`、`FileStat`、`ExitCode`、`Uid`、`Gid` | 无 | 全部为 PureKun | 这些是 newtype/enum/record，构造函数和访问器无需系统调用 |
-| `IOError`、`CommandError`、`IpAddress`、`SocketAddr` | 无 | 全部为 PureKun | ADT 构造和模式匹配 |
+| `Pid`、`Signal`、`FileType`、`FileMode`、`FileStat`、`ExitCode`、`Uid`、`Gid` | 无 | 全部为 PureKun | 这些是 newtype/enum/record，构造函数和访问器无需系统调用 |
+| `IOError`、`CommandError` | 无 | 全部为 PureKun | ADT 构造和模式匹配 |
 | `Validator` | 无 | `oneOf`、`range`、`nonEmpty`、`regex` | |
 | `Decimal` | 无 | 全部为 PureKun | 基于 `Int` 尾数和指数的精确十进制 |
 | `Cli` | `parse`、`show` | `flag`、`option`、`count`、`arg`、`withDefault`、`withRequires`、`withNegation`、`withEnvVar`、`withValidator`、`oneOf` | `parse` 需要编译期代码展开（v0.5）；声明器为纯值构造 |

@@ -91,10 +91,10 @@ add = \x y ->
   x + y
 
 // 零参函数（仅效应函数）
-now : -> DateTime
-now = \ ->
+pid : -> Pid
+pid = \ ->
   do
-    Sys.time
+    Process.pid
 ```
 
 简短表达式可在一行内定义：
@@ -707,7 +707,7 @@ type LogEntry =
 currentTime : -> String
 currentTime = \ ->
   do
-    now = Sys.time
+    now = DateTime.now
   in
     case DateTime.format "HH:mm:ss" now of
       Ok s  -> s

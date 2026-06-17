@@ -23,10 +23,8 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| Port | ✅ 设计定型 | 0-65535，newtype，`of` + `isValid` |
 | Pid | ✅ 设计定型 | newtype，`Pid.of` 构造 |
 | Signal | ✅ 设计定型 | POSIX 信号枚举，`Signal.on`（signalfd），仅可执行脚本可用 |
-| Errno | ✅ 设计定型 | POSIX 错误码枚举，与 IOError 建立映射 |
 | FileType | ✅ 设计定型 | 运行时文件类型枚举（Regular/Directory/SymbolicLink/Socket/Fifo/CharDevice/BlockDevice/Unknown） |
 | IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
 | CommandError | ✅ 设计定型 | 语义化命令错误类型（NotFound/PermissionDenied/CommandFailed/KilledBySignal/IoError/PipeFailed/Timeout） |
@@ -36,8 +34,6 @@
 | Decimal | ✅ 设计定型 | 精确十进制数值（非编译器内置） |
 | FileMode | ✅ 设计定型 | 文件权限位（`of`/`isReadable`/`isWritable`/`isExecutable`/`fromInt`） |
 | FileStat | ✅ 设计定型 | 完整文件元数据（`size`/`type`/`mtime`/`mode`/`owner`/`device` 等） |
-| SocketAddr | ✅ 设计定型 | 套接字地址（`Tcp`/`Udp` + `IpAddress` + `Port`） |
-| IpAddress | ✅ 设计定型 | IPv4/IPv6 枚举，SocketAddr |
 
 ### 标准库模块
 
@@ -62,7 +58,8 @@
 | Process | ✅ 设计定型 | `exit`/`pid`/`kill`/`wait`/`sleep` |
 | Duration | ✅ 设计定型 | 时间段算术/比较/单位转换（编译器内置类型，模块函数需显式导入） |
 | Task | ✅ 设计定型 | `spawn`/`all` 并发命令执行 |
-| Sys | ✅ 设计定型 | `ps`/`free`/`df`
+| Hash | ✅ 设计定型 | SHA-256 哈希（`sha256`/`sha256Hex`；`md5` 推迟 v0.5） |
+| Base64 | ✅ 设计定型 | Base64 编解码（`encode`/`decode`） |
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
 | Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |

@@ -386,10 +386,10 @@ add = \x y -> x + y
 identity : a -> a
 identity = \x -> x
 
-now : -> DateTime
-now = \ ->
+pid : -> Pid
+pid = \ ->
   do
-    Sys.time
+    Process.pid
 
 main : List String -> Unit
 main = \_ ->
@@ -515,7 +515,7 @@ in
 
 多绑定的求值顺序：绑定之间按声明顺序求值（前面的绑定在后继绑定的表达式中可见）。相互引用（如 `a = ... b ...` 和 `b = ... a ...`）需通过 Lambda 包装实现：`a = \x -> ... b x ...`。
 
-> **纯性约束**：`let ... in` 绑定的表达式必须是纯的——不得包含 `do` 块、效应命名空间调用（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*`、`Signal.on`）及 `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.which`/`Cmd.exec`/`Cmd.execSafe`/`Cmd.stdoutToString`/`Cmd.stderrToString`。`let` 绑定采用延迟求值（仅在 `in` 之后被引用时才求值），若允许效应代码，效应执行时机不确定且可能被多次触发（泛化后多次引用）。效应代码必须在 `do` 块内使用 `=` 绑定顺序执行。
+> **纯性约束**：`let ... in` 绑定的表达式必须是纯的——不得包含 `do` 块、效应命名空间调用（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Task.*`、`Random.*`、`Signal.on`）及 `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.which`/`Cmd.exec`/`Cmd.execSafe`/`Cmd.stdoutToString`/`Cmd.stderrToString`。`let` 绑定采用延迟求值（仅在 `in` 之后被引用时才求值），若允许效应代码，效应执行时机不确定且可能被多次触发（泛化后多次引用）。效应代码必须在 `do` 块内使用 `=` 绑定顺序执行。
 
 ### Case 表达式（模式匹配）
 
@@ -708,7 +708,7 @@ countFiles = \dir ->
 `do` 块规则：
 
 - `do` 块内使用 `=` 绑定值
-- 效应函数（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*` 命名空间的函数 + `Signal.on` + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.which`/`Cmd.exec`/`Cmd.execSafe`/`Cmd.stdoutToString`/`Cmd.stderrToString` + 用户定义含 `do` 块的函数 + 签名中声明了 `(a -> b)!` 参数的函数）只能在 `do` 块中调用；`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
+- 效应函数（`IO.*`、`File.*`、`Env.*`、`Process.*`、`Task.*`、`Random.*` 命名空间的函数 + `Signal.on` + `Cmd.<bin>?`/`Cmd.pipe?`/`Cmd.timeout`/`Cmd.retry`/`Cmd.which`/`Cmd.exec`/`Cmd.execSafe`/`Cmd.stdoutToString`/`Cmd.stderrToString` + 用户定义含 `do` 块的函数 + 签名中声明了 `(a -> b)!` 参数的函数）只能在 `do` 块中调用；`Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
 - 含 `do` 块的函数自动标记为效应函数
 - 签名中声明了 `(a -> b)!` 参数的函数自动标记为效应函数
 - 纯函数（无 `do` 块、无 `!` 参数）不能调用效应函数

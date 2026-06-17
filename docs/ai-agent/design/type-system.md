@@ -237,13 +237,13 @@ case (x, y) of              // x : ?Int, y : ?String
 - `-> T` 与 `a -> T` 是**不同元数的函数类型**——HM 合一时元数必须相同，否则合一失败
 - 零参函数**仅允许用于效应函数**（函数体含 `do` 块）。纯零参函数退化为常量，应使用 `let` 绑定
 - 对应的 Lambda 语法为 `\ -> expr`
-- 调用零参函数时裸名即为调用：`Sys.time`（不可传参）
+- 调用零参函数时裸名即为调用：`DateTime.now`（不可传参）
 
 ```kun
 now : -> DateTime
 now = \ ->
   do
-    Sys.time
+    DateTime.now
 
 getPid : -> Pid
 getPid = \ ->
@@ -291,7 +291,7 @@ p = p"/tmp/foo"
 Kun 通过 AST 扫描自动推断函数的效应性：
 
 - 含 `do` 块的函数自动标记为效应函数
-- 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Sys.*`、`Task.*`、`Random.*`；`Signal.on` 为效应函数（`Signal` 模块其余函数为纯函数）
+- 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Task.*`、`Random.*`；`Signal.on` 为效应函数（`Signal` 模块其余函数为纯函数）
 - `Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
 - `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.execSafe`、`Cmd.stdoutToString`、`Cmd.stderrToString`（立即执行并返回 `Result`）为效应函数
 - `Cmd.exec : Command -> Unit` 执行 Command 值，为效应函数
@@ -299,7 +299,7 @@ Kun 通过 AST 扫描自动推断函数的效应性：
 - 纯函数（无 `do` 块、无 `!` 参数声明）不能调用效应函数——编译期拒绝。`(a -> b)!` 参数使函数自身成为效应函数。
 - 函数名不添加效应标记，效应性由编译器推断、文档生成（`kun doc`）和 IDE/LSP 提供可见性
 
-> **注**：在 MVP（v0.1）中，下列命名空间/函数虽被效应检查器识别，但无运行时实现：`Sys.ps`、`Sys.free`、`Sys.df`、`Task.*`、`Random.*`、`Signal.on`、`Cmd.timeout`、`Cmd.retry`、`Cmd.withRunAs`。效应检查器对它们的守卫不影响编译——调用这些函数在 MVP 中因 Primitive 表无绑定而报"未定义函数"错误。后续版本中逐一激活。
+> **注**：在 MVP（v0.1）中，下列命名空间/函数虽被效应检查器识别，但无运行时实现：`Task.*`、`Random.*`、`Signal.on`、`Cmd.timeout`、`Cmd.retry`、`Cmd.withRunAs`。效应检查器对它们的守卫不影响编译——调用这些函数在 MVP 中因 Primitive 表无绑定而报"未定义函数"错误。后续版本中逐一激活。
 
 ### 效应回调标记 `!`
 
