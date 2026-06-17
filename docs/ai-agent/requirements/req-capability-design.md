@@ -94,7 +94,7 @@ readConfig =
 
 ## 涉及模块
 
-- 安全模型：`design/roles-and-permissions.md`
+- 安全模型：`architecture/system-baseline.md`（当前） / `archive/deprecated/roles-and-permissions.md`（已废弃）
 - 语法设计：`design/syntax.md`
 - 格式化规范：`design/code-formatting.md`
 - 运行时架构：`architecture/system-baseline.md`

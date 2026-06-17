@@ -139,7 +139,7 @@ echo "变更类型: " && echo "触发流程档位: " && echo "用户已确认? "
 #### 附加检查项（根据 `docs/ai-agent/context/conventions.md`）
 
 - [ ] 新建文件后是否更新 `config.mts` 导航？
-- [ ] `.kun` 文件是否已通过 `tools/kun-lint.sh` 检查？
+- [ ] `.kun` 文件是否通过语法审计（对照 `syntax.md` 和 `code-formatting.md`）？
 - [ ] Markdown 文件是否已通过 `markdownlint` 检查？
 - [ ] Zig 代码是否已对照 `zig-patterns.md` 审计？
 
