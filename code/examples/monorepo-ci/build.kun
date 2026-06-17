@@ -15,9 +15,8 @@ import String
 import Path
 import IO
 import Process
-import Result
-import Nil
 import Task
+import CommandError
 
 import Builder    as B
 import Tester     as T
@@ -34,7 +33,7 @@ type BuildConfig =
   , parallel   : Int
   , skipTests  : Bool
   , reportDir  : Path
-  , services   : ?String          // 逗号分隔的可选服务名列表
+  , services   : ?String
   }
 
 // -------------------------------------------------------
@@ -72,7 +71,8 @@ filterByNames = \svcs rawNames ->
         trimmed = String.trim namesStr
         names   = if String.length trimmed > 0 then
                     String.split "," trimmed |> List.map String.trim
-                  else []
+                  else
+                    []
       in
         if List.length names > 0 then
           List.filter (\svc -> List.elem svc.name names) svcs
@@ -101,9 +101,9 @@ toTestSuites = \svcs ->
 main : List String -> Unit
 main = \rawArgs ->
   do
-    IO.println f"\n{String.repeat 60 '='}"
+    IO.println f"\n{String.repeat 60 "="}"
     IO.println "  Monorepo CI/CD Pipeline"
-    IO.println f"{String.repeat 60 '='}\n"
+    IO.println f"{String.repeat 60 "="}\n"
 
     case parseConfig rawArgs of
       Ok cfg ->
@@ -121,76 +121,89 @@ main = \rawArgs ->
           // -------------------------------------------------
           // Phase 1: 并行构建
           // -------------------------------------------------
-          IO.println f"{String.repeat 40 '-'}"
+          IO.println f"{String.repeat 40 "-"}"
           IO.println "  BUILD PHASE"
-          IO.println f"{String.repeat 40 '-'}"
+          IO.println f"{String.repeat 40 "-"}"
 
           buildResults = B.buildAll services cfg.parallel
 
           buildPassed =
-            List.fold (\n r -> case r of B.BuildOk {} -> n + 1; _ -> n)
+            List.fold
+              (\n r ->
+                case r of
+                  B.BuildOk _ -> n + 1
+                  _           -> n)
               0 buildResults
-          IO.println f"  {buildPassed}/{List.length services} services built"
+          IO.println f"  {buildPassed}/{List.length services} built"
 
           // -------------------------------------------------
           // Phase 2: 并行测试
           // -------------------------------------------------
-          testResults = if cfg.skipTests then
-            do
-              IO.println "\n  Tests skipped (--skip-tests)"
-              []
-          else
-            do
-              IO.println f"\n{String.repeat 40 '-'}"
-              IO.println "  TEST PHASE"
-              IO.println f"{String.repeat 40 '-'}"
+          testResults =
+            if cfg.skipTests then
+              do
+                IO.println "\n  Tests skipped (--skip-tests)"
+                []
+            else
+              do
+                IO.println f"\n{String.repeat 40 "-"}"
+                IO.println "  TEST PHASE"
+                IO.println f"{String.repeat 40 "-"}"
 
-              let suites = toTestSuites services
-              in T.runTests suites cfg.parallel
+                let suites = toTestSuites services
+                in T.runTests suites cfg.parallel
 
           // -------------------------------------------------
           // Phase 3: Docker 镜像并行构建
           // -------------------------------------------------
-          IO.println f"\n{String.repeat 40 '-'}"
+          IO.println f"\n{String.repeat 40 "-"}"
           IO.println "  DOCKER PHASE"
-          IO.println f"{String.repeat 40 '-'}"
+          IO.println f"{String.repeat 40 "-"}"
 
-          dockerCfg = { registry  = cfg.registry
-                      , namespace = "default"
-                      , dockerfile = Nil
-                      }
+          dockerCfg =
+            { registry  = cfg.registry
+            , namespace = "default"
+            , dockerfile = Nil
+            }
 
-          dockerCmds = services
-            |> List.map (\svc ->
-              D.buildImage svc.name dockerCfg svc.dir)
+          dockerCmds =
+            services
+              |> List.map (\svc ->
+                D.buildImage svc.name dockerCfg svc.dir)
 
           dockerStream = Task.spawn cfg.parallel dockerCmds
           dockerResults = Task.all dockerStream
 
-          imageResults = services
-            |> List.zip dockerResults
-            |> List.map (\(svc, result) ->
-              case result of
-                Ok _  -> let tag = D.generateTag svc.name cfg.registry
-                         in D.ImageOk { service = svc.name, tag = tag
-                                      , imageId = "<parallel>", size = "N/A" }
-                Err err -> D.ImageFailed { service = svc.name
-                                         , error = CommandError.show err })
+          imageResults =
+            services
+              |> List.zip dockerResults
+              |> List.map (\(svc, result) ->
+                case result of
+                  Ok _ ->
+                    let tag = D.generateTag svc.name cfg.registry
+                    in D.ImageOk { service = svc.name
+                                 , tag = tag
+                                 , imageId = "<parallel>"
+                                 , size = "N/A" }
+                  Err err ->
+                    D.ImageFailed { service = svc.name
+                                  , error = CommandError.show err })
 
           // -------------------------------------------------
           // Phase 4: 报告
           // -------------------------------------------------
           elapsed = DateTime.now - started
 
-          IO.println f"\n{String.repeat 40 '-'}"
+          IO.println f"\n{String.repeat 40 "-"}"
           IO.println "  REPORT"
-          IO.println f"{String.repeat 40 '-'}"
+          IO.println f"{String.repeat 40 "-"}"
 
           let
             report     = R.generateReport buildResults testResults
                            imageResults started elapsed
             timestamp  = case DateTime.format "yyyyMMdd-HHmmss" started of
-                           Ok s -> s; Err _ -> "unknown"
+                           Ok s  -> s
+                           Err _ -> "unknown"
             reportPath = cfg.reportDir
               ++ Path.fromString f"build-report-{timestamp}.md"
           in
@@ -199,7 +212,10 @@ main = \rawArgs ->
                 do
                   IO.println f"\n  Total time: {Duration.toSeconds elapsed}s"
                   IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
-                  if report.failed > 0 then Process.exit 1 else Process.exit 0
+                  if report.failed > 0 then
+                    Process.exit 1
+                  else
+                    Process.exit 0
               Err _ ->
                 Process.exit 2
 

@@ -5,18 +5,17 @@
 import String
 import Duration
 import DateTime
-import Stream
 import Process
 import Cmd
 import IO
-import List
 import Int
+import CommandError
+import Result
 
 export
   ( HealthStatus, HealthStatus(..)
   , HealthCheck
   , checkEndpoint
-  , waitForHealthy
   )
 
 // -------------------------------------------------------
@@ -52,7 +51,7 @@ type HealthCheck =
   }
 
 // -------------------------------------------------------
-// 单次检查——构造 Command 然后 stdoutToString
+// 单次检查
 // -------------------------------------------------------
 
 checkOnce : String -> Result Int CommandError
@@ -70,84 +69,85 @@ checkOnce = \endpoint ->
         Int.fromString (String.trim s) |> Result.withDefault 0)
 
 // -------------------------------------------------------
-// 带重试的健康检查（Cmd.retry 语义）
+// 带重试的健康检查
 // -------------------------------------------------------
 
 checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
   do
     started = DateTime.now
+    result  = tryOnce hc.endpoint
 
-    checkSingle = \endpoint ->
-      do
-        let elapsed = DateTime.now - started
-        in
-          if elapsed >= hc.timeout then
-            Timeout { waited = hc.timeout }
-          else
-            case checkOnce endpoint of
-              Ok code ->
-                case hc.expect of
-                  expected ->
-                    if code == expected then
-                      Healthy { responseTime = 0s, statusCode = code, body = "" }
-                    else
-                      Degraded { responseTime = 0s, statusCode = code
-                               , reason = f"expected {expected}, got {code}" }
-                  Nil ->
-                    if code >= 200 && code < 400 then
-                      Healthy { responseTime = 0s, statusCode = code, body = "" }
-                    else
-                      Degraded { responseTime = 0s, statusCode = code
-                               , reason = f"status {code}" }
-              Err err ->
-                Unreachable { error = CommandError.show err, attempts = 0 }
-
-    result = checkSingle hc.endpoint
     case result of
-      Healthy _   -> result
-      Degraded _  -> result
-      _           -> do retryLoop 0 started hc
+      Ok code ->
+        evaluateCode code hc.expect
+      Err err ->
+        do
+          retryLoop 0 started hc
+
+tryOnce : String -> Result Int CommandError
+tryOnce = \endpoint ->
+  checkOnce endpoint
+
+evaluateCode : Int -> ?Int -> HealthStatus
+evaluateCode = \code expected ->
+  case expected of
+    exp ->
+      if code == exp then
+        Healthy { responseTime = 0s, statusCode = code, body = "" }
+      else
+        Degraded { responseTime = 0s, statusCode = code
+                 , reason = f"expected {exp}, got {code}" }
+    Nil ->
+      if code >= 200 && code < 400 then
+        Healthy { responseTime = 0s, statusCode = code, body = "" }
+      else
+        Degraded { responseTime = 0s, statusCode = code
+                 , reason = f"status {code}" }
 
 retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus
 retryLoop = \attempt started hc ->
   do
-    let elapsed = DateTime.now - started
-    in
-      if elapsed >= hc.timeout then
-        Timeout { waited = hc.timeout }
-      else if attempt >= hc.retries then
-        case checkOnce hc.endpoint of
-          Ok code ->
-            if code >= 200 && code < 400 then
+    elapsed = DateTime.now - started
+
+    if elapsed >= hc.timeout then
+      Timeout { waited = hc.timeout }
+    else if attempt >= hc.retries then
+      lastTry hc.endpoint hc.expect
+    else
+      case checkOnce hc.endpoint of
+        Ok code ->
+          let okCode = case hc.expect of
+                exp -> code == exp
+                Nil -> code >= 200 && code < 400
+          in
+            if okCode then
               Healthy { responseTime = 0s, statusCode = code, body = "" }
             else
-              Degraded { responseTime = 0s, statusCode = code
-                       , reason = f"status {code}" }
-          Err err ->
-            Unreachable { error = CommandError.show err, attempts = attempt }
-      else
-        case checkOnce hc.endpoint of
-          Ok code ->
-            let okCode = case hc.expect of
-                  expected -> code == expected
-                  Nil      -> code >= 200 && code < 400
-            in
-              if okCode then
-                Healthy { responseTime = 0s, statusCode = code, body = "" }
-              else
-                do
-                  Process.sleep hc.interval
-                  retryLoop (attempt + 1) started hc
-          Err _ ->
-            do
-              Process.sleep hc.interval
-              retryLoop (attempt + 1) started hc
+              do
+                Process.sleep hc.interval
+                retryLoop (attempt + 1) started hc
+        Err _ ->
+          do
+            Process.sleep hc.interval
+            retryLoop (attempt + 1) started hc
 
-// -------------------------------------------------------
-// 等待健康检查通过
-// -------------------------------------------------------
-
-waitForHealthy : HealthCheck -> HealthStatus
-waitForHealthy = \hc ->
-  checkEndpoint hc
+lastTry : String -> ?Int -> HealthStatus
+lastTry = \endpoint expected ->
+  case checkOnce endpoint of
+    Ok code ->
+      case expected of
+        exp ->
+          if code == exp then
+            Healthy { responseTime = 0s, statusCode = code, body = "" }
+          else
+            Degraded { responseTime = 0s, statusCode = code
+                     , reason = f"expected {exp}, got {code}" }
+        Nil ->
+          if code >= 200 && code < 400 then
+            Healthy { responseTime = 0s, statusCode = code, body = "" }
+          else
+            Degraded { responseTime = 0s, statusCode = code
+                     , reason = f"status {code}" }
+    Err err ->
+      Unreachable { error = CommandError.show err, attempts = 0 }

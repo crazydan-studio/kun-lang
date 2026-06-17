@@ -1,5 +1,5 @@
 // ============================================================
-// dockerizer.kun — Docker 镜像构建与推送模块
+// Dockerizer.kun — Docker 镜像构建与推送模块
 // ============================================================
 
 import DateTime
@@ -7,22 +7,19 @@ import Duration
 import List
 import String
 import Path
+import Stream
 import Cmd
 import IO
 import File
+import CommandError
 
 export
   ( ImageResult, ImageResult(..)
   , DockerConfig
   , buildAndPush
   , buildImage
-  , pushImage
   , generateTag
   )
-
-// -------------------------------------------------------
-// 领域类型
-// -------------------------------------------------------
 
 type ImageResult
   = ImageOk
@@ -55,10 +52,7 @@ generateTag = \serviceName registry ->
   do
     commitHash = case Cmd.git? { C = "." } "rev-parse" "--short" "HEAD" of
       Ok output ->
-        let
-          hash = IO.readAll output
-        in
-          String.trim hash
+        Stream.string output |> String.trim
       Err _ ->
         "unknown"
 
@@ -71,28 +65,16 @@ generateTag = \serviceName registry ->
         f"{registry}/{serviceName}:latest"
 
 // -------------------------------------------------------
-// 单服务 Docker 构建
+// 单服务 Docker 构建命令
 // -------------------------------------------------------
 
 buildImage : String -> DockerConfig -> Path -> Command
 buildImage = \serviceName cfg contextDir ->
   let
-    tag       = generateTag serviceName cfg.registry
-    dockerfile = case cfg.dockerfile of
-      f -> Cmd.docker { f = Path.toString f }
-      Nil -> identity
+    tag = generateTag serviceName cfg.registry
   in
-    Cmd.docker { t = tag } "build" contextDir
+    Cmd.docker { t = tag } "build" Path.toString contextDir
       |> Cmd.withWorkDir contextDir
-
-// -------------------------------------------------------
-// 推送镜像到 Registry
-// -------------------------------------------------------
-
-pushImage : String -> Command
-pushImage = \tag ->
-  Cmd.docker {} "push" tag
-    |> Cmd.mergeStderr
 
 // -------------------------------------------------------
 // 构建并推送——返回结构化结果
@@ -105,58 +87,45 @@ buildAndPush = \serviceName cfg contextDir ->
 
     tag = generateTag serviceName cfg.registry
 
-    // 检查 Dockerfile 是否存在
     dockerfilePath = case cfg.dockerfile of
       df -> df
       Nil -> contextDir ++ p"Dockerfile"
 
     case File.exists dockerfilePath of
       Ok true ->
-        // 构建
-        buildResult = Cmd.docker? { t = tag } "build"
-          (Path.toString contextDir)
+        do
+          buildResult = Cmd.docker? { t = tag } "build" Path.toString contextDir
 
-        case buildResult of
-          Ok _ ->
-            // 推送
-            pushResult = Cmd.docker? {} "push" tag
+          case buildResult of
+            Ok _ ->
+              do
+                pushResult = Cmd.docker? {} "push" tag
 
-            case pushResult of
-              Ok _ ->
-                // 获取镜像 ID
-                inspectResult = Cmd.docker? { format = "{{.ID}}" }
-                  "inspect" tag
+                case pushResult of
+                  Ok _ ->
+                    do
+                      inspectResult = Cmd.docker? { format = "{{.ID}}" } "inspect" tag
+                      imageId = case inspectResult of
+                        Ok idOutput ->
+                          Stream.string idOutput |> String.trim |> String.slice 0 12
+                        Err _ ->
+                          "<unknown>"
 
-                imageId = case inspectResult of
-                  Ok idOutput ->
-                    let
-                      raw = IO.readAll idOutput
-                    in
-                      String.trim (String.slice 0 12 raw)
-                  Err _ ->
-                    "<unknown>"
+                      sizeResult = Cmd.docker? { format = "{{.Size}}" } "inspect" tag
+                      sizeStr = case sizeResult of
+                        Ok s ->
+                          Stream.string s |> String.trim
+                        Err _ ->
+                          "N/A"
 
-                // 获取镜像大小
-                sizeResult = Cmd.docker? { format = "{{.Size}}" }
-                  "inspect" tag
-
-                sizeStr = case sizeResult of
-                  Ok s ->
-                    let
-                      bytes = IO.readAll s
-                    in
-                      String.trim bytes
-                  Err _ ->
-                    "N/A"
-
-                ImageOk { service = serviceName, tag = tag
-                        , imageId = imageId, size = sizeStr }
-              Err err ->
-                ImageFailed { service = serviceName
-                            , error = CommandError.show err }
-          Err err ->
-            ImageFailed { service = serviceName
-                        , error = CommandError.show err }
+                      ImageOk { service = serviceName, tag = tag
+                              , imageId = imageId, size = sizeStr }
+                Err err ->
+                  ImageFailed { service = serviceName
+                              , error = CommandError.show err }
+            Err err ->
+              ImageFailed { service = serviceName
+                          , error = CommandError.show err }
       Ok false ->
         ImageSkipped { service = serviceName
                       , reason = "Dockerfile not found" }

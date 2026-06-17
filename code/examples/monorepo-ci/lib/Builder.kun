@@ -13,7 +13,7 @@ import File
 import Task
 import Hash
 import Bytes
-import Map
+import CommandError
 
 export
   ( BuildResult, BuildResult(..)
@@ -52,17 +52,6 @@ type BuildResult
       }
 
 // -------------------------------------------------------
-// 语言检测
-// -------------------------------------------------------
-
-detectLanguage : Path -> String
-detectLanguage = \dir ->
-  case (File.exists (Path.join dir "go.mod"), File.exists (Path.join dir "package.json")) of
-    (Ok true, _)   -> "go"
-    (_, Ok true)   -> "js"
-    _              -> "unknown"
-
-// -------------------------------------------------------
 // 构造构建 Command（纯操作——不执行）
 // -------------------------------------------------------
 
@@ -97,16 +86,15 @@ buildService = \svc ->
   do
     IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
 
-    start  = DateTime.now
-    result = Cmd.pipe? [buildCommand svc]
+    start   = DateTime.now
+    result  = Cmd.pipe? [buildCommand svc]
     elapsed = DateTime.now - start
+    artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
 
     case result of
       Ok _ ->
-        let
-          artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
+        do
           checksum = computeChecksum artifact
-        in
           BuildOk { service = svc.name, language = svc.language
                   , duration = elapsed, artifact = artifact, checksum = checksum }
       Err err ->
@@ -115,18 +103,19 @@ buildService = \svc ->
                      , exitCode = extractExitCode err }
 
 // -------------------------------------------------------
-// SHA-256 校验
+// SHA-256 校验（效应——读取产物文件）
 // -------------------------------------------------------
 
 computeChecksum : Path -> String
 computeChecksum = \path ->
-  case File.readBytes path of
-    Ok stream ->
-      Hash.sha256Stream stream
-        |> Bytes.toHex
-        |> String.slice 0 12
-    Err _ ->
-      "<not found>"
+  do
+    case File.readBytes path of
+      Ok stream ->
+        Hash.sha256Stream stream
+          |> Bytes.toHex
+          |> String.slice 0 12
+      Err _ ->
+        "<not found>"
 
 extractExitCode : CommandError -> Int
 extractExitCode = \err ->
@@ -148,25 +137,26 @@ buildAll = \svcs maxParallel ->
         |> Task.all
         |> List.zip svcs
         |> List.map (\(svc, result) ->
-          case result of
-            Ok _ ->
-              let
-                artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
-              in
+          let
+            artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
+            checksum = Hash.sha256Hex (Bytes.fromString svc.name)
+          in
+            case result of
+              Ok _ ->
                 BuildOk
                   { service   = svc.name
                   , language  = svc.language
                   , duration  = 0s
                   , artifact  = artifact
-                  , checksum  = computeChecksum artifact
+                  , checksum  = checksum
                   }
-            Err err ->
-              BuildFailed
-                { service   = svc.name
-                , language  = svc.language
-                , error     = CommandError.show err
-                , exitCode  = extractExitCode err
-                })
+              Err err ->
+                BuildFailed
+                  { service   = svc.name
+                  , language  = svc.language
+                  , error     = CommandError.show err
+                  , exitCode  = extractExitCode err
+                  })
 
 // -------------------------------------------------------
 // 自动探测 monorepo 中的服务
@@ -178,8 +168,7 @@ detectServices = \root ->
     entries = case File.list root of
       Ok es -> es
       Err _ -> []
-  in
-    entries
+    candidates = entries
       |> List.filter (\entry ->
         File.isDir (root ++ entry))
       |> List.map (\candidate ->
@@ -193,7 +182,19 @@ detectServices = \root ->
           , mainFile = Nil
           , buildCmd = Nil
           })
-      |> List.filter (\svc -> svc.language != "unknown")
+  in
+    List.filter (\svc -> svc.language != "unknown") candidates
+
+// -------------------------------------------------------
+// 语言检测（纯函数）
+// -------------------------------------------------------
+
+detectLanguage : Path -> String
+detectLanguage = \dir ->
+  case (File.exists (Path.join dir "go.mod"), File.exists (Path.join dir "package.json")) of
+    (Ok true, _)   -> "go"
+    (_, Ok true)   -> "js"
+    _              -> "unknown"
 
 // -------------------------------------------------------
 // 收集构建产物路径

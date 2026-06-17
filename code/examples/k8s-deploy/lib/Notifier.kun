@@ -1,6 +1,5 @@
 // ============================================================
 // Notifier.kun — 部署通知模块
-//   Kun 无内置 HTTP——所有网络操作通过 Cmd.curl 完成
 // ============================================================
 
 import String
@@ -8,7 +7,7 @@ import Duration
 import DateTime
 import Cmd
 import IO
-import Result
+import CommandError
 
 export
   ( NotifyLevel, NotifyLevel(..)
@@ -17,10 +16,6 @@ export
   , notifyConsole
   , notify
   )
-
-// -------------------------------------------------------
-// 通知级别
-// -------------------------------------------------------
 
 type NotifyLevel
   = Info
@@ -47,25 +42,24 @@ formatMessage : DeploymentEvent -> String
 formatMessage = \event ->
   let
     icon = case event.level of
-      Info     -> ":information_source:"
-      Success  -> ":white_check_mark:"
-      Warning  -> ":warning:"
-      Failure  -> ":x:"
-      Rollback -> ":arrow_backward:"
+      Info     -> "ℹ️"
+      Success  -> "✅"
+      Warning  -> "⚠️"
+      Failure  -> "❌"
+      Rollback -> "🔄"
 
     timeStr = case DateTime.format "HH:mm:ss" event.timestamp of
       Ok s -> s
       Err _ -> "<time>"
 
     durationStr = case event.duration of
-      d -> f" (took {Duration.toSeconds d}s)"
       Nil -> ""
+      d   -> f" (took {Duration.toSeconds d}s)"
   in
     f"{icon} *{event.service}* — {event.phase}{durationStr}\n> {event.message}\n _{timeStr}_"
 
 // -------------------------------------------------------
 // 发送 Slack / Webhook 通知
-//   手动构造 JSON payload（Kun v1.0 可用 Parser.JSON.toString）
 // -------------------------------------------------------
 
 notifySlack : String -> DeploymentEvent -> Result String CommandError
@@ -79,7 +73,7 @@ notifySlack = \webhookUrl event ->
         Failure | Rollback -> "danger"
 
       text  = formatMessage event
-      json  = f"{{\"attachments\":[{{\"color\":\"{color}\",\"text\":\"{text}\"}}]}}"
+      json  = f"\{ \"attachments\": [\{ \"color\": \"{color}\", \"text\": \"{text}\" \}] \}"
     in
       Cmd.stdoutToString
         (Cmd.curl { X = "POST"

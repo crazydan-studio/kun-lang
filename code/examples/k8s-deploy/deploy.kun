@@ -6,10 +6,6 @@
 //                  --manifest=./k8s/deployment.yaml
 //                  --canary-percent=10 --timeout=300
 //                  --webhook=https://hooks.slack.com/xxx
-//
-// 部署流程：
-//   staging → canary (10%→100%) → full rollout → 健康检查
-//   → 成功: 通知 | 失败: 自动回滚 → 通知
 // ============================================================
 
 import Cli
@@ -21,7 +17,7 @@ import String
 import Path
 import IO
 import Process
-import Result
+import CommandError
 
 import Deployer as D
 import Verifier as V
@@ -89,17 +85,15 @@ parseConfig =
 sendEvent : Config -> String -> N.NotifyLevel -> Duration -> Unit
 sendEvent = \cfg phase level elapsed ->
   do
-    let
-      event = { service   = cfg.deployment
-              , version   = cfg.image
-              , phase     = phase
-              , level     = level
-              , message   = f"{phase}: {N.NotifyLevel.toString level}"
-              , timestamp = DateTime.now
-              , duration  = Nil
-              }
-    in
-      N.notify cfg.webhookUrl event
+    event = { service   = cfg.deployment
+            , version   = cfg.image
+            , phase     = phase
+            , level     = level
+            , message   = f"{phase}"
+            , timestamp = DateTime.now
+            , duration  = Nil
+            }
+    N.notify cfg.webhookUrl event
 
 // -------------------------------------------------------
 // 主部署流程
@@ -109,9 +103,9 @@ main : List String -> Unit
 main = \rawArgs ->
   do
     started = DateTime.now
-    IO.println f"\n{String.repeat 60 '='}"
+    IO.println f"\n{String.repeat 60 "="}"
     IO.println "  Kubernetes Canary Deployment"
-    IO.println f"{String.repeat 60 '='}\n"
+    IO.println f"{String.repeat 60 "="}\n"
 
     case parseConfig rawArgs of
       Ok cfg ->
@@ -131,9 +125,9 @@ main = \rawArgs ->
             Unit
 
           // Phase 1: Staging
-          IO.println f"\n{String.repeat 40 '-'}"
+          IO.println f"\n{String.repeat 40 "-"}"
           IO.println "  [1/4] STAGING"
-          IO.println f"{String.repeat 40 '-'}"
+          IO.println f"{String.repeat 40 "-"}"
 
           case D.applyManifest cfg.manifest cfg.namespace of
             Ok _ ->
@@ -163,9 +157,9 @@ main = \rawArgs ->
 canaryPhase : Config -> DateTime -> Unit
 canaryPhase = \cfg started ->
   do
-    IO.println f"\n{String.repeat 40 '-'}"
+    IO.println f"\n{String.repeat 40 "-"}"
     IO.println f"  [2/4] CANARY ({cfg.canaryPercent}% → 100%)"
-    IO.println f"{String.repeat 40 '-'}"
+    IO.println f"{String.repeat 40 "-"}"
 
     canaryCfg =
       { namespace     = cfg.namespace
@@ -191,9 +185,9 @@ canaryPhase = \cfg started ->
 fullRolloutPhase : Config -> DateTime -> Unit
 fullRolloutPhase = \cfg started ->
   do
-    IO.println f"\n{String.repeat 40 '-'}"
+    IO.println f"\n{String.repeat 40 "-"}"
     IO.println "  [3/4] FULL ROLLOUT"
-    IO.println f"{String.repeat 40 '-'}"
+    IO.println f"{String.repeat 40 "-"}"
 
     case D.rolloutStatus cfg.namespace cfg.deployment cfg.timeout of
       Ok _ ->
@@ -214,20 +208,19 @@ fullRolloutPhase = \cfg started ->
 healthCheckPhase : Config -> DateTime -> Unit
 healthCheckPhase = \cfg started ->
   do
-    IO.println f"\n{String.repeat 40 '-'}"
+    IO.println f"\n{String.repeat 40 "-"}"
     IO.println "  [4/4] HEALTH CHECK"
-    IO.println f"{String.repeat 40 '-'}"
+    IO.println f"{String.repeat 40 "-"}"
 
-    let checkUrl = f"http://localhost:{cfg.healthPort}{cfg.healthPath}"
-    in
-      healthStatus = V.checkEndpoint
-        { endpoint  = checkUrl
-        , method    = "GET"
-        , expect    = 200
-        , retries   = 10
-        , interval  = 3s
-        , timeout   = 60s
-        }
+    checkUrl = f"http://localhost:{cfg.healthPort}{cfg.healthPath}"
+    healthStatus = V.checkEndpoint
+      { endpoint  = checkUrl
+      , method    = "GET"
+      , expect    = 200
+      , retries   = 10
+      , interval  = 3s
+      , timeout   = 60s
+      }
 
     case healthStatus of
       V.Healthy { responseTime, statusCode } ->

@@ -14,6 +14,7 @@ import IO
 import Builder    as B
 import Tester     as T
 import Dockerizer as D
+import IOError
 
 export
   ( BuildReport
@@ -118,9 +119,9 @@ generateReport = \buildResults testResults imageResults started elapsed ->
         (\acc r ->
           let (p, f, s) = acc in
           case r of
-            B.BuildOk {}     -> (p + 1, f, s)
-            B.BuildFailed {} -> (p, f + 1, s)
-            B.BuildSkipped {} -> (p, f, s + 1))
+            B.BuildOk _     -> (p + 1, f, s)
+            B.BuildFailed _ -> (p, f + 1, s)
+            B.BuildSkipped _ -> (p, f, s + 1))
         (0, 0, 0)
         buildResults
 
