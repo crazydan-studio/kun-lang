@@ -15,11 +15,12 @@
 ```
 k8s-deploy/
 ├── README.md         # 本文件
-├── deploy.kun         # 入口：CLI 解析 → 状态机编排（4 Phase + rollback）
-├── Deployer.kun      # kubectl 操作封装（apply / set image / rollout / rollback）
-├── Verifier.kun      # HTTP 健康检查（带重试 + 超时 + 递归）
-├── Canary.kun        # 灰度流量逐步调整
-└── Notifier.kun      # Slack/Webhook 通知（纯 Markdown 格式化 + curl Webhook）
+├── deploy.kun        # 入口：CLI 解析 → 状态机编排（4 Phase + rollback）
+└── lib/              # 项目库根
+    ├── Deployer.kun  # kubectl 操作封装
+    ├── Verifier.kun  # HTTP 健康检查（带重试 + 超时 + 递归）
+    ├── Canary.kun    # 灰度流量逐步调整
+    └── Notifier.kun  # Slack/Webhook 通知
 ```
 
 ## 覆盖的 Kun 特性
