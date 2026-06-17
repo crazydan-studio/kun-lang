@@ -38,20 +38,23 @@ type DeploymentEvent =
 formatMessage : DeploymentEvent -> String
 formatMessage = \event ->
   let
-    icon = case event.level of
-      Info     -> "ℹ️"
-      Success  -> "✅"
-      Warning  -> "⚠️"
-      Failure  -> "❌"
-      Rollback -> "🔄"
+    icon =
+      case event.level of
+        Info     -> "ℹ️"
+        Success  -> "✅"
+        Warning  -> "⚠️"
+        Failure  -> "❌"
+        Rollback -> "🔄"
 
-    timeStr = case DateTime.format "HH:mm:ss" event.timestamp of
-      Ok s -> s
-      Err _ -> "<time>"
+    timeStr =
+      case DateTime.format "HH:mm:ss" event.timestamp of
+        Ok s -> s
+        Err _ -> "<time>"
 
-    durationStr = case event.duration of
-      Nil -> ""
-      d   -> f" (took {Duration.toSeconds d}s)"
+    durationStr =
+      case event.duration of
+        Nil -> ""
+        d   -> f" (took {Duration.toSeconds d}s)"
   in
     f"""
 {icon} *{event.service}* — {event.phase}{durationStr}
@@ -62,11 +65,12 @@ formatMessage = \event ->
 notifySlack : String -> DeploymentEvent -> Result String CommandError
 notifySlack = \webhookUrl event ->
   do
-    color = case event.level of
-      Info     -> "#439FE0"
-      Success  -> "good"
-      Warning  -> "warning"
-      Failure | Rollback -> "danger"
+    color =
+      case event.level of
+        Info     -> "#439FE0"
+        Success  -> "good"
+        Warning  -> "warning"
+        Failure | Rollback -> "danger"
 
     text = formatMessage event
     json = f"\{ \"attachments\": [\{ \"color\": \"{color}\", \"text\": \"{text}\" \}] \}"
@@ -82,12 +86,13 @@ notifySlack = \webhookUrl event ->
 notifyConsole : DeploymentEvent -> Unit
 notifyConsole = \event ->
   do
-    prefix = case event.level of
-      Info     -> "[INFO]"
-      Success  -> "[OK]  "
-      Warning  -> "[WARN]"
-      Failure  -> "[FAIL]"
-      Rollback -> "[ROLL]"
+    prefix =
+      case event.level of
+        Info     -> "[INFO]"
+        Success  -> "[OK]  "
+        Warning  -> "[WARN]"
+        Failure  -> "[FAIL]"
+        Rollback -> "[ROLL]"
 
     msg = f"{prefix} {event.service}: {event.message}"
 

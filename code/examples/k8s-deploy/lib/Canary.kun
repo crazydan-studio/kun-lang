@@ -37,7 +37,9 @@ setTrafficWeight : String -> String -> Int -> Result (Stream String) CommandErro
 setTrafficWeight = \namespace svcName canaryPercent ->
   do
     stableWeight = 100 - canaryPercent
-    patchData    = f"\{ \"spec\": \{ \"traffic\": \{ \"canary\": {canaryPercent}, \"stable\": {stableWeight} \} \} \}"
+    patchData =
+      f"\{ \"spec\": \{ \"traffic\": \{ \"canary\": {canaryPercent}"
+        ++ f", \"stable\": {stableWeight} \} \} \}"
 
     Cmd.kubectl? { n = namespace }
       "patch" "service" svcName

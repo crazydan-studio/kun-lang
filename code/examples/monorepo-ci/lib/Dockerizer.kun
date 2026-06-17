@@ -44,11 +44,12 @@ type DockerConfig =
 generateTag : String -> String -> String
 generateTag = \serviceName registry ->
   do
-    commitHash = case Cmd.git? { C = "." } "rev-parse" "--short" "HEAD" of
-      Ok output ->
-        Stream.string output |> String.trim
-      Err _ ->
-        "unknown"
+    commitHash =
+      case Cmd.git? { C = "." } "rev-parse" "--short" "HEAD" of
+        Ok output ->
+          Stream.string output |> String.trim
+        Err _ ->
+          "unknown"
 
     now = DateTime.now
 
@@ -72,8 +73,8 @@ buildAndPush = \serviceName cfg contextDir ->
 
     dockerfilePath =
       case cfg.dockerfile of
-      Nil -> contextDir ++ p"Dockerfile"
-      df  -> df
+        Nil -> contextDir ++ p"Dockerfile"
+        df  -> df
 
     case File.stat dockerfilePath of
       Ok _ ->
@@ -89,18 +90,20 @@ buildAndPush = \serviceName cfg contextDir ->
                   Ok _ ->
                     do
                       inspectResult = Cmd.docker? { format = "{{.ID}}" } "inspect" tag
-                      imageId = case inspectResult of
-                        Ok idOutput ->
-                          Stream.string idOutput |> String.trim |> String.slice 0 12
-                        Err _ ->
-                          "<unknown>"
+                      imageId =
+                        case inspectResult of
+                          Ok idOutput ->
+                            Stream.string idOutput |> String.trim |> String.slice 0 12
+                          Err _ ->
+                            "<unknown>"
 
                       sizeResult = Cmd.docker? { format = "{{.Size}}" } "inspect" tag
-                      sizeStr = case sizeResult of
-                        Ok s ->
-                          Stream.string s |> String.trim
-                        Err _ ->
-                          "N/A"
+                      sizeStr =
+                        case sizeResult of
+                          Ok s ->
+                            Stream.string s |> String.trim
+                          Err _ ->
+                            "N/A"
 
                       ImageOk
                         { service = serviceName, tag = tag

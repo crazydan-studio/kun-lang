@@ -147,9 +147,10 @@ buildAll = \svcs maxParallel ->
 detectServices : Path -> List Service
 detectServices = \root ->
   do
-    entries = case File.list root of
-      Ok es -> es
-      Err _ -> []
+    entries =
+      case File.list root of
+        Ok es -> es
+        Err _ -> []
     scanServices entries root
 
 detectLanguage : Path -> String
