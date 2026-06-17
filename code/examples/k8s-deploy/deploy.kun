@@ -102,9 +102,11 @@ main : List String -> Unit
 main = \rawArgs ->
   do
     started = DateTime.now
-    IO.println f"\n{String.repeat 60 "="}"
+    IO.println ""
+    IO.println (String.repeat 60 "=")
     IO.println "  Kubernetes Canary Deployment"
-    IO.println f"{String.repeat 60 "="}\n"
+    IO.println (String.repeat 60 "=")
+    IO.println ""
 
     case parseConfig rawArgs of
       Ok cfg ->
@@ -124,9 +126,9 @@ main = \rawArgs ->
             Unit
 
           // Phase 1: Staging
-          IO.println f"\n{String.repeat 40 "-"}"
+          IO.println ""
           IO.println "  [1/4] STAGING"
-          IO.println f"{String.repeat 40 "-"}"
+          IO.println (String.repeat 40 "-")
 
           case D.applyManifest cfg.manifest cfg.namespace of
             Ok _ ->
@@ -156,9 +158,9 @@ main = \rawArgs ->
 canaryPhase : Config -> DateTime -> Unit
 canaryPhase = \cfg started ->
   do
-    IO.println f"\n{String.repeat 40 "-"}"
+    IO.println ""
     IO.println f"  [2/4] CANARY ({cfg.canaryPercent}% → 100%)"
-    IO.println f"{String.repeat 40 "-"}"
+    IO.println (String.repeat 40 "-")
 
     canaryCfg =
       { namespace     = cfg.namespace
@@ -184,9 +186,9 @@ canaryPhase = \cfg started ->
 fullRolloutPhase : Config -> DateTime -> Unit
 fullRolloutPhase = \cfg started ->
   do
-    IO.println f"\n{String.repeat 40 "-"}"
+    IO.println ""
     IO.println "  [3/4] FULL ROLLOUT"
-    IO.println f"{String.repeat 40 "-"}"
+    IO.println (String.repeat 40 "-")
 
     case D.rolloutStatus cfg.namespace cfg.deployment cfg.timeout of
       Ok _ ->
@@ -207,9 +209,9 @@ fullRolloutPhase = \cfg started ->
 healthCheckPhase : Config -> DateTime -> Unit
 healthCheckPhase = \cfg started ->
   do
-    IO.println f"\n{String.repeat 40 "-"}"
+    IO.println ""
     IO.println "  [4/4] HEALTH CHECK"
-    IO.println f"{String.repeat 40 "-"}"
+    IO.println (String.repeat 40 "-")
 
     checkUrl = f"http://localhost:{cfg.healthPort}{cfg.healthPath}"
     healthStatus = V.checkEndpoint
@@ -227,7 +229,8 @@ healthCheckPhase = \cfg started ->
           IO.println f"  ✓ Healthy — HTTP {statusCode} in {Duration.toMillis responseTime}ms"
           totalDuration = DateTime.now - started
           sendEvent cfg "healthy" N.Success totalDuration
-          IO.println f"\n  == Deployment successful ({Duration.toSeconds totalDuration}s) =="
+          IO.println ""
+          IO.println f"  == Deployment successful ({Duration.toSeconds totalDuration}s) =="
           Process.exit 0
 
       V.Degraded { statusCode, reason } ->
@@ -256,7 +259,8 @@ healthCheckPhase = \cfg started ->
 executeRollback : Config -> DateTime -> Unit
 executeRollback = \cfg started ->
   do
-    IO.eprintln f"\n  !!! ROLLBACK !!!"
+    IO.println ""
+    IO.println "  !!! ROLLBACK !!!"
 
     case D.rollbackDeployment cfg.namespace cfg.deployment "0" of
       Ok _ ->
