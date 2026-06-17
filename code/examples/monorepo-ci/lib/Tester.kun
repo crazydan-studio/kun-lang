@@ -2,17 +2,6 @@
 // Tester.kun — 测试执行模块
 // ============================================================
 
-import DateTime
-import Duration
-import List
-import String
-import Path
-import Stream
-import Cmd
-import IO
-import Task
-import CommandError
-
 export
   ( TestResult, TestResult(..)
   , TestSuite
@@ -20,6 +9,16 @@ export
   , runSuite
   , summarizeTests
   )
+
+import DateTime
+import Duration
+import List
+import String
+import Stream
+import Cmd
+import IO
+import Task
+import CommandError
 
 type TestResult
   = Passed
@@ -65,12 +64,15 @@ runSuite = \suite ->
         let
           caseCount = countTestCases output
         in
-          Passed { suite = suite.name, duration = elapsed, cases = caseCount }
+          Passed
+            { suite = suite.name, duration = elapsed, cases = caseCount }
       Err err ->
-        Failed { suite = suite.name
-               , error    = CommandError.show err
-               , duration = elapsed
-               , cases    = 0 }
+        Failed
+          { suite    = suite.name
+          , error    = CommandError.show err
+          , duration = elapsed
+          , cases    = 0
+          }
 
 countTestCases : Stream String -> Int
 countTestCases = \output ->
@@ -97,14 +99,24 @@ runTests = \suites maxParallel ->
             let
               caseCount = countTestCases output
             in
-              Passed { suite = suite.name, duration = 0s, cases = caseCount }
+              Passed
+                { suite = suite.name, duration = 0s, cases = caseCount }
           Err err ->
-            Failed { suite = suite.name
-                   , error    = CommandError.show err
-                   , duration = 0s
-                   , cases    = 0 })
+            Failed
+              { suite    = suite.name
+              , error    = CommandError.show err
+              , duration = 0s
+              , cases    = 0
+              })
 
-summarizeTests : List TestResult -> { passed : Int, failed : Int, skipped : Int, totalCases : Int, totalDuration : Duration }
+summarizeTests
+  : List TestResult
+  -> { passed         : Int
+     , failed         : Int
+     , skipped        : Int
+     , totalCases     : Int
+     , totalDuration  : Duration
+     }
 summarizeTests = \results ->
   let
     (passed, failed, skipped, cases) =
@@ -112,14 +124,20 @@ summarizeTests = \results ->
         (\acc result ->
           case result of
             Passed { cases = c, .. } ->
-              let (p, f, s, total) = acc
-              in (p + 1, f, s, total + c)
+              let
+                (p, f, s, total) = acc
+              in
+                (p + 1, f, s, total + c)
             Failed { .. } ->
-              let (p, f, s, total) = acc
-              in (p, f + 1, s, total)
+              let
+                (p, f, s, total) = acc
+              in
+                (p, f + 1, s, total)
             NoTests { .. } ->
-              let (p, f, s, total) = acc
-              in (p, f, s + 1, total))
+              let
+                (p, f, s, total) = acc
+              in
+                (p, f, s + 1, total))
         (0, 0, 0, 0)
         results
 

@@ -2,15 +2,6 @@
 // Deployer.kun — Kubernetes 部署操作模块
 // ============================================================
 
-import List
-import String
-import Path
-import Stream
-import Duration
-import Cmd
-import IO
-import CommandError
-
 export
   ( DeployPhase, DeployPhase(..)
   , applyManifest
@@ -20,6 +11,15 @@ export
   , getServiceEndpoint
   , rollbackDeployment
   )
+
+import List
+import String
+import Path
+import Stream
+import Duration
+import Cmd
+import IO
+import CommandError
 
 type DeployPhase
   = Staging
@@ -75,7 +75,7 @@ getServiceEndpoint = \namespace svcName port ->
   do
     result = Cmd.kubectl? { n = namespace }
       "get" "svc" svcName
-      "-o" f"jsonpath='{.status.loadBalancer.ingress[0].ip}:{port}'"
+      "-o" f"jsonpath='\{.status.loadBalancer.ingress[0].ip}:{port}'"
 
     case result of
       Ok output ->

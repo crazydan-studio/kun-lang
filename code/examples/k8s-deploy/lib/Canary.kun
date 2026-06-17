@@ -2,19 +2,19 @@
 // Canary.kun — 金丝雀灰度发布模块
 // ============================================================
 
-import List
-import Duration
-import Process
-import Cmd
-import IO
-import CommandError
-
 export
   ( CanaryConfig
   , CanaryStep
   , setTrafficWeight
   , gradualShift
   )
+
+import List
+import Duration
+import Process
+import Cmd
+import IO
+import CommandError
 
 type CanaryConfig =
   { namespace    : String

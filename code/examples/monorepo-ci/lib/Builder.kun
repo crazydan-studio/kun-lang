@@ -2,6 +2,15 @@
 // Builder.kun — Monorepo 并行构建模块
 // ============================================================
 
+export
+  ( BuildResult, BuildResult(..)
+  , Service
+  , buildService
+  , buildAll
+  , detectServices
+  , collectBuildArtifacts
+  )
+
 import DateTime
 import Duration
 import List
@@ -14,15 +23,6 @@ import Task
 import Hash
 import Bytes
 import CommandError
-
-export
-  ( BuildResult, BuildResult(..)
-  , Service
-  , buildService
-  , buildAll
-  , detectServices
-  , collectBuildArtifacts
-  )
 
 type Service =
   { name      : String
@@ -87,12 +87,16 @@ buildService = \svc ->
       Ok _ ->
         do
           checksum = computeChecksum artifact
-          BuildOk { service = svc.name, language = svc.language
-                  , duration = elapsed, artifact = artifact, checksum = checksum }
+          BuildOk
+            { service = svc.name, language = svc.language
+            , duration = elapsed, artifact = artifact, checksum = checksum
+            }
       Err err ->
-        BuildFailed { service = svc.name, language = svc.language
-                     , error = CommandError.show err
-                     , exitCode = extractExitCode err }
+        BuildFailed
+          { service = svc.name, language = svc.language
+          , error = CommandError.show err
+          , exitCode = extractExitCode err
+          }
 
 computeChecksum : Path -> String
 computeChecksum = \path ->
@@ -162,30 +166,35 @@ scanServices : List Path -> Path -> List Service
 scanServices = \entries root ->
   case entries of
     [] -> []
-    entry :: rest ->
-      let fullPath = root ++ entry
-      in case File.stat fullPath of
-        Ok s ->
-          if s.isDir then
-            let lang = detectLanguage fullPath
-            in if lang != "unknown" then
-              { name     = Path.toString entry
-              , language = lang
-              , dir      = fullPath
-              , mainFile = Nil
-              , buildCmd = Nil
-              } :: scanServices rest root
+    [entry, ..rest] ->
+      let
+        fullPath = root ++ entry
+      in
+        case File.stat fullPath of
+          Ok s ->
+            if s.isDir then
+              let
+                lang = detectLanguage fullPath
+              in
+                if lang != "unknown" then
+                  [{ name     = Path.toString entry
+                   , language = lang
+                   , dir      = fullPath
+                   , mainFile = Nil
+                   , buildCmd = Nil
+                   }, ..scanServices rest root]
+                else
+                  scanServices rest root
             else
               scanServices rest root
-          else
+          Err _ ->
             scanServices rest root
-        Err _ ->
-          scanServices rest root
 
 collectBuildArtifacts : List BuildResult -> List Path
 collectBuildArtifacts = \results ->
   List.filterMap
-    (\r -> case r of
-      BuildOk { artifact, .. } -> artifact
-      _                        -> Nil)
+    (\r ->
+      case r of
+        BuildOk { artifact, .. } -> artifact
+        _                        -> Nil)
     results

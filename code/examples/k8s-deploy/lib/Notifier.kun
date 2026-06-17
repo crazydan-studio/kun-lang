@@ -2,14 +2,6 @@
 // Notifier.kun — 部署通知模块
 // ============================================================
 
-import String
-import Duration
-import DateTime
-import Cmd
-import IO
-import CommandError
-import Result
-
 export
   ( NotifyLevel, NotifyLevel(..)
   , DeploymentEvent
@@ -17,6 +9,14 @@ export
   , notifyConsole
   , notify
   )
+
+import String
+import Duration
+import DateTime
+import Cmd
+import IO
+import CommandError
+import Result
 
 type NotifyLevel
   = Info
@@ -53,7 +53,11 @@ formatMessage = \event ->
       Nil -> ""
       d   -> f" (took {Duration.toSeconds d}s)"
   in
-    f"{icon} *{event.service}* — {event.phase}{durationStr}\n> {event.message}\n _{timeStr}_"
+    f"""
+{icon} *{event.service}* — {event.phase}{durationStr}
+> {event.message}
+ _{timeStr}_
+"""
 
 notifySlack : String -> DeploymentEvent -> Result String CommandError
 notifySlack = \webhookUrl event ->
