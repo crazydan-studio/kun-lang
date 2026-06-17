@@ -1,0 +1,178 @@
+// ============================================================
+// tester.kun — 测试执行模块
+// ============================================================
+
+import DateTime
+import Duration
+import List
+import String
+import Path
+import Cmd
+import IO
+import File
+import Map
+
+export
+  ( TestResult, TestResult(..)
+  , TestSuite
+  , runTests
+  , runSuite
+  , summarizeTests
+  )
+
+// -------------------------------------------------------
+// 领域类型
+// -------------------------------------------------------
+
+type TestResult
+  = Passed
+      { suite     : String
+      , duration  : Duration
+      , cases     : Int
+      }
+  | Failed
+      { suite     : String
+      , error     : String
+      , duration  : Duration
+      , cases     : Int
+      }
+  | NoTests
+      { suite     : String
+      }
+
+type TestSuite =
+  { name    : String
+  , language: String
+  , dir     : Path
+  , filter  : ?String        // --filter pattern
+  }
+
+// -------------------------------------------------------
+// Go test runner
+// -------------------------------------------------------
+
+runGoTest : TestSuite -> TestResult
+runGoTest = \suite ->
+  do
+    start = DateTime.now
+
+    result = Cmd.go? { C = Path.toString suite.dir } "test" "./..."
+
+    elapsed = DateTime.now - start
+
+    case result of
+      Ok output ->
+        let
+          caseCount = countTestCases output
+        in
+          Passed { suite = suite.name, duration = elapsed, cases = caseCount }
+      Err err ->
+        let
+          errorStr = CommandError.show err
+        in
+          Failed { suite = suite.name, error = errorStr
+                 , duration = elapsed, cases = 0 }
+
+// -------------------------------------------------------
+// JS test runner（npm test）
+// -------------------------------------------------------
+
+runJsTest : TestSuite -> TestResult
+runJsTest = \suite ->
+  do
+    start = DateTime.now
+
+    result = Cmd.npm? { prefix = Path.toString suite.dir } "test"
+
+    elapsed = DateTime.now - start
+
+    case result of
+      Ok _ ->
+        Passed { suite = suite.name, duration = elapsed, cases = 0 }
+      Err err ->
+        let
+          errorStr = CommandError.show err
+        in
+          Failed { suite = suite.name, error = errorStr
+                 , duration = elapsed, cases = 0 }
+
+// -------------------------------------------------------
+// 单测试套件调度
+// -------------------------------------------------------
+
+runSuite : TestSuite -> TestResult
+runSuite = \suite ->
+  do
+    IO.println f"  [test] {suite.name} ({suite.language})"
+
+    case suite.language of
+      "go" -> runGoTest suite
+      "js" -> runJsTest suite
+      _    -> NoTests { suite = suite.name }
+
+// -------------------------------------------------------
+// 批量运行所有测试
+// -------------------------------------------------------
+
+runTests : List TestSuite -> List TestResult
+runTests = \suites ->
+  do
+    suites
+      |> List.map (\s -> do runSuite s)
+
+// -------------------------------------------------------
+// 从测试输出解析用例数
+// -------------------------------------------------------
+
+countTestCases : Stream String -> Int
+countTestCases = \output ->
+  let
+    collected = IO.readAll output    // TODO: Stream→String
+  in
+    // 解析 go test 输出的 "ok  pkg  0.123s" 或 "--- PASS: TestName"
+    case String.split "\n" collected of
+      lines ->
+        lines
+          |> List.filter (\line ->
+            String.startsWith "ok" line || String.startsWith "--- PASS" line)
+          |> List.length
+
+// -------------------------------------------------------
+// 测试结果摘要
+// -------------------------------------------------------
+
+summarizeTests : List TestResult -> { passed : Int, failed : Int, skipped : Int, totalCases : Int, totalDuration : Duration }
+summarizeTests = \results ->
+  let
+    (passed, failed, skipped, cases) =
+      List.fold
+        (\acc result ->
+          case result of
+            Passed { cases = c, .. } ->
+              let (p, f, s, total) = acc
+              in (p + 1, f, s, total + c)
+            Failed { .. } ->
+              let (p, f, s, total) = acc
+              in (p, f + 1, s, total)
+            NoTests { .. } ->
+              let (p, f, s, total) = acc
+              in (p, f, s + 1, total))
+        (0, 0, 0, 0)
+        results
+
+    totalDuration =
+      List.fold
+        (\d result ->
+          case result of
+            Passed { duration = dur, .. } -> d + dur
+            Failed { duration = dur, .. } -> d + dur
+            NoTests _                      -> d)
+        0s
+        results
+  in
+    { passed       = passed
+    , failed       = failed
+    , skipped      = skipped
+    , totalCases   = cases
+    , totalDuration = totalDuration
+    }

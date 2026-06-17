@@ -1,0 +1,202 @@
+// ============================================================
+// builder.kun — Monorepo 并行构建模块
+// ============================================================
+
+import DateTime
+import Duration
+import List
+import String
+import Path
+import Cmd
+import IO
+import File
+import Map
+import Regex
+
+// -------------------------------------------------------
+// 领域类型：ADT 定义构建结果
+// -------------------------------------------------------
+
+export
+  ( BuildResult, BuildResult(..)
+  , Service
+  , buildService
+  , buildAll
+  , detectServices
+  , collectBuildArtifacts
+  )
+
+type Service =
+  { name      : String
+  , language  : String        // "go" | "js"
+  , dir       : Path
+  , mainFile  : ?String       // Go service 可选入口文件
+  , buildCmd  : ?String       // 自定义构建命令
+  }
+
+type BuildResult
+  = BuildOk
+      { service   : String
+      , language  : String
+      , duration  : Duration
+      , artifact  : Path
+      , checksum  : String
+      }
+  | BuildFailed
+      { service   : String
+      , language  : String
+      , error     : String
+      , exitCode  : Int
+      }
+  | BuildSkipped
+      { service   : String
+      , reason    : String
+      }
+
+// -------------------------------------------------------
+// 语言检测：根据目录内容推断服务类型
+// -------------------------------------------------------
+
+detectLanguage : Path -> String
+detectLanguage = \dir ->
+  case (File.exists (Path.join dir "go.mod"), File.exists (Path.join dir "package.json")) of
+    (Ok true, _)   -> "go"
+    (_, Ok true)   -> "js"
+    _              ->
+      "unknown"
+
+// -------------------------------------------------------
+// Go 服务构建
+// -------------------------------------------------------
+
+buildGo : Service -> Command
+buildGo = \svc ->
+  let
+    outputDir = svc.dir ++ p"dist"
+    binary    = outputDir ++ Path.fromString svc.name
+  in
+    Cmd.go { C = (Path.toString svc.dir), o = Path.toString binary }
+      |> Cmd.withWorkDir svc.dir
+      |> Cmd.mergeStderr
+
+// -------------------------------------------------------
+// JS 服务构建（npm install + tsc / build）
+// -------------------------------------------------------
+
+buildJs : Service -> Command
+buildJs = \svc ->
+  let
+    installCmd = Cmd.npm {} "install"
+      |> Cmd.withWorkDir svc.dir
+    buildCmd   = Cmd.npm {} "run" "build"
+      |> Cmd.withWorkDir svc.dir
+  in
+    installCmd |> Cmd.andThen buildCmd |> Cmd.mergeStderr
+
+// -------------------------------------------------------
+// 单服务构建——返回结构化结果
+// -------------------------------------------------------
+
+buildService : Service -> BuildResult
+buildService = \svc ->
+  do
+    IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
+
+    start = DateTime.now
+
+    result = case svc.language of
+      "go" -> Cmd.sh? { c = Path.toString (buildGo svc) }
+      "js" -> Cmd.sh? { c = Path.toString (buildJs svc) }
+      _    -> Cmd.echo? { } "Skipped: unknown language"
+
+    elapsed = DateTime.now - start
+
+    case result of
+      Ok _ ->
+        artifact  = svc.dir ++ p"dist" ++ Path.fromString svc.name
+        checksum  = computeChecksum artifact
+        BuildOk { service = svc.name, language = svc.language
+                , duration = elapsed, artifact = artifact, checksum = checksum }
+      Err err ->
+        BuildFailed { service = svc.name, language = svc.language
+                     , error = CommandError.show err
+                     , exitCode = extractExitCode err }
+
+// -------------------------------------------------------
+// 输出文件的 SHA-256 校验
+// -------------------------------------------------------
+
+computeChecksum : Path -> String
+computeChecksum = \path ->
+  case File.readBytes path of
+    Ok stream ->
+      let
+        hash = Hash.sha256Stream stream
+      in
+        Bytes.toHex hash
+        |> String.slice 0 12
+    Err _ ->
+      "<not found>"
+
+// -------------------------------------------------------
+// 从 CommandError 中提取退出码
+// -------------------------------------------------------
+
+extractExitCode : CommandError -> Int
+extractExitCode = \err ->
+  case err of
+    CommandFailed { exitCode, .. } -> exitCode
+    _                              -> -1
+
+// -------------------------------------------------------
+// 批量并行构建——利用 List.iter 效应回调
+// -------------------------------------------------------
+
+buildAll : List Service -> Int -> List BuildResult
+buildAll = \svcs ->
+  do
+    results = List.map (\svc -> do buildService svc) svcs
+    results
+
+// -------------------------------------------------------
+// 自动探测 monorepo 中的服务
+// -------------------------------------------------------
+
+detectServices : Path -> List Service
+detectServices = \root ->
+  let
+    entries = case File.list root of
+      Ok es -> es
+      Err _ -> []
+
+    serviceCandidates =
+      entries
+        |> List.filter (\entry ->
+          let p = root ++ entry
+          in File.isDir p)
+  in
+    serviceCandidates
+      |> List.map (\candidate ->
+        let
+          fullPath = root ++ candidate
+          lang     = detectLanguage fullPath
+        in
+          { name     = Path.toString candidate
+          , language = lang
+          , dir      = fullPath
+          , mainFile = Nil
+          , buildCmd = Nil
+          })
+      |> List.filter (\svc -> svc.language != "unknown")
+
+// -------------------------------------------------------
+// 收集构建产物路径
+// -------------------------------------------------------
+
+collectBuildArtifacts : List BuildResult -> List Path
+collectBuildArtifacts = \results ->
+  results
+    |> List.filterMap (\r ->
+      case r of
+        BuildOk { artifact, .. } -> artifact
+        _                        -> Nil)

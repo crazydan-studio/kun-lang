@@ -1,0 +1,153 @@
+// ============================================================
+// deployer.kun — Kubernetes 部署操作模块
+//   封装 kubectl 操作，返回结构化 Result
+// ============================================================
+
+import List
+import String
+import Path
+import Cmd
+import IO
+import Regex
+import DateTime
+import Duration
+import Map
+
+export
+  ( DeployPhase, DeployPhase(..)
+  , DeployConfig
+  , RolloutStrategy
+  , applyManifest
+  , setImage
+  , rolloutStatus
+  , getPodNames
+  , getServiceEndpoint
+  , rollbackDeployment
+  )
+
+// -------------------------------------------------------
+// 部署阶段——ADT 状态机
+// -------------------------------------------------------
+
+type DeployPhase
+  = Staging
+  | Canary { weight : Int }
+  | FullRollout
+  | Verifying
+  | Rollback { fromVersion : String }
+  | Done
+  | Failed { phase : String, reason : String }
+
+// -------------------------------------------------------
+// 部署配置
+// -------------------------------------------------------
+
+type DeployConfig =
+  { namespace  : String
+  , deployment : String
+  , image      : String
+  , replicas   : Int
+  , manifest   : Path
+  , timeout    : Duration
+  }
+
+// -------------------------------------------------------
+// 灰度策略
+// -------------------------------------------------------
+
+type RolloutStrategy
+  = Immediate
+  | Gradual { steps : Int, interval : Duration }
+  | CanaryThenFull { canaryPercent : Int, wait : Duration }
+
+// -------------------------------------------------------
+// kubectl apply 部署清单
+// -------------------------------------------------------
+
+applyManifest : Path -> String -> Result String CommandError
+applyManifest = \manifestPath namespace ->
+  do
+    IO.println f"  [kubectl] Applying manifest: {Path.toString manifestPath}"
+    Cmd.kubectl? { n = namespace }
+      "apply" "-f" (Path.toString manifestPath)
+
+// -------------------------------------------------------
+// 更新 Deployment 镜像
+// -------------------------------------------------------
+
+setImage : String -> String -> String -> String -> Result String CommandError
+setImage = \namespace deployment container image ->
+  do
+    IO.println f"  [kubectl] Setting image: {deployment}/{container} = {image}"
+    Cmd.kubectl? { n = namespace }
+      "set" "image" f"deployment/{deployment}"
+      f"{container}={image}"
+
+// -------------------------------------------------------
+// 等待 rollout 完成
+// -------------------------------------------------------
+
+rolloutStatus : String -> String -> Duration -> Result String CommandError
+rolloutStatus = \namespace deployment timeout ->
+  do
+    IO.println f"  [kubectl] Waiting for rollout ({Duration.toSeconds timeout}s)..."
+    Cmd.kubectl? { n = namespace, timeout = f"{Duration.toSeconds timeout}s" }
+      "rollout" "status" f"deployment/{deployment}"
+
+// -------------------------------------------------------
+// 获取 Pod 名称列表（Deployment 的 Pods）
+// -------------------------------------------------------
+
+getPodNames : String -> String -> String -> List String
+getPodNames = \namespace deployment labelSelector ->
+  do
+    result = Cmd.kubectl? { n = namespace, l = labelSelector }
+      "get" "pods" "-o" "name"
+
+    case result of
+      Ok output ->
+        let
+          raw   = IO.readAll output
+          lines = String.split "\n" raw
+        in
+          lines
+            |> List.filter (\line -> String.length (String.trim line) > 0)
+            |> List.map (\line -> String.trim line)
+      Err _ ->
+        []
+
+// -------------------------------------------------------
+// 获取 Service 对外端点
+// -------------------------------------------------------
+
+getServiceEndpoint : String -> String -> String -> ?String
+getServiceEndpoint = \namespace svcName port ->
+  do
+    result = Cmd.kubectl? { n = namespace }
+      "get" "svc" svcName
+      "-o" f"jsonpath='{{.status.loadBalancer.ingress[0].ip}}:{port}'"
+
+    case result of
+      Ok output ->
+        let
+          raw    = IO.readAll output
+          trimmed = String.trim raw
+        in
+          if String.length trimmed > 0 then
+            trimmed
+          else
+            Nil
+      Err _ ->
+        Nil
+
+// -------------------------------------------------------
+// 回滚 Deployment
+// -------------------------------------------------------
+
+rollbackDeployment : String -> String -> String -> Result String CommandError
+rollbackDeployment = \namespace deployment toRevision ->
+  do
+    IO.eprintln f"  [ROLLBACK] {namespace}/{deployment} → revision {toRevision}"
+    Cmd.kubectl? { n = namespace }
+      "rollout" "undo" f"deployment/{deployment}"
+      f"--to-revision={toRevision}"

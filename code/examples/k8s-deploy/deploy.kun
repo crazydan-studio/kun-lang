@@ -1,0 +1,343 @@
+// ============================================================
+// deploy.kun — Kubernetes 部署入口脚本
+//
+// 用法：
+//   kun deploy.kun --namespace=prod --image=myapp:v2
+//                  --manifest=./k8s/deployment.yaml
+//                  --canary-percent=10 --timeout=300
+//                  --webhook=https://hooks.slack.com/xxx
+//
+// 部署流程：
+//   staging → canary (10%→100%) → full rollout → 健康检查
+//   → 成功: 通知 | 失败: 自动回滚 → 通知
+//
+// 覆盖特性：
+//   ADT 状态机 | do 块编排 | 穷举模式匹配 |
+//   defer 清理 | Map/List 高阶函数 | DateTime 计时 |
+//   Duration 类型安全 | case 多值解构 |
+//   let ... in 局部绑定 | 效应系统全链追踪
+// ============================================================
+
+import Cli
+import DateTime
+import Duration
+import List
+import String
+import Path
+import IO
+import Process
+import Map
+import Result
+
+import deployer as D   // { DeployPhase, DeployConfig, applyManifest, setImage, ... }
+import verifier as V   // { HealthStatus, checkEndpoint, HealthCheck }
+import canary   as C   // { CanaryConfig, gradualShift }
+import notifier as N   // { DeploymentEvent, NotifyLevel, notify }
+
+// -------------------------------------------------------
+// 部署配置
+// -------------------------------------------------------
+
+type Config =
+  { namespace     : String
+  , deployment    : String
+  , image         : String
+  , replicas      : Int
+  , manifest      : Path
+  , canaryPercent : Int
+  , timeout       : Duration
+  , webhookUrl    : String
+  , healthPath    : String
+  , healthPort    : Int
+  , dryRun        : Bool
+  }
+
+// -------------------------------------------------------
+// CLI 参数解析
+// -------------------------------------------------------
+
+parseConfig : List String -> Result Config Cli.CliError
+parseConfig =
+  Cli.parse
+    { meta  = { intro = "k8s-deploy.kun"
+              , text  = "Kubernetes Canary Deployment — staging→canary→full rollout→health check→rollback." }
+    , args =
+        [ Cli.option "namespace" 'n' "Kubernetes namespace"
+            |> Cli.withValidator Validator.nonEmpty
+        , Cli.option "deployment" 'd' "Deployment name"
+            |> Cli.withDefault "app"
+        , Cli.option "image" 'i' "Container image (e.g. myapp:v2)"
+            |> Cli.withValidator Validator.nonEmpty
+        , Cli.option "replicas" 'r' "Number of replicas"
+            |> Cli.withDefault 3
+            |> Cli.withValidator (Validator.range 1 100)
+        , Cli.option "manifest" 'f' "Kubernetes manifest path"
+            |> Cli.withDefault p"./k8s/deployment.yaml"
+        , Cli.option "canary-percent" 'c' "Canary initial traffic percentage"
+            |> Cli.withDefault 10
+            |> Cli.withValidator (Validator.range 1 50)
+        , Cli.option "timeout" 't' "Deployment timeout in seconds"
+            |> Cli.withDefault 300
+        , Cli.option "webhook" 'w' "Slack/DingTalk webhook URL"
+            |> Cli.withDefault ""
+        , Cli.option "health-path" Nil "Health check HTTP path"
+            |> Cli.withDefault "/healthz"
+        , Cli.option "health-port" Nil "Health check port"
+            |> Cli.withDefault 8080
+        , Cli.flag "dry-run" Nil "Simulate deployment (skip actual apply)"
+        ]
+    }
+
+// -------------------------------------------------------
+// 发送部署事件通知
+// -------------------------------------------------------
+
+sendEvent : String -> String -> String -> String -> N.NotifyLevel -> DateTime -> ?Duration -> Unit
+sendEvent = \webhookUrl service version phase level started duration ->
+  do
+    let
+      event = { service   = service
+              , version   = version
+              , phase     = phase
+              , level     = level
+              , message   = formatPhase phase level
+              , timestamp = DateTime.now
+              , duration  = duration
+              }
+    in
+      N.notify webhookUrl event
+
+formatPhase : String -> N.NotifyLevel -> String
+formatPhase = \phase level ->
+  case level of
+    N.Success  -> f"{phase} completed successfully"
+    N.Failure  -> f"{phase} failed"
+    N.Rollback -> f"{phase}: rolling back to previous version"
+    N.Warning  -> f"{phase}: warning"
+    N.Info     -> f"{phase}: in progress"
+
+// -------------------------------------------------------
+// 主部署流程——ADT 状态机推进
+// -------------------------------------------------------
+
+main : List String -> Unit
+main = \rawArgs ->
+  do
+    started = DateTime.now
+    IO.println f"\n{String.repeat 60 '='}"
+    IO.println "  Kubernetes Canary Deployment"
+    IO.println f"{String.repeat 60 '='}\n"
+
+    case parseConfig rawArgs of
+      Ok cfg ->
+        do
+          IO.println f"Namespace : {cfg.namespace}"
+          IO.println f"Deployment: {cfg.deployment}"
+          IO.println f"Image     : {cfg.image}"
+          IO.println f"Replicas  : {cfg.replicas}"
+          IO.println f"Canary    : {cfg.canaryPercent}%"
+          IO.println f"Timeout   : {cfg.timeout}"
+
+          if cfg.dryRun then
+            IO.println "\n  DRY RUN — no actual changes will be made\n"
+            Process.exit 0
+          else
+            Unit
+
+          // -------------------------------------------------
+          // Phase 1: Staging——apply 清单 + 设置镜像
+          // -------------------------------------------------
+          IO.println f"\n{String.repeat 40 '-'}"
+          IO.println "  [1/4] STAGING"
+          IO.println f"{String.repeat 40 '-'}"
+
+          manifestResult = D.applyManifest cfg.manifest cfg.namespace
+
+          case manifestResult of
+            Ok _ ->
+              do
+                imageResult = D.setImage cfg.namespace cfg.deployment
+                                "app" cfg.image
+
+                case imageResult of
+                  Ok _ ->
+                    do
+                      sendEvent cfg.webhookUrl cfg.deployment cfg.image
+                        "staging" N.Info started Nil
+
+                      // ---------------------------------
+                      // Phase 2: Canary 灰度
+                      // ---------------------------------
+                      canaryPhase cfg started
+                  Err err ->
+                    do
+                      IO.eprintln f"Failed to set image: {CommandError.show err}"
+                      sendEvent cfg.webhookUrl cfg.deployment cfg.image
+                        "staging" N.Failure started Nil
+                      Process.exit 1
+                Err err ->
+                  do
+                    IO.eprintln f"Failed to apply manifest: {CommandError.show err}"
+                    sendEvent cfg.webhookUrl cfg.deployment cfg.image
+                      "staging" N.Failure started Nil
+                    Process.exit 1
+
+      Err err ->
+        do
+          IO.eprintln (Cli.show err)
+          Process.exit 1
+
+// -------------------------------------------------------
+// Phase 2: Canary 灰度发布
+// -------------------------------------------------------
+
+canaryPhase : Config -> DateTime -> Unit
+canaryPhase = \cfg started ->
+  do
+    IO.println f"\n{String.repeat 40 '-'}"
+    IO.println f"  [2/4] CANARY ({cfg.canaryPercent}% → 100%)"
+    IO.println f"{String.repeat 40 '-'}"
+
+    canaryCfg =
+      { namespace     = cfg.namespace
+      , service       = cfg.deployment
+      , canaryDeploy  = f"{cfg.deployment}-canary"
+      , stableDeploy  = cfg.deployment
+      , startPercent  = cfg.canaryPercent
+      , endPercent    = 100
+      , stepSize      = 10
+      , stepInterval  = 10s
+      }
+
+    steps = C.gradualShift canaryCfg
+
+    IO.println f"  Canary rollout: {List.length steps} steps completed"
+
+    sendEvent cfg.webhookUrl cfg.deployment cfg.image
+      "canary" N.Info started (DateTime.now - started |> Nil.map identity)
+
+    // ---------------------------------
+    // Phase 3: Full Rollout
+    // ---------------------------------
+    fullRolloutPhase cfg started
+
+// -------------------------------------------------------
+// Phase 3: Full Rollout——等待全部 Pod 就绪
+// -------------------------------------------------------
+
+fullRolloutPhase : Config -> DateTime -> Unit
+fullRolloutPhase = \cfg started ->
+  do
+    IO.println f"\n{String.repeat 40 '-'}"
+    IO.println "  [3/4] FULL ROLLOUT"
+    IO.println f"{String.repeat 40 '-'}"
+
+    statusResult = D.rolloutStatus cfg.namespace cfg.deployment cfg.timeout
+
+    case statusResult of
+      Ok _ ->
+        do
+          IO.println "  ✓ Rollout complete"
+
+          sendEvent cfg.webhookUrl cfg.deployment cfg.image
+            "rollout" N.Success started (DateTime.now - started)
+
+          // ---------------------------------
+          // Phase 4: 健康检查
+          // ---------------------------------
+          healthCheckPhase cfg started
+      Err err ->
+        do
+          IO.eprintln f"  ✗ Rollout failed: {CommandError.show err}"
+
+          sendEvent cfg.webhookUrl cfg.deployment cfg.image
+            "rollout" N.Failure started (DateTime.now - started)
+
+          executeRollback cfg started "unknown"
+
+// -------------------------------------------------------
+// Phase 4: 健康检查
+// -------------------------------------------------------
+
+healthCheckPhase : Config -> DateTime -> Unit
+healthCheckPhase = \cfg started ->
+  do
+    IO.println f"\n{String.repeat 40 '-'}"
+    IO.println "  [4/4] HEALTH CHECK"
+    IO.println f"{String.repeat 40 '-'}"
+
+    // 构造健康检查终端
+    // 实际环境通过 kubectl port-forward 或 Ingress/Service 暴露
+    let
+      checkUrl = f"http://localhost:{cfg.healthPort}{cfg.healthPath}"
+    in
+      healthStatus = V.checkEndpoint
+        { endpoint  = checkUrl
+        , method    = "GET"
+        , expect    = 200
+        , retries   = 10
+        , interval  = 3s
+        , timeout   = 60s
+        }
+
+    case healthStatus of
+      V.Healthy { responseTime, statusCode } ->
+        do
+          IO.println f"  ✓ Healthy — HTTP {statusCode} in {Duration.toMillis responseTime}ms"
+
+          totalDuration = DateTime.now - started
+          sendEvent cfg.webhookUrl cfg.deployment cfg.image
+            "healthy" N.Success started totalDuration
+
+          IO.println f"\n  == Deployment successful ({Duration.toSeconds totalDuration}s) =="
+          Process.exit 0
+
+      V.Degraded { statusCode, reason } ->
+        do
+          IO.eprintln f"  ⚠ Degraded — HTTP {statusCode}: {reason}"
+          sendEvent cfg.webhookUrl cfg.deployment cfg.image
+            "healthy" N.Warning started (DateTime.now - started)
+
+          IO.println "\n  == Deployment completed with warnings =="
+          Process.exit 0
+
+      V.Unreachable { error, attempts } ->
+        do
+          IO.eprintln f"  ✗ Unreachable after {attempts} attempts: {error}"
+          sendEvent cfg.webhookUrl cfg.deployment cfg.image
+            "healthy" N.Failure started (DateTime.now - started)
+
+          executeRollback cfg started "health check failed"
+
+      V.Timeout { waited } ->
+        do
+          IO.eprintln f"  ✗ Health check timed out after {Duration.toSeconds waited}s"
+          sendEvent cfg.webhookUrl cfg.deployment cfg.image
+            "healthy" N.Failure started (DateTime.now - started)
+
+          executeRollback cfg started "health check timeout"
+
+// -------------------------------------------------------
+// 自动回滚
+// -------------------------------------------------------
+
+executeRollback : Config -> DateTime -> String -> Unit
+executeRollback = \cfg started reason ->
+  do
+    IO.eprintln f"\n  !!! ROLLBACK ({reason}) !!!"
+
+    rollbackResult = D.rollbackDeployment cfg.namespace cfg.deployment "0"
+
+    case rollbackResult of
+      Ok _ ->
+        do
+          IO.println "  ✓ Rollback complete"
+
+          sendEvent cfg.webhookUrl cfg.deployment cfg.image
+            "rollback" N.Rollback started (DateTime.now - started)
+
+          Process.exit 2
+      Err err ->
+        do
+          IO.eprintln f"  ✗ Rollback failed: {CommandError.show err}"
+          Process.exit 3

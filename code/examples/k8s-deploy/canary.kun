@@ -1,0 +1,101 @@
+// ============================================================
+// canary.kun — 金丝雀灰度发布模块
+// ============================================================
+
+import List
+import String
+import Duration
+import Process
+import Cmd
+import IO
+import Map
+
+export
+  ( CanaryConfig
+  , CanaryStep
+  , setTrafficWeight
+  , gradualShift
+  )
+
+// -------------------------------------------------------
+// 金丝雀配置
+// -------------------------------------------------------
+
+type CanaryConfig =
+  { namespace    : String
+  , service      : String
+  , canaryDeploy : String        // canary 版本 deployment 名
+  , stableDeploy : String        // stable 版本 deployment 名
+  , startPercent : Int           // 初始流量比例（如 10）
+  , endPercent   : Int           // 最终流量比例
+  , stepSize     : Int           // 每次增加的百分点
+  , stepInterval : Duration      // 每次调整间隔
+  }
+
+// -------------------------------------------------------
+// 灰度步骤
+// -------------------------------------------------------
+
+type CanaryStep =
+  { percent : Int
+  , stable  : Int
+  , canary  : Int
+  }
+
+// -------------------------------------------------------
+// 设置 Service 的流量权重（通过 kubectl patch）
+//   注意：实际 K8s 需要 Istio/Linkerd/NGINX Ingress 等
+//         此处假设 Service 带有 canary annotation
+// -------------------------------------------------------
+
+setTrafficWeight : String -> String -> Int -> Result String CommandError
+setTrafficWeight = \namespace svcName canaryPercent ->
+  do
+    let
+      stableWeight = 100 - canaryPercent
+      patchData    = f"{{\"spec\":{{\"traffic\":{{\"canary\":{canaryPercent},\"stable\":{stableWeight}}}}}}}"
+    in
+      Cmd.kubectl? { n = namespace }
+        "patch" "service" svcName
+        "--type=merge" "-p" patchData
+
+// -------------------------------------------------------
+// 计算灰度步骤序列
+// -------------------------------------------------------
+
+generateSteps : Int -> Int -> Int -> List CanaryStep
+generateSteps = \start end step ->
+  List.range start (end + 1)
+    |> List.filter (\n -> n % step == 0 || n == end)
+    |> List.map (\p ->
+      { percent = p
+      , stable  = 100 - p
+      , canary  = p
+      })
+
+// -------------------------------------------------------
+// 逐步调整流量——每个步骤等待 interval 后执行健康检查
+// -------------------------------------------------------
+
+gradualShift : CanaryConfig -> List CanaryStep
+gradualShift = \cfg ->
+  do
+    let
+      steps = generateSteps cfg.startPercent cfg.endPercent cfg.stepSize
+    in
+      steps
+        |> List.map (\step ->
+          do
+            IO.println f"  [canary] Adjusting traffic: canary={step.percent}% stable={step.stable}%"
+
+            case setTrafficWeight cfg.namespace cfg.service step.percent of
+              Ok _ ->
+                do
+                  IO.println f"    ✓ Traffic shifted to {step.percent}%"
+                  Process.sleep cfg.stepInterval
+                  step
+              Err err ->
+                do
+                  IO.eprintln f"    ✗ Failed to shift traffic: {CommandError.show err}"
+                  step
+          )

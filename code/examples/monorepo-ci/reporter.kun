@@ -1,0 +1,263 @@
+// ============================================================
+// reporter.kun — 构建报告生成模块
+//   纯函数 generateReport + 效应函数 writeReport
+//   体现 Kun 纯/效应分离设计
+// ============================================================
+
+import DateTime
+import Duration
+import List
+import String
+import Path
+import File
+import IO
+
+export
+  ( BuildReport
+  , generateReport
+  , writeReport
+  , formatLine
+  )
+
+// -------------------------------------------------------
+// 领域类型（来自其他模块的引用）
+//   实际项目中这些类型由 builder/tester/dockerizer 模块导出
+//   此处为完整示例，内联定义
+// -------------------------------------------------------
+
+type BuildResult
+  = BuildOk
+      { service   : String
+      , language  : String
+      , duration  : Duration
+      , artifact  : Path
+      , checksum  : String
+      }
+  | BuildFailed
+      { service   : String
+      , language  : String
+      , error     : String
+      , exitCode  : Int
+      }
+  | BuildSkipped
+      { service   : String
+      , reason    : String
+      }
+
+type TestResult
+  = Passed
+      { suite     : String
+      , duration  : Duration
+      , cases     : Int
+      }
+  | Failed
+      { suite     : String
+      , error     : String
+      , duration  : Duration
+      , cases     : Int
+      }
+  | NoTests
+      { suite     : String
+      }
+
+type ImageResult
+  = ImageOk
+      { service  : String
+      , tag      : String
+      , imageId  : String
+      , size     : String
+      }
+  | ImageSkipped
+      { service  : String
+      , reason   : String
+      }
+  | ImageFailed
+      { service  : String
+      , error    : String
+      }
+
+type BuildReport =
+  { title       : String
+  , timestamp   : DateTime
+  , totalBuilds : Int
+  , passed      : Int
+  , failed      : Int
+  , buildTime   : Duration
+  , artifacts   : List String
+  , images      : List ImageResult
+  , testSummary : String
+  , details     : String
+  }
+
+// -------------------------------------------------------
+// 纯函数：格式化分隔线
+// -------------------------------------------------------
+
+separator : String
+separator = String.repeat 60 "="
+
+// -------------------------------------------------------
+// 纯函数：格式化单行构建结果
+// -------------------------------------------------------
+
+formatLine : BuildResult -> String
+formatLine = \result ->
+  case result of
+    BuildOk { service, language, duration, checksum, .. } ->
+      let
+        secs = Duration.toSeconds duration
+        lang = String.toUpper language
+      in
+        f" ✓ {pad 20 service} {pad 8 lang} ({secs}s)  sha:{checksum}"
+    BuildFailed { service, language, error, .. } ->
+      let
+        shortErr = String.slice 0 80 error
+      in
+        f" ✗ {pad 20 service} {pad 8 (String.toUpper language)} FAILED: {shortErr}"
+    BuildSkipped { service, reason } ->
+      f" - {pad 20 service} SKIPPED: {reason}"
+
+// -------------------------------------------------------
+// 纯函数：格式化镜像结果
+// -------------------------------------------------------
+
+formatImage : ImageResult -> String
+formatImage = \result ->
+  case result of
+    ImageOk { service, tag, imageId, size } ->
+      f" ^ {pad 20 service} {tag}  id:{imageId}  size:{size}"
+    ImageSkipped { service, reason } ->
+      f" - {pad 20 service} SKIPPED: {reason}"
+    ImageFailed { service, error } ->
+      f" - {pad 20 service} FAILED: {error}"
+
+// -------------------------------------------------------
+// 纯函数：右填充字符串到指定长度
+// -------------------------------------------------------
+
+pad : Int -> String -> String
+pad = \n s ->
+  let
+    len = String.length s
+  in
+    if len >= n then
+      s
+    else
+      s ++ (String.repeat (n - len) " ")
+
+// -------------------------------------------------------
+// 纯函数：生成构建摘要行
+// -------------------------------------------------------
+
+summarySection : String -> Int -> Int -> Int -> Duration -> String
+summarySection = \label total passed failed elapsed ->
+  let
+    passRate = if total > 0 then
+      let
+        rate = (Int.toFloat passed * 100.0) / (Int.toFloat total)
+      in
+        f" ({Float.floor rate}%)"
+    else
+      ""
+
+    timeStr = case DateTime.format "HH:mm:ss" (DateTime.of 0) of
+      Ok _ -> f"{Duration.toSeconds elapsed}s"
+      Err _ -> f"{Duration.toSeconds elapsed}s"
+  in
+    f"{label}: {passed}/{total} passed{passRate}, {failed} failed  [{timeStr}]"
+
+// -------------------------------------------------------
+// 纯函数：生成完整 Markdown 构建报告
+// -------------------------------------------------------
+
+generateReport : List BuildResult -> List TestResult -> List ImageResult -> DateTime -> Duration -> BuildReport
+generateReport = \buildResults testResults imageResults started elapsed ->
+  let
+    // 统计构建结果
+    (buildPassed, buildFailed, buildSkipped) =
+      List.fold
+        (\acc r ->
+          let (p, f, s) = acc
+          in case r of
+               BuildOk {}     -> (p + 1, f, s)
+               BuildFailed {} -> (p, f + 1, s)
+               BuildSkipped {} -> (p, f, s + 1))
+        (0, 0, 0)
+        buildResults
+
+    totalBuilds = buildPassed + buildFailed + buildSkipped
+
+    // 详细信息
+    buildDetails =
+      buildResults
+        |> List.map formatLine
+        |> String.join "\n"
+
+    imageDetails =
+      imageResults
+        |> List.map formatImage
+        |> String.join "\n"
+
+    artifactList =
+      buildResults
+        |> List.filterMap (\r ->
+          case r of
+            BuildOk { artifact, .. } -> Path.toString artifact
+            _                       -> Nil)
+
+    testSummary =
+      testResults
+        |> List.map (\r ->
+          case r of
+            Passed { suite, cases, duration, .. } ->
+              f"  ✓ {suite}: {cases} cases passed ({Duration.toSeconds duration}s)"
+            Failed { suite, error, .. } ->
+              f"  ✗ {suite}: {String.slice 0 60 error}"
+            NoTests { suite } ->
+              f"  - {suite}: no tests")
+        |> String.join "\n"
+
+    title =
+      let
+        stamp = case DateTime.format "yyyy-MM-dd HH:mm:ss" started of
+          Ok s -> s
+          Err _ -> "<unknown>"
+      in
+        f"Build Report — {stamp}"
+
+    details =
+      f"{separator}\n## Build Results\n\n{buildDetails}\n\n## Tests\n\n{testSummary}\n\n## Docker Images\n\n{imageDetails}\n{separator}"
+  in
+    { title       = title
+    , timestamp   = started
+    , totalBuilds = totalBuilds
+    , passed      = buildPassed
+    , failed      = buildFailed
+    , buildTime   = elapsed
+    , artifacts   = artifactList
+    , images      = imageResults
+    , testSummary = testSummary
+    , details     = details
+    }
+
+// -------------------------------------------------------
+// 效应函数：将报告写入文件
+// -------------------------------------------------------
+
+writeReport : BuildReport -> Path -> Result Path IOError
+writeReport = \report outputPath ->
+  do
+    let
+      summary = summarySection "Build" report.totalBuilds
+                  report.passed report.failed report.buildTime
+
+      content = f"# {report.title}\n\n{summary}\n\n{report.details}\n"
+
+    // 使用原子写入确保不产生半截文件
+    case File.atomicWriteString outputPath content of
+      Ok _ ->
+        IO.println f"Report written to {Path.toString outputPath}"
+        Ok outputPath
+      Err e ->
+        IO.eprintln f"Failed to write report: {IOError.show e}"
+        Err e

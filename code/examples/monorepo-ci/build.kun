@@ -1,0 +1,192 @@
+// ============================================================
+// build.kun — Monorepo CI/CD 入口脚本
+//
+// 用法：
+//   kun build.kun --root-path=./repo --registry=docker.io/myorg
+//                  --parallel=4 --skip-tests --report-dir=./reports
+//
+// 覆盖特性：
+//   Cli 参数解析 | 模块导入 | do 块编排 | ADT 领域建模 |
+//   defer 清理 | 管道 | List 高阶函数 | DateTime 计时 |
+//   f-string 格式化 | ?T nilable
+// ============================================================
+
+import Cli
+import DateTime
+import Duration
+import List
+import String
+import Path
+import IO
+import File
+import Map
+import builder  as B    // { BuildResult, Service, buildAll, detectServices }
+import tester   as T    // { TestResult, TestSuite, runTests, summarizeTests }
+import dockerizer as D  // { ImageResult, DockerConfig, buildAndPush }
+import reporter as R    // { BuildReport, generateReport, writeReport }
+
+// -------------------------------------------------------
+// 构建配置 Record 类型
+// -------------------------------------------------------
+
+type BuildConfig =
+  { rootPath   : Path
+  , registry   : String
+  , parallel   : Int
+  , skipTests  : Bool
+  , reportDir  : Path
+  , services   : ?List String     // 可选：仅构建指定服务
+  }
+
+// -------------------------------------------------------
+// CLI 参数解析——类型驱动
+// -------------------------------------------------------
+
+parseConfig : List String -> Result BuildConfig Cli.CliError
+parseConfig =
+  Cli.parse
+    { meta  = { intro = "monorepo-build.kun"
+              , text  = "Monorepo CI/CD — parallel build, test, dockerize." }
+    , args =
+        [ Cli.option "root-path" 'r' "Monorepo root directory"
+        , Cli.option "registry" Nil "Docker registry URL"
+            |> Cli.withValidator Validator.nonEmpty
+        , Cli.option "parallel" 'j' "Max parallel builds"
+            |> Cli.withDefault 4
+            |> Cli.withValidator (Validator.range 1 32)
+        , Cli.flag "skip-tests" Nil "Skip test execution"
+        , Cli.option "report-dir" 'o' "Report output directory"
+            |> Cli.withDefault p"./reports"
+        , Cli.option "services" 's' "Comma-separated service names"
+        ]
+    }
+
+// -------------------------------------------------------
+// 解析 --services 逗号分隔参数
+// -------------------------------------------------------
+
+parseServices : ?String -> ?List String
+parseServices = \raw ->
+  case raw of
+    s ->
+      let
+        trimmed = String.trim s
+      in
+        if String.length trimmed > 0 then
+          String.split "," trimmed
+            |> List.map (\x -> String.trim x)
+        else
+          Nil
+    Nil -> Nil
+
+// -------------------------------------------------------
+// 主流程
+// -------------------------------------------------------
+
+main : List String -> Unit
+main = \rawArgs ->
+  do
+    IO.println f"\n{String.repeat 60 '='}"
+    IO.println "  Monorepo CI/CD Pipeline"
+    IO.println f"{String.repeat 60 '='}\n"
+
+    // 1. 解析 CLI 参数
+    case parseConfig rawArgs of
+      Ok cfg ->
+        do
+          started  = DateTime.now
+          services = case cfg.services of
+            Nil -> B.detectServices cfg.rootPath
+            _   -> [] // TODO: filter by name
+
+          IO.println f"Workspace : {Path.toString cfg.rootPath}"
+          IO.println f"Services  : {List.length services} detected"
+          IO.println f"Registry  : {cfg.registry}"
+          IO.println f""
+
+          // 2. 构建阶段
+          IO.println f"{String.repeat 40 '-'}"
+          IO.println "  BUILD PHASE"
+          IO.println f"{String.repeat 40 '-'}"
+
+          buildResults = B.buildAll services
+
+          // 3. 测试阶段（可选）
+          testResults = if cfg.skipTests then
+            do
+              IO.println "\n  Tests skipped (--skip-tests)"
+              []
+          else
+            do
+              IO.println f"\n{String.repeat 40 '-'}"
+              IO.println "  TEST PHASE"
+              IO.println f"{String.repeat 40 '-'}"
+
+              suites = services
+                |> List.map (\svc ->
+                  { name     = svc.name
+                  , language = svc.language
+                  , dir      = svc.dir
+                  , filter   = Nil
+                  })
+              T.runTests suites
+
+          // 4. Docker 镜像构建
+          IO.println f"\n{String.repeat 40 '-'}"
+          IO.println "  DOCKER PHASE"
+          IO.println f"{String.repeat 40 '-'}"
+
+          dockerCfg = { registry  = cfg.registry
+                      , namespace = "default"
+                      , dockerfile = Nil
+                      }
+
+          imageResults = services
+            |> List.map (\svc ->
+              do D.buildAndPush svc.name dockerCfg svc.dir)
+
+          // 5. 生成构建报告
+          elapsed = DateTime.now - started
+          IO.println f"\n{String.repeat 40 '-'}"
+          IO.println "  REPORT"
+          IO.println f"{String.repeat 40 '-'}"
+
+          let
+            report = R.generateReport buildResults testResults
+                       imageResults started elapsed
+            reportPath = cfg.reportDir
+              ++ Path.fromString ("build-report-" ++ timestampFile started ++ ".md")
+          in
+            case R.writeReport report reportPath of
+              Ok path ->
+                IO.println f"\n  Total time: {Duration.toSeconds elapsed}s"
+                IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
+
+                if report.failed > 0 then
+                  Process.exit 1
+                else
+                  Process.exit 0
+              Err _ ->
+                Process.exit 2
+
+      Err err ->
+        do
+          IO.eprintln (Cli.show err)
+          Process.exit 1
+
+// -------------------------------------------------------
+// 纯函数：生成文件名安全的时间戳
+// -------------------------------------------------------
+
+timestampFile : DateTime -> String
+timestampFile = \dt ->
+  case DateTime.format "yyyyMMdd-HHmmss" dt of
+    Ok s  -> s
+    Err _ -> "unknown"
+
+// -------------------------------------------------------
+// 占位：用于类型推断演示
+// -------------------------------------------------------
+
+always = \x _ -> x
+identity = \x -> x
