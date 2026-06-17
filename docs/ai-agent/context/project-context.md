@@ -20,7 +20,7 @@
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | Zig 宿主语言升级至 0.17.0-dev + zig-patterns.md 全面刷新；架构重设计；REPL 更名为 Kun Shell（独立可执行文件 + libkunlang.so 共享核心）；kun doc 子命令（模块文档生成）；--trace 函数调用追踪；类型检查算法补充；八轮跨文档审计（52+ 项问题修复） |
+| 最近完成 | 标准库精简（移除 Sys/Port/IpAddress/SocketAddr/Errno 5 模块 + 19 函数；新增 DateTime 算术/Process.uid gid/Path 归一化/Hash Base64 4 项 P0）；跨 14 文件一致性传播；累计 315+ 跨文档问题修复 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -49,7 +49,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
-| 2026-06-15 | 利用 Zig 0.17 特性优化 Kun 设计——求值器标记 switch / packed equality / Arena 线程安全标注 | 设计 | ✅ system-baseline、zig-patterns | ✅ writing-conventions | `implement` |
+| 2026-06-16 | 标准库模块必要性分析与精简（移除 5 模块 + 19 函数、新增 4 项 P0、跨 14 文件传播） | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions、closure-audit | `implement` |
 | 2026-06-15 | Zig 0.13 → 0.17 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
 | 2026-06-15 | 错误消息国际化（i18n）子系统设计——msgid 体系、.po 文件管理、构建时代码生成、运行时 locale 检测、消息格式化 API | 设计 | ✅ system-baseline、module-boundaries、type-system、i18n | ✅ writing-conventions | `plan-first`（先计划后实施） |
 | 2026-06-15 | 标准库内置函数绑定机制设计——Primitive 函数表结构、模块加载绑定规则、安全防护（防同名覆盖/防篡改）、逐函数实现类别标注 | 设计 | ✅ system-baseline、module-boundaries、standard-library | ✅ writing-conventions | `plan-first`（先计划后实施） |
@@ -70,5 +70,6 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 标准库精简 + 跨文档一致性传播 |
 | 2026.06.16 | 持续设计审计与修复——活跃工作/任务路由更新 |
 | 2026.06.10 | 初始版本 |
