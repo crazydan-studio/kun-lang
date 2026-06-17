@@ -149,7 +149,10 @@ main = \rawArgs ->
           dockerCmds =
             services
               |> List.map (\svc ->
-                D.buildImage svc.name dockerCfg svc.dir)
+                let
+                  tag = f"{cfg.registry}/{svc.name}:latest"
+                in
+                  D.buildImage tag svc.dir)
 
           dockerStream = Task.spawn cfg.parallel dockerCmds
           dockerResults = Task.all dockerStream
@@ -160,11 +163,13 @@ main = \rawArgs ->
               |> List.map (\(svc, result) ->
                 case result of
                   Ok _ ->
-                    let tag = D.generateTag svc.name cfg.registry
-                    in D.ImageOk { service = svc.name
-                                 , tag = tag
-                                 , imageId = "<parallel>"
-                                 , size = "N/A" }
+                    let
+                      tag = f"{cfg.registry}/{svc.name}:latest"
+                    in
+                      D.ImageOk { service = svc.name
+                                , tag = tag
+                                , imageId = "<parallel>"
+                                , size = "N/A" }
                   Err err ->
                     D.ImageFailed { service = svc.name
                                   , error = CommandError.show err })

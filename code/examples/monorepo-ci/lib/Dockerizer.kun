@@ -58,13 +58,10 @@ generateTag = \serviceName registry ->
       Err _ ->
         f"{registry}/{serviceName}:latest"
 
-buildImage : String -> DockerConfig -> Path -> Command
-buildImage = \serviceName cfg contextDir ->
-  let
-    tag = generateTag serviceName cfg.registry
-  in
-    Cmd.docker { t = tag } "build" Path.toString contextDir
-      |> Cmd.withWorkDir contextDir
+buildImage : String -> Path -> Command
+buildImage = \tag contextDir ->
+  Cmd.docker { t = tag } "build" Path.toString contextDir
+    |> Cmd.withWorkDir contextDir
 
 buildAndPush : String -> DockerConfig -> Path -> ImageResult
 buildAndPush = \serviceName cfg contextDir ->
