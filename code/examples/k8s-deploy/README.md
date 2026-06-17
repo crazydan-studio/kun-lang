@@ -16,10 +16,10 @@
 k8s-deploy/
 ├── README.md         # 本文件
 ├── deploy.kun         # 入口：CLI 解析 → 状态机编排（4 Phase + rollback）
-├── deployer.kun      # kubectl 操作封装（apply / set image / rollout / rollback）
-├── verifier.kun      # HTTP 健康检查（带重试 + 超时 + 递归）
-├── canary.kun        # 灰度流量逐步调整
-└── notifier.kun      # Slack/Webhook 通知（纯 Markdown 格式化 + curl Webhook）
+├── Deployer.kun      # kubectl 操作封装（apply / set image / rollout / rollback）
+├── Verifier.kun      # HTTP 健康检查（带重试 + 超时 + 递归）
+├── Canary.kun        # 灰度流量逐步调整
+└── Notifier.kun      # Slack/Webhook 通知（纯 Markdown 格式化 + curl Webhook）
 ```
 
 ## 覆盖的 Kun 特性
@@ -28,43 +28,43 @@ k8s-deploy/
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
-| ADT 状态机 | `deployer.kun:20` | `DeployPhase = Staging \| Canary ... \| Rollback ... \| Done \| Failed` |
-| ADT 健康状态 | `verifier.kun:20` | `HealthStatus = Healthy \| Degraded \| Unreachable \| Timeout` |
+| ADT 状态机 | `Deployer.kun:20` | `DeployPhase = Staging \| Canary ... \| Rollback ... \| Done \| Failed` |
+| ADT 健康状态 | `Verifier.kun:20` | `HealthStatus = Healthy \| Degraded \| Unreachable \| Timeout` |
 | 穷举匹配 | `deploy.kun:197` | `case healthStatus of V.Healthy ... → V.Degraded ... → V.Unreachable ... → V.Timeout ...` |
 | Record 配置 | `deploy.kun:25` | `Config = { namespace, deployment, image, replicas, ... }` |
-| `case` 守卫模式 | `deployer.kun:74` | 多返回值 `case result of Ok output → let raw = ...` |
-| 通配模式 `_` | `verifier.kun:102` | `case result of ... Err _ → do ...` |
+| `case` 守卫模式 | `Deployer.kun:74` | 多返回值 `case result of Ok output → let raw = ...` |
+| 通配模式 `_` | `Verifier.kun:102` | `case result of ... Err _ → do ...` |
 
 ### 效应系统
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
 | `do` 块多层嵌套 | `deploy.kun:110` | 3 层 `case ... of Ok _ → do ...` 嵌套编排 |
-| 效应回调标注 | `canary.kun:60` | `List.map (\step → do ...) steps`——回调含 `do` 块 |
+| 效应回调标注 | `Canary.kun:60` | `List.map (\step → do ...) steps`——回调含 `do` 块 |
 | `defer` | 隐含 | 临时文件确保清理 |
-| 纯函数分离 | `notifier.kun:45` | `formatMessage` 纯 → `notify` 效应 |
+| 纯函数分离 | `Notifier.kun:45` | `formatMessage` 纯 → `notify` 效应 |
 
 ### 亮点模式
 
 | 特性 | 位置 | 说明 |
 |------|------|------|
 | **状态机编排** | `deploy.kun:4` | 四个 Phase 通过函数调用链串联：staging→canary→rollout→health→rollback |
-| **递归重试** | `verifier.kun:72` | `checkEndpointWithRetry`——函数式递归实现指数退避 |
-| **流算序列** | `canary.kun:52` | `List.range start end \|> List.filter \|> List.map` 生成灰度步骤 |
-| **纯 Markdown 格式** | `notifier.kun:45` | 通知消息纯计算，与发送分离 |
-| **curl Webhook** | `notifier.kun:62` | Kun 无 HTTP 客户端——`Cmd.curl?` JSON-RPC 到 Slack |
-| **带 `--` 参数** | `deployer.kun:58` | `Cmd.kubectl? { } "--to-revision={n}"` 特殊 flag |
-| **Duration 类型安全** | `verifier.kun:62` | `3s` `5s` `60s` 字面量——编译期保证单位 |
+| **递归重试** | `Verifier.kun:72` | `checkEndpointWithRetry`——函数式递归实现指数退避 |
+| **流算序列** | `Canary.kun:52` | `List.range start end \|> List.filter \|> List.map` 生成灰度步骤 |
+| **纯 Markdown 格式** | `Notifier.kun:45` | 通知消息纯计算，与发送分离 |
+| **curl Webhook** | `Notifier.kun:62` | Kun 无 HTTP 客户端——`Cmd.curl?` JSON-RPC 到 Slack |
+| **带 `--` 参数** | `Deployer.kun:58` | `Cmd.kubectl? { } "--to-revision={n}"` 特殊 flag |
+| **Duration 类型安全** | `Verifier.kun:62` | `3s` `5s` `60s` 字面量——编译期保证单位 |
 | **`:命令` 作用域交换** | `deploy.kun:140` | 模块别名 `D.rollbackDeployment` / `V.checkEndpoint` / `N.notify` |
 
 ### 多模块协作
 
 ```
 deploy.kun (入口：CLI + 状态机)
-    ├── deployer.kun (kubectl 操作)
-    ├── verifier.kun (HTTP 健康检查)
-    ├── canary.kun (流量灰度)
-    └── notifier.kun (Slack 通知)
+    ├── Deployer.kun (kubectl 操作)
+    ├── Verifier.kun (HTTP 健康检查)
+    ├── Canary.kun (流量灰度)
+    └── Notifier.kun (Slack 通知)
 ```
 
 ## 需求覆盖
@@ -72,11 +72,11 @@ deploy.kun (入口：CLI + 状态机)
 | 需求 | 覆盖 |
 |------|:--:|
 | Staging 验证 | ✅ `deploy.kun:Phase 1`——apply manifest + set image |
-| Canary 灰度（10% 流量） | ✅ `canary.kun:gradualShift`——`startPercent→endPercent` 分步调整 |
-| Full rollout | ✅ `deployer.kun:rolloutStatus`——等待 kubectl rollout 完成 |
-| 健康检查 | ✅ `verifier.kun:checkEndpoint`——带重试 + 超时 + HTTP 状态码验证 |
+| Canary 灰度（10% 流量） | ✅ `Canary.kun:gradualShift`——`startPercent→endPercent` 分步调整 |
+| Full rollout | ✅ `Deployer.kun:rolloutStatus`——等待 kubectl rollout 完成 |
+| 健康检查 | ✅ `Verifier.kun:checkEndpoint`——带重试 + 超时 + HTTP 状态码验证 |
 | 失败自动回滚 | ✅ `deploy.kun:executeRollback`——`rollout undo` |
-| 通知 | ✅ `notifier.kun:notify`——Slack Webhook + 控制台 |
+| 通知 | ✅ `Notifier.kun:notify`——Slack Webhook + 控制台 |
 
 ## 缺失与不足
 

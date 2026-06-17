@@ -29,10 +29,10 @@ import Process
 import Map
 import Result
 
-import deployer as D   // { DeployPhase, DeployConfig, applyManifest, setImage, ... }
-import verifier as V   // { HealthStatus, checkEndpoint, HealthCheck }
-import canary   as C   // { CanaryConfig, gradualShift }
-import notifier as N   // { DeploymentEvent, NotifyLevel, notify }
+import Deployer as D   // { DeployPhase, DeployConfig, applyManifest, setImage, ... }
+import Verifier as V   // { HealthStatus, checkEndpoint, HealthCheck }
+import Canary   as C   // { CanaryConfig, gradualShift }
+import Notifier as N   // { DeploymentEvent, NotifyLevel, notify }
 
 // -------------------------------------------------------
 // 部署配置
