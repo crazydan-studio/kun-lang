@@ -569,56 +569,6 @@ add1ThenDouble = add1 >> double         // \x -> double (add1 x)
 
 ## 系统类型
 
-### `Port`
-
-#### 定位
-
-网络端口号，值域 `0 .. 65535`（u16），以 newtype 形式定义。
-
-```kun
-type Port = Port Int
-```
-
-#### API
-
-```kun
-// [PureKun] 构造 `Port`，调用者须确保参数在 `0..65535` 内，非法输入 panic
-of : Int -> Port
-
-// [PureKun] 检查端口号是否在合法范围 `0..65535` 内
-isValid : Port -> Bool
-// [PureKun] 端口号 < 1024
-isPrivileged : Port -> Bool
-// [PureKun] 端口号在 1024-49151 之间
-isRegistered : Port -> Bool
-// [PureKun] 端口号在 49152-65535 之间
-isDynamic : Port -> Bool
-
-// [PureKun] 安全构造，超出 `0..65535` 返回 `Err`
-fromInt : Int -> Result Port String
-// [PureKun] 提取端口号整数值
-toInt : Port -> Int
-// [PureKun] 返回端口号的字符串表示
-toString : Port -> String
-```
-
-与 `Int` 互转：`toInt`（安全，始终成功）、`of`（调用者自保证合法性）、`fromInt`（带校验的安全构造）。
-
-#### 示例
-
-```kun
-p = Port.of 80                       // 确信 80 合法
-if Port.isValid p then ...           // 有效性检查
-number = Port.toInt p                // → 80
-Port.isPrivileged p                  // → true
-do
-  case Port.fromInt 70000 of
-    Ok port  -> ...
-    Err msg  -> IO.println msg          // "port out of range"
-```
-
-语义场景：网络服务端口、防火墙规则、连接目标。
-
 ### `Pid`
 
 #### 定位
@@ -725,54 +675,7 @@ handleTerminate = \ ->
       )
 ```
 
-### `Errno`
-
-#### 定位
-
-POSIX 系统调用错误码枚举。运行时表示为 i32，与 C ABI 兼容。
-
-```kun
-type Errno
-  = ENOENT
-  | EACCES
-  | EPERM
-  | EINTR
-  | EIO
-  | ENOMEM
-  | EBADF
-  | EAGAIN
-  | EEXIST
-  | ENOTDIR
-  | EISDIR
-  | EINVAL
-  | EPIPE
-  | EMFILE
-  | ENOSPC
-  | ESPIPE
-  | EROFS
-```
-
-#### API
-
-```kun
-// [PureKun] 返回错误码的描述字符串
-message : Errno -> String
-
-// [PureKun] 从编号安全构造
-fromInt : Int -> Result Errno String
-// [PureKun] 获取错误码编号
-toInt : Errno -> Int
-// [PureKun] 转换为错误码名称
-toString : Errno -> String
-```
-
-#### 示例
-
-```kun
-Errno.fromInt 2                     // → Ok ENOENT
-Errno.message EACCES                // → "Permission denied"
-Errno.toInt EPERM                   // → 1
-```
+> **Errno 集成**：POSIX 系统调用错误码（`ENOENT`、`EACCES`、`EPERM` 等）内置于 `IOError` 的运行时实现中，不做为独立模块暴露给用户。需要访问原始错误码的场景通过 `IOError` 的 `Other String` 变体返回描述信息。
 
 ### `FileType`
 
@@ -836,12 +739,6 @@ isReadable : FileMode -> Bool
 isWritable : FileMode -> Bool
 // [PureKun] 所有者是否可执行
 isExecutable : FileMode -> Bool
-// [PureKun] 是否设置 setuid 位
-isSetuid : FileMode -> Bool
-// [PureKun] 是否设置 setgid 位
-isSetgid : FileMode -> Bool
-// [PureKun] 是否设置 sticky 位
-isSticky : FileMode -> Bool
 
 // [PureKun] 安全构造，非法权限位（超出 0o777）返回 `Err`
 fromInt : Int -> Result FileMode String
@@ -922,9 +819,6 @@ type IOError
 // [PureKun] 将 IOError 转换为人类可读的字符串
 show : IOError -> String
 ```
-
-与 `Errno` 的关系：`IOError` 是面向用户的语义封装，`Errno` 是底层 POSIX 码。
-
 #### 示例
 
 ```kun
@@ -1031,9 +925,23 @@ second : DateTime -> Int
 
 // [PureKun] 返回 ISO 8601 格式字符串
 toString : DateTime -> String
-```
 
-支持操作：`+ Duration -> DateTime`、`- Duration -> DateTime`、`- DateTime -> Duration`。
+// [Primitive] 获取当前系统时间
+now : -> DateTime
+
+// [PureKun] DateTime + Duration = DateTime
+(+) : DateTime -> Duration -> DateTime
+// [PureKun] DateTime - Duration = DateTime
+(-) : DateTime -> Duration -> DateTime
+// [PureKun] DateTime - DateTime = Duration
+(-) : DateTime -> DateTime -> Duration
+// [PureKun] 比较两个时间点（返回 -1/0/1）
+compare : DateTime -> DateTime -> Int
+// [PureKun] 是否早于
+before : DateTime -> DateTime -> Bool
+// [PureKun] 是否晚于
+after : DateTime -> DateTime -> Bool
+```
 
 有符号纳秒：`DateTime 0` 表示 1970-01-01T00:00:00Z。
 
@@ -1043,7 +951,7 @@ toString : DateTime -> String
 import DateTime
 
 do
-  now = Sys.time
+  now = DateTime.now
   past = DateTime.fromUnixSecs 1700000000
   elapsed = now - past
 
@@ -1243,6 +1151,17 @@ toString : Path -> String
 
 // [PureKun] 以 Bytes 返回路径的原始字节表示（零开销，无验证）
 toBytes : Path -> Bytes
+
+// [PureKun] 解析相对路径为绝对路径（基于 cwd）
+resolve : Path -> Path
+// [PureKun] 规范化路径（解析 `.` 和 `..`）
+normalize : Path -> Path
+// [PureKun] 路径是否为绝对路径
+isAbsolute : Path -> Bool
+// [PureKun] 路径是否为相对路径
+isRelative : Path -> Bool
+// [PureKun] 计算 from → to 的相对路径
+relative : Path -> Path -> Path
 ```
 
 #### 示例
@@ -1254,6 +1173,11 @@ home = Path.fromString "/home/user"
 logs = home ++ p"logs"               // → p"/home/user/logs"
 name = Path.fileName p"/tmp/foo.txt" // → "foo.txt"
 ext  = Path.extension p"/tmp/foo.txt" // → ".txt"
+
+// 路径工具函数
+Path.isAbsolute p"/usr/bin"          // → true
+Path.isRelative p"docs/file.md"      // → true
+Path.normalize p"/a/b/../c"          // → p"/a/c"
 
 // fromBytes：覆盖非 UTF-8 文件系统场景（Linux ext4/xfs 合法）
 // 受限 Landlock `--allow-path` 范围，仅 NUL 被拒绝
@@ -1308,67 +1232,6 @@ type Gid = Gid Int       // 组 ID
 uid = Uid.of 1000
 Gid.of 1000
 Uid.toInt uid                        // → 1000
-```
-
-### `IpAddress`
-
-#### 定位
-
-IP 地址抽象，支持 IPv4 和 IPv6。
-
-```kun
-type IpAddress
-  = Ipv4 (Int, Int, Int, Int)
-  | Ipv6 (Int, Int, Int, Int, Int, Int, Int, Int)
-```
-
-#### API
-
-```kun
-// [PureKun] 从字符串解析 IP 地址
-parse : String -> Result IpAddress String
-
-// [PureKun] 是否为回环地址
-isLoopback : IpAddress -> Bool
-// [PureKun] 是否为私有地址（RFC 1918 / RFC 4193）
-isPrivate : IpAddress -> Bool
-// [PureKun] 是否为未指定地址（0.0.0.0 / ::）
-isUnspecified : IpAddress -> Bool
-
-// [PureKun] 返回 IP 地址的字符串表示
-toString : IpAddress -> String
-```
-
-与 `Port` 组合为套接字地址：
-
-```kun
-type SocketAddr
-  = Tcp IpAddress Port
-  | Udp IpAddress Port
-```
-
-### `SocketAddr`
-
-```kun
-// [PureKun] 从 IpAddress 和 Port 构造 SocketAddr
-tcp : IpAddress -> Port -> SocketAddr
-udp : IpAddress -> Port -> SocketAddr
-
-// [PureKun] 转换为字符串
-toString : SocketAddr -> String
-```
-
-#### 示例
-
-```kun
-do
-  case IpAddress.parse "10.0.1.5" of
-    Ok ip ->
-      IpAddress.isPrivate ip           // → true
-      IpAddress.toString ip            // → "10.0.1.5"
-      addr = Tcp ip (Port.of 8080)
-    Err _ ->
-      IO.println "bad address"
 ```
 
 ## `Decimal` — 十进制精确数值
@@ -2325,12 +2188,6 @@ import Env
 // [Primitive] 读取环境变量，不存在返回 Nil
 getenv : String -> ?String
 
-// [Primitive] 设置环境变量
-setenv : String -> String -> Unit
-
-// [Primitive] 删除环境变量
-unsetenv : String -> Unit
-
 // [Primitive] 列举所有环境变量
 list : Map String String
 
@@ -2338,15 +2195,12 @@ list : Map String String
 contains : String -> Bool
 ```
 
-`setenv` 内置拒绝列表——以 `LD_` 开头的变量名始终拒绝设置，与子进程 env 始终剔除列表保持一致。
-
 ### 示例
 
 ```kun
 import Env
 
 do
-  Env.setenv "KUN_LOG_LEVEL" "debug"
   level = Env.getenv "KUN_LOG_LEVEL" |> Nil.withDefault "info"
   IO.println f"log level: {level}"
 ```
@@ -2413,18 +2267,6 @@ copy : Path -> Path -> Result Unit IOError
 
 // [Primitive] 移动/重命名文件
 rename : Path -> Path -> Result Unit IOError
-
-// [Primitive] 修改文件权限
-chmod : FileMode -> Path -> Result Unit IOError
-
-// [Primitive] 修改文件所有者
-chown : Uid -> Gid -> Path -> Result Unit IOError
-
-// [Primitive] 创建符号链接
-symlink : Path -> Path -> Result Unit IOError
-
-// [Primitive] 读取符号链接目标
-readlink : Path -> Result Path IOError
 
 // [Primitive] — 需要 opendir/readdir/closedir 系统调用；glob 遍历的路径受 Landlock 规则约束——仅返回 Landlock 允许路径内的匹配项
 glob : String -> Path -> Result (List Path) IOError
@@ -2667,6 +2509,12 @@ exit : Int -> Unit
 // [Primitive] 获取当前进程 ID
 pid : -> Pid
 
+// [Primitive] 获取当前进程的实时用户 ID
+uid : -> Int
+
+// [Primitive] 获取当前进程的实时组 ID
+gid : -> Int
+
 // [Primitive] — 可向任意 PID 发送信号；实际效果取决于 OS 级权限（CAP_KILL 或同 UID）；无沙箱模式下可影响系统服务
 kill : Signal -> Pid -> Result Unit IOError
 
@@ -2700,68 +2548,80 @@ do
     Err _ -> IO.println "permission denied"
 ```
 
-## `Sys` — 类型化系统命令（syscall 实现）
+## `Hash` — 哈希函数
 
 ### 定位
 
-操作系统 syscall 级信息查询，仅保留无 OS 命令等价物或 syscall 特有功能。所有函数均为效应函数。
+`Hash` 模块提供密码学哈希函数，适用于文件完整性校验、数据指纹等场景。所有函数均为纯函数。
 
 需显式导入：
 
 ```kun
-import Sys
+import Hash
 ```
 
 ### API
 
 ```kun
-// [Primitive] 获取当前系统时间
-time : -> DateTime
+// [Primitive] SHA-256 哈希
+sha256 : Bytes -> Bytes
+// [Primitive] SHA-256 哈希，返回十六进制字符串
+sha256Hex : Bytes -> String
 
-// [Primitive] /proc 遍历进程列表
-ps : -> Stream { pid : Pid, cmd : String }
-
-// [Primitive] sysinfo() 内存信息
-free : -> { total : Int, used : Int, free : Int }
-
-// [Primitive] statfs() 磁盘信息
-df : Path -> { fs : String, total : Int, used : Int, avail : Int }
-
-// [Primitive] 系统主机名
-hostname : String
-
-// [Primitive] 系统信息（os/kernel/architecture）
-uname : { os : String, kernel : String, arch : String }
-
-// [Primitive] 系统启动以来的秒数
-uptime : Float
-
-// [Primitive] 逻辑 CPU 数量
-cpuCount : Int
-
-// [Primitive] 当前进程的实时用户 ID
-uid : -> Int
-
-// [Primitive] 当前进程的实时组 ID
-gid : -> Int
+// [Primitive] MD5 哈希 [推迟 v0.5]
+md5 : Bytes -> Bytes
+// [Primitive] MD5 哈希，返回十六进制字符串 [推迟 v0.5]
+md5Hex : Bytes -> String
 ```
 
 ### 示例
 
 ```kun
-import Sys
+import Hash
 
 do
-  now = Sys.time
-  IO.println f"current time: {DateTime.format "yyyy-MM-dd" now |> Result.withDefault "unknown"}"
+  case File.readBytes p"/path/to/file" of
+    Ok data ->
+      hash = Hash.sha256Hex data
+      IO.println f"SHA-256: {hash}"
+    Err _ ->
+      IO.println "read failed"
+```
 
-  // 内存信息
-  mem = Sys.free
-  IO.println f"memory: {mem.free}/{mem.total}"
+## `Base64` — Base64 编解码
 
-  // 磁盘信息
-  disk = Sys.df p"/"
-  IO.println f"disk /: {disk.avail} available of {disk.total}"
+### 定位
+
+`Base64` 模块提供 Base64 编码与解码功能，适用于二进制数据传输、API 密钥编码等场景。
+
+需显式导入：
+
+```kun
+import Base64
+```
+
+### API
+
+```kun
+// [Primitive] Base64 编码
+encode : Bytes -> String
+// [Primitive] Base64 解码
+decode : String -> Result Bytes String
+```
+
+### 示例
+
+```kun
+import Base64
+
+// 编码
+data = Bytes.fromString "hello"
+encoded = Base64.encode data  // → "aGVsbG8="
+
+// 解码
+case Base64.decode "aGVsbG8=" of
+  Ok raw  -> ...
+  Err _   -> IO.println "invalid base64"
 ```
 
 ## `Task` — 并发任务
@@ -3003,6 +2863,8 @@ main = \_ ->
 | `Float` | `import Float` | 浮点操作与互转 |
 | `String` | `import String` | 字符串操作及类型互转（`toString` 为编译器级泛型） |
 | `Regex` | `import Regex` | 正则匹配与替换 |
+| `Hash` | `import Hash` | 哈希函数（SHA-256） |
+| `Base64` | `import Base64` | Base64 编解码 |
 | `Math` | `import Math` | 数学函数与常量 |
 | `List` | `import List` | 列表操作 |
 | `Map` | `import Map` | 映射表操作 |
@@ -3017,14 +2879,11 @@ main = \_ ->
 | `File` | `import File` | 文件操作 |
 | `Cmd` | `import Cmd` | 命令调用 |
 | `Task` | `import Task` | 并发命令执行（`spawn`/`all`） |
-| `Process` | `import Process` | 进程控制（`exit`/`pid`/`kill`/`wait`/`sleep`） |
+| `Process` | `import Process` | 进程控制（`exit`/`pid`/`uid`/`gid`/`kill`/`wait`/`sleep`） |
 | `Duration` | `import Duration` | 时间段操作 |
-| `Sys` | `import Sys` | 系统信息查询 |
 | `Path` | `import Path` | 路径操作函数（类型标注无需导入） |
-| `Port` | `import Port` | 端口号操作（`of`/`isValid`/`fromInt`） |
 | `Pid` | `import Pid` | 进程 ID 操作 |
-| `Signal` | `import Signal` | 信号枚举与注册（`on` 仅可执行脚本可用） |
-| `Errno` | `import Errno` | POSIX 错误码 |
+| `Signal` | `import Signal` | 信号枚举与注册 |
 | `FileType` | `import FileType` | 文件类型枚举 |
 | `FileMode` | `import FileMode` | 文件权限位操作 |
 | `FileStat` | `import FileStat` | 文件元数据结构（由 `File.stat` 返回） |
@@ -3034,8 +2893,6 @@ main = \_ ->
 | `ExitCode` | `import ExitCode` | 退出码操作 |
 | `Uid` | `import Uid` | 用户 ID 操作 |
 | `Gid` | `import Gid` | 组 ID 操作 |
-| `IpAddress` | `import IpAddress` | IP 地址解析与查询 |
-| `SocketAddr` | `import SocketAddr` | 套接字地址（`Tcp`/`Udp` + `IpAddress` + `Port`） |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
 | `Test` | `import Test` | 测试断言（`equal`/`ok`/`panics`） |
@@ -3044,7 +2901,8 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.15 | 审计修复四轮：73 函数 API 补全（List/Map/Set/Stream/IO/File/Cmd/Process/Sys/Test 模块）；Test 模块推迟 v1.0；Uid.current/Gid.current 移除（Sys.uid/gid 替代） |
+| 2026.06.17 | 标准库精简与补充：移除 `Sys`/`Port`/`IpAddress`/`SocketAddr`/`Errno` 模块（功能由 `Cmd.xxx` 替代或并入 IOError）；移除非必要的 File 函数（`chmod`/`chown`/`symlink`/`readlink`）和 Env 函数（`setenv`/`unsetenv`）、FileMode 低频谓词（`isSetuid`/`isSetgid`/`isSticky`）；新增 `DateTime` 算术（`+ Duration`/`- Duration`/`- DateTime`/`compare`/`before`/`after`）及 `DateTime.now`；新增 `Process.uid`/`Process.gid`；新增 `Path` 工具函数（`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`）；新增 `Hash` 模块（SHA-256）和 `Base64` 模块 |
+| 2026.06.15 | 审计修复四轮：73 函数 API 补全（List/Map/Set/Stream/IO/File/Cmd/Process/Test 模块）；Test 模块推迟 v1.0；Uid.current/Gid.current 移除（Sys.uid/gid 替代） |
 | 2026.06.15 | 审计修复六轮：分类表更新 + 效应列表补全 + Cmd 函数推迟标注 |
 | 2026.06.14 | `File` 新增 `mkdir`/`mkdirAll`/`exists`；`Bytes` 新增 `fromString`/`toString`；`Map` 新增 `remove`；`String` 新增 `replaceAll`；新增 `Test` 模块（`equal`/`ok`/`panics`） |
 | 2026.06.14 | `List.iter`/`Stream.iter`/`Signal.on` 签名新增 `(a -> b)!` 效应回调标注——回调必须是效应函数；新增 `Cmd.exec : Command -> Unit` 显式执行；Stream IO 消费示例更新 |
