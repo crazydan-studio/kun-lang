@@ -6,14 +6,13 @@ import List
 import String
 import Path
 import Stream
+import Duration
 import Cmd
 import IO
 import CommandError
-import Result
 
 export
   ( DeployPhase, DeployPhase(..)
-  , DeployConfig
   , applyManifest
   , setImage
   , rolloutStatus
@@ -31,29 +30,12 @@ type DeployPhase
   | Done
   | Failed { phase : String, reason : String }
 
-type DeployConfig =
-  { namespace  : String
-  , deployment : String
-  , image      : String
-  , replicas   : Int
-  , manifest   : Path
-  , timeout    : Duration
-  }
-
-// -------------------------------------------------------
-// kubectl apply 部署清单
-// -------------------------------------------------------
-
 applyManifest : Path -> String -> Result (Stream String) CommandError
 applyManifest = \manifestPath namespace ->
   do
     IO.println f"  [kubectl] Applying manifest: {Path.toString manifestPath}"
     Cmd.kubectl? { n = namespace }
       "apply" "-f" (Path.toString manifestPath)
-
-// -------------------------------------------------------
-// 更新 Deployment 镜像
-// -------------------------------------------------------
 
 setImage : String -> String -> String -> String -> Result (Stream String) CommandError
 setImage = \namespace deployment container image ->
@@ -63,20 +45,12 @@ setImage = \namespace deployment container image ->
       "set" "image" f"deployment/{deployment}"
       f"{container}={image}"
 
-// -------------------------------------------------------
-// 等待 rollout 完成
-// -------------------------------------------------------
-
 rolloutStatus : String -> String -> Duration -> Result (Stream String) CommandError
 rolloutStatus = \namespace deployment timeout ->
   do
     IO.println f"  [kubectl] Waiting for rollout ({Duration.toSeconds timeout}s)..."
     Cmd.kubectl? { n = namespace, timeout = f"{Duration.toSeconds timeout}s" }
       "rollout" "status" f"deployment/{deployment}"
-
-// -------------------------------------------------------
-// 获取 Pod 名称列表
-// -------------------------------------------------------
 
 getPodNames : String -> String -> String -> List String
 getPodNames = \namespace deployment labelSelector ->
@@ -95,10 +69,6 @@ getPodNames = \namespace deployment labelSelector ->
             |> List.map String.trim
       Err _ ->
         []
-
-// -------------------------------------------------------
-// 获取 Service 对外端点
-// -------------------------------------------------------
 
 getServiceEndpoint : String -> String -> String -> ?String
 getServiceEndpoint = \namespace svcName port ->
@@ -119,10 +89,6 @@ getServiceEndpoint = \namespace svcName port ->
             Nil
       Err _ ->
         Nil
-
-// -------------------------------------------------------
-// 回滚 Deployment
-// -------------------------------------------------------
 
 rollbackDeployment : String -> String -> String -> Result (Stream String) CommandError
 rollbackDeployment = \namespace deployment toRevision ->

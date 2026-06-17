@@ -23,10 +23,6 @@ import Tester     as T
 import Dockerizer as D
 import Reporter   as R
 
-// -------------------------------------------------------
-// 构建配置
-// -------------------------------------------------------
-
 type BuildConfig =
   { rootPath   : Path
   , registry   : String
@@ -35,10 +31,6 @@ type BuildConfig =
   , reportDir  : Path
   , services   : ?String
   }
-
-// -------------------------------------------------------
-// CLI 参数解析
-// -------------------------------------------------------
 
 parseConfig : List String -> Result BuildConfig Cli.CliError
 parseConfig =
@@ -59,13 +51,11 @@ parseConfig =
         ]
     }
 
-// -------------------------------------------------------
-// 按名称过滤服务列表
-// -------------------------------------------------------
-
 filterByNames : List B.Service -> ?String -> List B.Service
 filterByNames = \svcs rawNames ->
   case rawNames of
+    Nil ->
+      svcs
     namesStr ->
       let
         trimmed = String.trim namesStr
@@ -78,12 +68,6 @@ filterByNames = \svcs rawNames ->
           List.filter (\svc -> List.elem svc.name names) svcs
         else
           svcs
-    Nil ->
-      svcs
-
-// -------------------------------------------------------
-// 从服务列表构造 TestSuite
-// -------------------------------------------------------
 
 toTestSuites : List B.Service -> List T.TestSuite
 toTestSuites = \svcs ->
@@ -93,10 +77,6 @@ toTestSuites = \svcs ->
     , dir      = svc.dir
     , filter   = Nil
     }) svcs
-
-// -------------------------------------------------------
-// 主流程
-// -------------------------------------------------------
 
 main : List String -> Unit
 main = \rawArgs ->
@@ -150,8 +130,8 @@ main = \rawArgs ->
                 IO.println "  TEST PHASE"
                 IO.println f"{String.repeat 40 "-"}"
 
-                let suites = toTestSuites services
-                in T.runTests suites cfg.parallel
+                suites = toTestSuites services
+                T.runTests suites cfg.parallel
 
           // -------------------------------------------------
           // Phase 3: Docker 镜像并行构建
@@ -198,26 +178,26 @@ main = \rawArgs ->
           IO.println "  REPORT"
           IO.println f"{String.repeat 40 "-"}"
 
-          let
-            report     = R.generateReport buildResults testResults
-                           imageResults started elapsed
-            timestamp  = case DateTime.format "yyyyMMdd-HHmmss" started of
-                           Ok s  -> s
-                           Err _ -> "unknown"
-            reportPath = cfg.reportDir
-              ++ Path.fromString f"build-report-{timestamp}.md"
-          in
-            case R.writeReport report reportPath of
-              Ok _ ->
-                do
-                  IO.println f"\n  Total time: {Duration.toSeconds elapsed}s"
-                  IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
-                  if report.failed > 0 then
-                    Process.exit 1
-                  else
-                    Process.exit 0
-              Err _ ->
-                Process.exit 2
+          timestamp  = case DateTime.format "yyyyMMdd-HHmmss" started of
+                         Ok s  -> s
+                         Err _ -> "unknown"
+
+          report     = R.generateReport buildResults testResults
+                         imageResults started elapsed
+          reportPath = cfg.reportDir
+            ++ Path.fromString f"build-report-{timestamp}.md"
+
+          case R.writeReport report reportPath of
+            Ok _ ->
+              do
+                IO.println f"\n  Total time: {Duration.toSeconds elapsed}s"
+                IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
+                if report.failed > 0 then
+                  Process.exit 1
+                else
+                  Process.exit 0
+            Err _ ->
+              Process.exit 2
 
       Err err ->
         do

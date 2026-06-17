@@ -3,13 +3,11 @@
 // ============================================================
 
 import List
-import String
 import Duration
 import Process
 import Cmd
 import IO
 import CommandError
-import Result
 
 export
   ( CanaryConfig
@@ -35,24 +33,15 @@ type CanaryStep =
   , canary  : Int
   }
 
-// -------------------------------------------------------
-// 设置 Service 的流量权重
-// -------------------------------------------------------
-
 setTrafficWeight : String -> String -> Int -> Result (Stream String) CommandError
 setTrafficWeight = \namespace svcName canaryPercent ->
   do
-    let
-      stableWeight = 100 - canaryPercent
-      patchData    = f"{{\"spec\":{{\"traffic\":{{\"canary\":{canaryPercent},\"stable\":{stableWeight}}}}}}}"
-    in
-      Cmd.kubectl? { n = namespace }
-        "patch" "service" svcName
-        "--type=merge" "-p" patchData
+    stableWeight = 100 - canaryPercent
+    patchData    = f"\{ \"spec\": \{ \"traffic\": \{ \"canary\": {canaryPercent}, \"stable\": {stableWeight} \} \} \}"
 
-// -------------------------------------------------------
-// 计算灰度步骤序列
-// -------------------------------------------------------
+    Cmd.kubectl? { n = namespace }
+      "patch" "service" svcName
+      "--type=merge" "-p" patchData
 
 generateSteps : Int -> Int -> Int -> List CanaryStep
 generateSteps = \start end step ->
@@ -63,10 +52,6 @@ generateSteps = \start end step ->
       , stable  = 100 - p
       , canary  = p
       })
-
-// -------------------------------------------------------
-// 逐步调整流量
-// -------------------------------------------------------
 
 gradualShift : CanaryConfig -> List CanaryStep
 gradualShift = \cfg ->

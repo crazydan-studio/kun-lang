@@ -44,10 +44,6 @@ type TestSuite =
   , filter  : ?String
   }
 
-// -------------------------------------------------------
-// 构造测试 Command（纯操作）
-// -------------------------------------------------------
-
 testCommand : TestSuite -> Command
 testCommand = \suite ->
   case suite.language of
@@ -55,17 +51,13 @@ testCommand = \suite ->
     "js" -> Cmd.npm { prefix = Path.toString suite.dir } "test"
     _    -> Cmd.echo {} "no tests"
 
-// -------------------------------------------------------
-// 单测试套件（效应——立即执行，返回结构化结果）
-// -------------------------------------------------------
-
 runSuite : TestSuite -> TestResult
 runSuite = \suite ->
   do
     IO.println f"  [test] {suite.name} ({suite.language})"
 
-    start  = DateTime.now
-    result = Cmd.pipe? [testCommand suite]
+    start   = DateTime.now
+    result  = Cmd.pipe? [testCommand suite]
     elapsed = DateTime.now - start
 
     case result of
@@ -80,10 +72,6 @@ runSuite = \suite ->
                , duration = elapsed
                , cases    = 0 }
 
-// -------------------------------------------------------
-// 从测试 Stream 输出解析用例数
-// -------------------------------------------------------
-
 countTestCases : Stream String -> Int
 countTestCases = \output ->
   let
@@ -96,35 +84,25 @@ countTestCases = \output ->
           || String.startsWith "--- PASS" line)
       |> List.length
 
-// -------------------------------------------------------
-// 并行运行所有测试
-// -------------------------------------------------------
-
 runTests : List TestSuite -> Int -> List TestResult
 runTests = \suites maxParallel ->
   do
-    let
-      cmds = List.map testCommand suites
-    in
-      Task.spawn maxParallel cmds
-        |> Task.all
-        |> List.zip suites
-        |> List.map (\(suite, result) ->
-          case result of
-            Ok output ->
-              let
-                caseCount = countTestCases output
-              in
-                Passed { suite = suite.name, duration = 0s, cases = caseCount }
-            Err err ->
-              Failed { suite = suite.name
-                     , error    = CommandError.show err
-                     , duration = 0s
-                     , cases    = 0 })
-
-// -------------------------------------------------------
-// 测试结果摘要
-// -------------------------------------------------------
+    cmds = List.map testCommand suites
+    Task.spawn maxParallel cmds
+      |> Task.all
+      |> List.zip suites
+      |> List.map (\(suite, result) ->
+        case result of
+          Ok output ->
+            let
+              caseCount = countTestCases output
+            in
+              Passed { suite = suite.name, duration = 0s, cases = caseCount }
+          Err err ->
+            Failed { suite = suite.name
+                   , error    = CommandError.show err
+                   , duration = 0s
+                   , cases    = 0 })
 
 summarizeTests : List TestResult -> { passed : Int, failed : Int, skipped : Int, totalCases : Int, totalDuration : Duration }
 summarizeTests = \results ->

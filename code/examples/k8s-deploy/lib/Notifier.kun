@@ -8,6 +8,7 @@ import DateTime
 import Cmd
 import IO
 import CommandError
+import Result
 
 export
   ( NotifyLevel, NotifyLevel(..)
@@ -34,10 +35,6 @@ type DeploymentEvent =
   , duration  : ?Duration
   }
 
-// -------------------------------------------------------
-// 纯函数：格式化 Markdown 消息
-// -------------------------------------------------------
-
 formatMessage : DeploymentEvent -> String
 formatMessage = \event ->
   let
@@ -58,54 +55,41 @@ formatMessage = \event ->
   in
     f"{icon} *{event.service}* — {event.phase}{durationStr}\n> {event.message}\n _{timeStr}_"
 
-// -------------------------------------------------------
-// 发送 Slack / Webhook 通知
-// -------------------------------------------------------
-
 notifySlack : String -> DeploymentEvent -> Result String CommandError
 notifySlack = \webhookUrl event ->
   do
-    let
-      color = case event.level of
-        Info     -> "#439FE0"
-        Success  -> "good"
-        Warning  -> "warning"
-        Failure | Rollback -> "danger"
+    color = case event.level of
+      Info     -> "#439FE0"
+      Success  -> "good"
+      Warning  -> "warning"
+      Failure | Rollback -> "danger"
 
-      text  = formatMessage event
-      json  = f"\{ \"attachments\": [\{ \"color\": \"{color}\", \"text\": \"{text}\" \}] \}"
-    in
-      Cmd.stdoutToString
-        (Cmd.curl { X = "POST"
-                  , H = "Content-Type: application/json"
-                  , silent = true
-                  , data = json }
-          webhookUrl)
-      |> Result.map (\_ -> "")
+    text = formatMessage event
+    json = f"\{ \"attachments\": [\{ \"color\": \"{color}\", \"text\": \"{text}\" \}] \}"
 
-// -------------------------------------------------------
-// 控制台通知
-// -------------------------------------------------------
+    Cmd.stdoutToString
+      (Cmd.curl { X = "POST"
+                , H = "Content-Type: application/json"
+                , silent = true
+                , data = json }
+        webhookUrl)
+    |> Result.map (\_ -> "")
 
 notifyConsole : DeploymentEvent -> Unit
 notifyConsole = \event ->
   do
-    let
-      prefix = case event.level of
-        Info     -> "[INFO]"
-        Success  -> "[OK]  "
-        Warning  -> "[WARN]"
-        Failure  -> "[FAIL]"
-        Rollback -> "[ROLL]"
-      msg = f"{prefix} {event.service}: {event.message}"
-    in
-      case event.level of
-        Failure | Rollback -> IO.eprintln msg
-        _                  -> IO.println msg
+    prefix = case event.level of
+      Info     -> "[INFO]"
+      Success  -> "[OK]  "
+      Warning  -> "[WARN]"
+      Failure  -> "[FAIL]"
+      Rollback -> "[ROLL]"
 
-// -------------------------------------------------------
-// 统一通知入口
-// -------------------------------------------------------
+    msg = f"{prefix} {event.service}: {event.message}"
+
+    case event.level of
+      Failure | Rollback -> IO.eprintln msg
+      _                  -> IO.println msg
 
 notify : String -> DeploymentEvent -> Unit
 notify = \webhookUrl event ->

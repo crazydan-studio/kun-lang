@@ -41,7 +41,7 @@ monorepo-ci/
 | 特性 | 位置 | 示例 |
 |------|------|------|
 | `do` 块顺序执行 | `build.kun` | 4 个 Phase 依次：构建→测试→Docker→报告 |
-| 效应回调标注 `!` | `Builder.kun` | `computeChecksum` 调用 `File.readBytes`（效应函数） |
+| 效应函数自动推断 | `Builder.kun` | `computeChecksum` / `detectServices` / `detectLanguage` 含 `do` 块，编译器自动标记 EffectFn |
 | 纯函数 | `Reporter.kun` | `generateReport` 接收数据 → 返回 String，无效应调用 |
 
 ### 模式匹配
@@ -76,7 +76,7 @@ monorepo-ci/
 | 柯里化 | `Reporter.kun` | `pad : Int -> String -> String` |
 | `List.fold` 多值累加 | `Reporter.kun` | `(p, f, s) = acc` 三值折叠 |
 | `List.filterMap` | `Builder.kun` | 仅收集 BuildOk 的 artifact 字段 |
-| `List.iter` | `Canary.kun` | 效应回调 `List.iter (\step -> do ...) steps` |
+| `List.iter` | `build.kun` | `List.iter` 接收效应回调——仅在 k8s-deploy 场景演示 |
 
 ### 标准库标识
 
@@ -117,4 +117,3 @@ monorepo-ci/
 |------|------|
 | `Task.spawn` 未实现（v0.5） | 代码使用 `Task.spawn` / `Task.all` API，运行时需 v0.5 支持 |
 | `Cli.show` 未实现（v0.5） | CLI 错误格式化需 v0.5 |
-| canary 实际 K8s 机制 | 流量权重需 Service Mesh 支持，代码为简化示意 |

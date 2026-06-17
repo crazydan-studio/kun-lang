@@ -51,10 +51,6 @@ type BuildResult
       , reason    : String
       }
 
-// -------------------------------------------------------
-// 构造构建 Command（纯操作——不执行）
-// -------------------------------------------------------
-
 buildCommand : Service -> Command
 buildCommand = \svc ->
   let
@@ -77,18 +73,14 @@ buildCommand = \svc ->
       _ ->
         Cmd.echo {} "Skipped: unknown language"
 
-// -------------------------------------------------------
-// 单服务构建（效应——立即执行）
-// -------------------------------------------------------
-
 buildService : Service -> BuildResult
 buildService = \svc ->
   do
     IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
 
-    start   = DateTime.now
-    result  = Cmd.pipe? [buildCommand svc]
-    elapsed = DateTime.now - start
+    start    = DateTime.now
+    result   = Cmd.pipe? [buildCommand svc]
+    elapsed  = DateTime.now - start
     artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
 
     case result of
@@ -101,10 +93,6 @@ buildService = \svc ->
         BuildFailed { service = svc.name, language = svc.language
                      , error = CommandError.show err
                      , exitCode = extractExitCode err }
-
-// -------------------------------------------------------
-// SHA-256 校验（效应——读取产物文件）
-// -------------------------------------------------------
 
 computeChecksum : Path -> String
 computeChecksum = \path ->
@@ -123,82 +111,67 @@ extractExitCode = \err ->
     CommandFailed { exitCode, .. } -> exitCode
     _                              -> -1
 
-// -------------------------------------------------------
-// 并行构建——Task.spawn 并发执行
-// -------------------------------------------------------
-
 buildAll : List Service -> Int -> List BuildResult
 buildAll = \svcs maxParallel ->
   do
-    let
-      cmds = List.map buildCommand svcs
-    in
-      Task.spawn maxParallel cmds
-        |> Task.all
-        |> List.zip svcs
-        |> List.map (\(svc, result) ->
-          let
-            artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
-            checksum = Hash.sha256Hex (Bytes.fromString svc.name)
-          in
-            case result of
-              Ok _ ->
-                BuildOk
-                  { service   = svc.name
-                  , language  = svc.language
-                  , duration  = 0s
-                  , artifact  = artifact
-                  , checksum  = checksum
-                  }
-              Err err ->
-                BuildFailed
-                  { service   = svc.name
-                  , language  = svc.language
-                  , error     = CommandError.show err
-                  , exitCode  = extractExitCode err
-                  })
-
-// -------------------------------------------------------
-// 自动探测 monorepo 中的服务
-// -------------------------------------------------------
+    cmds = List.map buildCommand svcs
+    Task.spawn maxParallel cmds
+      |> Task.all
+      |> List.zip svcs
+      |> List.map (\(svc, result) ->
+        let
+          artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
+          checksum = Hash.sha256Hex (Bytes.fromString svc.name)
+        in
+          case result of
+            Ok _ ->
+              BuildOk
+                { service   = svc.name
+                , language  = svc.language
+                , duration  = 0s
+                , artifact  = artifact
+                , checksum  = checksum
+                }
+            Err err ->
+              BuildFailed
+                { service   = svc.name
+                , language  = svc.language
+                , error     = CommandError.show err
+                , exitCode  = extractExitCode err
+                })
 
 detectServices : Path -> List Service
 detectServices = \root ->
-  let
+  do
     entries = case File.list root of
       Ok es -> es
       Err _ -> []
-    candidates = entries
-      |> List.filter (\entry ->
-        File.isDir (root ++ entry))
-      |> List.map (\candidate ->
-        let
-          fullPath = root ++ candidate
-          lang     = detectLanguage fullPath
-        in
-          { name     = Path.toString candidate
-          , language = lang
-          , dir      = fullPath
-          , mainFile = Nil
-          , buildCmd = Nil
-          })
-  in
-    List.filter (\svc -> svc.language != "unknown") candidates
 
-// -------------------------------------------------------
-// 语言检测（纯函数）
-// -------------------------------------------------------
+    let
+      candidates = entries
+        |> List.filter (\entry ->
+          File.isDir (root ++ entry))
+        |> List.map (\candidate ->
+          let
+            fullPath = root ++ candidate
+            lang     = detectLanguage fullPath
+          in
+            { name     = Path.toString candidate
+            , language = lang
+            , dir      = fullPath
+            , mainFile = Nil
+            , buildCmd = Nil
+            })
+    in
+      List.filter (\svc -> svc.language != "unknown") candidates
 
 detectLanguage : Path -> String
 detectLanguage = \dir ->
-  case (File.exists (Path.join dir "go.mod"), File.exists (Path.join dir "package.json")) of
-    (Ok true, _)   -> "go"
-    (_, Ok true)   -> "js"
-    _              -> "unknown"
-
-// -------------------------------------------------------
-// 收集构建产物路径
-// -------------------------------------------------------
+  do
+    case (File.exists (Path.join dir "go.mod"), File.exists (Path.join dir "package.json")) of
+      (Ok true, _)   -> "go"
+      (_, Ok true)   -> "js"
+      _              -> "unknown"
 
 collectBuildArtifacts : List BuildResult -> List Path
 collectBuildArtifacts = \results ->

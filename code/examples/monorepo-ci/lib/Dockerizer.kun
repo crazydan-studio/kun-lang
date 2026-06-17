@@ -3,8 +3,6 @@
 // ============================================================
 
 import DateTime
-import Duration
-import List
 import String
 import Path
 import Stream
@@ -43,10 +41,6 @@ type DockerConfig =
   , dockerfile: ?Path
   }
 
-// -------------------------------------------------------
-// 生成镜像标签——时间戳 + 短 commit hash
-// -------------------------------------------------------
-
 generateTag : String -> String -> String
 generateTag = \serviceName registry ->
   do
@@ -64,10 +58,6 @@ generateTag = \serviceName registry ->
       Err _ ->
         f"{registry}/{serviceName}:latest"
 
-// -------------------------------------------------------
-// 单服务 Docker 构建命令
-// -------------------------------------------------------
-
 buildImage : String -> DockerConfig -> Path -> Command
 buildImage = \serviceName cfg contextDir ->
   let
@@ -75,10 +65,6 @@ buildImage = \serviceName cfg contextDir ->
   in
     Cmd.docker { t = tag } "build" Path.toString contextDir
       |> Cmd.withWorkDir contextDir
-
-// -------------------------------------------------------
-// 构建并推送——返回结构化结果
-// -------------------------------------------------------
 
 buildAndPush : String -> DockerConfig -> Path -> ImageResult
 buildAndPush = \serviceName cfg contextDir ->
@@ -88,8 +74,8 @@ buildAndPush = \serviceName cfg contextDir ->
     tag = generateTag serviceName cfg.registry
 
     dockerfilePath = case cfg.dockerfile of
-      df -> df
       Nil -> contextDir ++ p"Dockerfile"
+      df  -> df
 
     case File.exists dockerfilePath of
       Ok true ->
