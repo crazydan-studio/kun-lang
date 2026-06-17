@@ -734,6 +734,8 @@ fromUnixMillis : Int -> DateTime
 toUnixSecs : DateTime -> Int
 // [PureKun] 提取 Unix 纳秒数
 toUnixNanos : DateTime -> Int
+// [PureKun] 提取 Unix 毫秒数
+toUnixMillis : DateTime -> Int
 
 // [Primitive] 按格式模板格式化时间，格式非法时返回 `Err`
 format : String -> DateTime -> Result String String
@@ -833,6 +835,8 @@ toDays : Duration -> Int
 
 // [PureKun] 解析与格式化
 fromString : String -> Result Duration String    // 解析 "5s" / "100ms" / "2h30m" / "1d"
+// [PureKun] 从毫秒数构造 Duration
+fromMillis : Int -> Duration
 toString : Duration -> String                    // 纳秒数（如 "5100000000"）
 format : String -> Duration -> Result String String  // 自定义格式
 
@@ -1248,6 +1252,8 @@ append    : List a -> List a -> List a
 reverse   : List a -> List a
 // [Primitive] 排序（比较函数返回 -1/0/1）
 sort      : (a -> a -> Int) -> List a -> List a
+// [PureKun] 按键函数排序
+sortBy    : (a -> k) -> List a -> List a
 // [Primitive] 子列表 [start, end)
 slice     : Int -> Int -> List a -> List a
 // [Primitive] 取前 n 个元素
@@ -1805,6 +1811,12 @@ take : Int -> Stream a -> Stream a
 // [PureKun] 丢弃前 n 个元素
 drop : Int -> Stream a -> Stream a
 
+// [PureKun] 取元素直到谓词首次为 false
+takeWhile : (a -> Bool) -> Stream a -> Stream a
+
+// [PureKun] 丢弃元素直到谓词首次为 false
+dropWhile : (a -> Bool) -> Stream a -> Stream a
+
 // [Primitive] 按 \n 切分
 lines : Stream String -> Stream (Result String LineError)
 
@@ -1862,7 +1874,7 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 
 | 操作 | 类别 | 说明 |
 |------|------|------|
-| `Stream.map` / `Stream.filter` / `Stream.take` / `Stream.flatMap` / `Stream.append` / `Stream.zip` / `Stream.scan` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` | **纯** | 惰性变换，不触发 IO |
+| `Stream.map` / `Stream.filter` / `Stream.take` / `Stream.drop` / `Stream.takeWhile` / `Stream.dropWhile` / `Stream.flatMap` / `Stream.append` / `Stream.zip` / `Stream.scan` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` | **纯** | 惰性变换，不触发 IO |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
 | `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit)!` 回调，自身为效应函数（必须在 `do` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在 `do` 外使用 |
@@ -2805,6 +2817,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | 新增 `List.sortBy`、`Stream.takeWhile`/`Stream.dropWhile`、`Duration.fromMillis`、`DateTime.toUnixMillis`（P1+P2 最后补全） |
 | 2026.06.17 | FileType/FileMode/FileStat 并入 File 模块（`File.Type`/`File.Mode`/`File.Stat`）；Pid/ExitCode 并入 Process 模块（`Process.Pid`/`Process.ExitCode`）；新增 `Bytes.slice`/`Bytes.contains`；净消除 5 模块（41→36） |
 | 2026.06.17 | 移除 `File.changeDir`（全局可变状态），`Cmd.withCwd` 更名为 `Cmd.withWorkDir` |
 | 2026.06.17 | 移除 `Path.cwd`（与 `File.currentDir` 冗余，`getcwd()` 归属 File 更合理） |
