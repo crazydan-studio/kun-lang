@@ -14,7 +14,7 @@
 
 ### 定位
 
-`Int` 为内置类型（i64），`Int` 模块提供绝对值、最值比较及类型互转函数。
+`Int` 为内置类型（i64），`Int` 模块提供绝对值、最值比较、幂运算、范围钳制及类型互转函数。
 
 需显式导入：
 
@@ -34,6 +34,12 @@ min : Int -> Int -> Int
 // [PureKun] 取较大值
 max : Int -> Int -> Int
 
+// [PureKun] 幂运算 x^n，n 须 >= 0
+pow : Int -> Int -> Int
+
+// [PureKun] clamp(x, lo, hi) 将 x 限制在 [lo, hi] 内
+clamp : Int -> Int -> Int -> Int
+
 // [PureKun] 从 String 转换为 Int（可能失败）
 fromString : String -> Result Int String
 
@@ -49,18 +55,20 @@ toString : Int -> String
 ```kun
 import Int
 
-m = Int.abs (-3)      // → 3
-n = Int.min 5 10       // → 5
-x = Int.max 5 10       // → 10
+m = Int.abs (-3)        // → 3
+n = Int.min 5 10         // → 5
+x = Int.max 5 10         // → 10
+p = Int.pow 2 10         // → 1024
+c = Int.clamp 50 0 100   // → 50
 x = Int.fromString "42"   // → Ok 42
 y = Int.toFloat 7          // → 7.0
 ```
 
-## `Float` — 浮点操作
+## `Float` — 浮点操作与数学函数
 
 ### 定位
 
-`Float` 为内置类型（f64），`Float` 模块提供绝对值、取整、平方根、容差比较及类型互转函数。
+`Float` 为内置类型（f64），`Float` 模块提供绝对值、取整、平方根、三角函数、指数对数、幂运算、容差比较、类型互转及实用常量与函数。
 
 需显式导入：
 
@@ -69,6 +77,18 @@ import Float
 ```
 
 ### API
+
+#### 常量
+
+```kun
+// [PureKun] 圆周率 π ≈ 3.141592653589793
+pi : Float
+
+// [PureKun] 自然常数 e ≈ 2.718281828459045
+e : Float
+```
+
+#### 绝对值与取整
 
 ```kun
 // [PureKun] 绝对值
@@ -82,13 +102,66 @@ ceil : Float -> Float
 
 // [PureKun] 四舍五入到最近整数
 round : Float -> Float
+```
+
+#### 三角函数
+
+```kun
+// [PureKun] 正弦，参数为弧度
+sin : Float -> Float
+
+// [PureKun] 余弦，参数为弧度
+cos : Float -> Float
+
+// [PureKun] 正切，参数为弧度
+tan : Float -> Float
+```
+
+#### 指数与对数
+
+```kun
+// [PureKun] e^x
+exp : Float -> Float
+
+// [PureKun] 自然对数 ln(x)，x 须 > 0
+log : Float -> Float
+
+// [PureKun] 以 2 为底的对数
+log2 : Float -> Float
+
+// [PureKun] 以 10 为底的对数
+log10 : Float -> Float
+```
+
+#### 幂与根
+
+```kun
+// [PureKun] x^y
+pow : Float -> Float -> Float
 
 // [PureKun] 平方根
 sqrt : Float -> Float
+```
 
+#### 比较与实用函数
+
+```kun
 // [PureKun] 容差比较：|a - b| < epsilon
 approxEqual : Float -> Float -> Float -> Bool
 
+// [PureKun] 取较小值
+min : Float -> Float -> Float
+
+// [PureKun] 取较大值
+max : Float -> Float -> Float
+
+// [PureKun] clamp(x, lo, hi) 将 x 限制在 [lo, hi] 内
+clamp : Float -> Float -> Float -> Float
+```
+
+#### 类型互转
+
+```kun
 // [PureKun] 从 String 转换为 Float（可能失败）
 fromString : String -> Result Float String
 
@@ -104,16 +177,27 @@ toString : Float -> String
 ```kun
 import Float
 
-a = Float.sqrt 16.0                  // → 4.0
-b = Float.floor 3.7                  // → 3.0
-c = Float.round 3.7                  // → 4.0
-d = Float.fromString "2.5"           // → Ok 2.5
-e = Float.toInt 3.14                 // → 3
+// 三角函数
+Float.sin (Float.pi / 2)               // → 1.0
+Float.cos Float.pi                      // → -1.0
+
+// 指数对数
+Float.log Float.e                       // → 1.0
+Float.pow 2.0 3.0                       // → 8.0
+
+// 取整
+Float.floor 3.7                         // → 3.0
+Float.round 3.7                         // → 4.0
+
+// 实用函数
+Float.clamp 1.5 0.0 1.0                 // → 1.0
 
 // 容差比较
 Float.approxEqual (0.1 + 0.2) 0.3 1e-10    // → true
-Float.approxEqual 1.0 1.0001 1e-4          // → true
-Float.approxEqual 1.0 1.01 1e-4            // → false
+
+// 类型互转
+val = Float.fromString "2.5"            // → Ok 2.5
+n   = Float.toInt 3.14                  // → 3
 ```
 
 ## `String` — 字符串操作
@@ -409,88 +493,6 @@ Regex.firstMatch r"(\d+)" "abc 123 def"     // → { matched = "123", groups = [
 Regex.replaceAll r"x" "0" "x1 x2 x3"        // → "01 02 03"
 
 Regex.split r",\s*" "a, b, c"               // → ["a", "b", "c"]
-```
-
-## `Math` — 数学函数与常量
-
-### 定位
-
-`Math` 模块提供三角函数、指数对数、幂运算及实用常量与函数。
-
-需显式导入：
-
-```kun
-import Math
-```
-
-### API
-
-#### 常量
-
-```kun
-// [PureKun] 圆周率 π ≈ 3.141592653589793
-pi : Float
-
-// [PureKun] 自然常数 e ≈ 2.718281828459045
-e : Float
-```
-
-#### 三角函数
-
-```kun
-// [PureKun] 正弦，参数为弧度
-sin : Float -> Float
-
-// [PureKun] 余弦，参数为弧度
-cos : Float -> Float
-
-// [PureKun] 正切，参数为弧度
-tan : Float -> Float
-
-#### 指数与对数
-
-```kun
-// [PureKun] e^x
-exp : Float -> Float
-
-// [PureKun] 自然对数 ln(x)，x 须 > 0
-log : Float -> Float
-
-// [PureKun] 以 2 为底的对数
-log2 : Float -> Float
-
-// [PureKun] 以 10 为底的对数
-log10 : Float -> Float
-```
-
-#### 幂与根
-
-```kun
-// [PureKun] x^y
-pow : Float -> Float -> Float
-```
-
-#### 实用函数
-
-```kun
-// [PureKun] 取较小值
-min : Float -> Float -> Float
-
-// [PureKun] 取较大值
-max : Float -> Float -> Float
-
-// [PureKun] clamp(x, lo, hi) 将 x 限制在 [lo, hi] 内
-clamp : Float -> Float -> Float -> Float
-```
-
-### 示例
-
-```kun
-import Math
-
-Math.sin (Math.pi / 2)               // → 1.0
-Math.clamp 1.5 0.0 1.0               // → 1.0
-Math.log Math.e                       // → 1.0
 ```
 
 ## `Function` — 函数组合子
@@ -2836,13 +2838,12 @@ main = \_ ->
 | `Bytes` | `import Bytes` | 二进制数据操作 |
 | `Char` | `import Char` | 字符分类与转换 |
 | `Decimal` | `import Decimal` | 精确十进制数值 |
-| `Int` | `import Int` | 整数操作与互转 |
-| `Float` | `import Float` | 浮点操作与互转 |
+| `Int` | `import Int` | 整数操作、幂运算、钳制及互转 |
+| `Float` | `import Float` | 浮点操作、数学函数、常量及互转 |
 | `String` | `import String` | 字符串操作及类型互转（`toString` 为编译器级泛型） |
 | `Regex` | `import Regex` | 正则匹配与替换 |
 | `Hash` | `import Hash` | 哈希函数（SHA-256） |
 | `Base64` | `import Base64` | Base64 编解码 |
-| `Math` | `import Math` | 数学函数与常量 |
 | `List` | `import List` | 列表操作 |
 | `Map` | `import Map` | 映射表操作 |
 | `Set` | `import Set` | 集合操作 |
@@ -2878,6 +2879,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.17 | Math 模块并入 Float（pi/e/sin/cos/tan/exp/log/log2/log10/pow/min/max/clamp 迁入）；移除 Math 模块；Int 新增 pow/clamp |
 | 2026.06.17 | 标准库深度精简：移除 Math 反三角/双曲/角度转换/hypot/tau（11 项）、Int.neg、Float.neg、List.intersperse/product、Stream.cycle/repeat；新增 Int.min/max、String.trimStart/trimEnd/padStart/padEnd、Hash.sha256Stream、DateTime.fromUnixMillis、List.range |
 | 2026.06.17 | 标准库精简与补充：移除 `Sys`/`Port`/`IpAddress`/`SocketAddr`/`Errno` 模块（功能由 `Cmd.xxx` 替代或并入 IOError）；移除非必要的 File 函数（`chmod`/`chown`/`symlink`/`readlink`）和 Env 函数（`setenv`/`unsetenv`）、FileMode 低频谓词（`isSetuid`/`isSetgid`/`isSticky`）；新增 `DateTime` 算术（`+ Duration`/`- Duration`/`- DateTime`/`compare`/`before`/`after`）及 `DateTime.now`；新增 `Process.uid`/`Process.gid`；新增 `Path` 工具函数（`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`）；新增 `Hash` 模块（SHA-256）和 `Base64` 模块 |
 | 2026.06.15 | 审计修复四轮：73 函数 API 补全（List/Map/Set/Stream/IO/File/Cmd/Process/Test 模块）；Test 模块推迟 v1.0；Uid.current/Gid.current 移除（Sys.uid/gid 替代） |
