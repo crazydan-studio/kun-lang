@@ -135,7 +135,7 @@ case (x, y) of              // x : ?Int, y : ?String
 | `Char` | Unicode 标量值 | `'A'`, `'\n'` | u32 | Unicode 标量值 |
 | `Regex` | 编译后正则 | `r"[0-9]+"` | 内部编译表示 | 编译期验证 |
 | `Duration` | 纳秒精度时间段 | `5s`, `100ms`, `2h` | i64 (纳秒) | 时间跨度 |
-| `Unit` | 零宽度类型 | 无（编译器隐式值） | void | 无返回值标记，不可作为参数类型 |
+| `Unit` | 零宽度类型 | 无（编译器隐式值） | void | 无返回值标记；不可作为参数类型；作为返回类型仅限效应函数 |
 | `Path` | 文件系统路径（不保证 UTF-8） | `p"/tmp/foo"`, `p"./foo"` | `[]u8` | 与 `String` 语义区分；内部可为任意非 NUL 字节 |
 
 ### 类型详述
@@ -236,6 +236,7 @@ case (x, y) of              // x : ?Int, y : ?String
 规则：
 - `-> T` 与 `a -> T` 是**不同元数的函数类型**——HM 合一时元数必须相同，否则合一失败
 - 零参函数**仅允许用于效应函数**（函数体含 `do` 块）。纯零参函数退化为常量，应使用 `let` 绑定
+- 纯函数返回类型不可为 `Unit`——返回 `Unit` 的纯计算无输出也无副作用，退化为无操作（no-op），编译期报错。效应函数可返回 `Unit`
 - 对应的 Lambda 语法为 `\ -> expr`
 - 调用零参函数时裸名即为调用：`DateTime.now`（不可传参）
 
@@ -361,6 +362,7 @@ Task.spawn  : Int -> List Command -> ... (内部效应，无回调参数)
 - 识别签名中声明了 `!` 参数的函数，标记为效应函数
 - 验证纯函数体中无效应函数调用
 - 验证纯函数签名中无 `!` 参数声明
+- 验证纯函数返回类型非 `Unit`
 - 验证 `do` 块内未被消费的 `Command` 值（未被 `Cmd.exec`、`|>` 或 `?` 消费的 `Command` 是编译错误）
 - 验证 `do` 块内未被消费的 `Stream`（未被 `toList`/`iter`/`fold`/`string`/`bytes` 等终端操作消费的 `Stream` 是编译错误，防止子进程变为僵尸和 fd 泄漏）
 - `do` 块内条件消费路径的所有分支均需消费 `Stream`；`Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError` 返回 `Result`，其 `Ok` 分支的 `Stream` 仍须消费
@@ -536,6 +538,7 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 > | `Missing Field` | 缺少字段 |
 > | `Tuple Index Out Of Range` | 元组索引越界 |
 > | `Effect In Pure Function` | 纯函数调用效应函数 |
+> | `Pure Function Returns Unit` | 纯函数返回 Unit |
 > | `Command Not Consumed` | Command 未消费 |
 > | `Stream Not Consumed` | Stream 未消费 |
 > | `Unbound Variable` | 未定义变量 |
@@ -576,7 +579,7 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
      then: {then_type}
      else: {else_type}
      ──┤ {context_line}
-     Hint: if 表达式的两个分支必须返回相同类型
+     Hint: if 表达式的所有分支必须返回相同类型
    ```
 
 **函数类型**
@@ -733,6 +736,17 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
       Expansion path: {path}
       ──┤ {context_line}
       Hint: 递归 type 别名展开超过 256 层限制。展开路径：{path}。检查是否存在意外的循环引用
+    ```
+
+**纯函数约束**
+
+21. **`PureUnitReturn`**（纯函数返回 Unit）
+    ```
+    Error: Pure Function Returns Unit ─── src/main.kun:{line}:{col}
+      Function: {func_name}
+      Signature: {signature}
+      ──┤ {context_line}
+      Hint: 纯函数返回 `Unit` 无意义（无输出、无副作用）。将函数体移入 `do` 块，或改为返回有效值
     ```
 
 #### 验证标准
