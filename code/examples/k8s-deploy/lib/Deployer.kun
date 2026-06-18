@@ -76,6 +76,7 @@ getServiceEndpoint = \namespace svcName port ->
       case result of
         Ok output -> String.trim (Stream.string output)
         Err _     -> ""
+  in
     if String.length trimmed > 0 then
       trimmed
     else
