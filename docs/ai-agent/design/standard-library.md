@@ -308,6 +308,7 @@ toString : a -> String
 
 ```kun
 import String
+import Int
 
 name = "  Kun  " |> String.trim          // → "Kun"
 prefix = String.trimStart "  Kun  "      // → "Kun  "
@@ -794,7 +795,7 @@ do
     Err _ -> IO.println "format error"
 
   dt = DateTime.of 1728000000000000    // 纳秒构造
-  year = DateTime.year dt              // → 2024
+  year = DateTime.year dt              // → 1970
 ```
 
 ### `Duration`
@@ -1157,6 +1158,10 @@ filter : (a -> Bool) -> ?a -> ?a
 
 ```kun
 import Nil
+import Map
+import Int
+import Result
+import String
 
 // withDefault：用缺省值解包
 host =

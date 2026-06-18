@@ -67,7 +67,7 @@ parseConfig =
             |> Cli.withDefault 10
             |> Cli.withValidator (Validator.range 1 50)
         , Cli.option "timeout" 't' "Deployment timeout in seconds"
-            |> Cli.withDefault 300
+            |> Cli.withDefault 300s
         , Cli.option "webhook" 'w' "Webhook URL"
             |> Cli.withDefault ""
         , Cli.option "health-path" Nil "Health check HTTP path"
