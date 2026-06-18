@@ -14,8 +14,8 @@
 | [cli.md](cli.md) | `Cli` 模块详细设计（命令行参数解析） |
 | [feature-inventory.md](feature-inventory.md) | 功能清单与实现状态 |
 | [command-system.md](command-system.md) | OS 命令调用机制（Cmd.&lt;bin&gt; 语法、camelCase 映射、执行模型、管道、修饰函数） |
-| [kun-cli-tool.md](kun-cli-tool.md) | `kun` CLI 工具（子命令、安全控制参数、脚本入口、Kun Shell） |
-| [kun-shell.md](kun-shell.md) | Kun Shell 交互式环境（SQLite 日志存储、函数收藏、AST 哈希） |
+| [kun-cli-tool.md](kun-cli-tool.md) | `kun` CLI 工具（子命令、安全控制参数、脚本入口、Kun Shell [推迟 v2.0]） |
+| [kun-shell.md](kun-shell.md) | Kun Shell 交互式环境（SQLite 日志存储、函数收藏、AST 哈希） [推迟 v2.0] |
 
 > 已废弃的历史设计文档已归档至 [`archive/deprecated/`](../archive/deprecated/) 目录。包括：安全角色与权限模型（`with caps`）、供应链安全、命令函数系统（`.cmd.kun` + Builder API）、命令签名系统（CDF）、能力映射指南。
 

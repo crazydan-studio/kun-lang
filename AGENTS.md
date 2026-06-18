@@ -71,6 +71,8 @@
 | `docs/ai-agent/archive/` | 版本归档规则 | 文档版本迭代前 |
 | `docs/ai-agent/diagrams/` | PlantUML 图表 | 需要生成或更新可视化图表时 |
 
+**文档状态追踪**：每份文档的实现状态见 [`design/feature-inventory.md`](docs/ai-agent/design/feature-inventory.md)（功能级）和各个 `index.md`（文件级）。例如 `Kun Shell` 设计已定型，实现注明 `[推迟 v2.0]`，路由时仍应阅读其设计文档，但不应触发实现相关的任务路由。
+
 **文档优先级链**（引用 `docs/ai-agent/context/source-of-truth-and-precedence.md`）：
 > `context/` > `architecture/` > `design/` > `requirements/` > `plans/` > 其他文档
 
