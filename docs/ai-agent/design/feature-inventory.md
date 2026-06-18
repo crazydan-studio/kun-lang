@@ -101,7 +101,7 @@
 | Stream tagged union | ✅ 设计定型 | 替代函数指针链，双层间接→单层 |
 | do 块顺序执行 | ✅ 设计定型 | defer LIFO 逆序清理 |
 | panic + unwind | ✅ 设计定型 | defer 始终执行，panic-with-defer 语义 |
-| Kun Shell | ✅ 设计定型 | 交互式环境：表达式求值 + 类型查询 + `:type`/`:load`/`:edit`/`:run`/`:save`；SQLite 日志存储、DuckDB 可替换引擎、函数收藏、AST 哈希唯一引用；详见 [Kun Shell](kun-shell.md) |
+| Kun Shell | ✅ 设计定型 [推迟 v2.0] | 交互式环境：表达式求值 + 类型查询 + `:type`/`:load`/`:edit`/`:run`/`:save`；SQLite 日志存储、DuckDB 可替换引擎、函数收藏、AST 哈希唯一引用；详见 [Kun Shell](kun-shell.md) |
 
 ### 管道与组合
 
@@ -183,6 +183,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | Kun Shell 添加 [推迟 v2.0] 标注：设计已定型，实现在 v2.0 前不启动 |
 | 2026.06.14 | 安全加固：网络隔离 CLONE_NEWNET + seccomp 扩展 + PR_SET_NO_NEW_PRIVS + env 过滤扩展；标准库增补：`File.mkdir`/`mkdirAll`/`exists`、`Bytes.fromString`/`toString`、`Map.remove`、`String.replaceAll`；新增 `Test` 测试断言模块；效应跟踪：`!` → `EffectFn` 独立类型构造器 |
 | 2026.06.14 | 效应跟踪更新：新增 `(a -> b)!` 效应回调标注；命令系统更新：移除 `do` 块隐式执行，新增 `Cmd.exec` 显式执行 |
 | 2026.06.13 | REPL 重命名为 Kun Shell 并扩展设计（SQLite 日志、函数收藏、AST 哈希） |

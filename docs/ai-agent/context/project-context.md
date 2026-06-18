@@ -17,7 +17,7 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）、类型检查算法设计（定型）、CLI 工具功能（定型） |
+| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
 | 最近完成 | 七轮标准库审计与精简（41→36 模块，−30 函数，+15 函数补全，Math→Float/FileType+FileMode+FileStat→File/Pid+ExitCode→Process 合并）；跨文档一致性修复（移除陈旧引用：Math/Path.cwd/Int.neg/Float.neg/Cmd.withStdinFile 遗漏；EffectFn/Fn 规则澄清；陈旧文档废弃标注；版本历史补全）；File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`，新增 `Stat.isDir`/`Stat.isFile`/`Stat.isSymlink` 纯访问器）；示例修复（Verifier.kun `let…in`+`do` 违规、Builder.kun+Dockerizer.kun 适配 `File.stat`） |
@@ -30,7 +30,7 @@
 |---|---|
 | 语言实现 | Zig 0.17.0-dev（宿主语言，版本锁定，版本包 `/opt/ai-agent/tools/`） |
 | 运行时 | fork-exec + pipe 捕获 stdout/stderr |
-| 二进制产物 | `kun`（脚本执行器）+ `kun-shell`（交互式环境）+ `libkunlang.so`（共享解释器核心） |
+| 二进制产物 | `kun`（脚本执行器）+ `libkunlang.so`（共享解释器核心）；`kun-shell`（交互式环境）[推迟 v2.0] |
 | 安全模型 | CLI 参数（`--allow-path`/`--allow-net`）+ Landlock + mount namespace 兜底 + seccomp + rlimit |
 | 文档构建 | VitePress + pnpm |
 | 版本控制 | Git + GitHub |
@@ -71,6 +71,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | Kun Shell 标注 [推迟 v2.0]，二进制产物更新（`kun-shell` 标记推迟） |
 | 2026.06.17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`）；示例重构（`File.stat` 替代多函数） |
 | 2026.06.17 | 标准库精简 + 跨文档一致性传播 |
 | 2026.06.16 | 持续设计审计与修复——活跃工作/任务路由更新 |

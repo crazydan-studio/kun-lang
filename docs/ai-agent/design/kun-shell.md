@@ -1,5 +1,7 @@
 # Kun Shell
 
+> **设计已定型，实现推迟至 v2.0**。v0.1–v1.x 阶段仅提供 `kun` 脚本执行器和 `libkunlang.so` 共享库。`kun-shell` 交互式环境在 v2.0 前不实现。
+
 ## 定位
 
 Kun Shell 是 Kun 的交互式环境。`kun-shell` 为独立可执行文件，与 `kun` CLI 工具通过动态链接库 `libkunlang.so` 共享解释器核心代码（词法分析、语法分析、类型检查、效应检查、求值引擎）。`kun-shell` 自身 CLI 参数解析与 `Cli` 模块共享同一 spec 模型与解析引擎，见 [`Cli` 模块](cli.md#与-CLI-二进制的关系)。
@@ -301,4 +303,5 @@ Kun Shell 的求值引擎依赖 `libkunlang.so` 的 Arena 分配策略，但 REP
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | 实现推迟至 v2.0，设计文档增加推迟横幅标注 |
 | 2026.06.13 | Kun Shell 初始设计：替代 REPL，SQLite 日志存储、DuckDB 可替换引擎、函数收藏、AST 哈希唯一引用 |

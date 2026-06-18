@@ -6,7 +6,7 @@
 |---|---|---|
 | 宿主语言 | Zig 0.17.0-dev | 高性能、无 hidden control flow、直接操作内存 |
 | 目标平台 | Linux | 使用 fork/exec、namespace、Landlock、seccomp 等 Linux 特有机制 |
-| 二进制产物 | `kun`（脚本执行器）+ `kun-shell`（交互式环境）+ `libkunlang.so`（共享解释器核心） | 单体可执行文件 + 动态链接库 |
+| 二进制产物 | `kun`（脚本执行器）+ `libkunlang.so`（共享解释器核心）；`kun-shell`（交互式环境）[推迟 v2.0] | 单体可执行文件 + 动态链接库 |
 | 文档构建 | VitePress + pnpm | 现代化的静态文档站点 |
 | 版本控制 | Git + GitHub | 分布式版本控制 |
 
@@ -924,7 +924,7 @@ const CommandPayload = struct { tag: u8, payload: [32]u8 };
 
 Arena 分配器特性：线性分配（bump allocation），无释放操作；Arena 在阶段结束时整体销毁。Zig 0.17 的 `ArenaAllocator` 为线程安全且无锁（lock-free）实现——若未来引入并发特性（如 v0.5 的 `Task.spawn`），Arena 不会成为并行度的瓶颈。
 
-脚本模式（`kun` CLI）使用以上三层 Arena 模型。Kun Shell 扩展为双 Arena + 绑定表三层内存模型以支持跨 REPL 求值的绑定持久化，完整设计见 [`kun-shell.md`](../design/kun-shell.md#内存模型)。
+脚本模式（`kun` CLI）使用以上三层 Arena 模型。Kun Shell（[推迟 v2.0]）扩展为双 Arena + 绑定表三层内存模型以支持跨 REPL 求值的绑定持久化，完整设计见 [`kun-shell.md`](../design/kun-shell.md#内存模型)。
 
 #### Arena 与 Stream 生命周期契约
 
@@ -1157,6 +1157,7 @@ HM 约束生成器在处理 Primitive 函数调用时：
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | Kun Shell 二进制产物标注 [推迟 v2.0]；内存模型引用添加推迟标注 |
 | 2026.06.15 | 审计修复三轮：defer 作用域统一（嵌套 do 独立链 + LIFO 全展开）；fork/exec 信号竞争防护（子进程清理 signalfd/信号处理器/掩码）；闭包捕获转换流程；Stream 纯变换合并优化细节；let in thunk+memoization 实现 |
 | 2026.06.15 | 审计修复二轮：SIGPIPE 忽略策略；Primitive ↔ HM 约束生成器集成接口；Stream 消费 AST 级分析算法；Cmd.exec 阻塞语义；主事件循环架构；Closure arity 与柯里化模型澄清 |
 | 2026.06.15 | 审计修复：效应检查规则补全 Stream 消费强制检查；CommandError 新增 Timeout 变体；PipeFailed 嵌套深度限制 16 层；Process.exit 范围检查 |
