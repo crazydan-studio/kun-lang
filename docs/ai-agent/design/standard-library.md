@@ -741,6 +741,10 @@ toUnixMillis : DateTime -> Int
 // [Primitive] 按格式模板格式化时间，格式非法时返回 `Err`
 format : String -> DateTime -> Result String String
 // 格式字段名：`yyyy`（年）、`yy`（年两位数）、`MM`（月）、`dd`（日）、`HH`（时）、`mm`（分）、`ss`（秒）、`SSS`（毫秒）、`Z`（时区偏移）
+//
+// > **f-string vs format**：f-string 中使用 `{now:%yyyy-MM-dd}` 语法（`%` 引导进入 DateTime 格式模式），
+// > 而 `DateTime.format` 函数第一个参数为格式模板字符串本身（不含 `%` 前缀），两者格式字段名一致。
+// > 详见 [语法设计](syntax.md#字符串插值与格式化) 的 DateTime 格式化小节。
 
 // [Primitive] 按格式模板解析时间字符串
 parse : String -> String -> Result DateTime String
@@ -1297,11 +1301,11 @@ range : Int -> Int -> List Int
 // [PureKun] 求和（元素类型须支持 + 运算符）
 sum : List Int -> Int
 
-// [PureKun] 最小值
-minimum : List a -> ?a
+// [PureKun] 最小值（比较器返回 -1/0/1）
+min : (a -> a -> Int) -> List a -> ?a
 
-// [PureKun] 最大值
-maximum : List a -> ?a
+// [PureKun] 最大值（比较器返回 -1/0/1）
+max : (a -> a -> Int) -> List a -> ?a
 
 // [PureKun] 按 key 函数分组
 groupBy : (a -> k) -> List a -> Map k (List a)
@@ -1657,7 +1661,7 @@ withValidator : (a -> Result a String) -> CliArg -> CliArg
 // [PureKun] 互斥组（at most one：成员中最多允许一个出现）
 oneOf : String -> List CliArg -> CliArgGroup
 
-// [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断）
+// [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断） [推迟 v0.5]
 parse : CliSpec -> List String -> Result a CliError
 
 // [Primitive] 将解析错误转为人类可读字符串
@@ -1883,7 +1887,7 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
 | `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit)!` 回调，自身为效应函数（必须在 `do` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在 `do` 外使用 |
-| `Stream.string` / `Stream.bytes` | **终端** | 同上 |
+| `Stream.string` / `Stream.bytes` | **终端**（非纯流为效应） | 消费 Stream 并收集为 `String`/`Bytes`；纯 Stream（`fromList`/`range`）可在 `do` 外使用；命令输出 Stream 须在 `do` 块内调用（驱动 pipe 读取为效应操作） |
 | `Stream.fromList` | **纯** | 从纯 List 构造，无 IO 绑定 |
 
 > **回调纯函数约束**：`Stream.map`、`Stream.filter`、`Stream.take`、`Stream.parseMap`、`Stream.parseMapKeep` 的回调参数**必须为纯函数**。这些是惰性变换，不应掺杂副作用。`Stream.iter` 的回调必须为**效应函数**（签名标注 `(a -> Unit)!`），用于逐元素执行副作用。
@@ -2062,7 +2066,7 @@ createTempFile : -> Result Path IOError
 // [Primitive] 创建临时目录，脚本退出时自动清理，返回路径
 createTempDir : -> Result Path IOError
 
-// [PureKun] 复制文件/目录
+// [Primitive] 复制文件/目录
 copy : Path -> Path -> Result Unit IOError
 
 // [Primitive] 移动/重命名文件
@@ -2206,10 +2210,21 @@ do
     Ok tmp ->
       defer (File.remove tmp)
       File.writeString tmp "content"
-      IO.println f"wrote to {tmp}"
+       IO.println f"wrote to {tmp}"
     Err _ ->
       IO.println "failed to create temp file"
 ```
+
+### 已移除函数
+
+| 函数 | 替代方案 |
+|------|---------|
+| `File.exists` | `File.stat path \|> Result.isOk` |
+| `File.isDir` / `File.isFile` / `File.isSymlink` | `File.stat path` 后使用 `s.type == Directory` / `Regular` / `SymbolicLink` |
+| `File.changeDir` | 按命令使用 `Cmd.withWorkDir` |
+| `Path.cwd` | `File.currentDir` |
+| `File.chmod` / `File.chown` | 通过 `Cmd.chmod` / `Cmd.chown` 子进程调用 |
+| `File.symlink` / `File.readlink` | 通过 `Cmd.ln` / `Cmd.readlink` 子进程调用 |
 
 ## `Cmd` — Command 工具与命令调用
 
@@ -2257,6 +2272,8 @@ withStdin : String -> Command -> Command
 
 // [PureKun] 注入 stdin（流式模式，适用于大体积输入）
 withStdin : Stream Bytes -> Command -> Command
+
+> **重载消歧**：编译器通过第一参数的类型（`String` vs `Stream Bytes`）在调用点进行消歧，不依赖传统函数重载。HM 推断根据上下文确定调用哪一个签名。
 
 // [PureKun] 将 stderr 合并到 stdout 流
 mergeStderr : Command -> Command
@@ -2671,9 +2688,9 @@ export
   , toJson
   )
 
-// [Primitive] 从 JSON 字符串反序列化（编译期代码生成）
+// [Primitive] 从 JSON 字符串反序列化（编译期代码生成） [推迟 v0.5]
 fromJson : String -> Result a String
-// [Primitive] 序列化为 JSON 字符串（编译期代码生成）
+// [Primitive] 序列化为 JSON 字符串（编译期代码生成） [推迟 v0.5]
 toJson   : a -> Result String String
 ```
 
@@ -2762,7 +2779,8 @@ main = \_ ->
   do
     Test.equal 4 (2 + 2) "basic arithmetic"
     Test.ok (List.length [1, 2, 3] == 3) "list length"
-    Test.panics (\ -> List.head []) "head of empty list panics"
+    Test.equal Nil (List.head []) "head of empty list returns Nil"
+    Test.isNil (List.head []) "head of empty list is Nil"
     IO.println "all tests passed"
 ```
 
@@ -2814,10 +2832,29 @@ main = \_ ->
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
 | `Test` | `import Test` | 测试断言（`equal`/`ok`/`panics`） |
 
+## 推迟特性一览
+
+下表中的函数其类型签名已在标准库中定义，但运行时实现在对应版本之前不可用。调用这些函数在未激活版本中将因 Primitive 表无绑定而报"未定义函数"错误。
+
+| 函数 | 推迟版本 | 所在模块 |
+|------|---------|---------|
+| `Signal.on` | v1.0 | Signal |
+| `Cmd.timeout` | v1.0 | Cmd |
+| `Cmd.retry` | v1.0 | Cmd |
+| `Cmd.withRunAs` | v1.0 | Cmd |
+| `Random.*`（全部） | v0.5 | Random |
+| `Hash.md5` / `Hash.md5Hex` | v0.5 | Hash |
+| `Test` 模块全部 | v1.0 | Test |
+| `Cli.parse` / `Cli.show` | v0.5 | Cli |
+| `Parser.Record.fromJson` / `toJson` | v0.5 | Parser.Record |
+| `Task.spawn` / `Task.all` | v0.5 | Task |
+
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | 审计修复：`Stream.string`/`Stream.bytes` 分类精确化——命令输出流消费为效应操作，纯流可在外使用 |
+| 2026.06.18 | 审计修复：`List.minimum`/`List.maximum` 重命名为 `min`/`max`，新增比较器参数 `(a -> a -> Int)`（匹配 `sort` 风格）；`File.copy` 标签修正 `[PureKun]` → `[Primitive]`；`Test.panics` 示例修正为不依赖 panic 的断言；新增「推迟特性一览」表；`Cli.parse`/`Parser.Record` 添加 `[推迟 v0.5]` 标注；`Cmd.withStdin` 添加重载消歧说明；`DateTime.format` 添加 f-string `%` 引导符说明；File 模块新增「已移除函数」小节 |
 | 2026.06.17 | 新增 `List.sortBy`、`Stream.takeWhile`/`Stream.dropWhile`、`Duration.fromMillis`、`DateTime.toUnixMillis`（P1+P2 最后补全） |
 | 2026.06.17 | FileType/FileMode/FileStat 并入 File 模块（`File.Type`/`File.Mode`/`File.Stat`）；Pid/ExitCode 并入 Process 模块（`Process.Pid`/`Process.ExitCode`）；新增 `Bytes.slice`/`Bytes.contains`；净消除 5 模块（41→36） |
 | 2026.06.17 | 移除 `File.changeDir`（全局可变状态），`Cmd.withCwd` 更名为 `Cmd.withWorkDir` |
