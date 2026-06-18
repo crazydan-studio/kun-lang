@@ -56,7 +56,7 @@ main = \_ ->
 
 使用 2 空格缩进，不使用 Tab。
 
-> **注**：Kun 的解析器**不依赖缩进**来解析结构——所有代码块由显式关键字界定（`do`...、`let`...`in`、`case`...`of`）。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
+> **注**：Kun 的解析器**不依赖缩进**来解析结构——所有代码块由显式关键字界定（`do`、`let...in`、`case...of`）。分支体内多语句的边界识别通过 `pattern ->` / `else if` / `else` **关键字定界** + `case...of` 配对跟踪实现，不依赖缩进。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
 
 各语境的缩进量（相对于父级上下文）：
 
@@ -169,15 +169,25 @@ case result of
   Err _ -> default
 ```
 
-多行分支体换行缩进：
+多行分支体换行缩进（支持直接 `=` 绑定或 `let...in`）：
 
 ```kun
+// 直接多语句：`=` 绑定按声明顺序求值，末语句为结果
+case result of
+  Ok r ->
+    n = r * 2
+    n + 1
+  Err _ ->
+    default
+
+// 需要惰性求值仍使用 let...in
 case result of
   Ok r ->
     let
-      n = r * 2
+      n = expensiveCompute r
+      m = n * 2
     in
-      n + 1
+      m + 1
   Err _ ->
     default
 ```
@@ -193,13 +203,25 @@ case n of
 
 #### Or 模式（多模式匹配）
 
-多个模式以 `|` 连接共享同一分支体时，所有子模式在同一行：
+多个模式以 `|` 连接共享同一分支体时，所有子模式在同一行。分支体支持多语句序列（规则同单模式分支）：
 
 ```kun
 case level of
   Info | Success    -> "good"
   Warning           -> "warn"
   Failure | Rollback -> "danger"
+```
+
+多语句 or 模式分支体示例：
+
+```kun
+case level of
+  Info | Success ->
+    IO.println "proceeding..."      // 效应上下文传播到分支体
+    "good"
+  Failure | Rollback ->
+    IO.println "aborting..."
+    "danger"
 ```
 
 含有 `when` 守卫时，`when` 放在最后一个子模式之后：
@@ -223,14 +245,30 @@ case value of
 
 ### `if then else`
 
-`if`、`else` 各自独立一行，分支体缩进 +2：
+`if`、`else if`、`else` 各自独立一行，分支体缩进 +2。分支体支持多语句序列，`else if` 链同样适用：
 
 ```kun
 result =
   if length parts < 4 then
     Err UnknownFormat
+  else if length parts > 100 then
+    Err TooLong
   else
     Ok parsed
+```
+
+`else if` 链多语句分支体示例：
+
+```kun
+if condition then
+  prepare ()
+  doWork ()
+else if otherCondition then
+  IO.println "fallback"
+  fallback ()
+else
+  IO.println "no match"
+  default
 ```
 
 ```kun
@@ -650,9 +688,46 @@ do
 
 多个 `defer` 按 LIFO 逆序执行。`defer` 适合"尽力清理"逻辑，不适合"必须成功"的操作。
 
-## `do` 块内 if/case 分支效应上下文
+## if/case 分支体格式
 
-外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支，可直接调用 `Cmd.*`：
+### 单行分支体
+
+分支体与 `->` / `then` / `else` 同行：
+
+```kun
+case x of
+  Ok v  -> process v
+  Err _ -> handleErr
+
+if done then result else fallback
+```
+
+### 多行分支体
+
+分支体自 `->` / `then` / `else` 后换行，缩进 2（从 `if`/`case` 算 +4）。后续语句以换行分隔，**末语句为分支结果**：
+
+```kun
+case x of
+  Ok v ->
+    IO.println f"got {v}"
+    process v
+  Err e ->
+    IO.println "error"
+    fallback e
+
+if condition then
+  IO.println "doing work..."
+  doWork ()
+else
+  IO.println "skipping"
+  default
+```
+
+分支边界通过关键字定界——`case` 分支结束于下一个 `pattern ->`，`if` 分支结束于 `else if` / `else`。解析器不依赖缩进识别分支边界——`case...of` 嵌套通过配对跟踪，嵌套 `case` 的 `pattern ->` 不触发外层分支终止。
+
+### 继承效应上下文
+
+外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支，多行分支体内可直接调用效应函数：
 
 ```kun
 do
