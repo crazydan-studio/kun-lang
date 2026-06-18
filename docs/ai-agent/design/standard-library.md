@@ -248,7 +248,7 @@ trim : String -> String
 trimStart : String -> String
 
 // [PureKun] 去除尾部空白
-trimEnd: String -> String
+trimEnd : String -> String
 
 // [PureKun] 左侧填充到指定长度
 padStart : Int -> Char -> String -> String
