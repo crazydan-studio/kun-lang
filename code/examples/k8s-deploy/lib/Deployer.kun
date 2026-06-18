@@ -36,7 +36,6 @@ applyManifest = \manifestPath namespace ->
     IO.println f"  [kubectl] Applying manifest: {Path.toString manifestPath}"
     Cmd.kubectl? { n = namespace }
       "apply" "-f" (Path.toString manifestPath)
-
 setImage : String -> String -> String -> String -> Result (Stream String) CommandError
 setImage = \namespace deployment container image ->
   do
@@ -57,7 +56,6 @@ getPodNames = \namespace deployment labelSelector ->
   do
     result = Cmd.kubectl? { n = namespace, l = labelSelector }
       "get" "pods" "-o" "name"
-
     case result of
       Ok output ->
         let
@@ -76,7 +74,6 @@ getServiceEndpoint = \namespace svcName port ->
     result = Cmd.kubectl? { n = namespace }
       "get" "svc" svcName
       "-o" f"jsonpath='\{.status.loadBalancer.ingress[0].ip}:{port}'"
-
     case result of
       Ok output ->
         let

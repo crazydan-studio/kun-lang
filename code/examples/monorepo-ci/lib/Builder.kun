@@ -68,7 +68,9 @@ buildCommand = \svc ->
           installCmd = Cmd.npm {} "install" |> Cmd.withWorkDir svc.dir
           buildCmd   = Cmd.npm {} "run" "build" |> Cmd.withWorkDir svc.dir
         in
-          installCmd |> Cmd.andThen buildCmd |> Cmd.mergeStderr
+          installCmd
+            |> Cmd.andThen buildCmd
+            |> Cmd.mergeStderr
 
       _ ->
         Cmd.echo {} "Skipped: unknown language"
@@ -77,12 +79,10 @@ buildService : Service -> BuildResult
 buildService = \svc ->
   do
     IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
-
     start    = DateTime.now
     result   = Cmd.pipe? [buildCommand svc]
     elapsed  = DateTime.now - start
     artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
-
     case result of
       Ok _ ->
         do

@@ -18,6 +18,7 @@ import Stream
 import Cmd
 import IO
 import Task
+import Path
 import CommandError
 
 type TestResult
@@ -54,11 +55,9 @@ runSuite : TestSuite -> TestResult
 runSuite = \suite ->
   do
     IO.println f"  [test] {suite.name} ({suite.language})"
-
     start   = DateTime.now
     result  = Cmd.pipe? [testCommand suite]
     elapsed = DateTime.now - start
-
     case result of
       Ok output ->
         let

@@ -40,7 +40,6 @@ setTrafficWeight = \namespace svcName canaryPercent ->
     patchData =
       f"\{ \"spec\": \{ \"traffic\": \{ \"canary\": {canaryPercent}"
         ++ f", \"stable\": {stableWeight} \} \} \}"
-
     Cmd.kubectl? { n = namespace }
       "patch" "service" svcName
       "--type=merge" "-p" patchData
@@ -63,7 +62,6 @@ gradualShift = \cfg ->
       (\step ->
         do
           IO.println f"  [canary] Adjusting traffic: canary={step.percent}% stable={step.stable}%"
-
           case setTrafficWeight cfg.namespace cfg.service step.percent of
             Ok _ ->
               do

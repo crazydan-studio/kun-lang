@@ -93,7 +93,6 @@ sendEvent = \cfg phase level elapsed ->
             , duration  = Nil
             }
     N.notify cfg.webhookUrl event
-
 // -------------------------------------------------------
 // 主部署流程
 // -------------------------------------------------------
@@ -107,7 +106,6 @@ main = \rawArgs ->
     IO.println "  Kubernetes Canary Deployment"
     IO.println (String.repeat 60 "=")
     IO.println ""
-
     case parseConfig rawArgs of
       Ok cfg ->
         do
@@ -117,19 +115,16 @@ main = \rawArgs ->
           IO.println f"Replicas  : {cfg.replicas}"
           IO.println f"Canary    : {cfg.canaryPercent}%"
           IO.println f"Timeout   : {cfg.timeout}"
-
           if cfg.dryRun then
             do
               IO.println "\n  DRY RUN — exiting.\n"
               Process.exit 0
           else
             Unit
-
           // Phase 1: Staging
           IO.println ""
           IO.println "  [1/4] STAGING"
           IO.println (String.repeat 40 "-")
-
           case D.applyManifest cfg.manifest cfg.namespace of
             Ok _ ->
               case D.setImage cfg.namespace cfg.deployment "app" cfg.image of
@@ -139,13 +134,12 @@ main = \rawArgs ->
                     canaryPhase cfg started
                 Err err ->
                   do
-                    IO.eprintln f"Image set failed: {CommandError.show err}"
-                    Process.exit 1
+                IO.eprintln f"Image set failed: {CommandError.show err}"
+                Process.exit 1
             Err err ->
               do
                 IO.eprintln f"Manifest apply failed: {CommandError.show err}"
                 Process.exit 1
-
       Err err ->
         do
           IO.eprintln (Cli.show err)
@@ -161,7 +155,6 @@ canaryPhase = \cfg started ->
     IO.println ""
     IO.println f"  [2/4] CANARY ({cfg.canaryPercent}% → 100%)"
     IO.println (String.repeat 40 "-")
-
     canaryCfg =
       { namespace     = cfg.namespace
       , service       = cfg.deployment
@@ -172,9 +165,7 @@ canaryPhase = \cfg started ->
       , stepSize      = 10
       , stepInterval  = 10s
       }
-
     steps = C.gradualShift canaryCfg
-
     IO.println f"  Canary rollout: {List.length steps} steps completed"
     sendEvent cfg "canary" N.Info (DateTime.now - started)
     fullRolloutPhase cfg started
@@ -189,7 +180,6 @@ fullRolloutPhase = \cfg started ->
     IO.println ""
     IO.println "  [3/4] FULL ROLLOUT"
     IO.println (String.repeat 40 "-")
-
     case D.rolloutStatus cfg.namespace cfg.deployment cfg.timeout of
       Ok _ ->
         do
@@ -212,7 +202,6 @@ healthCheckPhase = \cfg started ->
     IO.println ""
     IO.println "  [4/4] HEALTH CHECK"
     IO.println (String.repeat 40 "-")
-
     checkUrl = f"http://localhost:{cfg.healthPort}{cfg.healthPath}"
     healthStatus = V.checkEndpoint
       { endpoint  = checkUrl
@@ -222,7 +211,6 @@ healthCheckPhase = \cfg started ->
       , interval  = 3s
       , timeout   = 60s
       }
-
     case healthStatus of
       V.Healthy { responseTime, statusCode } ->
         do
@@ -232,20 +220,17 @@ healthCheckPhase = \cfg started ->
           IO.println ""
           IO.println f"  == Deployment successful ({Duration.toSeconds totalDuration}s) =="
           Process.exit 0
-
       V.Degraded { statusCode, reason } ->
         do
           IO.eprintln f"  ⚠ Degraded — HTTP {statusCode}: {reason}"
           sendEvent cfg "healthy" N.Warning (DateTime.now - started)
           IO.println "\n  == Deployment completed with warnings =="
           Process.exit 0
-
       V.Unreachable { error, attempts } ->
         do
           IO.eprintln f"  ✗ Unreachable after {attempts} attempts: {error}"
           sendEvent cfg "healthy" N.Failure (DateTime.now - started)
           executeRollback cfg started
-
       V.Timeout { waited } ->
         do
           IO.eprintln f"  ✗ Health check timed out after {Duration.toSeconds waited}s"
@@ -261,7 +246,6 @@ executeRollback = \cfg started ->
   do
     IO.println ""
     IO.println "  !!! ROLLBACK !!!"
-
     case D.rollbackDeployment cfg.namespace cfg.deployment "0" of
       Ok _ ->
         do

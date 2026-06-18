@@ -62,12 +62,10 @@ checkOnce = \endpoint ->
         elapsed = DateTime.now - started
       in
         (code, elapsed))
-
 checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
   do
     started = DateTime.now
-
     case checkOnce hc.endpoint of
       Ok (code, elapsed) ->
         evaluateCode code elapsed hc.expect
@@ -99,7 +97,6 @@ retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus
 retryLoop = \attempt started hc ->
   do
     elapsed = DateTime.now - started
-
     if elapsed >= hc.timeout then
       Timeout { waited = hc.timeout }
     else if attempt >= hc.retries then

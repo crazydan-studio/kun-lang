@@ -50,9 +50,7 @@ generateTag = \serviceName registry ->
           Stream.string output |> String.trim
         Err _ ->
           "unknown"
-
     now = DateTime.now
-
     case DateTime.format "yyyyMMdd-HHmmss" now of
       Ok timestamp ->
         f"{registry}/{serviceName}:{timestamp}-{commitHash}"
@@ -68,24 +66,19 @@ buildAndPush : String -> DockerConfig -> Path -> ImageResult
 buildAndPush = \serviceName cfg contextDir ->
   do
     IO.println f"  [docker] {serviceName}"
-
     tag = generateTag serviceName cfg.registry
-
     dockerfilePath =
       case cfg.dockerfile of
         Nil -> contextDir ++ p"Dockerfile"
         df  -> df
-
     case File.stat dockerfilePath of
       Ok _ ->
         do
           buildResult = Cmd.docker? { t = tag } "build" (Path.toString contextDir)
-
           case buildResult of
             Ok _ ->
               do
                 pushResult = Cmd.docker? {} "push" tag
-
                 case pushResult of
                   Ok _ ->
                     do
@@ -93,10 +86,11 @@ buildAndPush = \serviceName cfg contextDir ->
                       imageId =
                         case inspectResult of
                           Ok idOutput ->
-                            Stream.string idOutput |> String.trim |> String.slice 0 12
+                            Stream.string idOutput
+                              |> String.trim
+                              |> String.slice 0 12
                           Err _ ->
                             "<unknown>"
-
                       sizeResult = Cmd.docker? { format = "{{.Size}}" } "inspect" tag
                       sizeStr =
                         case sizeResult of
@@ -104,7 +98,6 @@ buildAndPush = \serviceName cfg contextDir ->
                             Stream.string s |> String.trim
                           Err _ ->
                             "N/A"
-
                       ImageOk
                         { service = serviceName, tag = tag
                         , imageId = imageId, size = sizeStr
