@@ -56,7 +56,7 @@ k8s-deploy/
 | 特性 | 位置 | 示例 |
 |------|------|------|
 | `Cmd.kubectl?` | `Deployer.kun` | apply / set image / rollout status |
-| `Cmd.curl` + `Cmd.stdoutToString` | `Verifier.kun` / `Notifier.kun` | HTTP 健康检查 + Webhook 通知 |
+| `Cmd.curl` + `Cmd.execSafe` | `Verifier.kun` / `Notifier.kun` | HTTP 健康检查 + Webhook 通知 |
 | 带 `--` 参数 | `Deployer.kun` | `--to-revision=` 特殊 flag |
 
 ### 标准库标识

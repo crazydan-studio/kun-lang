@@ -302,7 +302,7 @@ Kun 通过 AST 扫描自动推断函数的效应性：
 - 含 `do` 块的函数自动标记为效应函数
 - 以下命名空间的所有函数均为效应函数：`IO.*`、`File.*`、`Env.*`、`Process.*`、`Task.*`、`Random.*`；`Signal.on` 为效应函数（`Signal` 模块其余函数为纯函数）
 - `Cmd.<bin>` 构造 `Command` 值及 `Cmd` 装饰函数（`Cmd.pipe`、`Cmd.withEnv` 等，接收并返回 `Command`）为纯操作，可在 `do` 块外使用
-- `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.execSafe`、`Cmd.stdoutToString`、`Cmd.stderrToString`（立即执行并返回 `Result`）为效应函数
+- `Cmd.<bin>?`/`Cmd.<bin>!`、`Cmd.pipe?`/`Cmd.pipe!`、`Cmd.timeout`、`Cmd.retry`、`Cmd.execSafe`、`Cmd.which`、`Cmd.exec`（立即执行）为效应函数
 - `Cmd.exec : Command -> Unit` 执行 Command 值，为效应函数
 - `Cmd.which : String -> ?Path` PATH 查找，为效应函数
 - 纯函数（无 `do` 块、无 `!` 参数声明）不能调用效应函数——编译期拒绝。`(a -> b)!` 参数使函数自身成为效应函数。
@@ -376,7 +376,7 @@ Task.spawn  : Int -> List Command -> ... (内部效应，无回调参数)
 - `do` 块内条件消费路径的所有分支均需消费 `Stream`；`Cmd.timeout : Duration -> Command -> Result (Stream String) CommandError` 返回 `Result`，其 `Ok` 分支的 `Stream` 仍须消费
 - 验证 `!` 参数的传入实参为效应函数（含 `do` 块或效应命名空间函数）
 - 验证 `do` 块外的代码无效应命名空间函数调用
-- 验证 `Cmd.<bin>?`、`Cmd.pipe?`、`Cmd.timeout`、`Cmd.retry`、`Cmd.which`、`Cmd.exec`、`Cmd.execSafe`、`Cmd.stdoutToString`、`Cmd.stderrToString` 仅在 `do` 块内使用
+- 验证 `Cmd.<bin>?`、`Cmd.<bin>!`、`Cmd.pipe?`、`Cmd.pipe!`、`Cmd.timeout`、`Cmd.retry`、`Cmd.which`、`Cmd.exec`、`Cmd.execSafe` 仅在 `do` 块内使用
 - 验证 `|>` 管道操作符的左侧为 `Command` 类型时仅在 `do` 块内出现——`do` 块外的 `|>` 收到 `Command` 值时编译期报错（提示：`"Command pipe requires a do block; use Cmd.<bin>? instead if you need immediate execution in pure context"`）。`|>` 左侧为 `Stream` 或其他非 Command 类型时不受此限
 - Lambda 含有效应函数调用时，要求该 lambda 在 `do` 块内定义
 
@@ -819,6 +819,7 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | Cmd API 精简：效应函数列表更新（移除 `execSafe`(旧)/`stdoutToString`/`stderrToString`，新增 `Cmd.<bin>!`/`Cmd.pipe!`/`execSafe`(新)）；效应检查规则同步 |
 | 2026.06.18 | 审计修复：Nilable 隐式包装规则文档化（`T → ?T` 提升场景与语法糖说明）；Regex 修饰符作用域默认行为说明补全 |
 | 2026.06.15 | 审计修复三轮：Int 溢出/ Float NaN 语义文档化；除零行为明确（Int panic / Float IEEE）；递归 let 与互递归 HM 类型推断；错误恢复占位类型机制；occurs check 选择性启用规则；EffectFn 与泛型变量合一澄清 |
 | 2026.06.15 | 审计修复二轮：效应检查器新增 `\|>` 管道执行守卫（do 块外拒绝 Command 类型）；新增编译器类型内省 API 定义 |

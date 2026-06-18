@@ -31,7 +31,7 @@
 ### 命令系统
 - **`Cmd.<bin>` / `Cmd.<bin>?`**：`Cmd.go`、`Cmd.docker`、`Cmd.kubectl`、`Cmd.curl`
 - **修饰器**：`Cmd.mergeStderr`、`Cmd.withWorkDir`、`Cmd.andThen`
-- **`Cmd.stdoutToString`**：收集子进程 stdout 为 String
+- **`Cmd.execSafe`**：安全执行子进程并通过 Stream 消费 stdout
 
 ### 并发
 - **`Task.spawn` / `Task.all`**：并行构建、并行测试、批量 Docker（v0.5 API）
@@ -75,7 +75,7 @@
 
 | 问题 | 影响 | 对策 |
 |------|------|------|
-| 无内置 HTTP 客户端 | k8s API / webhook 需 `Cmd.curl` | 用 `Cmd.curl` + `Cmd.stdoutToString` 组合 |
+| 无内置 HTTP 客户端 | k8s API / webhook 需 `Cmd.curl` | 用 `Cmd.curl` + `Cmd.execSafe` 组合 |
 | `Task.spawn` 未实现（v0.5） | 并行构建需 v0.5 运行时 | 代码已使用目标 API 签名 |
 | `Cmd.timeout` 未实现（v1.0） | kubectl 超时依赖 `--timeout` flag | `Cmd.timeout` 提供结构化超时 |
 | `Signal.on` 未实现（v1.0） | 无法优雅处理信号 | 设计已记录，v1.0 计划 |

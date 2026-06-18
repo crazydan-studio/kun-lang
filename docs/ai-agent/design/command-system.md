@@ -51,9 +51,9 @@ Cmd["g++"] { o = "a.out" } "main.cpp"
   |> Cmd.withRawOpt "-Wall" Nil
 ```
 
-### 立即执行：`?` 后缀
+### 立即执行 + 错误处理：`?` 后缀
 
-`Cmd.<bin>?` 立即执行并返回 `Result (Stream String) CommandError`，而非延迟 `Command` 值：
+`Cmd.<bin>?` 立即执行并在失败时返回 `Err`，等价于 `Cmd.execSafe (Cmd.<bin> ...)`：
 
 ```kun
 do
@@ -65,6 +65,18 @@ do
         CommandFailed { exitCode, stderr } -> ...
         NotFound cmd -> ...
 ```
+
+### 断言执行：`!` 后缀
+
+`Cmd.<bin>!` 立即执行并在失败时 **panic**，等价于 `Cmd.exec (Cmd.<bin> ...)`——适用于仅关心副作用、不关心 stdout 的场景：
+
+```kun
+do
+  Cmd.mkdir! { p = true } p"/tmp/build"    // 失败 → panic
+  Cmd.cp! {} "main.cpp" "src/main.cpp"     // 失败 → panic
+```
+
+`Cmd.<bin>?` 和 `Cmd.<bin>!` 均为编译器内置构造语法：`?` 退糖为 `Cmd.execSafe` 调用（失败返回 `Err`），`!` 退糖为 `Cmd.exec` 调用（失败 panic）。
 
 ## camelCase → kebab-case 选项映射
 
@@ -100,14 +112,18 @@ Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 | 场景 | 触发条件 | 示例 |
 |---|---|---|
 | `\|>` 隐式触发 | 左侧 `Command`，右侧函数期望 `Stream` | `Cmd.cat p"/x" \|> Stream.lines` |
-| `Cmd.<bin>?` | `?` 后缀，立即执行并返回 `Result` | `result = Cmd.cat? p"/x"` |
-| `Cmd.exec` | 显式执行 Command 值，执行失败 panic | `Cmd.exec (Cmd.ls { long = true })` |
+| `Cmd.<bin>!` | `!` 后缀，立即执行，失败 panic（`Cmd.exec` 简写） | `Cmd.ls! { long = true } p"/tmp"` |
+| `Cmd.<bin>?` | `?` 后缀，立即执行，失败返回 Err（`Cmd.execSafe` 简写） | `case Cmd.cat? p"/x" of ...` |
+| `Cmd.exec` | 显式执行 Command 值，失败 panic，stdout 丢弃 | `Cmd.exec c` |
+| `Cmd.execSafe` | 显式执行 Command 值，失败返回 Err，stdout 通过 Stream 消费 | `case Cmd.execSafe c of ...` |
+| `Cmd.pipe?` | 立即执行管道链，失败返回 Err | `Cmd.pipe? [Cmd.ps {}, Cmd.grep {}]` |
+| `Cmd.pipe!` | 立即执行管道链，失败 panic | `Cmd.pipe! [Cmd.ps {}, Cmd.grep {}]` |
 
 > `|>` 隐式触发的类型推断：编译器检测左侧 `Command` 类型与右侧函数期望的 `Stream String` 类型不匹配时，在两者之间插入 `Command → Stream String` 的执行步骤。**`|>` 隐式执行仅在 `do` 块内允许**——`do` 块外的 `|>` 收到 `Command` 值时编译期报错（"Command pipe requires a do block"）。非 `Command` 类型（如 `Stream`）的 `|>` 管道不受此限。若右侧函数为多态（如 `identity : a -> a`），编译器需先合一 `a ~ Stream String` 后确认触发。此多阶段类型检查（约束生成 → 合一 → Command 检测 → 插入执行节点）在 HM 框架内可实现，但相对常规合一增加了一步 AST 变换。编译期错误信息在无法确定触发条件时回退为"无法将 Command 用作 Stream，是否遗漏 `Cmd.<bin>?`？"
 
-> `Cmd.exec` 签名：`Cmd.exec : Command -> Unit`。**阻塞执行** Command ——内部 `fork → exec → waitpid`，子进程退出后才返回。执行失败（非零退出码或命令未找到）时 panic，触发 unwind + defer 链。需要捕获 stdout 或处理错误请使用 `Cmd.<bin>?` 或 `Cmd.pipe?`。未被消费的 `Command` 值在 `do` 块内是编译错误。`do` 块外的 `Command` 值可自由作为纯数据传递（赋值、传入函数、存入数据结构），但不触发执行——`|>` 管道触发被效应检查器限制在 `do` 块内。
+> **`exec` vs `execSafe`**：`Cmd.exec : Command -> Unit`，失败 panic，stdout 被静默丢弃——用于仅关心副作用的命令。`Cmd.execSafe : Command -> Result (Stream String) CommandError`，失败返回 `Err`，stdout 通过 Stream 消费——用于需要捕获输出或处理错误的场景。`Cmd.<bin>!` 和 `Cmd.<bin>?` 分别为两者的构造器简写。
 
-> **空输出管道**：子进程退出码为 0 但 stdout 无输出时，`|>` 产生的 `Stream String` 为空流（零元素）。终端操作 `Stream.toList` 返回 `[]`；`Stream.iter` 不执行回调；`Stream.string` 返回空字符串 `""`。`Cmd.exec` 在子进程无输出时正常返回 `Unit`（stdout 被静默丢弃）。子进程非零退出码时行为取决于调用方式——`?` 后缀返回 `Err`、`Cmd.exec` 触发 panic。
+> **空输出管道**：子进程退出码为 0 但 stdout 无输出时，`|>` 产生的 `Stream String` 为空流（零元素）。终端操作 `Stream.toList` 返回 `[]`；`Stream.iter` 不执行回调；`Stream.string` 返回空字符串 `""`。`Cmd.exec` 在子进程无输出时正常返回 `Unit`（stdout 被静默丢弃）。子进程非零退出码时行为取决于调用方式——`?` 后缀 / `Cmd.execSafe` 返回 `Err`，`!` 后缀 / `Cmd.exec` 触发 panic。
 
 ### Command 生命周期
 
@@ -118,9 +134,19 @@ c = Cmd.ls { long = true } p"/tmp"
 // 修饰：纯操作，累积属性
 c2 = c |> Cmd.withWorkDir p"/home" |> Cmd.mergeStderr
 
+// 执行：效应操作，通过 ! 后缀（panic 失败）
+do
+  Cmd.mkdir! { p = true } p"/tmp/build"
+
 // 显式执行：效应操作，panic 失败
 do
   Cmd.exec c2
+
+// 安全执行：效应操作，返回 Result
+do
+  case Cmd.execSafe c2 of
+    Ok stream -> Stream.iter IO.println stream
+    Err e -> IO.println (CommandError.show e)
 
 // 管道执行：|> 触发，隐式执行
 do
@@ -129,7 +155,7 @@ do
     |> Stream.lines
     |> Stream.iter IO.println
 
-// 立即执行+错误处理：? 后缀
+// 立即执行+错误处理：? 后缀（Cmd.execSafe 简写）
 do
   case Cmd.ls? { long = true } p"/nonexistent" of
     Ok stream -> ...
@@ -140,7 +166,9 @@ do
 
 默认行为：命令执行失败时 **panic**（unwind → defer 逆序执行），结构化错误信息包含命令名、退出码、stderr。
 
-`?` 后缀替代 panic，返回 `Result (Stream String) CommandError`，由调用者通过 `case` 处理。
+`?` 后缀和 `Cmd.execSafe` 替代 panic，返回 `Result (Stream String) CommandError`，由调用者通过 `case` 处理。
+
+`!` 后缀和 `Cmd.exec` 保持 panic 语义——仅在调用者确信命令不会失败、或失败无恢复路径时使用。
 
 ## OS 管道：`Cmd.pipe` / `Cmd.pipe?`
 
@@ -152,10 +180,13 @@ Cmd.pipe [Cmd.ps {}, Cmd.grep { pattern = "nginx" }, Cmd.head { n = 10 }]
 
 - `Cmd.pipe`：链中任一命令非零退出 → panic（等价 `set -o pipefail`）
 - `Cmd.pipe?`：链中任一命令失败 → 返回 `Err (PipeFailed ...)`
+- `Cmd.pipe!`：等价于 `Cmd.pipe` + `|>` 隐式触发 + panic 语义（丢弃输出，仅副作用）
 
 `Cmd.pipe` 接收非空 `List Command`——传入空列表 `[]` 时编译期报错（"Cmd.pipe requires at least one command"）。`Cmd.pipe?` 同理。
 
-`Cmd.pipe` 返回 `Command`，延迟执行（由 `|>` 或 `Cmd.exec` 触发）。`Cmd.pipe?` 立即执行整个管道链并返回 `Result (Stream String) CommandError`——等价于 `Cmd.pipe` + `|>` 管道隐式触发 + `Cmd.<bin>?` 的 `?` 语义。
+`Cmd.pipe` 返回 `Command`，延迟执行（由 `|>` 或 `Cmd.exec` 触发）。`Cmd.pipe?` 和 `Cmd.pipe!` 立即执行整个管道链：
+- `Cmd.pipe?` 返回 `Result (Stream String) CommandError`——等价于 `Cmd.execSafe (Cmd.pipe [...])`
+- `Cmd.pipe!` 返回 `Unit`——等价于 `Cmd.exec (Cmd.pipe [...])`
 
 `Cmd.pipe` 的结果可继续接入进程内管道 `|>` 链：
 
@@ -355,13 +386,16 @@ fork 在 `timeout` 处触发，子进程内依次执行 `chdir("/work")` → `se
 ```kun
 // Command 构造（编译器内置）
 // <bin>  : ?[options] -> posArgs... -> Command
-// <bin>? : ?[options] -> posArgs... -> Result (Stream String) CommandError
+// <bin>? : ?[options] -> posArgs... -> Result (Stream String) CommandError   // ≡ Cmd.execSafe
+// <bin>! : ?[options] -> posArgs... -> Unit                                    // ≡ Cmd.exec
 
 // OS 管道链
 // [PureKun]
 pipe  : List Command -> Command
 // [Primitive]
-pipe? : List Command -> Result (Stream String) CommandError
+pipe? : List Command -> Result (Stream String) CommandError                   // ≡ Cmd.execSafe
+// [PureKun]
+pipe! : List Command -> Unit                                                    // ≡ Cmd.exec
 
 // 修饰函数
 // [PureKun]
@@ -392,17 +426,11 @@ orElse  : Command -> Command -> Command
 // [Primitive] 在 PATH 中查找可执行文件
 which : String -> ?Path
 
-// [Primitive] 立即执行 Command——fork-exec 阻塞等待，失败 panic
+// [Primitive] 执行 Command——fork-exec 阻塞等待，失败 panic，stdout 丢弃
 exec : Command -> Unit
 
-// [Primitive] 立即执行 Command 的安全变体——失败返回 Err 而不 panic
-execSafe : Command -> Result Unit CommandError
-
-// [Primitive] 执行 Command 并收集 stdout 到 String（等同于 |\> Stream.string）
-stdoutToString : Command -> Result String CommandError
-
-// [Primitive] 执行合并 stderr 后的 Command 并收集 stderr 到 String（需先 mergeStderr）
-stderrToString : Command -> Result String CommandError
+// [Primitive] 执行 Command 的安全变体——失败返回 Err，stdout 通过 Stream String 消费
+execSafe : Command -> Result (Stream String) CommandError
 
 // [Primitive] 命令超时（SIGKILL + waitpid）  // [推迟 v1.0]
 timeout : Duration -> Command -> Result (Stream String) CommandError
@@ -423,6 +451,7 @@ retry   : Int -> Duration -> Command -> Result (Stream String) CommandError
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | API 精简：移除 `execSafe`（`Result Unit`）、`stdoutToString`、`stderrToString`；`execSafe` 重定义为 `Command -> Result (Stream String) CommandError`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
 | 2026.06.15 | 审计修复三轮：参数转义/execve 语义文档化；0 字节管道输出行为；空 pipe 列表编译期报错；Cmd.which PATH 搜索细节；Cmd.timeout kill 流程；Cmd.retry 边界值处理 |
 | 2026.06.15 | 审计修复：`\|>` 管道执行限制为 `do` 块内（效应检查器守卫）；`Cmd.exec` 阻塞语义文档化 |
 | 2026.06.14 | `Cmd.withRunAs` 权限降级流程补全：`initgroups` → `setgid` → `setuid` → 验证 |

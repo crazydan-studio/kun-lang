@@ -49,13 +49,14 @@ checkOnce : String -> Result (Int, Duration) CommandError
 checkOnce = \endpoint ->
   do
     started = DateTime.now
-    result = Cmd.stdoutToString
+    result = Cmd.execSafe
       (Cmd.curl
         { silent   = true
         , maxTime  = "5"
         , output   = "/dev/null"
         , writeOut = "%{http_code}" }
         endpoint)
+      |> Result.map Stream.string
     elapsed = DateTime.now - started
     case result of
       Ok s ->

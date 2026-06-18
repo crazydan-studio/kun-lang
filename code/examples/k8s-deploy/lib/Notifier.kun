@@ -79,7 +79,7 @@ notifySlack = \webhookUrl event ->
       of
         Ok s  -> s
         Err _ -> "{}"
-    Cmd.stdoutToString
+    Cmd.execSafe
       (Cmd.curl { X = "POST"
                 , H = "Content-Type: application/json"
                 , silent = true
