@@ -191,6 +191,36 @@ case n of
   _ -> "negative"
 ```
 
+#### Or 模式（多模式匹配）
+
+多个模式以 `|` 连接共享同一分支体时，所有子模式在同一行：
+
+```kun
+case level of
+  Info | Success    -> "good"
+  Warning           -> "warn"
+  Failure | Rollback -> "danger"
+```
+
+含有 `when` 守卫时，`when` 放在最后一个子模式之后：
+
+```kun
+case color of
+  Red | Blue when darkMode -> "dark accent"
+  Red | Blue               -> "accent"
+  Green                    -> "secondary"
+```
+
+子模式过多导致超出行宽（100 字符）时，换行缩进，每行一个子模式，`|` 对齐：
+
+```kun
+case value of
+  AVariantWithLongName
+    | BAlsoLongName
+    | CLongNameToo -> handleGroup
+  Other -> default
+```
+
 ### `if then else`
 
 `if`、`else` 各自独立一行，分支体缩进 +2：
@@ -747,5 +777,6 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.18 | 新增 Or 模式格式化规则——短模式同行、长模式换行缩进、`when` 守卫位置 |
 | 2026.06.13 | 代码块标签修正；零参效应 Lambda 示例补充 `do` 块 |
 | 2026.06.10 | 代码格式化规范初始定义 |
