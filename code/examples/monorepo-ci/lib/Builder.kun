@@ -59,7 +59,7 @@ buildCommand = \svc ->
   in
     case svc.language of
       "go" ->
-        Cmd.go { C = Path.toString svc.dir, o = Path.toString binary }
+        Cmd.go { C = Path.toString svc.dir } "build" "-o" (Path.toString binary)
           |> Cmd.withWorkDir svc.dir
           |> Cmd.mergeStderr
 
