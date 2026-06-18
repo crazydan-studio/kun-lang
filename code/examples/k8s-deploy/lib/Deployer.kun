@@ -59,13 +59,10 @@ getPodNames = \namespace deployment labelSelector ->
       "get" "pods" "-o" "name"
     case result of
       Ok output ->
-        do
-          raw = Stream.string output
-        in
-          raw
-            |> String.split "\n"
-            |> List.filter (\line -> String.length (String.trim line) > 0)
-            |> List.map String.trim
+        Stream.string output
+          |> String.split "\n"
+          |> List.filter (\line -> String.length (String.trim line) > 0)
+          |> List.map String.trim
       Err _ ->
         []
 
@@ -75,18 +72,14 @@ getServiceEndpoint = \namespace svcName port ->
     result = Cmd.kubectl? { n = namespace }
       "get" "svc" svcName
       "-o" f"jsonpath='\{.status.loadBalancer.ingress[0].ip}:{port}'"
-    case result of
-      Ok output ->
-        do
-          raw     = Stream.string output
-          trimmed = String.trim raw
-        in
-          if String.length trimmed > 0 then
-            trimmed
-          else
-            Nil
-      Err _ ->
-        Nil
+    trimmed =
+      case result of
+        Ok output -> String.trim (Stream.string output)
+        Err _     -> ""
+    if String.length trimmed > 0 then
+      trimmed
+    else
+      Nil
 
 rollbackDeployment : String -> String -> String -> Result (Stream String) CommandError
 rollbackDeployment = \namespace deployment toRevision ->

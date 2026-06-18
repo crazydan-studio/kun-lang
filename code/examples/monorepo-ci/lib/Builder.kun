@@ -83,14 +83,13 @@ buildService = \svc ->
     result   = Cmd.pipe? [buildCommand svc]
     elapsed  = DateTime.now - start
     artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
+    checksum = computeChecksum artifact
     case result of
       Ok _ ->
-        do
-          checksum = computeChecksum artifact
-          BuildOk
-            { service = svc.name, language = svc.language
-            , duration = elapsed, artifact = artifact, checksum = checksum
-            }
+        BuildOk
+          { service = svc.name, language = svc.language
+          , duration = elapsed, artifact = artifact, checksum = checksum
+          }
       Err err ->
         BuildFailed
           { service = svc.name, language = svc.language
