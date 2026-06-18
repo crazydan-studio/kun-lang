@@ -82,20 +82,27 @@ buildService = \svc ->
     start    = DateTime.now
     result   = Cmd.pipe? [buildCommand svc]
     elapsed  = DateTime.now - start
-    artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
-    checksum = computeChecksum artifact
-    case result of
-      Ok _ ->
-        BuildOk
-          { service = svc.name, language = svc.language
-          , duration = elapsed, artifact = artifact, checksum = checksum
-          }
-      Err err ->
-        BuildFailed
-          { service = svc.name, language = svc.language
-          , error = CommandError.show err
-          , exitCode = extractExitCode err
-          }
+    checksum = computeChecksum (buildArtifactPath svc)
+    toBuildResult svc elapsed checksum result
+
+buildArtifactPath : Service -> Path
+buildArtifactPath = \svc ->
+  svc.dir ++ p"dist" ++ Path.fromString svc.name
+
+toBuildResult : Service -> Duration -> String -> Result (Stream String) CommandError -> BuildResult
+toBuildResult = \svc elapsed checksum result ->
+  case result of
+    Ok _ ->
+      BuildOk
+        { service = svc.name, language = svc.language
+        , duration = elapsed, artifact = buildArtifactPath svc, checksum = checksum
+        }
+    Err err ->
+      BuildFailed
+        { service = svc.name, language = svc.language
+        , error = CommandError.show err
+        , exitCode = extractExitCode err
+        }
 
 computeChecksum : Path -> String
 computeChecksum = \path ->
@@ -117,27 +124,16 @@ extractExitCode = \err ->
 buildAll : List Service -> Int -> List BuildResult
 buildAll = \svcs maxParallel ->
   do
+    List.iter (\svc ->
+      do
+        IO.println f"  [build] {String.toUpper svc.language}: {svc.name}")
+      svcs
     cmds = List.map buildCommand svcs
     Task.spawn maxParallel cmds
       |> Task.all
       |> List.zip svcs
       |> List.map (\(svc, result) ->
-        case result of
-          Ok _ ->
-            BuildOk
-              { service   = svc.name
-              , language  = svc.language
-              , duration  = 0s
-              , artifact  = svc.dir ++ p"dist" ++ Path.fromString svc.name
-              , checksum  = Hash.sha256Hex (Bytes.fromString svc.name)
-              }
-          Err err ->
-            BuildFailed
-              { service   = svc.name
-              , language  = svc.language
-              , error     = CommandError.show err
-              , exitCode  = extractExitCode err
-              })
+        toBuildResult svc 0s (Hash.sha256Hex (Bytes.fromString svc.name)) result)
 
 detectServices : Path -> List Service
 detectServices = \root ->

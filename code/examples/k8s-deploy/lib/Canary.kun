@@ -17,6 +17,7 @@ import IO
 import CommandError
 import Result
 import Stream
+import Parser.Record
 
 type CanaryConfig =
   { namespace    : String
@@ -40,8 +41,11 @@ setTrafficWeight = \namespace svcName canaryPercent ->
   do
     stableWeight = 100 - canaryPercent
     patchData =
-      f"\{ \"spec\": \{ \"traffic\": \{ \"canary\": {canaryPercent}"
-        ++ f", \"stable\": {stableWeight} \} \} \}"
+      case Parser.Record.toJson
+        { spec = { traffic = { canary = canaryPercent, stable = stableWeight } } }
+      of
+        Ok s  -> s
+        Err _ -> "{}"
     Cmd.kubectl? { n = namespace }
       "patch" "service" svcName
       "--type=merge" "-p" patchData

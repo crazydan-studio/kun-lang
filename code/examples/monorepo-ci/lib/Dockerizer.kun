@@ -77,40 +77,30 @@ buildAndPush = \serviceName cfg contextDir ->
           buildResult = Cmd.docker? { t = tag } "build" (Path.toString contextDir)
           case buildResult of
             Ok _ ->
-              do
-                pushResult = Cmd.docker? {} "push" tag
-                case pushResult of
-                  Ok _ ->
-                    do
-                      inspectResult = Cmd.docker? { format = "{{.ID}}" } "inspect" tag
-                      imageId =
-                        case inspectResult of
-                          Ok idOutput ->
-                            Stream.string idOutput
-                              |> String.trim
-                              |> String.slice 0 12
-                          Err _ ->
-                            "<unknown>"
-                      sizeResult = Cmd.docker? { format = "{{.Size}}" } "inspect" tag
-                      sizeStr =
-                        case sizeResult of
-                          Ok s ->
-                            Stream.string s |> String.trim
-                          Err _ ->
-                            "N/A"
-                      ImageOk
-                        { service = serviceName, tag = tag
-                        , imageId = imageId, size = sizeStr
-                        }
-                Err err ->
-                  ImageFailed { service = serviceName
-                              , error = CommandError.show err
-                              }
+              case Cmd.docker? {} "push" tag of
+                Ok _  -> inspectImage serviceName tag
+                Err e -> ImageFailed { service = serviceName, error = CommandError.show e }
             Err err ->
-              ImageFailed { service = serviceName
-                          , error = CommandError.show err
-                          }
+              ImageFailed { service = serviceName, error = CommandError.show err }
       Err _ ->
-        ImageSkipped { service = serviceName
-                     , reason = "Dockerfile not found"
-                     }
+        ImageSkipped { service = serviceName, reason = "Dockerfile not found" }
+
+inspectImage : String -> String -> ImageResult
+inspectImage = \serviceName tag ->
+  do
+    imageId =
+      case Cmd.docker? { format = "{{.ID}}" } "inspect" tag of
+        Ok output ->
+          Stream.string output |> String.trim |> String.slice 0 12
+        Err _ ->
+          "<unknown>"
+    sizeStr =
+      case Cmd.docker? { format = "{{.Size}}" } "inspect" tag of
+        Ok output ->
+          Stream.string output |> String.trim
+        Err _ ->
+          "N/A"
+    ImageOk
+      { service = serviceName, tag = tag
+      , imageId = imageId, size = sizeStr
+      }
