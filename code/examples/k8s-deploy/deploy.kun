@@ -17,6 +17,7 @@ import String
 import IO
 import Process
 import CommandError
+import Result
 
 import Deployer as D
 import Verifier as V
@@ -134,8 +135,8 @@ main = \rawArgs ->
                     canaryPhase cfg started
                 Err err ->
                   do
-                IO.eprintln f"Image set failed: {CommandError.show err}"
-                Process.exit 1
+                    IO.eprintln f"Image set failed: {CommandError.show err}"
+                    Process.exit 1
             Err err ->
               do
                 IO.eprintln f"Manifest apply failed: {CommandError.show err}"

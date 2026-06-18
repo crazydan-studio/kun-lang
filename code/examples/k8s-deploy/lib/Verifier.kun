@@ -57,11 +57,9 @@ checkOnce = \endpoint ->
         , writeOut = "%{http_code}" }
         endpoint)
     |> Result.map (\s ->
-      let
-        code    = Int.fromString (String.trim s) |> Result.withDefault 0
-        elapsed = DateTime.now - started
-      in
-        (code, elapsed))
+      ( Int.fromString (String.trim s) |> Result.withDefault 0
+      , DateTime.now - started
+      ))
 checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
   do

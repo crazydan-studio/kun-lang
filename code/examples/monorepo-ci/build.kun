@@ -17,6 +17,7 @@ import IO
 import Process
 import Task
 import CommandError
+import Result
 
 import Builder    as B
 import Tester     as T
@@ -142,10 +143,8 @@ main = \rawArgs ->
           dockerCmds =
             services
               |> List.map (\svc ->
-                let
-                  tag = f"{cfg.registry}/{svc.name}:latest"
-                in
-                  D.buildImage tag svc.dir)
+                D.buildImage
+                  (f"{cfg.registry}/{svc.name}:latest") svc.dir)
           dockerStream = Task.spawn cfg.parallel dockerCmds
           dockerResults = Task.all dockerStream
           imageResults =
@@ -154,15 +153,12 @@ main = \rawArgs ->
               |> List.map (\(svc, result) ->
                 case result of
                   Ok _ ->
-                    let
-                      tag = f"{cfg.registry}/{svc.name}:latest"
-                    in
-                      D.ImageOk
-                        { service = svc.name
-                        , tag = tag
-                        , imageId = "<parallel>"
-                        , size = "N/A"
-                        }
+                    D.ImageOk
+                      { service = svc.name
+                      , tag = f"{cfg.registry}/{svc.name}:latest"
+                      , imageId = "<parallel>"
+                      , size = "N/A"
+                      }
                   Err err ->
                     D.ImageFailed
                       { service = svc.name

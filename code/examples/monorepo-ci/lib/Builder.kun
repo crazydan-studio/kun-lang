@@ -123,26 +123,22 @@ buildAll = \svcs maxParallel ->
       |> Task.all
       |> List.zip svcs
       |> List.map (\(svc, result) ->
-        let
-          artifact = svc.dir ++ p"dist" ++ Path.fromString svc.name
-          checksum = Hash.sha256Hex (Bytes.fromString svc.name)
-        in
-          case result of
-            Ok _ ->
-              BuildOk
-                { service   = svc.name
-                , language  = svc.language
-                , duration  = 0s
-                , artifact  = artifact
-                , checksum  = checksum
-                }
-            Err err ->
-              BuildFailed
-                { service   = svc.name
-                , language  = svc.language
-                , error     = CommandError.show err
-                , exitCode  = extractExitCode err
-                })
+        case result of
+          Ok _ ->
+            BuildOk
+              { service   = svc.name
+              , language  = svc.language
+              , duration  = 0s
+              , artifact  = svc.dir ++ p"dist" ++ Path.fromString svc.name
+              , checksum  = Hash.sha256Hex (Bytes.fromString svc.name)
+              }
+          Err err ->
+            BuildFailed
+              { service   = svc.name
+              , language  = svc.language
+              , error     = CommandError.show err
+              , exitCode  = extractExitCode err
+              })
 
 detectServices : Path -> List Service
 detectServices = \root ->

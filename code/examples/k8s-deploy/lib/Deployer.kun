@@ -20,6 +20,7 @@ import Duration
 import Cmd
 import IO
 import CommandError
+import Result
 
 type DeployPhase
   = Staging
@@ -58,7 +59,7 @@ getPodNames = \namespace deployment labelSelector ->
       "get" "pods" "-o" "name"
     case result of
       Ok output ->
-        let
+        do
           raw = Stream.string output
         in
           raw
@@ -76,7 +77,7 @@ getServiceEndpoint = \namespace svcName port ->
       "-o" f"jsonpath='\{.status.loadBalancer.ingress[0].ip}:{port}'"
     case result of
       Ok output ->
-        let
+        do
           raw     = Stream.string output
           trimmed = String.trim raw
         in

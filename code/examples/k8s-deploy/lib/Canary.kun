@@ -15,6 +15,7 @@ import Process
 import Cmd
 import IO
 import CommandError
+import Result
 
 type CanaryConfig =
   { namespace    : String

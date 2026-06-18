@@ -60,7 +60,7 @@ runSuite = \suite ->
     elapsed = DateTime.now - start
     case result of
       Ok output ->
-        let
+        do
           caseCount = countTestCases output
         in
           Passed
@@ -95,11 +95,8 @@ runTests = \suites maxParallel ->
       |> List.map (\(suite, result) ->
         case result of
           Ok output ->
-            let
-              caseCount = countTestCases output
-            in
-              Passed
-                { suite = suite.name, duration = 0s, cases = caseCount }
+            Passed
+              { suite = suite.name, duration = 0s, cases = countTestCases output }
           Err err ->
             Failed
               { suite    = suite.name

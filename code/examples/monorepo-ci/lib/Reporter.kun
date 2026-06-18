@@ -24,6 +24,7 @@ import Builder    as B
 import Tester     as T
 import Dockerizer as D
 import IOError
+import Result
 
 type BuildReport =
   { title       : String
