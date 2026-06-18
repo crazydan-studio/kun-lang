@@ -183,7 +183,8 @@ scanServices = \entries root ->
                    , dir      = fullPath
                    , mainFile = Nil
                    , buildCmd = Nil
-                   }, ..scanServices rest root]
+                   }
+                  , ..scanServices rest root]
                 else
                   scanServices rest root
             else
