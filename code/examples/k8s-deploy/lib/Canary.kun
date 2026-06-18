@@ -16,6 +16,7 @@ import Cmd
 import IO
 import CommandError
 import Result
+import Stream
 
 type CanaryConfig =
   { namespace    : String
