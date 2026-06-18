@@ -58,10 +58,10 @@ formatMessage = \event ->
         d   -> f" (took {Duration.toSeconds d}s)"
   in
     f"""
-{icon} *{event.service}* — {event.phase}{durationStr}
-> {event.message}
- _{timeStr}_
-"""
+    {icon} *{event.service}* — {event.phase}{durationStr}
+    > {event.message}
+    _{timeStr}_
+    """
 
 notifySlack : String -> DeploymentEvent -> Result String CommandError
 notifySlack = \webhookUrl event ->
@@ -72,20 +72,24 @@ notifySlack = \webhookUrl event ->
         Success  -> "good"
         Warning  -> "warning"
         Failure | Rollback -> "danger"
+
     text = formatMessage event
     payload =
-      case Parser.Record.toJson
-        { attachments = [{ color = color, text = text }] }
+      case
+        Parser.Record.toJson
+          { attachments = [{ color = color, text = text }] }
       of
         Ok s  -> s
         Err _ -> "{}"
-    Cmd.execSafe
-      (Cmd.curl { X = "POST"
-                , H = "Content-Type: application/json"
-                , silent = true
-                , data = payload }
-        webhookUrl)
-    |> Result.map (\_ -> "")
+
+    webhookUrl
+      |> Cmd.curl?
+          { X = "POST"
+          , H = "Content-Type: application/json"
+          , silent = true
+          , data = payload
+          }
+      |> Result.map (\_ -> "")
 
 notifyConsole : DeploymentEvent -> Unit
 notifyConsole = \event ->
@@ -98,6 +102,7 @@ notifyConsole = \event ->
         Failure  -> "[FAIL]"
         Rollback -> "[ROLL]"
     msg = f"{prefix} {event.service}: {event.message}"
+
     case event.level of
       Failure | Rollback -> IO.eprintln msg
       _                  -> IO.println msg
@@ -106,7 +111,10 @@ notify : String -> DeploymentEvent -> Unit
 notify = \webhookUrl event ->
   do
     notifyConsole event
+
     if String.length (String.trim webhookUrl) > 0 then
       case notifySlack webhookUrl event of
-        Ok _  -> IO.println "  [notify] Webhook sent"
-        Err e -> IO.eprintln f"  [notify] Webhook failed: {CommandError.show e}"
+        Ok _  ->
+          IO.println "  [notify] Webhook sent"
+        Err e ->
+          IO.eprintln f"  [notify] Webhook failed: {CommandError.show e}"

@@ -49,28 +49,34 @@ checkOnce : String -> Result (Int, Duration) CommandError
 checkOnce = \endpoint ->
   do
     started = DateTime.now
-    result = Cmd.execSafe
-      (Cmd.curl
-        { silent   = true
-        , maxTime  = "5"
-        , output   = "/dev/null"
-        , writeOut = "%{http_code}" }
-        endpoint)
-      |> Result.map Stream.string
+    result =
+      endpoint
+        |> Cmd.curl?
+            { silent   = true
+            , maxTime  = "5"
+            , output   = "/dev/null"
+            , writeOut = "%{http_code}"
+            }
+        |> Result.map Stream.string
+
     elapsed = DateTime.now - started
     case result of
       Ok s ->
-        Ok (Int.fromString (String.trim s) |> Result.withDefault 0, elapsed)
+        Ok (
+          Int.fromString (String.trim s)
+            |> Result.withDefault 0, elapsed
+        )
       Err e -> Err e
+
 checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
   do
     started = DateTime.now
+
     case checkOnce hc.endpoint of
       Ok (code, elapsed) ->
         evaluateCode code elapsed hc.expect
       Err err ->
-        do
           retryLoop 0 started hc
 
 evaluateCode : Int -> Duration -> ?Int -> HealthStatus
@@ -97,6 +103,7 @@ retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus
 retryLoop = \attempt started hc ->
   do
     elapsed = DateTime.now - started
+
     if elapsed >= hc.timeout then
       Timeout { waited = hc.timeout }
     else if attempt >= hc.retries then
@@ -108,18 +115,20 @@ retryLoop = \attempt started hc ->
     else
       case checkOnce hc.endpoint of
         Ok (code, elapsed) ->
-          do
-            okCode =
-              case hc.expect of
-                Nil -> code >= 200 && code < 400
-                exp -> code == exp
-            if okCode then
-              Healthy { responseTime = elapsed, statusCode = code, body = "" }
-            else
-              do
-                Process.sleep hc.interval
-                retryLoop (attempt + 1) started hc
-        Err _ ->
-          do
+          okCode =
+            case hc.expect of
+              Nil ->
+                code >= 200 && code < 400
+              exp ->
+                code == exp
+
+          if okCode then
+            Healthy { responseTime = elapsed, statusCode = code, body = "" }
+          else
             Process.sleep hc.interval
+
             retryLoop (attempt + 1) started hc
+        Err _ ->
+          Process.sleep hc.interval
+
+          retryLoop (attempt + 1) started hc
