@@ -271,6 +271,18 @@ else
   default
 ```
 
+#### 省略 else
+
+单纯产生副作用无需返回值时可省略 `else`——隐式类型为 `Unit`：
+
+```kun
+if cfg.dryRun then
+  IO.println "\n  DRY RUN — exiting.\n"
+  Process.exit 0
+```
+
+省略 `else` 的 `if` 仅限分支体类型为 `Unit`，不可出现在需返回值的位置。
+
 ```kun
 parseLine = \line ->
   let
