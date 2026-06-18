@@ -160,18 +160,16 @@ detectLanguage = \dir ->
 
 scanServices : List Path -> Path -> List Service
 scanServices = \entries root ->
-  case entries of
-    [] -> []
-    [entry, ..rest] ->
-      let
+  do
+    case entries of
+      [] -> []
+      [entry, ..rest] ->
         fullPath = root ++ entry
-      in
         case File.stat fullPath of
           Ok s ->
-            if s.isDir then
-              let
+            case s.type of
+              Directory ->
                 lang = detectLanguage fullPath
-              in
                 if lang != "unknown" then
                   [{ name     = Path.toString entry
                    , language = lang
@@ -182,8 +180,8 @@ scanServices = \entries root ->
                   , ..scanServices rest root]
                 else
                   scanServices rest root
-            else
-              scanServices rest root
+              _ ->
+                scanServices rest root
           Err _ ->
             scanServices rest root
 
