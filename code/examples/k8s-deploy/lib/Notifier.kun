@@ -71,10 +71,8 @@ notifySlack = \webhookUrl event ->
         Success  -> "good"
         Warning  -> "warning"
         Failure | Rollback -> "danger"
-
     text = formatMessage event
     json = f"\{ \"attachments\": [\{ \"color\": \"{color}\", \"text\": \"{text}\" \}] \}"
-
     Cmd.stdoutToString
       (Cmd.curl { X = "POST"
                 , H = "Content-Type: application/json"
@@ -93,9 +91,7 @@ notifyConsole = \event ->
         Warning  -> "[WARN]"
         Failure  -> "[FAIL]"
         Rollback -> "[ROLL]"
-
     msg = f"{prefix} {event.service}: {event.message}"
-
     case event.level of
       Failure | Rollback -> IO.eprintln msg
       _                  -> IO.println msg
@@ -104,7 +100,6 @@ notify : String -> DeploymentEvent -> Unit
 notify = \webhookUrl event ->
   do
     notifyConsole event
-
     if String.length (String.trim webhookUrl) > 0 then
       case notifySlack webhookUrl event of
         Ok _  -> IO.println "  [notify] Webhook sent"
