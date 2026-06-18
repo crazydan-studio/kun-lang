@@ -49,17 +49,18 @@ checkOnce : String -> Result (Int, Duration) CommandError
 checkOnce = \endpoint ->
   do
     started = DateTime.now
-    Cmd.stdoutToString
+    result = Cmd.stdoutToString
       (Cmd.curl
         { silent   = true
         , maxTime  = "5"
         , output   = "/dev/null"
         , writeOut = "%{http_code}" }
         endpoint)
-    |> Result.map (\s ->
-      ( Int.fromString (String.trim s) |> Result.withDefault 0
-      , DateTime.now - started
-      ))
+    elapsed = DateTime.now - started
+    case result of
+      Ok s ->
+        Ok (Int.fromString (String.trim s) |> Result.withDefault 0, elapsed)
+      Err e -> Err e
 checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
   do

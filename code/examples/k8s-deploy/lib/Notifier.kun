@@ -104,5 +104,3 @@ notify = \webhookUrl event ->
       case notifySlack webhookUrl event of
         Ok _  -> IO.println "  [notify] Webhook sent"
         Err e -> IO.eprintln f"  [notify] Webhook failed: {CommandError.show e}"
-    else
-      Unit

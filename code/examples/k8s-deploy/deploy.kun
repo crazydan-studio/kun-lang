@@ -68,7 +68,7 @@ parseConfig =
             |> Cli.withValidator (Validator.range 1 50)
         , Cli.option "timeout" 't' "Deployment timeout in seconds"
             |> Cli.withDefault 300s
-        , Cli.option "webhook" 'w' "Webhook URL"
+        , Cli.option "webhook-url" 'w' "Webhook URL"
             |> Cli.withDefault ""
         , Cli.option "health-path" Nil "Health check HTTP path"
             |> Cli.withDefault "/healthz"
@@ -117,11 +117,8 @@ main = \rawArgs ->
           IO.println f"Canary    : {cfg.canaryPercent}%"
           IO.println f"Timeout   : {cfg.timeout}"
           if cfg.dryRun then
-            do
-              IO.println "\n  DRY RUN — exiting.\n"
-              Process.exit 0
-          else
-            Unit
+            IO.println "\n  DRY RUN — exiting.\n"
+            Process.exit 0
           // Phase 1: Staging
           IO.println ""
           IO.println "  [1/4] STAGING"
