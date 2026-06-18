@@ -41,11 +41,13 @@ setTrafficWeight = \namespace svcName canaryPercent ->
   do
     stableWeight = 100 - canaryPercent
     patchData =
-      case Parser.Record.toJson
-        { spec = { traffic = { canary = canaryPercent, stable = stableWeight } } }
+      case
+        Parser.Record.toJson
+          { spec = { traffic = { canary = canaryPercent, stable = stableWeight } } }
       of
         Ok s  -> s
         Err _ -> "{}"
+
     Cmd.kubectl? { n = namespace }
       "patch" "service" svcName
       "--type=merge" "-p" patchData
@@ -58,22 +60,25 @@ generateSteps = \start end step ->
       { percent = p
       , stable  = 100 - p
       , canary  = p
-      })
+      }
+    )
 
 gradualShift : CanaryConfig -> List CanaryStep
 gradualShift = \cfg ->
   do
     steps = generateSteps cfg.startPercent cfg.endPercent cfg.stepSize
-    List.iter
-      (\step ->
+
+    steps
+      |> List.iter (\step ->
         do
           IO.println f"  [canary] Adjusting traffic: canary={step.percent}% stable={step.stable}%"
+
           case setTrafficWeight cfg.namespace cfg.service step.percent of
             Ok _ ->
-              do
-                IO.println f"    ✓ Traffic shifted to {step.percent}%"
-                Process.sleep cfg.stepInterval
+              IO.println f"    ✓ Traffic shifted to {step.percent}%"
+              Process.sleep cfg.stepInterval
             Err err ->
-              IO.eprintln f"    ✗ Failed to shift traffic: {CommandError.show err}")
-      steps
+              IO.eprintln f"    ✗ Failed to shift traffic: {CommandError.show err}"
+      )
+  in
     steps

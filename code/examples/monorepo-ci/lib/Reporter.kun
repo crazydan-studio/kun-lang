@@ -53,17 +53,19 @@ separator = String.repeat 60 "="
 formatLine : B.BuildResult -> String
 formatLine = \result ->
   case result of
-    B.BuildOk { service, language, duration, checksum, .. } ->
+    B.BuildOk { service, language, duration, checksum, .._ } ->
       let
         secs = Duration.toSeconds duration
         lang = String.toUpper language
       in
         f" ✓ {pad 20 service} {pad 8 lang} ({secs}s)  sha:{checksum}"
-    B.BuildFailed { service, language, error, .. } ->
+
+    B.BuildFailed { service, language, error, .._ } ->
       let
         shortErr = String.slice 0 80 error
       in
         f" ✗ {pad 20 service} {pad 8 (String.toUpper language)} FAILED: {shortErr}"
+
     B.BuildSkipped { service, reason } ->
       f" - {pad 20 service} SKIPPED: {reason}"
 
@@ -76,8 +78,10 @@ formatImage = \result ->
   case result of
     D.ImageOk { service, tag, imageId, size } ->
       f" ^ {pad 20 service} {tag}  id:{imageId}  size:{size}"
+
     D.ImageSkipped { service, reason } ->
       f" - {pad 20 service} SKIPPED: {reason}"
+
     D.ImageFailed { service, error } ->
       f" - {pad 20 service} FAILED: {error}"
 
@@ -90,7 +94,10 @@ pad = \n s ->
   let
     len = String.length s
   in
-    if len >= n then s else s ++ String.repeat (n - len) " "
+    if len >= n then
+      s
+    else
+      s ++ String.repeat (n - len) " "
 
 // -------------------------------------------------------
 // 纯函数：构建摘要
@@ -132,7 +139,8 @@ generateReport = \buildResults testResults imageResults started elapsed ->
             case r of
               B.BuildOk _     -> (p + 1, f, s)
               B.BuildFailed _ -> (p, f + 1, s)
-              B.BuildSkipped _ -> (p, f, s + 1))
+              B.BuildSkipped _ -> (p, f, s + 1)
+        )
         (0, 0, 0)
         buildResults
 
@@ -152,8 +160,11 @@ generateReport = \buildResults testResults imageResults started elapsed ->
       imageResults
         |> List.filterMap (\r ->
           case r of
-            D.ImageOk { service, tag, imageId } -> (service, tag, imageId)
-            _                                   -> Nil)
+            D.ImageOk { service, tag, imageId } ->
+              (service, tag, imageId)
+            _ ->
+              Nil
+        )
 
     testSummary =
       testResults
@@ -194,11 +205,14 @@ generateReport = \buildResults testResults imageResults started elapsed ->
     , passed      = buildPassed
     , failed      = buildFailed
     , buildTime   = elapsed
-    , artifacts   = List.filterMap (\r ->
-                      case r of
-                        B.BuildOk { artifact, .. } -> Path.toString artifact
-                        _                          -> Nil)
-                      buildResults
+    , artifacts   =
+        List.filterMap
+          (\r ->
+            case r of
+              B.BuildOk { artifact, .. } -> Path.toString artifact
+              _ -> Nil
+          )
+          buildResults
     , images      = imageInfo
     , testSummary = testSummary
     , details     = details
@@ -211,12 +225,20 @@ generateReport = \buildResults testResults imageResults started elapsed ->
 writeReport : BuildReport -> Path -> Result Path IOError
 writeReport = \report outputPath ->
   do
-    summary = summarySection "Build" report.totalBuilds
-                report.passed report.failed report.buildTime
+    summary =
+      summarySection
+        "Build"
+        report.totalBuilds
+        report.passed
+        report.failed
+        report.buildTime
+
     content =
-      "# " ++ report.title ++ "\n\n"
+      "# "
+        ++ report.title ++ "\n\n"
         ++ summary ++ "\n\n"
         ++ report.details ++ "\n"
+
     case File.atomicWriteString outputPath content of
       Ok _ ->
         IO.println f"Report written to {Path.toString outputPath}"

@@ -49,8 +49,10 @@ type Config =
 parseConfig : List String -> Result Config Cli.CliError
 parseConfig =
   Cli.parse
-    { meta  = { intro = "k8s-deploy.kun"
-              , text  = "Kubernetes Canary Deployment." }
+    { meta  =
+        { intro = "k8s-deploy.kun"
+        , text  = "Kubernetes Canary Deployment."
+        }
     , args =
         [ Cli.option "namespace" 'n' "Kubernetes namespace"
             |> Cli.withValidator Validator.nonEmpty
@@ -85,15 +87,18 @@ parseConfig =
 sendEvent : Config -> String -> N.NotifyLevel -> Duration -> Unit
 sendEvent = \cfg phase level elapsed ->
   do
-    event = { service   = cfg.deployment
-            , version   = cfg.image
-            , phase     = phase
-            , level     = level
-            , message   = f"{phase}"
-            , timestamp = DateTime.now
-            , duration  = Nil
-            }
+    event =
+      { service   = cfg.deployment
+        , version   = cfg.image
+        , phase     = phase
+        , level     = level
+        , message   = f"{phase}"
+        , timestamp = DateTime.now
+        , duration  = Nil
+        }
+
     N.notify cfg.webhookUrl event
+
 // -------------------------------------------------------
 // 主部署流程
 // -------------------------------------------------------
@@ -102,46 +107,47 @@ main : List String -> Unit
 main = \rawArgs ->
   do
     started = DateTime.now
+
     IO.println ""
     IO.println (String.repeat 60 "=")
     IO.println "  Kubernetes Canary Deployment"
     IO.println (String.repeat 60 "=")
     IO.println ""
+
     case parseConfig rawArgs of
       Ok cfg ->
-        do
-          IO.println f"Namespace : {cfg.namespace}"
-          IO.println f"Deployment: {cfg.deployment}"
-          IO.println f"Image     : {cfg.image}"
-          IO.println f"Replicas  : {cfg.replicas}"
-          IO.println f"Canary    : {cfg.canaryPercent}%"
-          IO.println f"Timeout   : {cfg.timeout}"
-          if cfg.dryRun then
-            IO.println "\n  DRY RUN — exiting.\n"
-            Process.exit 0
-          // Phase 1: Staging
-          IO.println ""
-          IO.println "  [1/4] STAGING"
-          IO.println (String.repeat 40 "-")
-          case D.applyManifest cfg.manifest cfg.namespace of
-            Ok _ ->
-              case D.setImage cfg.namespace cfg.deployment "app" cfg.image of
-                Ok _ ->
-                  do
-                    sendEvent cfg "staging" N.Info (DateTime.now - started)
-                    canaryPhase cfg started
-                Err err ->
-                  do
-                    IO.eprintln f"Image set failed: {CommandError.show err}"
-                    Process.exit 1
-            Err err ->
-              do
-                IO.eprintln f"Manifest apply failed: {CommandError.show err}"
+        IO.println f"Namespace : {cfg.namespace}"
+        IO.println f"Deployment: {cfg.deployment}"
+        IO.println f"Image     : {cfg.image}"
+        IO.println f"Replicas  : {cfg.replicas}"
+        IO.println f"Canary    : {cfg.canaryPercent}%"
+        IO.println f"Timeout   : {cfg.timeout}"
+
+        if cfg.dryRun then
+          IO.println "\n  DRY RUN — exiting.\n"
+          Process.exit 0
+
+        // Phase 1: Staging
+        IO.println ""
+        IO.println "  [1/4] STAGING"
+        IO.println (String.repeat 40 "-")
+
+        case D.applyManifest cfg.manifest cfg.namespace of
+          Ok _ ->
+            case D.setImage cfg.namespace cfg.deployment "app" cfg.image of
+              Ok _ ->
+                sendEvent cfg "staging" N.Info (DateTime.now - started)
+
+                canaryPhase cfg started
+              Err err ->
+                IO.eprintln f"Image set failed: {CommandError.show err}"
                 Process.exit 1
+          Err err ->
+            IO.eprintln f"Manifest apply failed: {CommandError.show err}"
+            Process.exit 1
       Err err ->
-        do
-          IO.eprintln (Cli.show err)
-          Process.exit 1
+        IO.eprintln (Cli.show err)
+        Process.exit 1
 
 // -------------------------------------------------------
 // Phase 2: Canary 灰度
@@ -153,6 +159,7 @@ canaryPhase = \cfg started ->
     IO.println ""
     IO.println f"  [2/4] CANARY ({cfg.canaryPercent}% → 100%)"
     IO.println (String.repeat 40 "-")
+
     canaryCfg =
       { namespace     = cfg.namespace
       , service       = cfg.deployment
@@ -163,9 +170,12 @@ canaryPhase = \cfg started ->
       , stepSize      = 10
       , stepInterval  = 10s
       }
+
     steps = C.gradualShift canaryCfg
+
     IO.println f"  Canary rollout: {List.length steps} steps completed"
     sendEvent cfg "canary" N.Info (DateTime.now - started)
+
     fullRolloutPhase cfg started
 
 // -------------------------------------------------------
@@ -178,17 +188,18 @@ fullRolloutPhase = \cfg started ->
     IO.println ""
     IO.println "  [3/4] FULL ROLLOUT"
     IO.println (String.repeat 40 "-")
+
     case D.rolloutStatus cfg.namespace cfg.deployment cfg.timeout of
       Ok _ ->
-        do
-          IO.println "  ✓ Rollout complete"
-          sendEvent cfg "rollout" N.Success (DateTime.now - started)
-          healthCheckPhase cfg started
+        IO.println "  ✓ Rollout complete"
+        sendEvent cfg "rollout" N.Success (DateTime.now - started)
+
+        healthCheckPhase cfg started
       Err err ->
-        do
-          IO.eprintln f"  ✗ Rollout failed: {CommandError.show err}"
-          sendEvent cfg "rollout" N.Failure (DateTime.now - started)
-          executeRollback cfg started
+        IO.eprintln f"  ✗ Rollout failed: {CommandError.show err}"
+        sendEvent cfg "rollout" N.Failure (DateTime.now - started)
+
+        executeRollback cfg started
 
 // -------------------------------------------------------
 // Phase 4: 健康检查
@@ -200,40 +211,44 @@ healthCheckPhase = \cfg started ->
     IO.println ""
     IO.println "  [4/4] HEALTH CHECK"
     IO.println (String.repeat 40 "-")
+
     checkUrl = f"http://localhost:{cfg.healthPort}{cfg.healthPath}"
-    healthStatus = V.checkEndpoint
-      { endpoint  = checkUrl
-      , method    = "GET"
-      , expect    = 200
-      , retries   = 10
-      , interval  = 3s
-      , timeout   = 60s
-      }
+    healthStatus =
+      V.checkEndpoint
+        { endpoint  = checkUrl
+        , method    = "GET"
+        , expect    = 200
+        , retries   = 10
+        , interval  = 3s
+        , timeout   = 60s
+        }
+
     case healthStatus of
       V.Healthy { responseTime, statusCode } ->
-        do
-          IO.println f"  ✓ Healthy — HTTP {statusCode} in {Duration.toMillis responseTime}ms"
-          totalDuration = DateTime.now - started
-          sendEvent cfg "healthy" N.Success totalDuration
-          IO.println ""
-          IO.println f"  == Deployment successful ({Duration.toSeconds totalDuration}s) =="
-          Process.exit 0
+        totalDuration = DateTime.now - started
+
+        IO.println f"  ✓ Healthy — HTTP {statusCode} in {Duration.toMillis responseTime}ms"
+        sendEvent cfg "healthy" N.Success totalDuration
+
+        IO.println ""
+        IO.println f"  == Deployment successful ({Duration.toSeconds totalDuration}s) =="
+        Process.exit 0
       V.Degraded { statusCode, reason } ->
-        do
-          IO.eprintln f"  ⚠ Degraded — HTTP {statusCode}: {reason}"
-          sendEvent cfg "healthy" N.Warning (DateTime.now - started)
-          IO.println "\n  == Deployment completed with warnings =="
-          Process.exit 0
+        IO.eprintln f"  ⚠ Degraded — HTTP {statusCode}: {reason}"
+        sendEvent cfg "healthy" N.Warning (DateTime.now - started)
+
+        IO.println "\n  == Deployment completed with warnings =="
+        Process.exit 0
       V.Unreachable { error, attempts } ->
-        do
-          IO.eprintln f"  ✗ Unreachable after {attempts} attempts: {error}"
-          sendEvent cfg "healthy" N.Failure (DateTime.now - started)
-          executeRollback cfg started
+        IO.eprintln f"  ✗ Unreachable after {attempts} attempts: {error}"
+        sendEvent cfg "healthy" N.Failure (DateTime.now - started)
+
+        executeRollback cfg started
       V.Timeout { waited } ->
-        do
-          IO.eprintln f"  ✗ Health check timed out after {Duration.toSeconds waited}s"
-          sendEvent cfg "healthy" N.Failure (DateTime.now - started)
-          executeRollback cfg started
+        IO.eprintln f"  ✗ Health check timed out after {Duration.toSeconds waited}s"
+        sendEvent cfg "healthy" N.Failure (DateTime.now - started)
+
+        executeRollback cfg started
 
 // -------------------------------------------------------
 // 自动回滚
@@ -244,13 +259,13 @@ executeRollback = \cfg started ->
   do
     IO.println ""
     IO.println "  !!! ROLLBACK !!!"
+
     case D.rollbackDeployment cfg.namespace cfg.deployment "0" of
       Ok _ ->
-        do
-          IO.println "  ✓ Rollback complete"
-          sendEvent cfg "rollback" N.Rollback (DateTime.now - started)
-          Process.exit 2
+        IO.println "  ✓ Rollback complete"
+        sendEvent cfg "rollback" N.Rollback (DateTime.now - started)
+
+        Process.exit 2
       Err err ->
-        do
-          IO.eprintln f"  ✗ Rollback failed: {CommandError.show err}"
-          Process.exit 3
+        IO.eprintln f"  ✗ Rollback failed: {CommandError.show err}"
+        Process.exit 3

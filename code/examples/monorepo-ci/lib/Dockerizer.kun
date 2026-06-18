@@ -50,7 +50,9 @@ generateTag = \serviceName registry ->
           Stream.string output |> String.trim
         Err _ ->
           "unknown"
+
     now = DateTime.now
+  in
     case DateTime.format "yyyyMMdd-HHmmss" now of
       Ok timestamp ->
         f"{registry}/{serviceName}:{timestamp}-{commitHash}"
@@ -66,22 +68,26 @@ buildAndPush : String -> DockerConfig -> Path -> ImageResult
 buildAndPush = \serviceName cfg contextDir ->
   do
     IO.println f"  [docker] {serviceName}"
+
     tag = generateTag serviceName cfg.registry
     dockerfilePath =
       case cfg.dockerfile of
         Nil -> contextDir ++ p"Dockerfile"
         df  -> df
+
     case File.stat dockerfilePath of
       Ok _ ->
-        do
-          buildResult = Cmd.docker? { t = tag } "build" (Path.toString contextDir)
-          case buildResult of
-            Ok _ ->
-              case Cmd.docker? {} "push" tag of
-                Ok _  -> inspectImage serviceName tag
-                Err e -> ImageFailed { service = serviceName, error = CommandError.show e }
-            Err err ->
-              ImageFailed { service = serviceName, error = CommandError.show err }
+        buildResult = Cmd.docker? { t = tag } "build" (Path.toString contextDir)
+
+        case buildResult of
+          Ok _ ->
+            case Cmd.docker? {} "push" tag of
+              Ok _ ->
+                inspectImage serviceName tag
+              Err e ->
+                ImageFailed { service = serviceName, error = CommandError.show e }
+          Err err ->
+            ImageFailed { service = serviceName, error = CommandError.show err }
       Err _ ->
         ImageSkipped { service = serviceName, reason = "Dockerfile not found" }
 
@@ -94,13 +100,17 @@ inspectImage = \serviceName tag ->
           Stream.string output |> String.trim |> String.slice 0 12
         Err _ ->
           "<unknown>"
+
     sizeStr =
       case Cmd.docker? { format = "{{.Size}}" } "inspect" tag of
         Ok output ->
           Stream.string output |> String.trim
         Err _ ->
           "N/A"
+  in
     ImageOk
-      { service = serviceName, tag = tag
-      , imageId = imageId, size = sizeStr
+      { service = serviceName
+      , tag = tag
+      , imageId = imageId
+      , size = sizeStr
       }

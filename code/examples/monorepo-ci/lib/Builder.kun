@@ -79,10 +79,13 @@ buildService : Service -> BuildResult
 buildService = \svc ->
   do
     IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
+
     start    = DateTime.now
     result   = Cmd.pipe? [buildCommand svc]
     elapsed  = DateTime.now - start
+
     checksum = computeChecksum (buildArtifactPath svc)
+
     toBuildResult svc elapsed checksum result
 
 buildArtifactPath : Service -> Path
@@ -94,12 +97,16 @@ toBuildResult = \svc elapsed checksum result ->
   case result of
     Ok _ ->
       BuildOk
-        { service = svc.name, language = svc.language
-        , duration = elapsed, artifact = buildArtifactPath svc, checksum = checksum
+        { service = svc.name
+        , language = svc.language
+        , duration = elapsed
+        , artifact = buildArtifactPath svc
+        , checksum = checksum
         }
     Err err ->
       BuildFailed
-        { service = svc.name, language = svc.language
+        { service = svc.name
+        , language = svc.language
         , error = CommandError.show err
         , exitCode = extractExitCode err
         }
@@ -118,22 +125,28 @@ computeChecksum = \path ->
 extractExitCode : CommandError -> Int
 extractExitCode = \err ->
   case err of
-    CommandFailed { exitCode, .. } -> exitCode
+    CommandFailed { exitCode, .._ } -> exitCode
     _                              -> -1
 
 buildAll : List Service -> Int -> List BuildResult
 buildAll = \svcs maxParallel ->
   do
-    List.iter (\svc ->
-      do
-        IO.println f"  [build] {String.toUpper svc.language}: {svc.name}")
+    List.iter
+      (\svc ->
+        do
+          IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
+      )
       svcs
+
     cmds = List.map buildCommand svcs
     Task.spawn maxParallel cmds
       |> Task.all
       |> List.zip svcs
       |> List.map (\(svc, result) ->
-        toBuildResult svc 0s (Hash.sha256Hex (Bytes.fromString svc.name)) result)
+        toBuildResult svc 0s
+          (Hash.sha256Hex (Bytes.fromString svc.name))
+          result
+      )
 
 detectServices : Path -> List Service
 detectServices = \root ->
@@ -142,6 +155,7 @@ detectServices = \root ->
       case File.list root of
         Ok es -> es
         Err _ -> []
+
     scanServices entries root
 
 detectLanguage : Path -> String
@@ -149,6 +163,7 @@ detectLanguage = \dir ->
   do
     goStat   = File.stat (Path.join dir "go.mod")
     pkgStat  = File.stat (Path.join dir "package.json")
+
     case (goStat, pkgStat) of
       (Ok _, _)   -> "go"
       (_, Ok _)   -> "js"
@@ -161,19 +176,22 @@ scanServices = \entries root ->
       [] -> []
       [entry, ..rest] ->
         fullPath = root ++ entry
+
         case File.stat fullPath of
           Ok s ->
             case s.type of
               Directory ->
                 lang = detectLanguage fullPath
+
                 if lang != "unknown" then
-                  [{ name     = Path.toString entry
-                   , language = lang
-                   , dir      = fullPath
-                   , mainFile = Nil
-                   , buildCmd = Nil
-                   }
-                  , ..scanServices rest root]
+                  [ { name     = Path.toString entry
+                    , language = lang
+                    , dir      = fullPath
+                    , mainFile = Nil
+                    , buildCmd = Nil
+                    }
+                  , ..scanServices rest root
+                  ]
                 else
                   scanServices rest root
               _ ->
@@ -182,10 +200,12 @@ scanServices = \entries root ->
             scanServices rest root
 
 collectBuildArtifacts : List BuildResult -> List Path
-collectBuildArtifacts = \results ->
+collectBuildArtifacts =
   List.filterMap
     (\r ->
       case r of
-        BuildOk { artifact, .. } -> artifact
-        _                        -> Nil)
-    results
+        BuildOk { artifact, .._ } ->
+          artifact
+        _ ->
+          Nil
+    )
