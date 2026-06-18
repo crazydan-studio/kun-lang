@@ -170,9 +170,9 @@ generateReport = \buildResults testResults imageResults started elapsed ->
       testResults
         |> List.map (\r ->
           case r of
-            T.Passed { suite, cases, duration, .. } ->
+            T.Passed { suite, cases, duration, .._ } ->
               f"  ✓ {suite}: {cases} cases passed ({Duration.toSeconds duration}s)"
-            T.Failed { suite, error, .. } ->
+            T.Failed { suite, error, .._ } ->
               f"  ✗ {suite}: {String.slice 0 60 error}"
             T.NoTests { suite } ->
               f"  - {suite}: no tests")
@@ -209,7 +209,7 @@ generateReport = \buildResults testResults imageResults started elapsed ->
         List.filterMap
           (\r ->
             case r of
-              B.BuildOk { artifact, .. } -> Path.toString artifact
+              B.BuildOk { artifact, .._ } -> Path.toString artifact
               _ -> Nil
           )
           buildResults

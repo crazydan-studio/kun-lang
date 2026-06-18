@@ -157,8 +157,8 @@ summarizeTests = \results ->
       List.fold
         (\d result ->
           case result of
-            Passed { duration = dur, .._ } -> d + dur
-            Failed { duration = dur, .._ } -> d + dur
+            Passed { duration as dur, .._ } -> d + dur
+            Failed { duration as dur, .._ } -> d + dur
             NoTests _                      -> d
         )
         0s

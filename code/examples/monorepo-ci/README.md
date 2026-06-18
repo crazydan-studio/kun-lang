@@ -49,7 +49,7 @@ monorepo-ci/
 | 特性 | 位置 | 示例 |
 |------|------|------|
 | 多模式分支 | `Builder.kun` | `case result of Ok _ -> ... \| Err err -> ...` |
-| 嵌套 Record 解构 | `Builder.kun` | `CommandFailed { exitCode, .. }` 部分字段通配 |
+| 嵌套 Record 解构 | `Builder.kun` | `CommandFailed { exitCode, .._ }` 部分字段通配 |
 | 通配模式 | `Reporter.kun` | `BuildOk _ ->` / `BuildFailed _ ->` |
 
 ### 命令系统
