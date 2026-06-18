@@ -72,7 +72,7 @@ runSuite = \suite ->
 
 countTestCases : Stream String -> Int
 countTestCases = \output ->
-  let
+  do
     collected = Stream.string output
     lines     = String.split "\n" collected
   in
@@ -86,21 +86,25 @@ runTests : List TestSuite -> Int -> List TestResult
 runTests = \suites maxParallel ->
   do
     cmds = List.map testCommand suites
-    Task.spawn maxParallel cmds
-      |> Task.all
-      |> List.zip suites
-      |> List.map (\(suite, result) ->
-        case result of
-          Ok output ->
-            Passed
-              { suite = suite.name, duration = 0s, cases = countTestCases output }
-          Err err ->
-            Failed
-              { suite    = suite.name
-              , error    = CommandError.show err
-              , duration = 0s
-              , cases    = 0
-              })
+    raw   = Task.spawn maxParallel cmds |> Task.all
+    pairs = List.zip suites raw
+    collectResults pairs []
+
+collectResults : List (TestSuite, Result (Stream String) CommandError) -> List TestResult -> List TestResult
+collectResults = \pairs acc ->
+  do
+    case pairs of
+      [] ->
+        List.reverse acc
+      [pair, ..rest] ->
+        case pair of
+          (suite, Ok output) ->
+            cases = countTestCases output
+            collectResults rest
+              [Passed { suite = suite.name, duration = 0s, cases = cases }, ..acc]
+          (suite, Err err) ->
+            collectResults rest
+              [Failed { suite = suite.name, error = CommandError.show err, duration = 0s, cases = 0 }, ..acc]
 
 summarizeTests
   : List TestResult

@@ -17,6 +17,7 @@ import Cmd
 import IO
 import CommandError
 import Result
+import Parser.Record
 
 type NotifyLevel
   = Info
@@ -72,12 +73,17 @@ notifySlack = \webhookUrl event ->
         Warning  -> "warning"
         Failure | Rollback -> "danger"
     text = formatMessage event
-    json = f"\{ \"attachments\": [\{ \"color\": \"{color}\", \"text\": \"{text}\" \}] \}"
+    payload =
+      case Parser.Record.toJson
+        { attachments = [{ color = color, text = text }] }
+      of
+        Ok s  -> s
+        Err _ -> "{}"
     Cmd.stdoutToString
       (Cmd.curl { X = "POST"
                 , H = "Content-Type: application/json"
                 , silent = true
-                , data = json }
+                , data = payload }
         webhookUrl)
     |> Result.map (\_ -> "")
 
