@@ -47,7 +47,7 @@ setTrafficWeight = \namespace svcName canaryPercent ->
       of
         Ok s  -> s
         Err _ -> "{}"
-
+  in
     Cmd.kubectl? { n = namespace }
       "patch" "service" svcName
       "--type=merge" "-p" patchData

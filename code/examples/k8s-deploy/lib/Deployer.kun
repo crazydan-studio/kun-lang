@@ -35,7 +35,7 @@ applyManifest : Path -> String -> Result (Stream String) CommandError
 applyManifest = \manifestPath namespace ->
   do
     IO.println f"  [kubectl] Applying manifest: {Path.toString manifestPath}"
-
+  in
     Cmd.kubectl? { n = namespace }
       "apply" "-f" (Path.toString manifestPath)
 
@@ -43,7 +43,7 @@ setImage : String -> String -> String -> String -> Result (Stream String) Comman
 setImage = \namespace deployment container image ->
   do
     IO.println f"  [kubectl] Setting image: {deployment}/{container} = {image}"
-
+  in
     Cmd.kubectl? { n = namespace }
       "set" "image" f"deployment/{deployment}"
       f"{container}={image}"
@@ -52,7 +52,7 @@ rolloutStatus : String -> String -> Duration -> Result (Stream String) CommandEr
 rolloutStatus = \namespace deployment timeout ->
   do
     IO.println f"  [kubectl] Waiting for rollout ({Duration.toSeconds timeout}s)..."
-
+  in
     Cmd.kubectl? { n = namespace, timeout = f"{Duration.toSeconds timeout}s" }
       "rollout" "status" f"deployment/{deployment}"
 
@@ -94,7 +94,7 @@ rollbackDeployment : String -> String -> String -> Result (Stream String) Comman
 rollbackDeployment = \namespace deployment toRevision ->
   do
     IO.eprintln f"  [ROLLBACK] {namespace}/{deployment} → revision {toRevision}"
-
+  in
     Cmd.kubectl? { n = namespace }
       "rollout" "undo" f"deployment/{deployment}"
       f"--to-revision={toRevision}"

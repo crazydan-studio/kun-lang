@@ -175,7 +175,8 @@ generateReport = \buildResults testResults imageResults started elapsed ->
             T.Failed { suite, error, .._ } ->
               f"  ✗ {suite}: {String.slice 0 60 error}"
             T.NoTests { suite } ->
-              f"  - {suite}: no tests")
+              f"  - {suite}: no tests"
+        )
         |> String.join "\n"
 
     title =
@@ -209,8 +210,10 @@ generateReport = \buildResults testResults imageResults started elapsed ->
         List.filterMap
           (\r ->
             case r of
-              B.BuildOk { artifact, .._ } -> Path.toString artifact
-              _ -> Nil
+              B.BuildOk { artifact, .._ } ->
+                Path.toString artifact
+              _ ->
+                Nil
           )
           buildResults
     , images      = imageInfo
@@ -238,11 +241,15 @@ writeReport = \report outputPath ->
         ++ report.title ++ "\n\n"
         ++ summary ++ "\n\n"
         ++ report.details ++ "\n"
-
+  in
     case File.atomicWriteString outputPath content of
       Ok _ ->
-        IO.println f"Report written to {Path.toString outputPath}"
-        Ok outputPath
+        do
+          IO.println f"Report written to {Path.toString outputPath}"
+        in
+          Ok outputPath
       Err e ->
-        IO.eprintln f"Failed to write report: {IOError.show e}"
-        Err e
+        do
+          IO.eprintln f"Failed to write report: {IOError.show e}"
+        in
+          Err e

@@ -44,14 +44,14 @@ type DockerConfig =
 generateTag : String -> String -> String
 generateTag = \serviceName registry ->
   do
+    now = DateTime.now
+
     commitHash =
       case Cmd.git? { C = "." } "rev-parse" "--short" "HEAD" of
         Ok output ->
           Stream.string output |> String.trim
         Err _ ->
           "unknown"
-
-    now = DateTime.now
   in
     case DateTime.format "yyyyMMdd-HHmmss" now of
       Ok timestamp ->
@@ -70,24 +70,25 @@ buildAndPush = \serviceName cfg contextDir ->
     IO.println f"  [docker] {serviceName}"
 
     tag = generateTag serviceName cfg.registry
+
     dockerfilePath =
       case cfg.dockerfile of
         Nil -> contextDir ++ p"Dockerfile"
         df  -> df
-
+  in
     case File.stat dockerfilePath of
       Ok _ ->
-        buildResult = Cmd.docker? { t = tag } "build" (Path.toString contextDir)
-
-        case buildResult of
-          Ok _ ->
-            case Cmd.docker? {} "push" tag of
-              Ok _ ->
-                inspectImage serviceName tag
-              Err e ->
-                ImageFailed { service = serviceName, error = CommandError.show e }
-          Err err ->
-            ImageFailed { service = serviceName, error = CommandError.show err }
+        do
+          res =
+            Cmd.docker { t = tag } "build" (Path.toString contextDir)
+              |> Cmd.andThen (Cmd.docker {} "push" tag)
+              |> Cmd.execSafe
+        in
+          case res of
+            Ok _ ->
+              inspectImage serviceName tag
+            Err err ->
+              ImageFailed { service = serviceName, error = CommandError.show err }
       Err _ ->
         ImageSkipped { service = serviceName, reason = "Dockerfile not found" }
 
@@ -97,7 +98,9 @@ inspectImage = \serviceName tag ->
     imageId =
       case Cmd.docker? { format = "{{.ID}}" } "inspect" tag of
         Ok output ->
-          Stream.string output |> String.trim |> String.slice 0 12
+          Stream.string output
+            |> String.trim
+            |> String.slice 0 12
         Err _ ->
           "<unknown>"
 

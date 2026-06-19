@@ -127,15 +127,19 @@ main = \rawArgs ->
         // -------------------------------------------------
         testResults =
           if cfg.skipTests then
-            IO.println "\n  Tests skipped (--skip-tests)"
-            []
+            do
+              IO.println "\n  Tests skipped (--skip-tests)"
+            in
+              []
           else
-            IO.println ""
-            IO.println "  TEST PHASE"
-            IO.println (String.repeat 40 "-")
+            do
+              IO.println ""
+              IO.println "  TEST PHASE"
+              IO.println (String.repeat 40 "-")
 
-            suites = toTestSuites services
-            T.runTests suites cfg.parallel
+              suites = toTestSuites services
+            in
+              T.runTests suites cfg.parallel
 
         // -------------------------------------------------
         // Phase 3: Docker 镜像并行构建

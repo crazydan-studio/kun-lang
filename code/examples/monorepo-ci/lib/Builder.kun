@@ -65,8 +65,12 @@ buildCommand = \svc ->
 
       "js" ->
         let
-          installCmd = Cmd.npm {} "install" |> Cmd.withWorkDir svc.dir
-          buildCmd   = Cmd.npm {} "run" "build" |> Cmd.withWorkDir svc.dir
+          installCmd =
+            Cmd.npm {} "install"
+              |> Cmd.withWorkDir svc.dir
+          buildCmd =
+            Cmd.npm {} "run" "build"
+              |> Cmd.withWorkDir svc.dir
         in
           installCmd
             |> Cmd.andThen buildCmd
@@ -85,7 +89,7 @@ buildService = \svc ->
     elapsed  = DateTime.now - start
 
     checksum = computeChecksum (buildArtifactPath svc)
-
+  in
     toBuildResult svc elapsed checksum result
 
 buildArtifactPath : Service -> Path
@@ -114,19 +118,24 @@ toBuildResult = \svc elapsed checksum result ->
 computeChecksum : Path -> String
 computeChecksum = \path ->
   do
-    case File.readBytes path of
-      Ok stream ->
-        Hash.sha256Stream stream
-          |> Bytes.toHex
-          |> String.slice 0 12
-      Err _ ->
-        "<not found>"
+    result =
+      case File.readBytes path of
+        Ok stream ->
+          Hash.sha256Stream stream
+            |> Bytes.toHex
+            |> String.slice 0 12
+        Err _ ->
+          "<not found>"
+  in
+    result
 
 extractExitCode : CommandError -> Int
 extractExitCode = \err ->
   case err of
-    CommandFailed { exitCode, .._ } -> exitCode
-    _                              -> -1
+    CommandFailed { exitCode, .._ } ->
+      exitCode
+    _ ->
+      -1
 
 buildAll : List Service -> Int -> List BuildResult
 buildAll = \svcs maxParallel ->
@@ -139,6 +148,7 @@ buildAll = \svcs maxParallel ->
       svcs
 
     cmds = List.map buildCommand svcs
+  in
     Task.spawn maxParallel cmds
       |> Task.all
       |> List.zip svcs
@@ -155,7 +165,7 @@ detectServices = \root ->
       case File.list root of
         Ok es -> es
         Err _ -> []
-
+  in
     scanServices entries root
 
 detectLanguage : Path -> String
@@ -163,7 +173,7 @@ detectLanguage = \dir ->
   do
     goStat   = File.stat (Path.join dir "go.mod")
     pkgStat  = File.stat (Path.join dir "package.json")
-
+  in
     case (goStat, pkgStat) of
       (Ok _, _)   -> "go"
       (_, Ok _)   -> "js"
@@ -172,32 +182,37 @@ detectLanguage = \dir ->
 scanServices : List Path -> Path -> List Service
 scanServices = \entries root ->
   do
-    case entries of
-      [] -> []
-      [entry, ..rest] ->
-        fullPath = root ++ entry
-
-        case File.stat fullPath of
-          Ok s ->
-            case s.type of
-              Directory ->
-                lang = detectLanguage fullPath
-
-                if lang != "unknown" then
-                  [ { name     = Path.toString entry
-                    , language = lang
-                    , dir      = fullPath
-                    , mainFile = Nil
-                    , buildCmd = Nil
-                    }
-                  , ..scanServices rest root
-                  ]
-                else
-                  scanServices rest root
-              _ ->
+    results =
+      case entries of
+        [] -> []
+        [entry, ..rest] ->
+          do
+            fullPath = root ++ entry
+          in
+            case File.stat fullPath of
+              Ok s ->
+                case s.type of
+                  Directory ->
+                    do
+                      lang = detectLanguage fullPath
+                    in
+                      if lang != "unknown" then
+                        [ { name     = Path.toString entry
+                          , language = lang
+                          , dir      = fullPath
+                          , mainFile = Nil
+                          , buildCmd = Nil
+                          }
+                        , ..scanServices rest root
+                        ]
+                      else
+                        scanServices rest root
+                  _ ->
+                    scanServices rest root
+              Err _ ->
                 scanServices rest root
-          Err _ ->
-            scanServices rest root
+  in
+    results
 
 collectBuildArtifacts : List BuildResult -> List Path
 collectBuildArtifacts =

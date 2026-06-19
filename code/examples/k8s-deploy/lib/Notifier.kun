@@ -81,7 +81,7 @@ notifySlack = \webhookUrl event ->
       of
         Ok s  -> s
         Err _ -> "{}"
-
+  in
     webhookUrl
       |> Cmd.curl?
           { X = "POST"

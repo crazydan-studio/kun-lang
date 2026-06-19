@@ -58,8 +58,8 @@ checkOnce = \endpoint ->
             , writeOut = "%{http_code}"
             }
         |> Result.map Stream.string
-
     elapsed = DateTime.now - started
+  in
     case result of
       Ok s ->
         Ok (
@@ -72,12 +72,12 @@ checkEndpoint : HealthCheck -> HealthStatus
 checkEndpoint = \hc ->
   do
     started = DateTime.now
-
+  in
     case checkOnce hc.endpoint of
       Ok (code, elapsed) ->
         evaluateCode code elapsed hc.expect
       Err err ->
-          retryLoop 0 started hc
+        retryLoop 0 started hc
 
 evaluateCode : Int -> Duration -> ?Int -> HealthStatus
 evaluateCode = \code elapsed expected ->
@@ -103,32 +103,35 @@ retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus
 retryLoop = \attempt started hc ->
   do
     elapsed = DateTime.now - started
-
+  in
     if elapsed >= hc.timeout then
       Timeout { waited = hc.timeout }
     else if attempt >= hc.retries then
       case checkOnce hc.endpoint of
-        Ok (code, elapsed) ->
-          evaluateCode code elapsed hc.expect
+        Ok (code, elapsed2) ->
+          evaluateCode code elapsed2 hc.expect
         Err err ->
           Unreachable { error = CommandError.show err, attempts = attempt }
     else
       case checkOnce hc.endpoint of
-        Ok (code, elapsed) ->
-          okCode =
-            case hc.expect of
-              Nil ->
-                code >= 200 && code < 400
-              exp ->
-                code == exp
-
-          if okCode then
-            Healthy { responseTime = elapsed, statusCode = code, body = "" }
-          else
-            Process.sleep hc.interval
-
-            retryLoop (attempt + 1) started hc
+        Ok (code, elapsed2) ->
+          do
+            okCode =
+              case hc.expect of
+                Nil ->
+                  code >= 200 && code < 400
+                exp ->
+                  code == exp
+          in
+            if okCode then
+              Healthy { responseTime = elapsed2, statusCode = code, body = "" }
+            else
+              do
+                Process.sleep hc.interval
+              in
+                retryLoop (attempt + 1) started hc
         Err _ ->
-          Process.sleep hc.interval
-
-          retryLoop (attempt + 1) started hc
+          do
+            Process.sleep hc.interval
+          in
+            retryLoop (attempt + 1) started hc
