@@ -2753,13 +2753,13 @@ notEqual : a -> a -> Unit
 // 断言近似相等（浮点容差）— 效应函数（返回 Unit）
 approxEqual : Float -> Float -> Float -> Unit
 
-// [PureKun] 断言结果为 Ok
+// 断言结果为 Ok — 效应函数（返回 a）
 isOk : Result a e -> a
 
-// [PureKun] 断言结果为 Err
+// 断言结果为 Err — 效应函数（返回 e）
 isErr : Result a e -> e
 
-// [PureKun] 断言值非 Nil
+// 断言值非 Nil — 效应函数（返回 a）
 isSome : ?a -> a
 
 // 断言值为 Nil — 效应函数（返回 Unit）
@@ -2771,8 +2771,9 @@ panics : (-> a) -> String -> Unit
 
 - `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
 - `ok condition message`：`condition` 为 `true` 通过，否则 panic
-- `equal`、`ok`、`notEqual`、`approxEqual`、`isNil`、`panics` 返回 `Unit`——纯函数返回 `Unit` 无意义（无输出、无副作用），根据单一表达式范式的类型系统规则，必须为效应函数。调用这些断言须在 `do` 上下文中
-- `isOk`、`isErr`、`isSome` 返回非 `Unit` 值，可保持为纯函数
+- `equal`、`ok`、`notEqual`、`approxEqual`、`isNil`、`panics` 返回 `Unit`——纯函数返回 `Unit` 无意义，根据单一表达式范式的类型系统规则，必须为效应函数
+- `isOk`、`isErr`、`isSome` 语义属于 Test 模块断言家族——失败时 panic，与其余 Test 函数一致。虽返回非 `Unit` 值，但 panic 即表示测试失败（影响控制流），故统一作为效应函数。调用须在 `do` 上下文中
+- 全部 9 个 Test 模块函数均为效应函数
 - `panics thunk message`：`thunk` 为 `-> a` 纯函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`panics` 仅接受纯函数 thunk（无 `do` 块或效应命名空间调用）
 
 ### 示例
@@ -2860,6 +2861,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.19 | Test 模块全部 9 个断言统一为效应函数：`isOk`/`isErr`/`isSome` 从 `[PureKun]` 改为效应函数（与 Test 断言家族一致，失败时 panic 影响控制流） |
 | 2026.06.19 | Test 模块断言分类修正（单一表达式范式配套）：`equal`/`ok`/`notEqual`/`approxEqual`/`isNil`/`panics` 从 `[PureKun]` 改为效应函数（返回 `Unit` 的纯函数违反类型系统规则）；`isOk`/`isErr`/`isSome` 保持 `[PureKun]`（返回非 `Unit` 值）；新增效应断言调用须在 `do` 上下文中的说明 |
 | 2026.06.18 | Cmd API 精简：移除 `execSafe`（`Result Unit`）、`stdoutToString`、`stderrToString`；`execSafe` 重定义为 `Command -> Result (Stream String) CommandError`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
 | 2026.06.18 | 审计修复：`Stream.string`/`Stream.bytes` 分类精确化——命令输出流消费为效应操作，纯流可在外使用 |
