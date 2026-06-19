@@ -68,71 +68,34 @@ main = \_ ->
 | ADT 变体中的 Record 字段 | +4（从 `\|` 算 +2） |
 | 函数体 / Lambda 体 | +2 |
 | `do` 块内语句 | +2（从 `do` 算） |
+| `do in` 的 body 内语句 | +2（从 `do` 算） |
+| `in`（`do in` / `let in`） | 与 `do` / `let` 对齐 |
+| `let in` 的 body 内绑定 | +2（从 `let` 算） |
 | `if` / `case` 分支模式 | +2（从 `if`/`case` 算） |
 | `if` / `case` 分支体（多行） | +4（从 `if`/`case` 算） |
+| Branch 内显式 `do`/`do in`/`let in` | +4（从 `if`/`case` 算），内层语句再 +2 |
+| unbound 分支隐式 do body | +4（从 `if`/`case` 算），同分支多行体 |
 | `if` 省略 `else` | 同 `if` / `case` 分支模式与分支体 |
 | `\|>` 链续行 | 与管线起始端对齐 |
 | `Cmd.pipe` 命令列表项 | +2 |
 | 多行 Cmd 参数（`#{}`/`{}`/位置参数） | +2 |
 | `defer` | 与所在块内语句同级 |
-| `in`（`do in` / `let in`） | 与 `do` / `let` 对齐 |
 
 ## 行宽
 
 每行不超过 100 个字符。超出应换行。
 
-## 函数定义
+### 效应函数
 
-类型标注与值定义分离，各占一行。Lambda 参数同行，`->` 后换行：
-
-```kun
-// 有参函数
-add : Int -> Int -> Int
-add = \x y ->
-  x + y
-
-// 零参函数（仅效应函数）
-pid : -> Process.Pid
-pid = \ ->
-  do
-    Process.pid
-```
-
-简短表达式可在一行内定义：
+效应函数体必须显式以 `do` 或 `do in` 包裹，无论单语句还是多语句。`do`/`do in` 与 Lambda 体同级缩进：
 
 ```kun
-add = \x y -> x + y
-increment = \x -> x + 1
-pid = \ -> do Process.pid    // 零参效应函数，单表达式可同行
-```
-
-Lambda 参数支持解构：
-
-```kun
-addPair = \(x, y) -> x + y
-sumCoordinates = \{x, y} -> x + y
-firstThree = \[a, b, c] -> a + b + c
-```
-
-多参数 Lambda 换行时，函数体缩进。体为 `do` 块时 `do` 与 Lambda 体同级缩进：
-
-```kun
-process = \x y ->
-  let
-    z = x + y
-  in
-    z * (x + y)
-
 deploy : Config -> Unit
 deploy = \cfg ->
   do
     IO.println "deploying..."
     Cmd.rsync { archive = true } cfg.source cfg.target |> Cmd.exec
-```
 
-`do in` 形式用于执行副作用后返回纯值，`in` 与 `do` 对齐：
-
-```kun
 countFiles : Path -> Int
 countFiles = \dir ->
   do
@@ -144,54 +107,112 @@ countFiles = \dir ->
     List.length entries
 ```
 
+简短单语句可同行：
+
+```kun
+pid : -> Process.Pid
+pid = \ -> do Process.pid
+```
+
+### 纯函数
+
+纯函数体为 `let in`（单一表达式时可省略）。多绑定须用 `let in` 包裹，`in` 与 `let` 对齐：
+
+```kun
+add : Int -> Int -> Int
+add = \x y ->
+  x + y                             // 单表达式，let in 省略
+
+sumAndFloor : List Int -> Int
+sumAndFloor = \items ->
+  let
+    total = List.sum items
+  in
+    toInt (toFloat total / 3.0)     // 多语句，须用 let in
+```
+
+多参数 Lambda 换行时，函数体缩进 2。体为 `do`/`do in`/`let in` 时，该关键字与 Lambda 体同级缩进。
+
+Lambda 参数支持解构：
+
+```kun
+addPair = \(x, y) -> x + y
+sumCoordinates = \{x, y} -> x + y
+firstThree = \[a, b, c] -> a + b + c
+```
+
 ## 控制流
 
 ### `case`
 
-`case` 必须在换行后开始，不能与 `=`、`->` 在同一行：
+`case` 必须在换行后开始，不能与 `=`、`->` 在同一行。`case` 整体缩进 2，分支模式缩进 0（从 `case` 算 +2），分支体缩进 +4（从 `case` 算）：
 
 ```kun
-// 正确
 result =
   case value of
     Ok r -> r
     Err _ -> default
-
-// 错误
-result = case value of   // case 与 = 在同一行
-  ...
 ```
 
-分支必须各自在独立行。简短分支可与 `->` 在同一行：
+分支按结果是否被消费分为 unbound 和 bound 两种格式。
+
+#### Unbound（结果未被消费——do 上下文中）
+
+当 `case` 结果未被值绑定、也不作为函数返回值，且处于 `do` 效应上下文时，各分支为隐式 `do`。分支内可直接书写多语句，不需显式 `do` 包裹，结果均为 `Unit`：
 
 ```kun
-case result of
-  Ok r -> r
-  Err _ -> default
+do
+  case File.readString path of
+    Ok text ->
+      IO.println "processing..."
+      process text
+    Err e ->
+      IO.println (toString e)
 ```
 
-多行分支体换行缩进（支持直接 `=` 绑定或 `let...in`）：
+`defer` 在 unbound 分支中属于该分支自身的隐式 `do`，退出分支时立即执行：
 
 ```kun
-// 直接多语句：`=` 绑定按声明顺序求值，末语句为结果
-case result of
-  Ok r ->
-    n = r * 2
-    n + 1
-  Err _ ->
-    default
-
-// 需要惰性求值仍使用 let...in
-case result of
-  Ok r ->
-    let
-      n = expensiveCompute r
-      m = n * 2
-    in
-      m + 1
-  Err _ ->
-    default
+do
+  case command of
+    Deploy config ->
+      defer cleanupDeploy ()
+      Cmd.ffmpeg {} "input.mp4" tmp |> Cmd.exec
+    Rollback version ->
+      defer cleanupRollback ()
+      Cmd.restore {} version |> Cmd.exec
 ```
+
+#### Bound（结果被值绑定或作为函数返回值）
+
+多语句分支必须用 `do in`（效应上下文）或 `let in`（纯上下文）包裹为单一表达式，单表达式分支直接书写即可。各分支结果类型必须相同：
+
+```kun
+// 效应上下文 bound — 多语句分支须用 do in
+result =
+  case File.readString path of
+    Ok text ->
+      text                            // 单表达式，不需包裹
+    Err e ->
+      do
+        IO.println (toString e)
+      in
+        defaultText                   // 多语句，须 do in 包裹
+
+// 纯上下文 bound — 多语句分支须用 let in
+processed =
+  case items of
+    [] ->
+      []
+    list ->
+      let
+        filtered = List.filter isPositive list
+        squared = List.map square filtered
+      in
+        List.sum squared |> List.singleton
+```
+
+> `case ... of` 内嵌 `do in`/`let in` 的 `do`/`let` 缩进为 +4（从外层 `case` 算），其内部 body 语句再缩进 +2。
 
 模式守卫使用 `when`：
 
@@ -246,121 +267,137 @@ case value of
 
 ### `if then else`
 
-`if`、`else if`、`else` 各自独立一行，分支体缩进 +2。分支体支持多语句序列，`else if` 链同样适用：
+`if`、`else if`、`else` 各自独立一行。分支规则与 `case` 一致，按 unbound / bound 区分：
+
+**Unbound（do 上下文中，结果未被消费）** — 分支为隐式 `do`，直接书写多语句：
+
+```kun
+do
+  if cfg.dryRun then
+    IO.println "\n  DRY RUN — exiting.\n"
+    Process.exit 0
+  else if cfg.verbose then
+    IO.println "proceeding..."
+    doWork ()
+  else
+    doWork ()
+```
+
+**Bound（结果被消费）** — 多语句分支须用 `do in`/`let in` 包裹，单表达式直接书写：
 
 ```kun
 result =
   if length parts < 4 then
     Err UnknownFormat
   else if length parts > 100 then
-    Err TooLong
+    let
+      msg = "too long"
+    in
+      Err (TooLong msg)
   else
     Ok parsed
 ```
 
-`else if` 链多语句分支体示例：
-
-```kun
-if condition then
-  prepare ()
-  doWork ()
-else if otherCondition then
-  IO.println "fallback"
-  fallback ()
-else
-  IO.println "no match"
-  default
-```
-
 #### 省略 else
 
-单纯产生副作用无需返回值时可省略 `else`——隐式类型为 `Unit`：
+省略 `else` 时隐式类型为 `Unit`。在 bound 位置省略 `else`，要求 `then` 分支也返回 `Unit`（用 `do`）：
 
 ```kun
-if cfg.dryRun then
-  IO.println "\n  DRY RUN — exiting.\n"
-  Process.exit 0
+// unbound 位置：无条件执行效应，省略 else
+do
+  if needsCleanup then
+    defer (File.remove tmp)
+    Cmd.cleanup {} |> Cmd.exec
+  // 无 else — if 结果被丢弃，隐式 Unit
+
+// bound 位置：then 分支须返回 Unit
+result =
+  if needsAbort then
+    do
+      IO.println "aborting"
+  // else 省略 → 隐式 Unit，与 then 的 do (Unit) 一致
 ```
 
-省略 `else` 的 `if` 仅限分支体类型为 `Unit`，不可出现在需返回值的位置。
-
-```kun
-parseLine = \line ->
-  let
-    parts = String.split "|" line
-  in
-    if length parts < 4 then
-      Err UnknownFormat
-    else
-      let
-        timestamp = parseTime parts[0]
-      in
-        Ok timestamp
-```
+> 省略 `else` 的 `if` 不可出现在需返回非 `Unit` 值的位置。
 
 ### `let in`
 
-`let` 和 `in` 各自在新行，不能与 `=` 在同一行：
+`let` 和 `in` 各自在新行，不能与 `=` 在同一行。body 内绑定缩进 +2（从 `let` 算），`in` 与 `let` 对齐：
 
 ```kun
-// 正确
 result =
   let
     x = 1
     y = 2
   in
     x + y
-
-// 错误
-result = let          // let 与 = 在同一行
-  x = 1
-in x + y              // in 与表达式在同一行
 ```
 
-单条绑定时省略 `let`：
+**空 body 约束**：`let in <expr>`（body 无任何绑定）为编译错误。直接在需要的位置书写 `<expr>` 即可：
 
 ```kun
-result =
-  x + y
+// ❌ 编译错误
+result = let in x + 1
+
+// ✅ 直接写表达式
+result = x + 1
+```
+
+单条绑定时，`let` 可省略（此时无 `in` 关键字）：
+
+```kun
+// ✅ 单一表达式，let in 省略
+result = x + y
 ```
 
 ### `do` / `do in`
 
-`do` 在新行开始，`in` 在独立行，与 `do` 对齐：
+`do` 在新行开始，body 内语句缩进 +2。`do`（无 `in`）结果固定为 `Unit`。
+
+`do in` 在副作用执行后返回值——`in` 在独立行，与 `do` 对齐，`in` 后表达式的结果即为整个 `do in` 的值（必须为非 `Unit`）：
 
 ```kun
-// 无返回值
+// do — 返回 Unit
 main = \_ ->
   do
     step1
     step2
 
-// 有返回值
-main = \_ ->
-  do
-    step1
-    step2
-  in
-    result
-```
-
-`do` 块内使用 `=` 绑定值，语句间无空行：
-
-```kun
+// do in — 返回值
 readConfig : Path -> Result Config Error
 readConfig = \path ->
   do
-    case File.readString path of
-      Ok content ->
-        do
-          lines  = String.split "\n" content
+    content = File.readString path
+  in
+    case content of
+      Ok text ->
+        let
+          lines = String.split "\n" text
           logDir = p"/var/log/myapp"
         in
           Ok (createDefaultConfig logDir)
       Err e -> Err (ConfigReadError e)
 ```
 
-`do` 块内的 `if` / `case` 分支自动继承效应上下文，可直接调用 `Cmd.*`，无需显式嵌套 `do`。嵌套 `do` 仅用于分支需要独立 `defer` 作用域时。
+**空 body 约束**：`do`（无 body）和 `do in <expr>`（body 无语句）为编译错误。
+
+同一函数 scope 内 `do`/`do in` 与 `let in` 不可互嵌套——效应上下文和纯上下文互斥。
+
+```kun
+// ✅ do 内嵌套 do
+do
+  result =
+    case items of
+      Ok item ->
+        do
+          IO.println "found"
+        in
+          process item
+      Err _ -> default
+
+// ❌ do 内出现 let in — 编译错误
+// ❌ let in 内出现 do — 编译错误
+```
 
 ## 管道
 
@@ -688,7 +725,7 @@ do
 
 ## defer
 
-`defer` 与所在块内语句同级缩进，延迟表达式使用 `()` 包裹：
+`defer` 与所在块内语句同级缩进，延迟表达式使用 `()` 包裹。`defer` 的作用域为最近的 `do` 块（含 unbound 分支中的隐式 `do`）：
 
 ```kun
 do
@@ -699,9 +736,11 @@ do
   Cmd.ffmpeg {} "input.mp4" tmp |> Cmd.exec
 ```
 
-多个 `defer` 按 LIFO 逆序执行。`defer` 适合"尽力清理"逻辑，不适合"必须成功"的操作。
+多个 `defer` 按 LIFO 逆序执行。unbound 分支中的 `defer` 属于该分支自身的隐式 `do`，退出分支时立即执行。`defer` 适合"尽力清理"逻辑，不适合"必须成功"的操作。
 
 ## if/case 分支体格式
+
+分支体格式取决于 `case`/`if` 表达式结果是否被消费。
 
 ### 单行分支体
 
@@ -715,56 +754,80 @@ case x of
 if done then result else fallback
 ```
 
-### 多行分支体
+### Unbound 分支（do 上下文中，结果未被消费）
 
-分支体自 `->` / `then` / `else` 后换行，缩进 2（从 `if`/`case` 算 +4）。后续语句以换行分隔，**末语句为分支结果**：
-
-```kun
-case x of
-  Ok v ->
-    IO.println f"got {v}"
-    process v
-  Err e ->
-    IO.println "error"
-    fallback e
-
-if condition then
-  IO.println "doing work..."
-  doWork ()
-else
-  IO.println "skipping"
-  default
-```
-
-分支边界通过关键字定界——`case` 分支结束于下一个 `pattern ->`，`if` 分支结束于 `else if` / `else`。解析器不依赖缩进识别分支边界——`case...of` 嵌套通过配对跟踪，嵌套 `case` 的 `pattern ->` 不触发外层分支终止。
-
-### 继承效应上下文
-
-外层 `do` 块的效应上下文自动传播到 `if`/`case` 的每个分支，多行分支体内可直接调用效应函数：
+分支为隐式 `do`，多语句直接书写，无需显式 `do` 包裹。分支体缩进 +4（从 `if`/`case` 算），语句间无空行：
 
 ```kun
 do
+  case content of
+    Ok text ->
+      IO.println f"got {text}"
+      process text
+    Err e ->
+      IO.println "error"
+      fallback e
+
   if condition then
     IO.println "doing work..."
     Cmd.tool {} target |> Cmd.exec
   else
     IO.println "skipping"
     Process.exit 1
-
-  Cmd.cleanup {} |> Cmd.exec
 ```
 
-嵌套 `do` 仅在分支需要独立 `defer` 作用域时使用：
+`defer` 在 unbound 分支中属于该分支自身的隐式 `do`，退出分支时立即执行：
 
 ```kun
 do
   if needsBackup then
-    do
-      defer (File.remove tmpBackup)
-      Cmd.tar {} sourcePath tmpBackup |> Cmd.exec
+    defer (File.remove tmpBackup)
+    Cmd.tar {} sourcePath tmpBackup |> Cmd.exec
   else
     IO.println "skipping backup"
 ```
+
+若需要分支与外层 `do` 共享 `defer` 生命周期，将 `defer` 语句写在外层 `do` 中：
+
+```kun
+do
+  defer globalCleanup ()
+  if needsBackup then
+    Cmd.tar {} sourcePath tmpBackup |> Cmd.exec
+  else
+    IO.println "skipping backup"
+  // globalCleanup 在此执行
+```
+
+### Bound 分支（结果被值绑定或作为函数返回值）
+
+多语句分支必须用 `do in`（效应上下文）或 `let in`（纯上下文）包裹为单一表达式。内嵌 `do`/`let` 缩进 +4（从外层 `if`/`case` 算），内部语句再 +2：
+
+```kun
+// 效应上下文 — 多语句须用 do in 包裹
+result =
+  case File.readString path of
+    Ok text ->
+      text
+    Err e ->
+      do
+        IO.println (toString e)
+      in
+        defaultText
+
+// 纯上下文 — 多语句须用 let in 包裹
+processed =
+  if list |> List.isEmpty then
+    []
+  else
+    let
+      filtered = List.filter isPositive list
+      squared = List.map square filtered
+    in
+      List.sum squared |> List.singleton
+```
+
+分支边界通过关键字定界——`case` 分支结束于下一个 `pattern ->`，`if` 分支结束于 `else if` / `else`。解析器不依赖缩进识别分支边界——`case...of` 嵌套通过配对跟踪，嵌套 `case` 的 `pattern ->` 不触发外层分支终止。
 
 ## 注释
 
@@ -865,6 +928,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.19 | 单一表达式范式配套更新：缩进表新增 `let in` body、`do in` body、branch 内嵌 `do`/`let` 条目；函数定义按效应/纯函数分离格式说明（效应函数必须 `do`/`do in`、纯函数体单一表达式可省略 `let in`）；`case`/`if` 分支按 unbound/bound 区分格式（unbound 隐式 `do` 不需包裹、bound 多语句须 `do in`/`let in` 包裹）；`let in` 新增空 body 编译错误说明；`do`/`do in` 新增空 body 约束和互斥说明；分支体格式章节重写（移除"继承效应上下文"、新增 unbound/bound 分支格式、defer 在 unbound 分支中的格式） |
 | 2026.06.18 | 新增 Or 模式格式化规则——短模式同行、长模式换行缩进、`when` 守卫位置 |
 | 2026.06.13 | 代码块标签修正；零参效应 Lambda 示例补充 `do` 块 |
 | 2026.06.10 | 代码格式化规范初始定义 |

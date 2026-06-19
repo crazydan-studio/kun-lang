@@ -95,8 +95,8 @@ do
     Ok tmp ->
       defer (File.remove tmp)
       Cmd.ffmpeg {} "input.mp4" tmp |> Cmd.exec
+      // defer (File.remove tmp) 在此分支退出时执行
     Err _ -> IO.println "failed to create temp file"
-// do 块退出时自动 remove tmp
 ```
 
 ## 安全模型
@@ -105,7 +105,7 @@ do
 
 ## 语法设计
 
-语法借鉴 Elm、Haskell 和 Rust（以 Elm 为主），深度融合 Unix 哲学，确保简洁、统一、一致。所有数据必须赋初值，消除 null，支持自动类型推断。
+Kun 采用**单一表达式**范式——程序中所有构造均为具有确定类型值的表达式。`do` 块固定返回 `Unit`，`do in` 返回值至外部作用域，`let in` 在纯上下文中引入局部定义并返回值。`case`/`if` 根据结果是否被消费决定分支的包裹规则。语法借鉴 Elm、Haskell 和 Rust（以 Elm 为主），深度融合 Unix 哲学，确保简洁、统一、一致。所有数据必须赋初值，消除 null，支持自动类型推断。
 
 ## 运行时执行
 
@@ -122,6 +122,7 @@ do
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.19 | 单一表达式范式概述更新：语法设计章节新增范式简介；defer 示例更新（分支退出时执行而非 outer do 退出时） |
 | 2026.06.18 | Kun Shell 交互式环境标注 [推迟 v2.0] |
 | 2026.06.16 | 命令调用描述更新：Command 执行模型同步（`Cmd.exec` 显式执行替代 `do` 块隐式执行），修复 defer 示例中未消费 Command |
 | 2026.06.13 | 求值策略标题修正；User/Group 参考更正为 Uid/Gid |

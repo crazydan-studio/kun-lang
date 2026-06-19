@@ -2741,16 +2741,16 @@ import Test
 ### API
 
 ```kun
-// [PureKun] 断言两个值相等
+// 断言两个值相等 — 效应函数（返回 Unit）
 equal : a -> a -> String -> Unit
 
-// [PureKun] 断言条件为 true
+// 断言条件为 true — 效应函数（返回 Unit）
 ok : Bool -> String -> Unit
 
-// [PureKun] 断言不相等
+// 断言不相等 — 效应函数（返回 Unit）
 notEqual : a -> a -> Unit
 
-// [PureKun] 断言近似相等（浮点容差）
+// 断言近似相等（浮点容差）— 效应函数（返回 Unit）
 approxEqual : Float -> Float -> Float -> Unit
 
 // [PureKun] 断言结果为 Ok
@@ -2762,16 +2762,18 @@ isErr : Result a e -> e
 // [PureKun] 断言值非 Nil
 isSome : ?a -> a
 
-// [PureKun] 断言值为 Nil
+// 断言值为 Nil — 效应函数（返回 Unit）
 isNil : ?a -> Unit
 
-// [PureKun] 断言 thunk 执行时 panic——捕获任何 panic 即通过
+// 断言 thunk 执行时 panic — 效应函数（返回 Unit）
 panics : (-> a) -> String -> Unit
 ```
 
 - `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
 - `ok condition message`：`condition` 为 `true` 通过，否则 panic
-- `panics thunk message`：`thunk` 为 `-> a` 纯函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`panics` 仅接受纯函数 thunk（无 `do` 块或效应命名空间调用），所有 `Test` 断言均为纯函数
+- `equal`、`ok`、`notEqual`、`approxEqual`、`isNil`、`panics` 返回 `Unit`——纯函数返回 `Unit` 无意义（无输出、无副作用），根据单一表达式范式的类型系统规则，必须为效应函数。调用这些断言须在 `do` 上下文中
+- `isOk`、`isErr`、`isSome` 返回非 `Unit` 值，可保持为纯函数
+- `panics thunk message`：`thunk` 为 `-> a` 纯函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`panics` 仅接受纯函数 thunk（无 `do` 块或效应命名空间调用）
 
 ### 示例
 
@@ -2858,6 +2860,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.19 | Test 模块断言分类修正（单一表达式范式配套）：`equal`/`ok`/`notEqual`/`approxEqual`/`isNil`/`panics` 从 `[PureKun]` 改为效应函数（返回 `Unit` 的纯函数违反类型系统规则）；`isOk`/`isErr`/`isSome` 保持 `[PureKun]`（返回非 `Unit` 值）；新增效应断言调用须在 `do` 上下文中的说明 |
 | 2026.06.18 | Cmd API 精简：移除 `execSafe`（`Result Unit`）、`stdoutToString`、`stderrToString`；`execSafe` 重定义为 `Command -> Result (Stream String) CommandError`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
 | 2026.06.18 | 审计修复：`Stream.string`/`Stream.bytes` 分类精确化——命令输出流消费为效应操作，纯流可在外使用 |
 | 2026.06.18 | 审计修复：`List.minimum`/`List.maximum` 重命名为 `min`/`max`，新增比较器参数 `(a -> a -> Int)`（匹配 `sort` 风格）；`File.copy` 标签修正 `[PureKun]` → `[Primitive]`；`Test.panics` 示例修正为不依赖 panic 的断言；新增「推迟特性一览」表；`Cli.parse`/`Parser.Record` 添加 `[推迟 v0.5]` 标注；`Cmd.withStdin` 添加重载消歧说明；`DateTime.format` 添加 f-string `%` 引导符说明；File 模块新增「已移除函数」小节 |
