@@ -17,10 +17,10 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
+| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | 七轮标准库审计与精简（41→36 模块，−30 函数，+15 函数补全，Math→Float/FileType+FileMode+FileStat→File/Pid+ExitCode→Process 合并）；跨文档一致性修复（移除陈旧引用：Math/Path.cwd/Int.neg/Float.neg/Cmd.withStdinFile 遗漏；EffectFn/Fn 规则澄清；陈旧文档废弃标注；版本历史补全）；File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`，新增 `Stat.isDir`/`Stat.isFile`/`Stat.isSymlink` 纯访问器）；示例修复（Verifier.kun `let…in`+`do` 违规、Builder.kun+Dockerizer.kun 适配 `File.stat`） |
+| 最近完成 | 单一表达式范式全面定稿：语法/类型/格式化/架构 7 份文档重写；跨文档一致性修复 4 处；Test 模块效应函数分类修正；示例代码 9 文件迁移至 do in 模式 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -49,6 +49,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-19 | 单一表达式范式全面定稿——设计讨论、7 份文档重写、跨文档一致性修复、Test 模块效应分类修正、9 示例文件迁移 | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
 | 2026-06-17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`→`Stat` 纯访问器）；示例修复（Verifier.kun `let…in`+`do`、Builder.kun+Dockerizer.kun `File.stat` 适配） | 设计+修复 | ✅ standard-library、syntax、examples | ✅ writing-conventions | `implement` |
 | 2026-06-16 | 标准库模块必要性分析与精简（移除 5 模块 + 19 函数、新增 4 项 P0、跨 14 文件传播） | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions、closure-audit | `implement` |
 | 2026-06-15 | Zig 0.13 → 0.17 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
@@ -71,6 +72,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.19 | 单一表达式范式全面定稿——活跃工作/最近完成/任务路由更新 |
 | 2026.06.18 | Kun Shell 标注 [推迟 v2.0]，二进制产物更新（`kun-shell` 标记推迟） |
 | 2026.06.17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`）；示例重构（`File.stat` 替代多函数） |
 | 2026.06.17 | 标准库精简 + 跨文档一致性传播 |
