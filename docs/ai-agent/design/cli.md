@@ -395,31 +395,31 @@ parse : CliSpec -> List String -> Result a CliError
 
 | 声明器 | 目标字段类型 | 行为 |
 | -------- | ------------ | ------ |
-| `flag "dry-run" 'd' "h"` | `Bool` | `--dry-run`/`-d` → true，不出现 → false |
-| `flag "amend" Nil "h"` | `Bool` | `--amend` → true（仅长选项），不出现 → false |
-| `flag "optional" 'o' "h" \|> withNegation` | `Bool` | `--optional` → true，`--no-optional` → false，不出现 → false |
-| `flag "debug" 'd' "h" \|> withDefault true` | `Bool` | 不出现 → true（缺省开启）**须配合 `withNegation` 使用**；无 `withNegation` 则 flag 永远为 true |
-| `flag "debug" Nil "h" \|> withEnvVar "DEBUG"` | `Bool` | 命令行未提供时从 `$DEBUG` 读取真值 |
-| `flag "verbose" 'v' "h" \|> withRequires "output"` | `Bool` | 出现时要求 `--output` 也出现 |
-| `count "verbosity" 'v' "h"` | `Int` | `-v` → 1，`-vvv` → 3，不出现 → 0 |
-| `count "verbose" Nil "h"` | `Int` | `--verbose` → 1，每次出现 +1（仅长选项），不出现 → 0 |
-| `count "verbosity" 'v' "h" \|> withDefault 2` | `Int` | 不出现 → 2（起始计数） |
-| `count "verbosity" 'v' "h" \|> withValidator (Validator.range 0 10)` | `Int` | 计数值必须在 0–10 内 |
-| `count "verbosity" 'v' "h" \|> withRequires "output"` | `Int` | 出现时要求 `--output` 也出现 |
-| `option "output" 'o' "h"` | `?T` | `--output VAL`/`-o VAL` → 对应解析值，不出现 → Nil |
-| `option "config" 'c' "h"`（无 default） | `T` | 必填，`--config VAL`/`-c VAL` 必须提供，不出现 → 错误 |
-| `option "max-jobs" 'j' "h" \|> withDefault d` | `T` | 不出现 → `d` |
-| `option "port" 'p' "h"` | `List T` | 可重复，`-p 80 -p 443` → `[80, 443]`，不出现 → `[]` |
-| `option "port" 'p' "h" \|> withEnvVar "PORT"` | `T` / `?T` | 命令行未提供时从 `$PORT` 读取 |
-| `option "level" 'l' "h" \|> withValidator v` | `?T` / `T` | 解析后调用 v；`Ok` 通过，`Err` → 报错 |
-| `option "port" 'p' "h" \|> withValidator (Validator.range 1 65535)` | `Int` | 值必须在 1–65535 范围内 |
-| `option "config" Nil "h"` | `?T` / `T` / `List T` | 同 `option`，无短选项（仅 `--config VAL`） |
-| `option "password" 'p' "h" \|> withRequires "username"` | `?T` / `T` | 出现时要求 `--username` 也出现 |
-| `arg "source-dir" "h"` | `T`（非 Bool/List） | 必填，1 个 token |
-| `arg "output-dir" "h"` | `?T` | 可选，0 或 1 个 token；`\|> withDefault d` → 不出现 → `d` |
-| `arg "name" "h" \|> withDefault d` | `T` | 不出现 → `d`（将必填参数变为可选） |
-| `arg "files" "h"` | `List T` | 0-N 个 token（仅可为最后一个位置参数） |
-| `arg "count" "h" \|> withValidator (Validator.range 1 100)` | `Int` | 解析后调用校验器 |
+| `Cli.flag "dry-run" 'd' "h"` | `Bool` | `--dry-run`/`-d` → true，不出现 → false |
+| `Cli.flag "amend" Nil "h"` | `Bool` | `--amend` → true（仅长选项），不出现 → false |
+| `Cli.flag "optional" 'o' "h" \|> Cli.withNegation` | `Bool` | `--optional` → true，`--no-optional` → false，不出现 → false |
+| `Cli.flag "debug" 'd' "h" \|> Cli.withDefault true` | `Bool` | 不出现 → true（缺省开启）**须配合 `Cli.withNegation` 使用**；无 `Cli.withNegation` 则 flag 永远为 true |
+| `Cli.flag "debug" Nil "h" \|> Cli.withEnvVar "DEBUG"` | `Bool` | 命令行未提供时从 `$DEBUG` 读取真值 |
+| `Cli.flag "verbose" 'v' "h" \|> Cli.withRequires "output"` | `Bool` | 出现时要求 `--output` 也出现 |
+| `Cli.count "verbosity" 'v' "h"` | `Int` | `-v` → 1，`-vvv` → 3，不出现 → 0 |
+| `Cli.count "verbose" Nil "h"` | `Int` | `--verbose` → 1，每次出现 +1（仅长选项），不出现 → 0 |
+| `Cli.count "verbosity" 'v' "h" \|> Cli.withDefault 2` | `Int` | 不出现 → 2（起始计数） |
+| `Cli.count "verbosity" 'v' "h" \|> Cli.withValidator (Validator.range 0 10)` | `Int` | 计数值必须在 0–10 内 |
+| `Cli.count "verbosity" 'v' "h" \|> Cli.withRequires "output"` | `Int` | 出现时要求 `--output` 也出现 |
+| `Cli.option "output" 'o' "h"` | `?T` | `--output VAL`/`-o VAL` → 对应解析值，不出现 → Nil |
+| `Cli.option "config" 'c' "h"`（无 default） | `T` | 必填，`--config VAL`/`-c VAL` 必须提供，不出现 → 错误 |
+| `Cli.option "max-jobs" 'j' "h" \|> Cli.withDefault d` | `T` | 不出现 → `d` |
+| `Cli.option "port" 'p' "h"` | `List T` | 可重复，`-p 80 -p 443` → `[80, 443]`，不出现 → `[]` |
+| `Cli.option "port" 'p' "h" \|> Cli.withEnvVar "PORT"` | `T` / `?T` | 命令行未提供时从 `$PORT` 读取 |
+| `Cli.option "level" 'l' "h" \|> Cli.withValidator v` | `?T` / `T` | 解析后调用 v；`Ok` 通过，`Err` → 报错 |
+| `Cli.option "port" 'p' "h" \|> Cli.withValidator (Validator.range 1 65535)` | `Int` | 值必须在 1–65535 范围内 |
+| `Cli.option "config" Nil "h"` | `?T` / `T` / `List T` | 同 `option`，无短选项（仅 `--config VAL`） |
+| `Cli.option "password" 'p' "h" \|> Cli.withRequires "username"` | `?T` / `T` | 出现时要求 `--username` 也出现 |
+| `Cli.arg "source-dir" "h"` | `T`（非 Bool/List） | 必填，1 个 token |
+| `Cli.arg "output-dir" "h"` | `?T` | 可选，0 或 1 个 token；`\|> Cli.withDefault d` → 不出现 → `d` |
+| `Cli.arg "name" "h" \|> Cli.withDefault d` | `T` | 不出现 → `d`（将必填参数变为可选） |
+| `Cli.arg "files" "h"` | `List T` | 0-N 个 token（仅可为最后一个位置参数） |
+| `Cli.arg "count" "h" \|> Cli.withValidator (Validator.range 1 100)` | `Int` | 解析后调用校验器 |
 
 ### 名字冲突与保留字
 
