@@ -621,34 +621,88 @@ fn tryReadMultiCharOp(state: *LexerState, start: ast.SourceLoc) !bool {
     return false;
 }
 
-test "lexer simple tokens" {
-    const source = "42 + 1";
+// ============ Basic tokens ============
+
+test "lexer int literal" {
+    const source = "42 0xFF 0o77 0b1010 1_000_000";
     const tokens = try tokenize(std.testing.allocator, source);
-    try std.testing.expectEqual(@as(usize, 4), tokens.len);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[0].kind);
     try std.testing.expectEqualStrings("42", tokens[0].slice);
-    try std.testing.expectEqual(TokenKind.plus, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.int_literal, tokens[1].kind);
+    try std.testing.expectEqualStrings("0xFF", tokens[1].slice);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[2].kind);
-    try std.testing.expectEqual(TokenKind.eof, tokens[3].kind);
+    try std.testing.expectEqual(TokenKind.int_literal, tokens[3].kind);
+    try std.testing.expectEqual(TokenKind.int_literal, tokens[4].kind);
+    try std.testing.expectEqualStrings("1_000_000", tokens[4].slice);
 }
 
-test "lexer keywords" {
-    const source = "let x in do case of if then else type";
+test "lexer float literal" {
+    const source = "3.14 2.5e10 1.0";
     const tokens = try tokenize(std.testing.allocator, source);
-    try std.testing.expectEqual(TokenKind.kw_let, tokens[0].kind);
-    try std.testing.expectEqual(TokenKind.ident, tokens[1].kind);
-    try std.testing.expectEqual(TokenKind.kw_in, tokens[2].kind);
-    try std.testing.expectEqual(TokenKind.kw_do, tokens[3].kind);
-    try std.testing.expectEqual(TokenKind.kw_case, tokens[4].kind);
-    try std.testing.expectEqual(TokenKind.kw_of, tokens[5].kind);
-    try std.testing.expectEqual(TokenKind.kw_if, tokens[6].kind);
-    try std.testing.expectEqual(TokenKind.kw_then, tokens[7].kind);
-    try std.testing.expectEqual(TokenKind.kw_else, tokens[8].kind);
-    try std.testing.expectEqual(TokenKind.kw_type, tokens[9].kind);
-    try std.testing.expectEqual(TokenKind.eof, tokens[10].kind);
+    try std.testing.expectEqual(TokenKind.float_literal, tokens[0].kind);
+    try std.testing.expectEqualStrings("3.14", tokens[0].slice);
+    try std.testing.expectEqual(TokenKind.float_literal, tokens[1].kind);
+    try std.testing.expectEqualStrings("2.5e10", tokens[1].slice);
+    try std.testing.expectEqual(TokenKind.float_literal, tokens[2].kind);
 }
 
-test "lexer operators" {
+test "lexer bool and nil" {
+    const source = "true false Nil";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.kw_true, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.kw_false, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.kw_nil, tokens[2].kind);
+}
+
+test "lexer string with escapes" {
+    const source = "\"hello\\nworld\" \"tab\\there\"";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.string_literal, tokens[0].kind);
+    try std.testing.expectEqualStrings("\"hello\\nworld\"", tokens[0].slice);
+    try std.testing.expectEqual(TokenKind.string_literal, tokens[1].kind);
+}
+
+test "lexer char literal" {
+    const source = "'A' '\\n' '好'";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.char_literal, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.char_literal, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.char_literal, tokens[2].kind);
+}
+
+test "lexer hex int vs bytes" {
+    // 0xFF has 2 hex digits -> int; 0x48656C6C6F has 10 hex digits -> bytes
+    const source = "0xFF 0x48656C6C6F";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.int_literal, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.bytes_literal, tokens[1].kind);
+    try std.testing.expectEqualStrings("0x48656C6C6F", tokens[1].slice);
+}
+
+test "lexer multiline string" {
+    const source = "\"\"\"\nhello\nworld\n\"\"\"";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.multiline_string, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.eof, tokens[1].kind);
+}
+
+test "lexer single char operators" {
+    const source = "= + - * < > , . :";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.assign, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.plus, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.minus, tokens[2].kind);
+    try std.testing.expectEqual(TokenKind.star, tokens[3].kind);
+    try std.testing.expectEqual(TokenKind.lt, tokens[4].kind);
+    try std.testing.expectEqual(TokenKind.gt, tokens[5].kind);
+    try std.testing.expectEqual(TokenKind.comma, tokens[6].kind);
+    try std.testing.expectEqual(TokenKind.dot, tokens[7].kind);
+    try std.testing.expectEqual(TokenKind.colon, tokens[8].kind);
+}
+
+// ============ Multi-char operators ============
+
+test "lexer multi-char operators" {
     const source = "|> <| >> << ++ ?. ?? && || == /= <= >= -> | \\";
     const tokens = try tokenize(std.testing.allocator, source);
     try std.testing.expectEqual(TokenKind.pipe, tokens[0].kind);
@@ -669,12 +723,43 @@ test "lexer operators" {
     try std.testing.expectEqual(TokenKind.backslash, tokens[15].kind);
 }
 
-test "lexer string with escapes" {
-    const source = "\"hello\\nworld\"";
+// ============ Keywords ============
+
+test "lexer all keywords" {
+    const source = "type case of if then else do in let defer import export as when not true false Nil";
     const tokens = try tokenize(std.testing.allocator, source);
-    try std.testing.expectEqual(TokenKind.string_literal, tokens[0].kind);
-    try std.testing.expectEqualStrings("\"hello\\nworld\"", tokens[0].slice);
+    const expected = [_]TokenKind{
+        .kw_type, .kw_case, .kw_of, .kw_if, .kw_then, .kw_else,
+        .kw_do, .kw_in, .kw_let, .kw_defer, .kw_import, .kw_export,
+        .kw_as, .kw_when, .kw_not, .kw_true, .kw_false, .kw_nil,
+    };
+    for (expected, 0..) |exp_kind, i| {
+        try std.testing.expectEqual(exp_kind, tokens[i].kind);
+    }
 }
+
+// ============ Brackets ============
+
+test "lexer basic brackets" {
+    const source = "( ) [ ] { }";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.lparen, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.rparen, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.lbrack, tokens[2].kind);
+    try std.testing.expectEqual(TokenKind.rbrack, tokens[3].kind);
+    try std.testing.expectEqual(TokenKind.lbrace, tokens[4].kind);
+    try std.testing.expectEqual(TokenKind.rbrace, tokens[5].kind);
+}
+
+test "lexer hash brackets" {
+    const source = "#( #[ #{";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.hash_lparen, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.hash_lbrack, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.hash_lbrace, tokens[2].kind);
+}
+
+// ============ Comments ============
 
 test "lexer comment" {
     const source = "42 // this is a comment\n1";
@@ -683,30 +768,41 @@ test "lexer comment" {
     try std.testing.expectEqual(TokenKind.int_literal, tokens[1].kind);
 }
 
-test "lexer prefix strings" {
-    const source = "p\"/tmp\" f\"hello {name}\"";
+// ============ Prefix strings ============
+
+test "lexer path and f-string" {
+    const source = "p\"/tmp\" f\"hello {name}\" r\"[0-9]+\"";
     const tokens = try tokenize(std.testing.allocator, source);
     try std.testing.expectEqual(TokenKind.path_literal, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.string_literal, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.regex_literal, tokens[2].kind);
 }
 
-test "lexer duration" {
-    const source = "5s 100ms 2h 30m 1d";
+test "lexer multiline f-string" {
+    const source = "f\"\"\"\nhello {name}\n\"\"\"";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.multiline_string, tokens[0].kind);
+}
+
+// ============ Duration ============
+
+test "lexer duration all units" {
+    const source = "5s 100ms 2h 30m 1d 500us 200ns";
     const tokens = try tokenize(std.testing.allocator, source);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[0].kind);
+    try std.testing.expectEqualStrings("5s", tokens[0].slice);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[1].kind);
+    try std.testing.expectEqualStrings("100ms", tokens[1].slice);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[2].kind);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[3].kind);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[4].kind);
+    try std.testing.expectEqual(TokenKind.duration_literal, tokens[5].kind);
+    try std.testing.expectEqualStrings("500us", tokens[5].slice);
+    try std.testing.expectEqual(TokenKind.duration_literal, tokens[6].kind);
+    try std.testing.expectEqualStrings("200ns", tokens[6].slice);
 }
 
-test "lexer brackets" {
-    const source = "#( #[ #{";
-    const tokens = try tokenize(std.testing.allocator, source);
-    try std.testing.expectEqual(TokenKind.hash_lparen, tokens[0].kind);
-    try std.testing.expectEqual(TokenKind.hash_lbrack, tokens[1].kind);
-    try std.testing.expectEqual(TokenKind.hash_lbrace, tokens[2].kind);
-}
+// ============ Identifiers ============
 
 test "lexer type ident" {
     const source = "Int String MyType";
@@ -714,4 +810,56 @@ test "lexer type ident" {
     try std.testing.expectEqual(TokenKind.type_ident, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.type_ident, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.type_ident, tokens[2].kind);
+}
+
+test "lexer ident underscores" {
+    const source = "my_var _private __magic";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.ident, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.ident, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.ident, tokens[2].kind);
+}
+
+// ============ Integration ============
+
+test "lexer expression integration" {
+    const source = "add 1 (2 + 3)";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.ident, tokens[0].kind);
+    try std.testing.expectEqualStrings("add", tokens[0].slice);
+    try std.testing.expectEqual(TokenKind.int_literal, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.lparen, tokens[2].kind);
+    try std.testing.expectEqual(TokenKind.int_literal, tokens[3].kind);
+    try std.testing.expectEqual(TokenKind.plus, tokens[4].kind);
+    try std.testing.expectEqual(TokenKind.int_literal, tokens[5].kind);
+    try std.testing.expectEqual(TokenKind.rparen, tokens[6].kind);
+}
+
+test "lexer empty" {
+    const tokens = try tokenize(std.testing.allocator, "");
+    try std.testing.expectEqual(@as(usize, 1), tokens.len);
+    try std.testing.expectEqual(TokenKind.eof, tokens[0].kind);
+}
+
+test "lexer only comment" {
+    const tokens = try tokenize(std.testing.allocator, "// just a comment");
+    try std.testing.expectEqual(@as(usize, 1), tokens.len);
+    try std.testing.expectEqual(TokenKind.eof, tokens[0].kind);
+}
+
+test "lexer multi-char op precedence" {
+    // |> should be one token, not pipe then gt
+    const source = "|>";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(@as(usize, 2), tokens.len);
+    try std.testing.expectEqual(TokenKind.pipe, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.eof, tokens[1].kind);
+}
+
+test "lexer minus vs arrow" {
+    // - is minus, -> is arrow
+    const source = "- ->";
+    const tokens = try tokenize(std.testing.allocator, source);
+    try std.testing.expectEqual(TokenKind.minus, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.arrow, tokens[1].kind);
 }
