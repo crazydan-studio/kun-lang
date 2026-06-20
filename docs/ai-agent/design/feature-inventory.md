@@ -65,7 +65,7 @@
 
 > **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型，但不在 MVP（v0.1.0）范围。Cli 和 Parser.Record 均推迟到 v0.5 实施，届时编译期内省基础设施（基于 Zig comptime + @typeInfo）与二者同时实现。
 
-| Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令 |
+| Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令（实现推迟 v1.0） |
 
 ### 命令系统
 
