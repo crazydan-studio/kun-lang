@@ -242,6 +242,7 @@ fn getPrecedence(kind: TokenKind) ?OpPrecedence {
         .compose_rev => OpPrecedence{ .op = .{ .compose_rev = {} }, .prec = 2 },
         .or_op => OpPrecedence{ .op = .{ .binary = .or_ }, .prec = 3 },
         .and_op => OpPrecedence{ .op = .{ .binary = .and_ }, .prec = 4 },
+        .nil_coal => OpPrecedence{ .op = .{ .binary = .concat }, .prec = 4 }, // reuse concat for ?? semantics
         .eq => OpPrecedence{ .op = .{ .binary = .eq }, .prec = 5 },
         .neq => OpPrecedence{ .op = .{ .binary = .neq }, .prec = 5 },
         .lt => OpPrecedence{ .op = .{ .binary = .lt }, .prec = 5 },
@@ -359,6 +360,55 @@ fn spanOf(expr: *const Expr) Span {
     };
 }
 
+fn unescapeString(allocator: std.mem.Allocator, raw: []const u8) ![]const u8 {
+    if (std.mem.indexOfScalar(u8, raw, '\\') == null) return raw;
+
+    var result = std.ArrayListUnmanaged(u8).empty;
+    var i: usize = 0;
+    while (i < raw.len) : (i += 1) {
+        if (raw[i] == '\\') {
+            i += 1;
+            if (i >= raw.len) break;
+            const c: u8 = switch (raw[i]) {
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                '0' => 0,
+                '\\' => '\\',
+                '"' => '"',
+                '\'' => '\'',
+                'x' => blk: {
+                    if (i + 2 < raw.len) {
+                        const hex = raw[i + 1 .. i + 3];
+                        const val = std.fmt.parseInt(u8, hex, 16) catch break :blk raw[i];
+                        i += 2;
+                        break :blk val;
+                    }
+                    break :blk raw[i];
+                },
+                'u' => blk: {
+                    if (raw.len > i + 1 and raw[i + 1] == '{') {
+                        const close = std.mem.indexOfScalarPos(u8, raw, i + 2, '}') orelse break :blk raw[i];
+                        const code_str = raw[i + 2 .. close];
+                        const cp = std.fmt.parseInt(u21, code_str, 16) catch break :blk raw[i];
+                        var buf: [4]u8 = undefined;
+                        const len = std.unicode.utf8Encode(cp, &buf) catch break :blk raw[i];
+                        try result.appendSlice(allocator, buf[0..len]);
+                        i = close;
+                        continue;
+                    }
+                    break :blk raw[i];
+                },
+                else => raw[i],
+            };
+            try result.append(allocator, c);
+        } else {
+            try result.append(allocator, raw[i]);
+        }
+    }
+    return result.items;
+}
+
 fn parsePrefix(state: *ParserState) ParserError!Expr {
     const start = state.current().span.start;
     switch (state.peek()) {
@@ -373,7 +423,10 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                     else => 10,
                 };
             } else 10;
-            const value = try std.fmt.parseInt(i64, slice, radix);
+            // Strip 0x/0o/0b prefix for parseInt
+            const value_start: usize = if (radix != 10) 2 else 0;
+            const stripped = slice[value_start..];
+            const value = try std.fmt.parseInt(i64, stripped, radix);
             return Expr{ .int_literal = .{ .value = value, .span = tok.span } };
         },
         .float_literal => {
@@ -383,7 +436,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         },
         .string_literal => {
             const tok = state.advance();
-            const inner = tok.slice[1 .. tok.slice.len - 1];
+            const inner = try unescapeString(state.allocator, tok.slice[1 .. tok.slice.len - 1]);
             return Expr{ .string_literal = .{ .value = inner, .span = tok.span } };
         },
         .multiline_string => {
@@ -407,17 +460,11 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             if (tok.slice.len >= 3) {
                 const inner = tok.slice[1 .. tok.slice.len - 1];
                 if (inner[0] == '\\') {
-                    ch = switch (inner[1]) {
-                        'n' => '\n',
-                        't' => '\t',
-                        'r' => '\r',
-                        '0' => 0,
-                        '\'' => '\'',
-                        '\\' => '\\',
-                        else => @intCast(inner[1]),
-                    };
+                    const unescaped = try unescapeString(state.allocator, inner);
+                    if (unescaped.len > 0) ch = unescaped[0];
                 } else {
-                    ch = @intCast(inner[0]);
+                    const bytes = std.unicode.utf8ByteSequenceLength(inner[0]) catch 1;
+                    ch = std.unicode.utf8Decode(inner[0..bytes]) catch @intCast(inner[0]);
                 }
             }
             return Expr{ .char_literal = .{ .value = ch, .span = tok.span } };
@@ -458,16 +505,15 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         },
         .duration_literal => {
             const tok = state.advance();
-            var value: i64 = 0;
-            var unit: ast.DurationUnit = .s;
             const slice = tok.slice;
             var i: usize = 0;
             while (i < slice.len and slice[i] >= '0' and slice[i] <= '9') {
-                value = value * 10 + @as(i64, slice[i] - '0');
                 i += 1;
             }
+            const num_str = slice[0..i];
+            const value = try std.fmt.parseInt(i64, num_str, 10);
             const suffix = slice[i..];
-            unit = if (std.mem.eql(u8, suffix, "s")) .s
+            const unit: ast.DurationUnit = if (std.mem.eql(u8, suffix, "s")) .s
             else if (std.mem.eql(u8, suffix, "ms")) .ms
             else if (std.mem.eql(u8, suffix, "min")) .min
             else if (std.mem.eql(u8, suffix, "h")) .h

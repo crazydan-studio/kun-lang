@@ -79,6 +79,7 @@ pub const TokenKind = enum {
     multiline_string,
     // special
     exclamation, // !
+    question,    // ?
     eof,
     invalid,
 };
@@ -347,6 +348,7 @@ pub fn tokenize(allocator: std.mem.Allocator, source: []const u8) ![]const Token
             '.' => { _ = state.advance(); try state.pushToken(.dot, ".", state.span(start)); },
             ':' => { _ = state.advance(); try state.pushToken(.colon, ":", state.span(start)); },
             '!' => { _ = state.advance(); try state.pushToken(.exclamation, "!", state.span(start)); },
+            '?' => { _ = state.advance(); try state.pushToken(.question, "?", state.span(start)); },
             else => {
                 // Duration literal: number + unit suffix
                 if (isDigit(next_ch)) {
