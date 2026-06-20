@@ -275,31 +275,30 @@ pub fn tokenize(allocator: std.mem.Allocator, source: []const u8) ![]const Token
             continue;
         }
 
-        if (isDigit(next_ch) or (next_ch == '0' and (state.peekN(1) == @as(u8, 'x') or state.peekN(1) == @as(u8, 'o') or state.peekN(1) == @as(u8, 'b')))) {
-            if (next_ch == '0') {
-                const n1 = state.peekN(1);
-                if (n1 == @as(u8, 'x')) {
-                    // Hex or bytes
+        if (next_ch == '0') {
+            if (state.peekN(1)) |n1| {
+                if (n1 == 'x' or n1 == 'X') {
                     _ = state.advance(); // 0
-                    _ = state.advance(); // x
+                    _ = state.advance(); // x/X
                     try readHexLiteral(&state, start);
                     continue;
                 }
-                if (n1 == @as(u8, 'o')) {
-                    // Octal
+                if (n1 == 'o' or n1 == 'O') {
                     _ = state.advance(); // 0
-                    _ = state.advance(); // o
+                    _ = state.advance(); // o/O
                     try readOctalLiteral(&state, start);
                     continue;
                 }
-                if (n1 == @as(u8, 'b')) {
-                    // Binary
+                if (n1 == 'b' or n1 == 'B') {
                     _ = state.advance(); // 0
-                    _ = state.advance(); // b
+                    _ = state.advance(); // b/B
                     try readBinaryLiteral(&state, start);
                     continue;
                 }
             }
+        }
+
+        if (isDigit(next_ch)) {
             try readNumber(&state, start);
             continue;
         }

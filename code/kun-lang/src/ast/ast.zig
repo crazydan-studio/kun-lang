@@ -113,7 +113,7 @@ pub const Expr = union(enum) {
     record_access: struct { record: *const Expr, field: []const u8, span: Span },
     record_update: struct { record: *const Expr, fields: []const RecordField, span: Span },
     map_literal: struct { entries: []const MapEntry, span: Span },
-    set_literal: struct { items: []const Expr, span: Span },
+    set_literal: struct { items: []const *const Expr, span: Span },
     range_literal: struct { from: *const Expr, to: *const Expr, step: ?*const Expr, span: Span },
     ternary: struct { cond: *const Expr, then: *const Expr, else_: *const Expr, span: Span },
 };

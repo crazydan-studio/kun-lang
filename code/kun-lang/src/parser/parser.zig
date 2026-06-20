@@ -172,7 +172,7 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
                 } };
             } else {
                 var variants = std.ArrayListUnmanaged([]const u8).empty;
-                while (state.peek() != .eof and state.peek() != .kw_import and state.peek() != .kw_export and state.peek() != .kw_type) {
+                while (state.peek() != .eof and state.peek() != .kw_import and state.peek() != .kw_export and state.peek() != .kw_type and state.peek() != .assign) {
                     if (state.peek() == .pipe_pat) { _ = state.advance(); continue; }
                     const v = state.advance();
                     try variants.append(state.allocator, v.slice);
@@ -193,6 +193,18 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
             if (state.peek() == .colon) {
                 _ = state.advance();
                 try skipTypeAnn(state);
+                // After type annotation, if there's no '=' on the same logical
+                // block, this was a standalone type signature. Return a minimal
+                // function_def so the next line can be parsed independently.
+                if (state.peek() != .assign) {
+                    return Decl{ .function_def = .{
+                        .name = name_tok.slice,
+                        .params = params.items,
+                        .return_type = null,
+                        .body = try heapExpr(state, &Expr{ .int_literal = .{ .value = 0, .span = name_tok.span } }),
+                        .span = state.span(start),
+                    } };
+                }
             }
             if (state.peek() != .arrow and state.peek() != .assign) {
                 while (state.peek() == .ident) {
@@ -639,6 +651,38 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             const span = Span{ .start = start, .end = state.current().span.end };
             return Expr{ .record_literal = .{ .fields = fields.items, .span = span } };
         },
+        .hash_lbrace => {
+            _ = state.advance();
+            var entries = std.ArrayListUnmanaged(ast.MapEntry).empty;
+            while (state.peek() != .rbrace and state.peek() != .eof) {
+                const key = try parseExpr(state);
+                try state.expect(.assign);
+                const value = try parseExpr(state);
+                try entries.append(state.allocator, .{ .key = try heapExpr(state, &key), .value = try heapExpr(state, &value) });
+                if (state.peek() == .comma) _ = state.advance();
+            }
+            try state.expect(.rbrace);
+            const span = Span{ .start = start, .end = state.current().span.end };
+            return Expr{ .map_literal = .{ .entries = entries.items, .span = span } };
+        },
+        .hash_lbrack => {
+            _ = state.advance();
+            var items = std.ArrayListUnmanaged(*const Expr).empty;
+            while (state.peek() != .rbrack and state.peek() != .eof) {
+                const item = try parseExpr(state);
+                try items.append(state.allocator, try heapExpr(state, &item));
+                if (state.peek() == .comma) _ = state.advance();
+            }
+            try state.expect(.rbrack);
+            const span = Span{ .start = start, .end = state.current().span.end };
+            return Expr{ .set_literal = .{ .items = items.items, .span = span } };
+        },
+        .hash_lparen => {
+            _ = state.advance();
+            const inner = try parseExpr(state);
+            try state.expect(.rparen);
+            return inner;
+        },
         .bytes_literal => {
             const tok = state.advance();
             return Expr{ .bytes_literal = .{ .value = tok.slice, .span = tok.span } };
@@ -716,7 +760,7 @@ fn parseCaseExpr(state: *ParserState, start: SourceLoc) ParserError!Expr {
     const subject = try parseExpr(state);
     try state.expectKeyword(.kw_of);
     var branches = std.ArrayListUnmanaged(ast.Branch).empty;
-    while (state.peek() != .eof and state.peek() != .kw_import and state.peek() != .kw_export and state.peek() != .kw_type) {
+    while (state.peek() != .eof and state.peek() != .kw_import and state.peek() != .kw_export and state.peek() != .kw_type and state.peek() != .assign and state.peek() != .kw_let and state.peek() != .kw_do and state.peek() != .kw_if) {
         const pat = try parsePattern(state);
         var guard: ?*const Expr = null;
         if (state.peek() == .kw_when) {
