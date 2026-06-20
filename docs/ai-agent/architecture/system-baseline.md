@@ -1168,7 +1168,7 @@ HM 约束生成器在处理 Primitive 函数调用时：
 | 版本 | 变更 |
 |------|------|
 | 2026.06.19 | 单一表达式范式配套更新：`do` 固定返回 `Unit`，`do in` 返回 `in` 表达式值（必须非 `Unit`，`in` 处于效应上下文）；求值策略表更新（隐式 `do` 分支、`let in`/`do` 互斥约束）；`do` 块与效应函数章节更新（函数体约束、隐式 `do` 说明、`do in` 的 `in` 上下文） |
-| 2026.06.18 | Cmd API 精简：效应函数列表更新（移除 `execSafe`(旧)/`stdoutToString`/`stderrToString`，新增 `Cmd.<bin>!`/`Cmd.pipe!`/`execSafe`(新)）；Command 消费验证规则新增 `!` 后缀 |
+| 2026.06.18 | Cmd API 精简：效应函数列表更新（`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`；移除 `stdoutToString`/`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!`）；Command 消费验证规则新增 `!` 后缀 |
 | 2026.06.18 | Kun Shell 二进制产物标注 [推迟 v2.0]；内存模型引用添加推迟标注 |
 | 2026.06.15 | 审计修复三轮：defer 作用域统一（嵌套 do 独立链 + LIFO 全展开）；fork/exec 信号竞争防护（子进程清理 signalfd/信号处理器/掩码）；闭包捕获转换流程；Stream 纯变换合并优化细节；let in thunk+memoization 实现 |
 | 2026.06.15 | 审计修复二轮：SIGPIPE 忽略策略；Primitive ↔ HM 约束生成器集成接口；Stream 消费 AST 级分析算法；Cmd.exec 阻塞语义；主事件循环架构；Closure arity 与柯里化模型澄清 |

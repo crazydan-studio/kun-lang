@@ -865,7 +865,7 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 | 版本 | 变更 |
 |------|------|
 | 2026.06.19 | 效应检查规则全面扩展（单一表达式范式配套）：新增 `let in` 纯性约束（禁止效应函数调用/定义/引用）；新增 `do in` 的 `in` 结果非 `Unit` 约束；新增空 body 错误；新增 `do`/`let` 互斥检查；新增隐式 `do` 上下文识别（unbound case/if 分支）；新增告警清单（无效应调用的 do/分支、纯表达式最后语句、未消费绑定等）；新增错误清单（互嵌套、变量重复绑定等）；更新 `in` 上下文说明（do in 的 in 处于效应上下文） |
-| 2026.06.18 | Cmd API 精简：效应函数列表更新（移除 `execSafe`(旧)/`stdoutToString`/`stderrToString`，新增 `Cmd.<bin>!`/`Cmd.pipe!`/`execSafe`(新)）；效应检查规则同步 |
+| 2026.06.18 | Cmd API 精简：效应函数列表更新（`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`；移除 `stdoutToString`/`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!`）；效应检查规则同步 |
 | 2026.06.18 | 审计修复：Nilable 隐式包装规则文档化（`T → ?T` 提升场景与语法糖说明）；Regex 修饰符作用域默认行为说明补全 |
 | 2026.06.15 | 审计修复三轮：Int 溢出/ Float NaN 语义文档化；除零行为明确（Int panic / Float IEEE）；递归 let 与互递归 HM 类型推断；错误恢复占位类型机制；occurs check 选择性启用规则；EffectFn 与泛型变量合一澄清 |
 | 2026.06.15 | 审计修复二轮：效应检查器新增 `\|>` 管道执行守卫（do 块外拒绝 Command 类型）；新增编译器类型内省 API 定义 |
