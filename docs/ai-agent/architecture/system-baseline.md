@@ -625,7 +625,7 @@ Cmd.<bin> { options } [posArgs...]
 Command 执行的系统契约：
 
 ```
-动作: fork → chdir 到 Cmd.withWorkDir 指定目录或 File.currentDir（子进程内） → [Cmd.withRunAs: initgroups → setgid → setuid] → setrlimit → install seccomp → exec → waitpid
+动作: fork → chdir 到 Cmd.withWorkDir 指定目录或 File.currentDir（子进程内） → [Cmd.withRunAs: initgroups → setgid → setuid] → 关闭 signalfd → 恢复 SIGINT/SIGTERM 处理器 → 恢复信号掩码 → setrlimit → install seccomp → exec → waitpid
 返回: Stream String（|> 管道触发 / Cmd.exec 显式执行）或 Result (Stream String) CommandError（? 后缀）
 argv: Record 选项 → Cmd.withRawOpt 追加 → -- 分隔符 → 位置参数
 stdout: pipe 捕获为 Stream String

@@ -172,7 +172,7 @@ do
 
 `!` 后缀和 `Cmd.exec` 保持 panic 语义——仅在调用者确信命令不会失败、或失败无恢复路径时使用。
 
-## OS 管道：`Cmd.pipe` / `Cmd.pipe?`
+## OS 管道：`Cmd.pipe` / `Cmd.pipe?` / `Cmd.pipe!`
 
 通过 `Cmd.pipe` 将多个 Command 连接为 OS 管道链：
 
