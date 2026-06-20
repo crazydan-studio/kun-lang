@@ -543,6 +543,9 @@ always = \x _ -> x
 ### 示例
 
 ```kun
+import Float
+import List
+
 add1 = \x -> x + 1
 double = \x -> x * 2
 sqrt = Float.sqrt
@@ -970,9 +973,10 @@ Path.normalize p"/a/b/../c"          // → p"/a/c"
 
 // fromBytes：覆盖非 UTF-8 文件系统场景（Linux ext4/xfs 合法）
 // 受限 Landlock `--allow-path` 范围，仅 NUL 被拒绝
-case Path.fromBytes 0x2F746D702FBAADF00D of
-  Ok path  -> Path.toString path  // 显示用 U+FFFD 替代非 UTF-8 字节
-  Err _    -> p"/tmp/fallback"
+path_ =
+  case Path.fromBytes 0x2F746D702FBAADF00D of
+    Ok path  -> path
+    Err _    -> p"/tmp/fallback"
 
 // 路径语义场景：文件操作路径管理、路径段拼接、父目录定位、文件扩展名提取
 ```
@@ -1298,7 +1302,7 @@ concat : List (List a) -> List a
 // [PureKun] 生成整数范围列表 [start, end)，不含 end
 range : Int -> Int -> List Int
 
-// [PureKun] 求和（元素类型须支持 + 运算符）
+// [PureKun] 整数列表求和
 sum : List Int -> Int
 
 // [PureKun] 最小值（比较器返回 -1/0/1）
@@ -1664,7 +1668,7 @@ oneOf : String -> List CliArg -> CliArgGroup
 // [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断） [推迟 v0.5]
 parse : CliSpec -> List String -> Result a CliError
 
-// [Primitive] 将解析错误转为人类可读字符串
+// [Primitive] 将解析错误转为人类可读字符串 [推迟 v0.5]
 show : CliError -> String
 ```
 
@@ -1767,6 +1771,7 @@ import Stream
 fromList : List a -> Stream a
 
 // [Primitive] 从 start 到 end（不含），步长为 step
+// range start end 为 range start end 1 的语法糖（编译器自动脱糖）
 range : Int -> Int -> Int -> Stream Int
 
 // [PureKun] — 变化为一对多映射然后展平
@@ -2569,9 +2574,7 @@ data = Bytes.fromString "hello"
 encoded = Base64.encode data  // → "aGVsbG8="
 
 // 解码
-case Base64.decode "aGVsbG8=" of
-  Ok raw  -> ...
-  Err _   -> IO.println "invalid base64"
+raw = Base64.decode "aGVsbG8="  // → Ok (Bytes.fromString "hello")
 ```
 
 ## `Task` — 并发任务
@@ -2618,9 +2621,10 @@ do
   Task.spawn 4 cmds
     |> Task.all
     |> List.iter (\r ->
-      case r of
-        Ok _  -> IO.println "ok"
-        Err e -> IO.println f"failed: {CommandError.show e}"
+      do
+        case r of
+          Ok _  -> IO.println "ok"
+          Err e -> IO.println f"failed: {CommandError.show e}"
     )
 ```
 
@@ -2867,7 +2871,7 @@ main = \_ ->
 |------|------|
 | 2026.06.19 | Test 模块全部 9 个断言统一为效应函数，均返回 Unit：`isOk`/`isErr`/`isSome` 签名改为 `-> String -> Unit`（纯断言，不提取值） |
 | 2026.06.19 | Test 模块断言分类修正（单一表达式范式配套）：`equal`/`ok`/`notEqual`/`approxEqual`/`isNil`/`panics` 从 `[PureKun]` 改为效应函数（返回 `Unit` 的纯函数违反类型系统规则）；新增效应断言调用须在 `do` 上下文中的说明 |
-| 2026.06.18 | Cmd API 精简：移除 `execSafe`（`Result Unit`）、`stdoutToString`、`stderrToString`；`execSafe` 重定义为 `Command -> Result (Stream String) CommandError`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
+| 2026.06.18 | Cmd API 精简：`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`（与 `Cmd.<bin>?` 对齐）；移除 `stdoutToString`、`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
 | 2026.06.18 | 审计修复：`Stream.string`/`Stream.bytes` 分类精确化——命令输出流消费为效应操作，纯流可在外使用 |
 | 2026.06.18 | 审计修复：`List.minimum`/`List.maximum` 重命名为 `min`/`max`，新增比较器参数 `(a -> a -> Int)`（匹配 `sort` 风格）；`File.copy` 标签修正 `[PureKun]` → `[Primitive]`；`Test.panics` 示例修正为不依赖 panic 的断言；新增「推迟特性一览」表；`Cli.parse`/`Parser.Record` 添加 `[推迟 v0.5]` 标注；`Cmd.withStdin` 添加重载消歧说明；`DateTime.format` 添加 f-string `%` 引导符说明；File 模块新增「已移除函数」小节 |
 | 2026.06.17 | 新增 `List.sortBy`、`Stream.takeWhile`/`Stream.dropWhile`、`Duration.fromMillis`、`DateTime.toUnixMillis`（P1+P2 最后补全） |
