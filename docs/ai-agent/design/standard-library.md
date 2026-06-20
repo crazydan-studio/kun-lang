@@ -2760,7 +2760,7 @@ ok : Bool -> String -> Unit
 // 断言不相等 — 效应函数（返回 Unit）
 notEqual : a -> a -> Unit
 
-// 断言近似相等（浮点容差）— 效应函数（返回 Unit）
+// 断言近似相等（浮点容差：epsilon a b → |a - b| < epsilon）— 效应函数（返回 Unit）
 approxEqual : Float -> Float -> Float -> Unit
 
 // 断言结果为 Ok — 效应函数（返回 Unit）
