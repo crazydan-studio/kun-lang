@@ -1045,12 +1045,12 @@ countFiles = \dir ->
 do                                           // 外层 do
   case command of
     Deploy config ->                         // unbound 分支 → 隐式 do
-      defer cleanupDeploy ()                 // 挂载到分支的隐式 do
+      defer (cleanupDeploy ())                 // 挂载到分支的隐式 do
       Cmd.ffmpeg {} "input.mp4" tmp |> Cmd.exec
-      // defer cleanupDeploy 在此处执行（分支退出时）
+      // defer (cleanupDeploy ()) 在此处执行（分支退出时）
     Rollback version ->
       do                                    // 显式内层 do
-        defer cleanupRollback ()
+        defer (cleanupRollback ())
         // ...
       // defer cleanupRollback 在此处执行（内层 do 退出时）
   // 外层 do 的 defer（若有）在此处执行
