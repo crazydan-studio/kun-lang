@@ -849,11 +849,6 @@ fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
     }
 }
 
-// Add span method for Expr via spanOf
-fn exprSpan(expr: *const Expr) Span {
-    return spanOf(expr);
-}
-
 // ============ Declarations ============
 
 test "parser import" {
