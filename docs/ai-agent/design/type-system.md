@@ -380,6 +380,7 @@ Task.spawn  : Int -> List Command -> ... (内部效应，无回调参数)
 - 验证 `do`/`do in` body 非空——空 body 为编译错误
 - 验证 `do in` 的 `in` 表达式结果非 `Unit` 类型——`in` 结果为 `Unit` 是编译错误
 - 验证 `let in` 不可出现在 `do` 上下文（同一函数 scope 内 `do` 与 `let` 互斥）
+- 验证 `do in` 的 `in` 部分同样不可出现 `let in`（`in` 与 `do` body 属同一函数 scope）
 - 验证 `do`/`do in` 不可出现在 `let in` 上下文
 
 **效应上下文规则：**
