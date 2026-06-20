@@ -16,11 +16,11 @@
 ## 活跃工作
 
 | 维度 | 当前值 |
-|---|---|
+|---|---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | 实现阶段：首阶段完成（build.zig + Lexer + Parser + AST → `zig build dump-ast`），次阶段待启动（类型检查器 + 运行时求值器） |
-| 最近完成 | 首阶段 Zig 实现：build.zig、Lexer、AST 定义、Parser 骨架、CLI dump-ast 驱动；`zig build` + `zig build test` 通过 |
+| 活跃计划 | 实现阶段：首阶段完成（68 测试全通过），Phase 2 待启动（类型检查器 + 运行时求值器） |
+| 最近完成 | 双代理审计循环：Agent A 测试审计 → Agent B 源码修复 → 两轮迭代 → 68 测试全通过零泄漏。修复 P0×5 + P1×6（运算符优先级/整数前缀/`??`/字符串转义/`?` token/Duration 溢出等） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -50,6 +50,8 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-20 | 双代理审计循环（第2轮源码实现审计）→ 修复 P0×3+P1×6：整数前缀/??/字符串转义/? token/Duration 溢出等 | 审计+修复 | ✅ syntax、type-system、zig-patterns | ✅ plan-audit | `implement` |
+| 2026-06-20 | 双代理审计循环（第1轮测试审计）→ 测试从 51 增至 68，零泄漏 | 审计+修复 | ✅ syntax、system-baseline、zig-patterns | ✅ plan-audit、closure-audit | `plan-first` → `implement` |
 | 2026-06-20 | 首阶段 Zig 代码实现 — build.zig + Lexer + AST + Parser + CLI dump-ast | 实现 | ✅ system-baseline、syntax、module-boundaries、zig-patterns | ✅ writing-conventions、plan-audit | `plan-first` → `implement` |
 | 2026-06-20 | 首阶段实现计划（骨架 + Lexer + Parser + AST）编写 | 计划 | ✅ system-baseline、module-boundaries、syntax、zig-patterns | ✅ writing-conventions | `plan-first` |
 | 2026-06-19 | 单一表达式范式全面定稿——设计讨论、7 份文档重写、跨文档一致性修复、Test 模块效应分类修正、9 示例文件迁移 | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
@@ -75,7 +77,8 @@
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.20 | 双代理审计完成：Agent A 测试审计→Agent B 源码修复→Agent A 再审计→零泄漏/全通过；51 测试全部通过 |
+| 2026.06.20 | 双代理审计第2轮（源码实现审计）— 修复整数前缀/??/字符串转义/? token/Duration 溢出等 11 项；68 测试全通过零泄漏 |
+| 2026.06.20 | 双代理审计第1轮（测试审计）— 测试从 51 增至 68；修复运算符优先级/.. spread/! token/全局 arena/测试泄漏 |
 | 2026.06.20 | 首阶段 Zig 代码实现完成 — build.zig/Lexer/AST/Parser/CLI dump-ast；项目进入可构建状态 |
 | 2026.06.20 | 首阶段实现计划创建（骨架+Lexer+Parser+AST）——活跃计划更新、验证命令补充 |
 | 2026.06.19 | 单一表达式范式全面定稿——活跃工作/最近完成/任务路由更新 |

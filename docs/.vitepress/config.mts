@@ -294,6 +294,7 @@ function sidebarWorking() {
           { text: '语法全面调整', link: '/ai-agent/plans/plan-syntax-overhaul' },
           { text: '运行时架构设计', link: '/ai-agent/plans/plan-runtime-architecture' },
           { text: '能力安全系统重新设计', link: '/ai-agent/plans/plan-capability-redesign' },
+          { text: '首阶段实现 — 骨架+Lexer+Parser+AST', link: '/ai-agent/plans/plan-implementation-phase-1' },
         ],
       },
       {
@@ -352,6 +353,9 @@ function sidebarWorking() {
         items: [
           { text: '索引', link: '/ai-agent/logs/' },
           { text: '日志编写指南', link: '/ai-agent/logs/00-log-writing-guide' },
+          { text: 'Phase 1 双代理审计循环', link: '/ai-agent/logs/log-2026-06-20-audit-phase-1' },
+          { text: '首阶段 Zig 代码实现', link: '/ai-agent/logs/log-2026-06-20-implementation-phase-1' },
+          { text: '单一表达式范式全面定稿', link: '/ai-agent/logs/log-2026-06-19-single-expression-paradigm' },
         ],
       },
       {

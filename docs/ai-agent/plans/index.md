@@ -26,4 +26,4 @@
 | [语法全面调整](plan-syntax-overhaul.md) | 20 项语法变更、15 个文件同步 | 已完成 |
 | [标准库内置函数绑定机制设计](plan-stdlib-builtin-binding.md) | Primitive 函数表、模块绑定规则、安全防护、逐函数实现类别标注 | 已完成 |
 | [错误消息国际化（i18n）子系统设计](plan-i18n.md) | msgid 体系、.po 管理、构建时代码生成、locale 检测、消息格式化 API | 进行中 |
-| [首阶段实现 — 骨架 + Lexer + Parser + AST](plan-implementation-phase-1.md) | build.zig + 词法分析器 + AST + 语法分析器 + CLI dump-ast | 未审计 |
+| [首阶段实现 — 骨架 + Lexer + Parser + AST](plan-implementation-phase-1.md) | build.zig + 词法分析器 + AST + 语法分析器 + CLI dump-ast | 已完成 |
