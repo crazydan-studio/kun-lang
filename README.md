@@ -33,4 +33,4 @@ kun-lang/
 
 ## 文档
 
-项目文档使用 VitePress 构建，可通过 [tools/docs-build.sh](tools/docs-build.sh) 构建，通过 [tools/docs-dev.sh](tools/docs-dev.sh) 本地预览。LSP 服务端通过 [tools/lsp-dev.sh](tools/lsp-dev.sh) 构建。
+项目文档使用 VitePress 构建，可通过 [tools/docs-build.sh](tools/docs-build.sh) 构建，通过 [tools/docs-dev.sh](tools/docs-dev.sh) 本地预览。

@@ -37,11 +37,19 @@ docs/
 │   ├── requirements/  需求文档
 │   ├── backlog/       待办事项与工作项
 │   ├── plans/         执行计划
+│   ├── process/       工作流程与检查清单
 │   ├── skills/        可复用的技能提示词
+│   ├── input/         原始需求输入
+│   ├── discussions/   设计讨论记录
+│   ├── audits/        审计记录
+│   ├── examples/      语法使用示例
 │   ├── archive/       历史版本归档
 │   ├── diagrams/      PlantUML 图表文件
+│   ├── logs/          开发日志
+│   ├── testing/       测试记录
+│   ├── bugs/          Bug 修复笔记
+│   ├── lessons/       经验教训
+│   ├── references/    实现指南
+│   ├── articles/      技术文章
 │   └── ...            其他开发相关文档
-├── v0/             ← 版本发布与使用文档（占位，尚未发布）
-├── public/         静态资源
-└── .vitepress/     VitePress 配置
 ```
