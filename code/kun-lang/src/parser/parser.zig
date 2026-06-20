@@ -244,11 +244,11 @@ fn getPrecedence(kind: TokenKind) ?OpPrecedence {
         .and_op => OpPrecedence{ .op = .{ .binary = .and_ }, .prec = 4 },
         .eq => OpPrecedence{ .op = .{ .binary = .eq }, .prec = 5 },
         .neq => OpPrecedence{ .op = .{ .binary = .neq }, .prec = 5 },
-        .lt => OpPrecedence{ .op = .{ .binary = .lt }, .prec = 6 },
-        .lte => OpPrecedence{ .op = .{ .binary = .le }, .prec = 6 },
-        .gt => OpPrecedence{ .op = .{ .binary = .gt }, .prec = 6 },
-        .gte => OpPrecedence{ .op = .{ .binary = .ge }, .prec = 6 },
-        .concat => OpPrecedence{ .op = .{ .binary = .concat }, .prec = 7 },
+        .lt => OpPrecedence{ .op = .{ .binary = .lt }, .prec = 5 },
+        .lte => OpPrecedence{ .op = .{ .binary = .le }, .prec = 5 },
+        .gt => OpPrecedence{ .op = .{ .binary = .gt }, .prec = 5 },
+        .gte => OpPrecedence{ .op = .{ .binary = .ge }, .prec = 5 },
+        .concat => OpPrecedence{ .op = .{ .binary = .concat }, .prec = 8 },
         .plus => OpPrecedence{ .op = .{ .binary = .add }, .prec = 8 },
         .minus => OpPrecedence{ .op = .{ .binary = .sub }, .prec = 8 },
         .star => OpPrecedence{ .op = .{ .binary = .mul }, .prec = 9 },
@@ -570,15 +570,12 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             _ = state.advance();
             var items = std.ArrayListUnmanaged(ExprItem).empty;
             while (state.peek() != .rbrack and state.peek() != .eof) {
-                if (state.peek() == .pipe_pat) {
-                    // Check if it's ".." spread - peek at the next pos slice
-                    const tok = state.current();
-                    if (tok.slice.len >= 2 and tok.slice[0] == '.' and tok.slice[1] == '.') {
-                        _ = state.advance();
-                        const rest = try parseExpr(state);
-                        try items.append(state.allocator, .{ .spread = try heapExpr(state, &rest) });
-                        break;
-                    }
+                if (state.peek() == .dot and state.pos + 1 < state.tokens.len and state.tokens[state.pos + 1].kind == .dot) {
+                    _ = state.advance(); // .
+                    _ = state.advance(); // .
+                    const rest = try parseExpr(state);
+                    try items.append(state.allocator, .{ .spread = try heapExpr(state, &rest) });
+                    break;
                 }
                 const item = try parseExpr(state);
                 try items.append(state.allocator, .{ .expr = try heapExpr(state, &item) });
@@ -739,14 +736,12 @@ fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
             var items = std.ArrayListUnmanaged(ast.Pattern).empty;
             var rest: ?*const ast.Pattern = null;
             while (state.peek() != .rbrack and state.peek() != .eof) {
-                if (state.peek() == .pipe_pat) {
-                    const tok = state.current();
-                    if (tok.slice.len >= 2 and tok.slice[0] == '.' and tok.slice[1] == '.') {
-                        _ = state.advance();
-                        const r = try parsePattern(state);
-                        rest = try heapPattern(state, r);
-                        break;
-                    }
+                if (state.peek() == .dot and state.pos + 1 < state.tokens.len and state.tokens[state.pos + 1].kind == .dot) {
+                    _ = state.advance(); // .
+                    _ = state.advance(); // .
+                    const r = try parsePattern(state);
+                    rest = try heapPattern(state, r);
+                    break;
                 }
                 const p = try parsePattern(state);
                 try items.append(state.allocator, p);
@@ -1135,4 +1130,160 @@ test "parser comparison chain" {
     // && has lower precedence than == and /=
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(ast.BinaryOp.and_, e.binary_op.op);
+    try std.testing.expectEqual(ast.BinaryOp.eq, e.binary_op.left.*.binary_op.op);
+    try std.testing.expectEqual(ast.BinaryOp.neq, e.binary_op.right.*.binary_op.op);
+}
+
+test "parser float literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "x = 3.14");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expect(e.float_literal.value > 3.13 and e.float_literal.value < 3.15);
+}
+
+test "parser char literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "c = 'A'");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(u21, 'A'), e.char_literal.value);
+}
+
+test "parser regex literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "r = r\"[0-9]+\"");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqualStrings("[0-9]+", e.regex_literal.value);
+}
+
+test "parser bytes literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "b = 0x48656C6C6F");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqualStrings("0x48656C6C6F", e.bytes_literal.value);
+}
+
+test "parser pipe reverse" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "r = f <| x");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqualStrings("f", e.pipe_reverse.left.*.ident.name);
+    try std.testing.expectEqualStrings("x", e.pipe_reverse.right.*.ident.name);
+}
+
+test "parser compose" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "r = f >> g >> h");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqualStrings("f", e.compose.left.*.compose.left.*.ident.name);
+    try std.testing.expectEqualStrings("g", e.compose.left.*.compose.right.*.ident.name);
+    try std.testing.expectEqualStrings("h", e.compose.right.*.ident.name);
+}
+
+test "parser compose reverse" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "r = f << g");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqualStrings("f", e.compose_reverse.left.*.ident.name);
+    try std.testing.expectEqualStrings("g", e.compose_reverse.right.*.ident.name);
+}
+
+test "parser export declaration" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "export (name = 42)");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expectEqual(@as(usize, 1), decls[0].export_.bindings.len);
+    try std.testing.expectEqualStrings("name", decls[0].export_.bindings[0].name);
+    try std.testing.expectEqual(@as(i64, 42), decls[0].export_.bindings[0].value.*.int_literal.value);
+}
+
+test "parser multiline string" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "s = \"\"\"\nhello\n\"\"\"");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expect(e.string_literal.value.len > 0);
+}
+
+test "parser do block body content" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "f = do x = 1 in x");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expect(e.do_block.result != null);
+    try std.testing.expectEqual(@as(usize, 1), e.do_block.body.len);
+}
+
+test "parser concat precedence" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    // "++" same precedence as "+": "a" ++ "b" + "c" → ("a" ++ "b") + "c" (left-assoc)
+    const tokens = try lexer_mod.tokenize(allocator, "r = \"a\" ++ \"b\" + \"c\"");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(ast.BinaryOp.add, e.binary_op.op);
+    try std.testing.expectEqual(ast.BinaryOp.concat, e.binary_op.left.*.binary_op.op);
+}
+
+test "parser case expr" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "f = case x of A -> 1 B -> 2");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 2), e.case_expr.branches.len);
+}
+
+test "parser list spread" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "xs = [1, ..rest]");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqualStrings("rest", e.list_literal.items[1].spread.*.ident.name);
 }

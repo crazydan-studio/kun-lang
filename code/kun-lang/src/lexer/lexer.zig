@@ -78,6 +78,7 @@ pub const TokenKind = enum {
     // multiline string
     multiline_string,
     // special
+    exclamation, // !
     eof,
     invalid,
 };
@@ -345,7 +346,7 @@ pub fn tokenize(allocator: std.mem.Allocator, source: []const u8) ![]const Token
             ',' => { _ = state.advance(); try state.pushToken(.comma, ",", state.span(start)); },
             '.' => { _ = state.advance(); try state.pushToken(.dot, ".", state.span(start)); },
             ':' => { _ = state.advance(); try state.pushToken(.colon, ":", state.span(start)); },
-            '!' => { _ = state.advance(); try state.pushToken(.invalid, "!", state.span(start)); },
+            '!' => { _ = state.advance(); try state.pushToken(.exclamation, "!", state.span(start)); },
             else => {
                 // Duration literal: number + unit suffix
                 if (isDigit(next_ch)) {
@@ -377,7 +378,7 @@ fn isDigit(ch: u8) bool {
 
 fn readIdentifier(state: *LexerState, start: ast.SourceLoc) !void {
     while (state.peek()) |ch| {
-        if (isAsciiAlpha(ch) or isDigit(ch) or ch == '_') {
+        if (isAsciiAlpha(ch) or isDigit(ch) or ch == '_' or ch == '\'') {
             _ = state.advance();
         } else {
             break;
@@ -999,9 +1000,48 @@ test "lexer minus vs arrow" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    // - is minus, -> is arrow
     const source = "- ->";
     const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.minus, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.arrow, tokens[1].kind);
+}
+
+test "lexer invalid tokens" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    // Unterminated string
+    const tokens = try tokenize(allocator, "\"unclosed");
+    try std.testing.expectEqual(TokenKind.invalid, tokens[0].kind);
+}
+
+test "lexer exclamation" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const source = "!";
+    const tokens = try tokenize(allocator, source);
+    try std.testing.expectEqual(TokenKind.exclamation, tokens[0].kind);
+}
+
+test "lexer ident with apostrophe" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const source = "map' value'";
+    const tokens = try tokenize(allocator, source);
+    try std.testing.expectEqual(TokenKind.ident, tokens[0].kind);
+    try std.testing.expectEqualStrings("map'", tokens[0].slice);
+    try std.testing.expectEqual(TokenKind.ident, tokens[1].kind);
+    try std.testing.expectEqualStrings("value'", tokens[1].slice);
+}
+
+test "lexer negative duration" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const source = "-5s";
+    const tokens = try tokenize(allocator, source);
+    try std.testing.expectEqual(TokenKind.minus, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.duration_literal, tokens[1].kind);
 }
