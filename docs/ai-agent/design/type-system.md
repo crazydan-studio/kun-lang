@@ -252,12 +252,16 @@ case (x, y) of              // x : ?Int, y : ?String
 now : -> DateTime
 now = \ ->
   do
-    DateTime.now
+    t = DateTime.now
+  in
+    t
 
 getPid : -> Pid
 getPid = \ ->
   do
-    Process.pid
+    p = Process.pid
+  in
+    p
 ```
 
 #### `Path`

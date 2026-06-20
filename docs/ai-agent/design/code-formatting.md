@@ -107,11 +107,11 @@ countFiles = \dir ->
     List.length entries
 ```
 
-简短单语句可同行：
+简短单语句（返回 `Unit` 的效应函数）可同行：
 
 ```kun
-pid : -> Process.Pid
-pid = \ -> do Process.pid
+notify : String -> Unit
+notify = \msg -> do IO.println msg
 ```
 
 ### 纯函数

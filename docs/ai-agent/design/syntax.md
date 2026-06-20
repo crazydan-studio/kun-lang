@@ -430,7 +430,9 @@ identity = \x -> x
 pid : -> Process.Pid
 pid = \ ->
   do
-    Process.pid
+    p = Process.pid
+  in
+    p
 
 main : List String -> Unit
 main = \_ ->
