@@ -572,6 +572,8 @@ handleSubCmd = \cfg ->
 
 ## 示例
 
+> **注意**：`Cli.parse` 和 `Cli.show` 标注为 [推迟 v0.5]，以下示例展示 v0.5 版本的功能设计。在 MVP v0.1 中，`Cli` 模块仅提供声明器（`flag`/`option`/`count`/`arg`）和修饰器（`withDefault`/`withRequires`/`withNegation`/`withEnvVar`/`withValidator`），`parse`/`show` 函数因依赖编译期代码展开设施而暂不可用。
+
 ### 1. 基本用法
 
 `kun build.kun -v -o dist/ --jobs 8 app`
@@ -1306,17 +1308,17 @@ parseConfig =
 `CliError` 为和类型，支持模式匹配实现程序化处理。使用 `Cli.show` 获取人类可读描述：
 
 ```kun
-// 以下 case 应当在 do 块中（如 main = \raw -> do ... in）
-case parseConfig raw of
-  Ok cfg -> ...
-  Err (Cli.UnknownOption { option = "verbse", suggestion = "verbose" }) ->
-    IO.println "did you mean --verbose?"
-  Err (Cli.BothFlagAndNegation { name = "verbose" }) ->
-    IO.println "cannot use both --verbose and --no-verbose"
-  Err (Cli.BadValue { name = "port", source = "PORT", expected = "integer", got = "abc" }) ->
-    IO.println "env var PORT has invalid value"
-  Err err ->
-    IO.println (Cli.show err)
+do
+  case parseConfig raw of
+    Ok cfg -> ...
+    Err (Cli.UnknownOption { option = "verbse", suggestion = "verbose" }) ->
+      IO.println "did you mean --verbose?"
+    Err (Cli.BothFlagAndNegation { name = "verbose" }) ->
+      IO.println "cannot use both --verbose and --no-verbose"
+    Err (Cli.BadValue { name = "port", source = "PORT", expected = "integer", got = "abc" }) ->
+      IO.println "env var PORT has invalid value"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 完整错误输出示例：
