@@ -8,7 +8,7 @@ const SourceLoc = ast.SourceLoc;
 const Expr = ast.Expr;
 pub const Decl = union(enum) {
     import: struct { module: []const u8, alias: ?[]const u8, span: Span },
-    export_: struct { bindings: []const ast.Binding, span: Span },
+    export_: struct { names: []const []const u8, span: Span },
     type_def: struct { name: []const u8, def: *const TypeDef, span: Span },
     function_def: struct { name: []const u8, params: []const ast.Param, return_type: ?*const TypeAnn, body: *const Expr, span: Span },
 };
@@ -130,24 +130,18 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
         },
         .kw_export => {
             _ = state.advance();
-            var bindings = std.ArrayListUnmanaged(ast.Binding).empty;
+            var names = std.ArrayListUnmanaged([]const u8).empty;
             try state.expect(.lparen);
             while (state.peek() != .rparen and state.peek() != .eof) {
                 const name_tok = state.advance();
-                try state.expect(.assign);
-                const value = try parseExpr(state);
-                try bindings.append(state.allocator, .{
-                    .name = name_tok.slice,
-                    .value = try heapExpr(state, &value),
-                    .span = state.span(start),
-                });
+                try names.append(state.allocator, name_tok.slice);
                 if (state.peek() == .comma) {
                     _ = state.advance();
                 } else break;
             }
             try state.expect(.rparen);
             return Decl{ .export_ = .{
-                .bindings = bindings.items,
+                .names = names.items,
                 .span = state.span(start),
             } };
         },
@@ -236,19 +230,19 @@ const OpPrecedence = struct {
 
 fn getPrecedence(kind: TokenKind) ?OpPrecedence {
     return switch (kind) {
-        .pipe => OpPrecedence{ .op = .{ .pipe = {} }, .prec = 1 },
-        .pipe_rev => OpPrecedence{ .op = .{ .pipe_rev = {} }, .prec = 1 },
-        .compose => OpPrecedence{ .op = .{ .compose = {} }, .prec = 2 },
-        .compose_rev => OpPrecedence{ .op = .{ .compose_rev = {} }, .prec = 2 },
-        .or_op => OpPrecedence{ .op = .{ .binary = .or_ }, .prec = 3 },
-        .and_op => OpPrecedence{ .op = .{ .binary = .and_ }, .prec = 4 },
-        .nil_coal => OpPrecedence{ .op = .{ .binary = .concat }, .prec = 4 }, // reuse concat for ?? semantics
-        .eq => OpPrecedence{ .op = .{ .binary = .eq }, .prec = 5 },
-        .neq => OpPrecedence{ .op = .{ .binary = .neq }, .prec = 5 },
-        .lt => OpPrecedence{ .op = .{ .binary = .lt }, .prec = 5 },
-        .lte => OpPrecedence{ .op = .{ .binary = .le }, .prec = 5 },
-        .gt => OpPrecedence{ .op = .{ .binary = .gt }, .prec = 5 },
-        .gte => OpPrecedence{ .op = .{ .binary = .ge }, .prec = 5 },
+        .pipe => OpPrecedence{ .op = .{ .pipe = {} }, .prec = 0 },
+        .pipe_rev => OpPrecedence{ .op = .{ .pipe_rev = {} }, .prec = 0 },
+        .compose => OpPrecedence{ .op = .{ .compose = {} }, .prec = 3 },
+        .compose_rev => OpPrecedence{ .op = .{ .compose_rev = {} }, .prec = 3 },
+        .or_op => OpPrecedence{ .op = .{ .binary = .or_ }, .prec = 4 },
+        .nil_coal => OpPrecedence{ .op = .{ .binary = .nil_coal }, .prec = 5 },
+        .and_op => OpPrecedence{ .op = .{ .binary = .and_ }, .prec = 6 },
+        .eq => OpPrecedence{ .op = .{ .binary = .eq }, .prec = 7 },
+        .neq => OpPrecedence{ .op = .{ .binary = .neq }, .prec = 7 },
+        .lt => OpPrecedence{ .op = .{ .binary = .lt }, .prec = 7 },
+        .lte => OpPrecedence{ .op = .{ .binary = .le }, .prec = 7 },
+        .gt => OpPrecedence{ .op = .{ .binary = .gt }, .prec = 7 },
+        .gte => OpPrecedence{ .op = .{ .binary = .ge }, .prec = 7 },
         .concat => OpPrecedence{ .op = .{ .binary = .concat }, .prec = 8 },
         .plus => OpPrecedence{ .op = .{ .binary = .add }, .prec = 8 },
         .minus => OpPrecedence{ .op = .{ .binary = .sub }, .prec = 8 },
@@ -1266,12 +1260,13 @@ test "parser export declaration" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(allocator, "export (name = 42)");
+    const tokens = try lexer_mod.tokenize(allocator, "export (map, filter, fold)");
     const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
-    try std.testing.expectEqual(@as(usize, 1), decls[0].export_.bindings.len);
-    try std.testing.expectEqualStrings("name", decls[0].export_.bindings[0].name);
-    try std.testing.expectEqual(@as(i64, 42), decls[0].export_.bindings[0].value.*.int_literal.value);
+    try std.testing.expectEqual(@as(usize, 3), decls[0].export_.names.len);
+    try std.testing.expectEqualStrings("map", decls[0].export_.names[0]);
+    try std.testing.expectEqualStrings("filter", decls[0].export_.names[1]);
+    try std.testing.expectEqualStrings("fold", decls[0].export_.names[2]);
 }
 
 test "parser multiline string" {
@@ -1332,4 +1327,52 @@ test "parser list spread" {
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqualStrings("rest", e.list_literal.items[1].spread.*.ident.name);
+}
+
+test "parser list literal values" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "xs = [1, 2, 3]");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 3), e.list_literal.items.len);
+    try std.testing.expectEqual(@as(i64, 1), e.list_literal.items[0].expr.*.int_literal.value);
+    try std.testing.expectEqual(@as(i64, 2), e.list_literal.items[1].expr.*.int_literal.value);
+    try std.testing.expectEqual(@as(i64, 3), e.list_literal.items[2].expr.*.int_literal.value);
+}
+
+test "parser when guard" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "f = case x of n when n > 0 -> n");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 1), e.case_expr.branches.len);
+    try std.testing.expect(e.case_expr.branches[0].guard != null);
+}
+
+test "parser defer in do block" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "f = do defer cleanup ()");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 1), e.do_block.body.len);
+}
+
+test "parser big int literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lexer_mod = @import("../lexer/lexer.zig");
+    const tokens = try lexer_mod.tokenize(allocator, "x = 9223372036854775807");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(i64, 9223372036854775807), e.int_literal.value);
 }

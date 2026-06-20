@@ -1047,3 +1047,28 @@ test "lexer negative duration" {
     try std.testing.expectEqual(TokenKind.minus, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[1].kind);
 }
+
+test "lexer bare question mark" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try tokenize(allocator, "?");
+    try std.testing.expectEqual(TokenKind.question, tokens[0].kind);
+}
+
+test "lexer hash alone" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try tokenize(allocator, "#");
+    try std.testing.expectEqual(TokenKind.invalid, tokens[0].kind);
+}
+
+test "lexer only whitespace" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try tokenize(allocator, "   \t\n  ");
+    try std.testing.expectEqual(@as(usize, 1), tokens.len);
+    try std.testing.expectEqual(TokenKind.eof, tokens[0].kind);
+}

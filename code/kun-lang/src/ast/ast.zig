@@ -77,6 +77,7 @@ pub const BinaryOp = enum {
     and_,
     or_,
     concat,
+    nil_coal,
     range,
 };
 
