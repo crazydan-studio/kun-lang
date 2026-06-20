@@ -193,7 +193,7 @@ Float.round 3.7                         // → 4.0
 Float.clamp 1.5 0.0 1.0                 // → 1.0
 
 // 容差比较
-Float.approxEqual (0.1 + 0.2) 0.3 1e-10    // → true
+Float.approxEqual 1e-10 (0.1 + 0.2) 0.3    // → true
 
 // 类型互转
 val = Float.fromString "2.5"            // → Ok 2.5
@@ -1912,6 +1912,7 @@ Stream.range 0 100
 do
   Cmd.cat p"/var/log/syslog"
     |> Stream.lines
+    |> Stream.filterMap Result.ok
     |> Stream.filter (String.contains "ERROR")
     |> Stream.iter IO.println
 ```
@@ -2528,7 +2529,7 @@ import Hash
 do
   case File.readBytes p"/path/to/file" of
     Ok data ->
-      hash = Hash.sha256Hex data
+      hash = Hash.sha256Hex (Stream.bytes data)
       IO.println f"SHA-256: {hash}"
     Err _ ->
       IO.println "read failed"
