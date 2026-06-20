@@ -19,8 +19,8 @@
 |---|---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | 实现阶段：首阶段完成（68 测试全通过），Phase 2 待启动（类型检查器 + 运行时求值器） |
-| 最近完成 | 双代理审计循环：Agent A 测试审计 → Agent B 源码修复 → 两轮迭代 → 68 测试全通过零泄漏。修复 P0×5 + P1×6（运算符优先级/整数前缀/`??`/字符串转义/`?` token/Duration 溢出等） |
+| 活跃计划 | 实现阶段：首阶段完成（75 测试全通过，8 轮审计），Phase 2 待启动（类型检查器 + 运行时求值器） |
+| 最近完成 | 8 轮双代理审计循环完成：修复 P0×12 + P1×8。最终修复：skipTypeAnn 跨行类型标注、大写进制前缀、Map/Set 字面量、联合变体终止、双行函数定义、export 语法、运算符优先级全对齐。最终状态：`zig build test` 75/75通过零泄漏，`zig build dump-ast` 可用 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -50,6 +50,12 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-20 | 第 8 轮审计修复：skipTypeAnn 停止消费 ident（修复跨行类型标注+函数定义） | 审计+修复 | ✅ syntax、zig-patterns | ✅ plan-audit | `implement` |
+| 2026-06-20 | 文档元审计（第7轮）：同步 backlog/导航/版本历史 | 文档 | ✅ - | ✅ writing-conventions | `implement` |
+| 2026-06-20 | 第 6 轮审计：移除死函数 exprSpan + typed.zig 接入编译 | 清理 | ✅ - | ✅ closure-audit | `implement` |
+| 2026-06-20 | 第 5 轮深度审计修复：大写进制前缀/MapSet/联合变体/双行函数/case终结 | 审计+修复 | ✅ syntax、zig-patterns | ✅ plan-audit | `implement` |
+| 2026-06-20 | 第 4 轮构建修复：dump-ast cwd | 修复 | ✅ - | ✅ - | `implement` |
+| 2026-06-20 | 第 3 轮审计修复：export 语法/??语义/优先级表全对齐 | 审计+修复 | ✅ syntax、type-system | ✅ plan-audit | `implement` |
 | 2026-06-20 | 双代理审计循环（第2轮源码实现审计）→ 修复 P0×3+P1×6：整数前缀/??/字符串转义/? token/Duration 溢出等 | 审计+修复 | ✅ syntax、type-system、zig-patterns | ✅ plan-audit | `implement` |
 | 2026-06-20 | 双代理审计循环（第1轮测试审计）→ 测试从 51 增至 68，零泄漏 | 审计+修复 | ✅ syntax、system-baseline、zig-patterns | ✅ plan-audit、closure-audit | `plan-first` → `implement` |
 | 2026-06-20 | 首阶段 Zig 代码实现 — build.zig + Lexer + AST + Parser + CLI dump-ast | 实现 | ✅ system-baseline、syntax、module-boundaries、zig-patterns | ✅ writing-conventions、plan-audit | `plan-first` → `implement` |
@@ -77,7 +83,12 @@
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.20 | 第6轮审计：移除死函数 exprSpan + typed.zig 接入编译；修复大写进制前缀/Map Set/联合变体/双行函数/case终结；修复 dump-ast 相对路径 cwd。Phase 1 全部 6 轮审计完成 |
+| 2026.06.20 | Phase 1 全部 8 轮审计完成：skipTypeAnn 修复；75 测试全通过零泄漏 |
+| 2026.06.20 | 第 7 轮元审计：文档基础设施同步（backlog/导航/版本历史） |
+| 2026.06.20 | 第 6 轮清理：移除死函数 exprSpan + typed.zig 接入编译 |
+| 2026.06.20 | 第 5 轮深度审计：6 项 P0 修复（大写进制前缀/MapSet/联合变体/双行函数/case终结） |
+| 2026.06.20 | 第 4 轮构建修复：dump-ast cwd |
+| 2026.06.20 | 第 3 轮审计：export 语法/??语义/优先级表全对齐 + 8 新测试 |
 | 2026.06.20 | 双代理审计第2轮（源码实现审计）— 修复整数前缀/??/字符串转义/? token/Duration 溢出等 11 项；68 测试全通过零泄漏 |
 | 2026.06.20 | 双代理审计第1轮（测试审计）— 测试从 51 增至 68；修复运算符优先级/.. spread/! token/全局 arena/测试泄漏 |
 | 2026.06.20 | 首阶段 Zig 代码实现完成 — build.zig/Lexer/AST/Parser/CLI dump-ast；项目进入可构建状态 |
