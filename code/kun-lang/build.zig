@@ -48,6 +48,7 @@ pub fn build(b: *std.Build) void {
 
     const run_dump = b.addRunArtifact(dump_cmd);
     run_dump.addArg("--dump-ast");
+    run_dump.setCwd(b.path("."));
 
     const dump_step = b.step("dump-ast", "Parse a .kun file and dump its AST");
     if (b.args) |args| {
