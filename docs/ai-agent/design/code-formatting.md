@@ -371,7 +371,7 @@ readConfig = \path ->
   in
     case content of
       Ok text ->
-        let
+        do
           lines = String.split "\n" text
           logDir = p"/var/log/myapp"
         in
