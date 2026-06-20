@@ -778,27 +778,36 @@ fn exprSpan(expr: *const Expr) Span {
 // ============ Declarations ============
 
 test "parser import" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "import Cli");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "import Cli");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     try std.testing.expectEqualStrings("Cli", decls[0].import.module);
     try std.testing.expect(decls[0].import.alias == null);
 }
 
 test "parser import with alias" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "import DateTime as DT");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "import DateTime as DT");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     try std.testing.expectEqualStrings("DateTime", decls[0].import.module);
     try std.testing.expectEqualStrings("DT", decls[0].import.alias.?);
 }
 
 test "parser type alias" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "type Config = { name: String }");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "type Config = { name: String }");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     try std.testing.expectEqualStrings("Config", decls[0].type_def.name);
     try std.testing.expectEqual(@as(usize, 1), decls[0].type_def.def.alias.fields.len);
@@ -807,9 +816,12 @@ test "parser type alias" {
 }
 
 test "parser type union" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "type Color = Red | Green | Blue");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "type Color = Red | Green | Blue");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     try std.testing.expectEqualStrings("Color", decls[0].type_def.name);
     try std.testing.expectEqual(@as(usize, 3), decls[0].type_def.def.union_.variants.len);
@@ -819,9 +831,12 @@ test "parser type union" {
 }
 
 test "parser function def" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "greet name = \"hello\" ++ name");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "greet name = \"hello\" ++ name");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     try std.testing.expectEqualStrings("greet", decls[0].function_def.name);
     try std.testing.expectEqual(@as(usize, 1), decls[0].function_def.params.len);
@@ -830,18 +845,24 @@ test "parser function def" {
 // ============ Expressions ============
 
 test "parser literal expression" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "x = 42");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "x = 42");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const body = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(i64, 42), body.int_literal.value);
 }
 
 test "parser let in" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "x = let y = 1 in y");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "x = let y = 1 in y");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(usize, 1), e.let_in.bindings.len);
@@ -849,9 +870,12 @@ test "parser let in" {
 }
 
 test "parser if then else" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "f = if true then 1 else 0");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "f = if true then 1 else 0");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(true, e.if_expr.cond.*.bool_literal.value);
@@ -860,18 +884,24 @@ test "parser if then else" {
 }
 
 test "parser function call" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = add 1 2");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = add 1 2");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqualStrings("add", e.call.func.*.ident.name);
 }
 
 test "parser lambda" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "f = \\x -> x");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "f = \\x -> x");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(usize, 1), e.lambda.params.len);
@@ -879,18 +909,24 @@ test "parser lambda" {
 }
 
 test "parser list literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "xs = [1, 2, 3]");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "xs = [1, 2, 3]");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(usize, 3), e.list_literal.items.len);
 }
 
 test "parser record literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = { name = \"test\" }");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = { name = \"test\" }");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(usize, 1), e.record_literal.fields.len);
@@ -898,9 +934,12 @@ test "parser record literal" {
 }
 
 test "parser record access" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "n = r.name");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "n = r.name");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqualStrings("r", e.record_access.record.*.ident.name);
@@ -908,9 +947,12 @@ test "parser record access" {
 }
 
 test "parser pipe" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = x |> f");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = x |> f");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqualStrings("x", e.pipe.left.*.ident.name);
@@ -918,18 +960,24 @@ test "parser pipe" {
 }
 
 test "parser boolean ops" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = a && b || c");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = a && b || c");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(ast.BinaryOp.or_, e.binary_op.op);
 }
 
 test "parser arithmetic ops" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = 1 + 2 * 3");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = 1 + 2 * 3");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     // * has higher precedence, so it should be: 1 + (2 * 3)
     const e = decls[0].function_def.body.*;
@@ -939,9 +987,12 @@ test "parser arithmetic ops" {
 }
 
 test "parser not expr" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = not true");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = not true");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(ast.UnaryOp.not, e.unary_op.op);
@@ -949,9 +1000,12 @@ test "parser not expr" {
 }
 
 test "parser neg expr" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = -42");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = -42");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(ast.UnaryOp.neg, e.unary_op.op);
@@ -959,36 +1013,48 @@ test "parser neg expr" {
 }
 
 test "parser parenthesized expr" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = (1)");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = (1)");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(i64, 1), e.int_literal.value);
 }
 
 test "parser do block" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "f = do x = 1");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "f = do x = 1");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expect(e.do_block.result == null);
 }
 
 test "parser do in" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "f = do x = 1 in x");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "f = do x = 1 in x");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expect(e.do_block.result != null);
 }
 
 test "parser multiple imports" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "import A\nimport B\nimport C");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "import A\nimport B\nimport C");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 3), decls.len);
     try std.testing.expectEqualStrings("A", decls[0].import.module);
     try std.testing.expectEqualStrings("B", decls[1].import.module);
@@ -996,9 +1062,12 @@ test "parser multiple imports" {
 }
 
 test "parser tuple literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "t = (1, \"a\", true)");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "t = (1, \"a\", true)");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(usize, 3), e.tuple_literal.items.len);
@@ -1007,9 +1076,12 @@ test "parser tuple literal" {
 }
 
 test "parser duration literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "t = 5s");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "t = 5s");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(i64, 5), e.duration_literal.value);
@@ -1017,36 +1089,48 @@ test "parser duration literal" {
 }
 
 test "parser path literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "p = p\"/tmp\"");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "p = p\"/tmp\"");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqualStrings("/tmp", e.path_literal.value);
 }
 
 test "parser string literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "s = \"hello\"");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "s = \"hello\"");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqualStrings("hello", e.string_literal.value);
 }
 
 test "parser nil and bool" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "a = Nil\nb = true\nc = false");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "a = Nil\nb = true\nc = false");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 3), decls.len);
     try std.testing.expectEqual(true, decls[1].function_def.body.*.bool_literal.value);
     try std.testing.expectEqual(false, decls[2].function_def.body.*.bool_literal.value);
 }
 
 test "parser comparison chain" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const lexer_mod = @import("../lexer/lexer.zig");
-    const tokens = try lexer_mod.tokenize(std.testing.allocator, "r = a == b && c /= d");
-    const decls = try parseModule(std.testing.allocator, tokens);
+    const tokens = try lexer_mod.tokenize(allocator, "r = a == b && c /= d");
+    const decls = try parseModule(allocator, tokens);
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     // && has lower precedence than == and /=
     const e = decls[0].function_def.body.*;

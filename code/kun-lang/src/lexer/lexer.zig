@@ -695,8 +695,11 @@ fn tryReadMultiCharOp(state: *LexerState, start: ast.SourceLoc) !bool {
 // ============ Basic tokens ============
 
 test "lexer int literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "42 0xFF 0o77 0b1010 1_000_000";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[0].kind);
     try std.testing.expectEqualStrings("42", tokens[0].slice);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[1].kind);
@@ -708,8 +711,11 @@ test "lexer int literal" {
 }
 
 test "lexer float literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "3.14 2.5e10 1.0";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.float_literal, tokens[0].kind);
     try std.testing.expectEqualStrings("3.14", tokens[0].slice);
     try std.testing.expectEqual(TokenKind.float_literal, tokens[1].kind);
@@ -718,48 +724,66 @@ test "lexer float literal" {
 }
 
 test "lexer bool and nil" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "true false Nil";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.kw_true, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.kw_false, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.kw_nil, tokens[2].kind);
 }
 
 test "lexer string with escapes" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "\"hello\\nworld\" \"tab\\there\"";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.string_literal, tokens[0].kind);
     try std.testing.expectEqualStrings("\"hello\\nworld\"", tokens[0].slice);
     try std.testing.expectEqual(TokenKind.string_literal, tokens[1].kind);
 }
 
 test "lexer char literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "'A' '\\n' '好'";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.char_literal, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.char_literal, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.char_literal, tokens[2].kind);
 }
 
 test "lexer hex int vs bytes" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     // 0xFF has 2 hex digits -> int; 0x48656C6C6F has 10 hex digits -> bytes
     const source = "0xFF 0x48656C6C6F";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.bytes_literal, tokens[1].kind);
     try std.testing.expectEqualStrings("0x48656C6C6F", tokens[1].slice);
 }
 
 test "lexer multiline string" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "\"\"\"\nhello\nworld\n\"\"\"";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.multiline_string, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.eof, tokens[1].kind);
 }
 
 test "lexer single char operators" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "= + - * / % < > , . :";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.assign, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.plus, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.minus, tokens[2].kind);
@@ -776,8 +800,11 @@ test "lexer single char operators" {
 // ============ Multi-char operators ============
 
 test "lexer multi-char operators" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "|> <| >> << ++ ?. ?? && || == /= <= >= -> | \\";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.pipe, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.pipe_rev, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.compose, tokens[2].kind);
@@ -799,8 +826,11 @@ test "lexer multi-char operators" {
 // ============ Keywords ============
 
 test "lexer all keywords" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "type case of if then else do in let defer import export as when not true false Nil";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     const expected = [_]TokenKind{
         .kw_type, .kw_case, .kw_of, .kw_if, .kw_then, .kw_else,
         .kw_do, .kw_in, .kw_let, .kw_defer, .kw_import, .kw_export,
@@ -814,8 +844,11 @@ test "lexer all keywords" {
 // ============ Brackets ============
 
 test "lexer basic brackets" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "( ) [ ] { }";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.lparen, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.rparen, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.lbrack, tokens[2].kind);
@@ -825,8 +858,11 @@ test "lexer basic brackets" {
 }
 
 test "lexer hash brackets" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "#( #[ #{";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.hash_lparen, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.hash_lbrack, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.hash_lbrace, tokens[2].kind);
@@ -835,8 +871,11 @@ test "lexer hash brackets" {
 // ============ Comments ============
 
 test "lexer comment" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "42 // this is a comment\n1";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[1].kind);
 }
@@ -844,24 +883,33 @@ test "lexer comment" {
 // ============ Prefix strings ============
 
 test "lexer path and f-string" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "p\"/tmp\" f\"hello {name}\" r\"[0-9]+\"";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.path_literal, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.string_literal, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.regex_literal, tokens[2].kind);
 }
 
 test "lexer multiline f-string" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "f\"\"\"\nhello {name}\n\"\"\"";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.multiline_string, tokens[0].kind);
 }
 
 // ============ Duration ============
 
 test "lexer duration all units" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "5s 100ms 2h 30m 1d 500us 200ns";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[0].kind);
     try std.testing.expectEqualStrings("5s", tokens[0].slice);
     try std.testing.expectEqual(TokenKind.duration_literal, tokens[1].kind);
@@ -878,16 +926,22 @@ test "lexer duration all units" {
 // ============ Identifiers ============
 
 test "lexer type ident" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "Int String MyType";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.type_ident, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.type_ident, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.type_ident, tokens[2].kind);
 }
 
 test "lexer ident underscores" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "my_var _private __magic";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.ident, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.ident, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.ident, tokens[2].kind);
@@ -896,8 +950,11 @@ test "lexer ident underscores" {
 // ============ Integration ============
 
 test "lexer expression integration" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     const source = "add 1 (2 + 3)";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.ident, tokens[0].kind);
     try std.testing.expectEqualStrings("add", tokens[0].slice);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[1].kind);
@@ -909,30 +966,42 @@ test "lexer expression integration" {
 }
 
 test "lexer empty" {
-    const tokens = try tokenize(std.testing.allocator, "");
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try tokenize(allocator, "");
     try std.testing.expectEqual(@as(usize, 1), tokens.len);
     try std.testing.expectEqual(TokenKind.eof, tokens[0].kind);
 }
 
 test "lexer only comment" {
-    const tokens = try tokenize(std.testing.allocator, "// just a comment");
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try tokenize(allocator, "// just a comment");
     try std.testing.expectEqual(@as(usize, 1), tokens.len);
     try std.testing.expectEqual(TokenKind.eof, tokens[0].kind);
 }
 
 test "lexer multi-char op precedence" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     // |> should be one token, not pipe then gt
     const source = "|>";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(@as(usize, 2), tokens.len);
     try std.testing.expectEqual(TokenKind.pipe, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.eof, tokens[1].kind);
 }
 
 test "lexer minus vs arrow" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
     // - is minus, -> is arrow
     const source = "- ->";
-    const tokens = try tokenize(std.testing.allocator, source);
+    const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.minus, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.arrow, tokens[1].kind);
 }
