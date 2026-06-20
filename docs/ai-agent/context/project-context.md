@@ -19,8 +19,8 @@
 |---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | 实现阶段启动（类型检查器 / 解析器 / 运行时原型） |
-| 最近完成 | 单一表达式范式全面定稿：语法/类型/格式化/架构 7 份文档重写；跨文档一致性修复 4 处；Test 模块效应函数分类修正；示例代码 9 文件迁移至 do in 模式 |
+| 活跃计划 | 实现阶段：首阶段完成（build.zig + Lexer + Parser + AST → `zig build dump-ast`），次阶段待启动（类型检查器 + 运行时求值器） |
+| 最近完成 | 首阶段 Zig 实现：build.zig、Lexer、AST 定义、Parser 骨架、CLI dump-ast 驱动；`zig build` + `zig build test` 通过 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -43,12 +43,15 @@
 | 构建文档 | `cd docs && pnpm build` |
 | 本地预览 | `cd docs && pnpm dev` |
 | 检查 Markdown 语法 | `cd docs && pnpm lint` |
-| 单元测试 | 未定义（v0.1 仅通过运行脚本 + 退出码验证） |
+| 单元测试 | `cd code/kun-lang && zig build test` |
+| 解析验证 | `cd code/kun-lang && zig build dump-ast -- <file.kun>` |
 
 ## 最近任务路由
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-20 | 首阶段 Zig 代码实现 — build.zig + Lexer + AST + Parser + CLI dump-ast | 实现 | ✅ system-baseline、syntax、module-boundaries、zig-patterns | ✅ writing-conventions、plan-audit | `plan-first` → `implement` |
+| 2026-06-20 | 首阶段实现计划（骨架 + Lexer + Parser + AST）编写 | 计划 | ✅ system-baseline、module-boundaries、syntax、zig-patterns | ✅ writing-conventions | `plan-first` |
 | 2026-06-19 | 单一表达式范式全面定稿——设计讨论、7 份文档重写、跨文档一致性修复、Test 模块效应分类修正、9 示例文件迁移 | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
 | 2026-06-17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`→`Stat` 纯访问器）；示例修复（Verifier.kun `let…in`+`do`、Builder.kun+Dockerizer.kun `File.stat` 适配） | 设计+修复 | ✅ standard-library、syntax、examples | ✅ writing-conventions | `implement` |
 | 2026-06-16 | 标准库模块必要性分析与精简（移除 5 模块 + 19 函数、新增 4 项 P0、跨 14 文件传播） | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions、closure-audit | `implement` |
@@ -72,6 +75,8 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.20 | 首阶段 Zig 代码实现完成 — build.zig/Lexer/AST/Parser/CLI dump-ast；项目进入可构建状态 |
+| 2026.06.20 | 首阶段实现计划创建（骨架+Lexer+Parser+AST）——活跃计划更新、验证命令补充 |
 | 2026.06.19 | 单一表达式范式全面定稿——活跃工作/最近完成/任务路由更新 |
 | 2026.06.18 | Kun Shell 标注 [推迟 v2.0]，二进制产物更新（`kun-shell` 标记推迟） |
 | 2026.06.17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`）；示例重构（`File.stat` 替代多函数） |
