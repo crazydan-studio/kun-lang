@@ -2474,7 +2474,12 @@ do
 
   Process.sleep 5s                             // 等待 5 秒
   Process.exit 0                               // 正常退出
+```
 
+```kun
+import Process
+
+do
   // 向进程发送信号
   case Process.kill SIGTERM targetPid of
     Ok _  -> IO.println "signal sent"
