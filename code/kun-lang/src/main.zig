@@ -2,6 +2,11 @@ const std = @import("std");
 const lexer = @import("lexer/lexer.zig");
 const parser = @import("parser/parser.zig");
 
+comptime {
+    _ = lexer;
+    _ = parser;
+}
+
 pub fn main(init: std.process.Init) !void {
     const allocator = init.arena.allocator();
 

@@ -300,8 +300,9 @@ fn parseBinaryOp(state: *ParserState, min_prec: u8) ParserError!Expr {
 }
 
 fn heapExpr(state: *ParserState, expr: *const Expr) ParserError!*const Expr {
-    _ = state;
-    return expr;
+    const ptr = try state.allocator.create(Expr);
+    ptr.* = expr.*;
+    return ptr;
 }
 
 fn heapPattern(state: *ParserState, pattern: ast.Pattern) ParserError!*const ast.Pattern {
@@ -363,7 +364,16 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
     switch (state.peek()) {
         .int_literal => {
             const tok = state.advance();
-            const value = try std.fmt.parseInt(i64, tok.slice, 10);
+            const slice = tok.slice;
+            const radix: u8 = if (slice.len > 2 and slice[0] == '0') blk: {
+                break :blk switch (slice[1]) {
+                    'x', 'X' => 16,
+                    'o', 'O' => 8,
+                    'b', 'B' => 2,
+                    else => 10,
+                };
+            } else 10;
+            const value = try std.fmt.parseInt(i64, slice, radix);
             return Expr{ .int_literal = .{ .value = value, .span = tok.span } };
         },
         .float_literal => {
@@ -471,6 +481,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             const tok = state.advance();
             var left = Expr{ .ident = .{ .name = tok.slice, .span = tok.span } };
 
+            var args = std.ArrayListUnmanaged(*const Expr).empty;
             while (true) {
                 switch (state.peek()) {
                     .int_literal, .float_literal, .string_literal, .multiline_string,
@@ -480,10 +491,10 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                     .lparen, .lbrack, .lbrace, .hash_lparen, .hash_lbrack, .hash_lbrace,
                     .minus, .kw_not, .backslash => {
                         const arg = try parsePrefix(state);
-                        const span = Span{ .start = spanOf(&left).start, .end = spanOf(&arg).end };
-                        left = Expr{ .call = .{ .func = try heapExpr(state, &left), .arg = try heapExpr(state, &arg), .span = span } };
+                        try args.append(state.allocator, try heapExpr(state, &arg));
                     },
                     .dot => {
+                        if (args.items.len > 0) break;
                         _ = state.advance();
                         const field = state.advance();
                         const span = Span{ .start = spanOf(&left).start, .end = field.span.end };
@@ -491,6 +502,26 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                     },
                     else => break,
                 }
+            }
+
+            if (args.items.len > 0) {
+                const arg: *const Expr = if (args.items.len == 1) args.items[0] else blk: {
+                    const tuple_span = Span{
+                        .start = spanOf(args.items[0]).start,
+                        .end = spanOf(args.items[args.items.len - 1]).end,
+                    };
+                    break :blk try heapExpr(state, &Expr{ .tuple_literal = .{ .items = args.items, .span = tuple_span } });
+                };
+                const span = Span{ .start = spanOf(&left).start, .end = spanOf(arg).end };
+                left = Expr{ .call = .{ .func = try heapExpr(state, &left), .arg = arg, .span = span } };
+            }
+
+            // Handle chained record access after call: f a .field
+            while (state.peek() == .dot) {
+                _ = state.advance();
+                const field = state.advance();
+                const span = Span{ .start = spanOf(&left).start, .end = field.span.end };
+                left = Expr{ .record_access = .{ .record = try heapExpr(state, &left), .field = field.slice, .span = span } };
             }
 
             return left;

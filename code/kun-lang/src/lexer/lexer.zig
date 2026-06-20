@@ -273,13 +273,30 @@ pub fn tokenize(allocator: std.mem.Allocator, source: []const u8) ![]const Token
             continue;
         }
 
-        if (isDigit(next_ch) or (next_ch == '0' and state.peekN(1) == @as(u8, 'x'))) {
-            if (next_ch == '0' and state.peekN(1) == @as(u8, 'x')) {
-                // Hex or bytes
-                _ = state.advance(); // 0
-                _ = state.advance(); // x
-                try readHexLiteral(&state, start);
-                continue;
+        if (isDigit(next_ch) or (next_ch == '0' and (state.peekN(1) == @as(u8, 'x') or state.peekN(1) == @as(u8, 'o') or state.peekN(1) == @as(u8, 'b')))) {
+            if (next_ch == '0') {
+                const n1 = state.peekN(1);
+                if (n1 == @as(u8, 'x')) {
+                    // Hex or bytes
+                    _ = state.advance(); // 0
+                    _ = state.advance(); // x
+                    try readHexLiteral(&state, start);
+                    continue;
+                }
+                if (n1 == @as(u8, 'o')) {
+                    // Octal
+                    _ = state.advance(); // 0
+                    _ = state.advance(); // o
+                    try readOctalLiteral(&state, start);
+                    continue;
+                }
+                if (n1 == @as(u8, 'b')) {
+                    // Binary
+                    _ = state.advance(); // 0
+                    _ = state.advance(); // b
+                    try readBinaryLiteral(&state, start);
+                    continue;
+                }
             }
             try readNumber(&state, start);
             continue;
@@ -321,6 +338,8 @@ pub fn tokenize(allocator: std.mem.Allocator, source: []const u8) ![]const Token
             '+' => { _ = state.advance(); try state.pushToken(.plus, "+", state.span(start)); },
             '-' => { _ = state.advance(); try state.pushToken(.minus, "-", state.span(start)); },
             '*' => { _ = state.advance(); try state.pushToken(.star, "*", state.span(start)); },
+            '/' => { _ = state.advance(); try state.pushToken(.slash, "/", state.span(start)); },
+            '%' => { _ = state.advance(); try state.pushToken(.mod_op, "%", state.span(start)); },
             '<' => { _ = state.advance(); try state.pushToken(.lt, "<", state.span(start)); },
             '>' => { _ = state.advance(); try state.pushToken(.gt, ">", state.span(start)); },
             ',' => { _ = state.advance(); try state.pushToken(.comma, ",", state.span(start)); },
@@ -420,56 +439,69 @@ fn readNumber(state: *LexerState, start: ast.SourceLoc) !void {
     // Check for duration suffix
     const text = state.source[start.offset..state.pos];
     if (state.peek()) |ch| {
-        const unit = switch (ch) {
-            's' => DurationUnit.s,
-            'm' => blk: {
+        switch (ch) {
+            's' => {
+                _ = state.advance();
+                try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
+                return;
+            },
+            'm' => {
+                // Check for ms or min
                 if (state.peekN(1)) |n| {
-                    if (n == 's') break :blk DurationUnit.ms;
+                    if (n == 's') {
+                        _ = state.advance(); // m
+                        _ = state.advance(); // s
+                        try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
+                        return;
+                    }
                     if (n == 'i') {
-                        // Check for "min"
                         if (state.peekN(2)) |n2| {
                             if (n2 == 'n') {
-                                // advance min
-                                _ = state.advance(); _ = state.advance(); _ = state.advance();
+                                _ = state.advance(); // m
+                                _ = state.advance(); // i
+                                _ = state.advance(); // n
                                 try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
                                 return;
                             }
                         }
                     }
                 }
-                // just m? ambiguous, treat as identifier continuation
-                return state.pushToken(.int_literal, text, state.span(start));
+                // single m = minute
+                _ = state.advance();
+                try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
+                return;
             },
-            'h' => DurationUnit.h,
-            'd' => DurationUnit.d,
-            'u' => DurationUnit.us,
-            'n' => DurationUnit.ns,
+            'h' => {
+                _ = state.advance();
+                try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
+                return;
+            },
+            'd' => {
+                _ = state.advance();
+                try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
+                return;
+            },
+            'u' => {
+                _ = state.advance();
+                if (state.peek()) |n| {
+                    if (n == 's') _ = state.advance();
+                }
+                try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
+                return;
+            },
+            'n' => {
+                _ = state.advance();
+                if (state.peek()) |n| {
+                    if (n == 's') _ = state.advance();
+                }
+                try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
+                return;
+            },
             else => {
                 try state.pushToken(.int_literal, text, state.span(start));
                 return;
             },
-        };
-        _ = state.advance(); // consume unit char
-        // For ms, us, ns consume second char
-        if (ch == 's') {} // single s
-        if (ch == 'm') {
-            if (state.peekN(1)) |n| {
-                if (n == 's') _ = state.advance(); // consume s in ms
-            }
         }
-        if (ch == 'n') {
-            if (state.peekN(1)) |n| {
-                if (n == 's') _ = state.advance(); // consume s in ns
-            }
-        }
-        if (ch == 'u') {
-            if (state.peekN(1)) |n| {
-                if (n == 's') _ = state.advance(); // consume s in us
-            }
-        }
-        _ = unit;
-        try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
-        return;
     }
 
     try state.pushToken(.int_literal, text, state.span(start));
@@ -495,6 +527,34 @@ fn readHexLiteral(state: *LexerState, start: ast.SourceLoc) !void {
     } else {
         try state.pushToken(.int_literal, text, state.span(start));
     }
+}
+
+fn readOctalLiteral(state: *LexerState, start: ast.SourceLoc) !void {
+    while (state.peek()) |ch| {
+        if (ch >= '0' and ch <= '7') {
+            _ = state.advance();
+        } else if (ch == '_') {
+            _ = state.advance();
+        } else {
+            break;
+        }
+    }
+    const text = state.source[start.offset..state.pos];
+    try state.pushToken(.int_literal, text, state.span(start));
+}
+
+fn readBinaryLiteral(state: *LexerState, start: ast.SourceLoc) !void {
+    while (state.peek()) |ch| {
+        if (ch == '0' or ch == '1') {
+            _ = state.advance();
+        } else if (ch == '_') {
+            _ = state.advance();
+        } else {
+            break;
+        }
+    }
+    const text = state.source[start.offset..state.pos];
+    try state.pushToken(.int_literal, text, state.span(start));
 }
 
 fn isHexDigit(ch: u8) bool {
@@ -562,13 +622,24 @@ fn readMultilineString(state: *LexerState, start: ast.SourceLoc, is_f_string: bo
     try state.pushToken(.invalid, state.source[start.offset..state.pos], state.span(start));
 }
 
+fn utf8ByteLen(lead: u8) usize {
+    if (lead < 0x80) return 1;
+    if (lead < 0xE0) return 2;
+    if (lead < 0xF0) return 3;
+    return 4;
+}
+
 fn readChar(state: *LexerState, start: ast.SourceLoc) !void {
     if (state.peek()) |ch| {
         if (ch == '\\') {
             _ = state.advance(); // backslash
             if (state.peek()) |_| _ = state.advance(); // escaped char
         } else {
-            _ = state.advance();
+            const len = utf8ByteLen(ch);
+            var i: usize = 0;
+            while (i < len) : (i += 1) {
+                if (state.peek()) |_| _ = state.advance() else break;
+            }
         }
     }
     if (state.peek()) |ch| {
@@ -687,17 +758,19 @@ test "lexer multiline string" {
 }
 
 test "lexer single char operators" {
-    const source = "= + - * < > , . :";
+    const source = "= + - * / % < > , . :";
     const tokens = try tokenize(std.testing.allocator, source);
     try std.testing.expectEqual(TokenKind.assign, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.plus, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.minus, tokens[2].kind);
     try std.testing.expectEqual(TokenKind.star, tokens[3].kind);
-    try std.testing.expectEqual(TokenKind.lt, tokens[4].kind);
-    try std.testing.expectEqual(TokenKind.gt, tokens[5].kind);
-    try std.testing.expectEqual(TokenKind.comma, tokens[6].kind);
-    try std.testing.expectEqual(TokenKind.dot, tokens[7].kind);
-    try std.testing.expectEqual(TokenKind.colon, tokens[8].kind);
+    try std.testing.expectEqual(TokenKind.slash, tokens[4].kind);
+    try std.testing.expectEqual(TokenKind.mod_op, tokens[5].kind);
+    try std.testing.expectEqual(TokenKind.lt, tokens[6].kind);
+    try std.testing.expectEqual(TokenKind.gt, tokens[7].kind);
+    try std.testing.expectEqual(TokenKind.comma, tokens[8].kind);
+    try std.testing.expectEqual(TokenKind.dot, tokens[9].kind);
+    try std.testing.expectEqual(TokenKind.colon, tokens[10].kind);
 }
 
 // ============ Multi-char operators ============
