@@ -452,7 +452,7 @@ Char.isWhitespace '\n'       // → true
 // 安全构造
 case Char.fromInt 0xD800 of    // 代理对，非法
   Ok c  -> c
-   Err _ -> Char.of 0xFFFD     // 回退到 Unicode 替换字符
+  Err _ -> Char.of 0xFFFD     // 回退到 Unicode 替换字符
 ```
 
 ## `Regex` — 正则操作
@@ -2210,7 +2210,7 @@ do
     Ok tmp ->
       defer (File.remove tmp)
       File.writeString tmp "content"
-       IO.println f"wrote to {tmp}"
+      IO.println f"wrote to {tmp}"
     Err _ ->
       IO.println "failed to create temp file"
 ```
