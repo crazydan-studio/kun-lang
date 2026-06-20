@@ -3,6 +3,7 @@ import Stream
 import String
 import Path
 import Int
+import Result
 import DateTime
 
 type LogEntry =
