@@ -1,0 +1,55 @@
+import List
+import Stream
+import String
+import Path
+import Int
+import DateTime
+
+type LogEntry =
+  { timestamp : String
+  , level     : String
+  , message   : String
+  }
+
+parseLine : String -> Result LogEntry String
+parseLine = \line ->
+  case String.split " " line of
+    [ts, lvl, ..rest] ->
+      Ok { timestamp = ts, level = lvl, message = String.join " " rest }
+    _ ->
+      Err f"invalid line: {line}"
+
+getCurrentTime : -> String
+getCurrentTime = \ ->
+  do
+    now = DateTime.now
+  in
+    case DateTime.format "HH:mm:ss" now of
+      Ok s  -> s
+      Err _ -> "??:??:??"
+
+main : List String -> Unit
+main = \args ->
+  do
+    logPath =
+      case args of
+        [path] -> Path.fromString path
+        _      -> p"/var/log/syslog"
+
+    lines =
+      Cmd.cat logPath
+        |> Stream.lines
+        |> Stream.parseMap parseLine
+        |> Stream.toList
+
+    errors =
+      lines
+        |> List.filter (\e -> e.level == "ERROR")
+
+    IO.println f"found {List.length errors} errors at {getCurrentTime}"
+    List.iter
+      (\entry ->
+        do
+          IO.println f"[{entry.timestamp}] {entry.message}"
+      )
+      errors

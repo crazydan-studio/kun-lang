@@ -1,0 +1,150 @@
+export
+  ( Color, Color(..)
+  , Config, defaultConfig
+  , Shape, Shape(..)
+  , Point
+  , User
+  , processLog
+  , countErrors
+  , filterUsers
+  , parsePort
+  )
+
+import List
+import Map
+import Result
+import Path
+import String
+import Int
+import Float
+import DateTime
+import Regex
+
+// ADT：和类型
+type Color
+  = Red
+  | Green
+  | Blue
+
+// ADT 带字段
+type Shape
+  = Circle Float
+  | Rectangle Float Float
+
+// Newtype
+type Point = Point (Float, Float)
+
+// Record 类型
+type User =
+  { name : String
+  , age  : Int
+  , role : String
+  }
+
+type Config =
+  { host    : String
+  , port    : Int
+  , debug   : Bool
+  }
+
+defaultConfig : Config
+defaultConfig = { host = "localhost", port = 8080, debug = false }
+
+// 纯函数：单表达式，let in 省略
+add : Int -> Int -> Int
+add = \x y -> x + y
+
+// 纯函数：多语句，let in 包裹
+sumAndFloor : List Int -> Int
+sumAndFloor = \items ->
+  let
+    total = List.sum items
+  in
+    toInt (toFloat total / 3.0)
+
+// 纯函数：模式匹配
+describeShape : Shape -> String
+describeShape = \s ->
+  case s of
+    Circle r ->
+      f"circle with radius {r}"
+    Rectangle w h ->
+      f"rectangle {w} x {h}"
+
+// 纯函数：Record 解构
+getUserName : User -> String
+getUserName = \{name} -> name
+
+// 纯函数：Result 处理
+parsePort : String -> Result Int String
+parsePort = \s ->
+  Int.fromString s
+    |> Result.andThen (\n ->
+      if n >= 0 && n <= 65535 then
+        Ok n
+      else
+        Err "port out of range"
+    )
+
+// 纯函数：List 变换
+filterUsers : Int -> List User -> List User
+filterUsers = \minAge users ->
+  users
+    |> List.filter (\u -> u.age >= minAge)
+    |> List.map (\u -> u.name)
+
+// 效应函数：do in 返回值
+getCurrentTime : -> String
+getCurrentTime = \ ->
+  do
+    now = DateTime.now
+  in
+    case DateTime.format "yyyy-MM-dd HH:mm:ss" now of
+      Ok s  -> s
+      Err _ -> "unknown"
+
+// 效应函数：Cmd 调用 + Stream 管道
+processLog : Path -> Unit
+processLog = \path ->
+  do
+    entries =
+      Cmd.cat path
+        |> Stream.lines
+        |> Stream.filter (String.contains "ERROR")
+        |> Stream.take 100
+        |> Stream.toList
+    IO.println f"found {List.length entries} errors"
+
+// 效应函数：do in + Cmd ? 后缀
+countErrors : Path -> Int
+countErrors = \path ->
+  do
+    result = Cmd.grep? { pattern = "ERROR" } path
+  in
+    case result of
+      Ok stream ->
+        stream
+          |> Stream.toList
+          |> List.length
+      Err _ -> 0
+
+// 纯函数：管道组合
+doubleThenAdd1 : Int -> Int
+doubleThenAdd1 = \x ->
+  x
+    |> (\n -> n * 2)
+    |> (\n -> n + 1)
+
+// 纯函数：函数组合
+square : Int -> Int
+square = \x -> x * x
+
+// Nilable 类型使用
+findConfig : String -> Map String String -> ?String
+findConfig = \key config ->
+  Map.get key config
+
+// Regex 使用
+isValidEmail : String -> Bool
+isValidEmail = \s ->
+  Regex.isMatch r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" s
