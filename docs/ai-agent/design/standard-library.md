@@ -2593,10 +2593,10 @@ import Task
 ### API
 
 ```kun
-// [Primitive] 并发执行命令列表，最大并行数为 n
+// [Primitive] 并发执行命令列表，最大并行数为 n  [推迟 v0.5]
 spawn : Int -> List Command -> Stream (Result (Stream String) CommandError)
 
-// [Primitive] 等待所有 Task 完成，收集结果
+// [Primitive] 等待所有 Task 完成，收集结果  [推迟 v0.5]
 all : Stream (Result a e) -> List (Result a e)
 ```
 
@@ -2870,6 +2870,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.20 | Round 12 聚焦审计：Task API 行补充 `[推迟 v0.5]` 行内标注 |
 | 2026.06.19 | Test 模块全部 9 个断言统一为效应函数，均返回 Unit：`isOk`/`isErr`/`isSome` 签名改为 `-> String -> Unit`（纯断言，不提取值） |
 | 2026.06.19 | Test 模块断言分类修正（单一表达式范式配套）：`equal`/`ok`/`notEqual`/`approxEqual`/`isNil`/`panics` 从 `[PureKun]` 改为效应函数（返回 `Unit` 的纯函数违反类型系统规则）；新增效应断言调用须在 `do` 上下文中的说明 |
 | 2026.06.18 | Cmd API 精简：`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`（与 `Cmd.<bin>?` 对齐）；移除 `stdoutToString`、`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
