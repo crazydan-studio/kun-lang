@@ -39,6 +39,7 @@ main = \args ->
     lines =
       Cmd.cat logPath
         |> Stream.lines
+        |> Stream.filterMap Result.ok
         |> Stream.parseMap parseLine
         |> Stream.toList
 

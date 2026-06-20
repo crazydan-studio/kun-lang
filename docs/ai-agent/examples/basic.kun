@@ -110,6 +110,7 @@ processLog = \path ->
     entries =
       Cmd.cat path
         |> Stream.lines
+        |> Stream.filterMap Result.ok
         |> Stream.filter (String.contains "ERROR")
         |> Stream.take 100
         |> Stream.toList
