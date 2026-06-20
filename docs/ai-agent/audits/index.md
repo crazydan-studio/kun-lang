@@ -20,3 +20,9 @@
 | [第 7 轮非核心文档审计](audit-round7-noncore-docs.md) | 非核心文档 + 跨文档引用 | 2026-06-04 |
 | [第 8 轮元问题审计](audit-round8-meta-issues.md) | 元问题（README/版本/标签/索引） | 2026-06-04 |
 | [AGENTS.md 修订闭合审计](audit-agents-md-revision-closure.md) | AGENTS.md 完整性修订及 10 项修复验证 | 2026-06-07 |
+| [语法可用性审计](audit-syntax-usability.md) | 语法功能完整性审计 | 2026-06-10 |
+| [类型系统设计审计（v2）](audit-type-system-design-v2.md) | 类型系统重设计审计 | 2026-06-10 |
+| [第 9 轮时效性文档审计](audit-round9-documentation-timeliness.md) | 示例语法/API/跨文档一致性 | 2026-06-20 |
+| [第 10 轮全面性审计](audit-round10-comprehensive.md) | 15 份文档全面审计 | 2026-06-20 |
+| [第 11 轮深度审计](audit-round11-deep.md) | 深层/边缘问题审计 | 2026-06-20 |
+| [第 12 轮聚焦审计](audit-round12-focused.md) | 边缘区域专项审计 | 2026-06-20 |
