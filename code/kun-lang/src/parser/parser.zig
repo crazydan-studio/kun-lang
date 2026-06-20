@@ -321,7 +321,7 @@ fn heapPattern(state: *ParserState, pattern: ast.Pattern) ParserError!*const ast
 fn skipTypeAnn(state: *ParserState) ParserError!void {
     while (state.peek() != .assign and state.peek() != .eof and state.peek() != .rparen and state.peek() != .rbrace and state.peek() != .rbrack) {
         switch (state.peek()) {
-            .ident, .type_ident, .kw_nil, .arrow, .lparen, .rparen, .comma, .dot => {
+            .type_ident, .kw_nil, .arrow, .lparen, .rparen, .comma, .dot => {
                 _ = state.advance();
             },
             else => break,
