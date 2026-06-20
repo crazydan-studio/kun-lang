@@ -3,8 +3,10 @@ node_modules/
 .pnpm-store/
 
 # Build output
-docs/.vitepress/dist/
-docs/.vitepress/cache/
+**/.vitepress/dist/
+**/.vitepress/cache/
+zig-out/
+.zig-cache/
 
 # VitePress
 *.local
