@@ -1764,7 +1764,7 @@ import Stream
 
 ```kun
 // [Primitive] 从 List 构造
-fromList : List t -> Stream t
+fromList : List a -> Stream a
 
 // [Primitive] 从 start 到 end（不含），步长为 step
 range : Int -> Int -> Int -> Stream Int
@@ -1837,7 +1837,7 @@ linesMax : Int -> Stream String -> Stream (Result String LineError)
 
 ```kun
 type LineError =
-  LineTruncated { partial_len: Int }
+  LineTruncated { partialLen: Int }
 ```
 
 ```kun
