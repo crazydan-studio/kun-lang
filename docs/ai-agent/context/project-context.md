@@ -19,8 +19,8 @@
 |---|---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | 实现阶段：首阶段完成（75 测试全通过，8 轮审计），Phase 2 待启动（类型检查器 + 运行时求值器） |
-| 最近完成 | 8 轮双代理审计循环完成：修复 P0×12 + P1×8。最终修复：skipTypeAnn 跨行类型标注、大写进制前缀、Map/Set 字面量、联合变体终止、双行函数定义、export 语法、运算符优先级全对齐。最终状态：`zig build test` 75/75通过零泄漏，`zig build dump-ast` 可用 |
+| 活跃计划 | Phase 2 完成（类型检查器 + 运行时求值器）：229 测试全通过，零泄漏，15 轮计划审计 + 多轮代码审计 |
+| 最近完成 | Phase 2 实现：类型检查器 7 模块（env/unify/constraint/effect/pattern/infer/error）+ 运行时 4 模块（value/Frame/eval/defer）+ 12 测试文件（229 测试全通过）；效应识别方案 C（PrimitiveBinding.is_effect 替代硬编码命名空间）；Phase 1 审计修复（hex 阈值/无限循环/span 计算/变体名校验） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -50,6 +50,8 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-21 | Phase 2 实现：类型检查器 + 运行时求值器 + 12 测试文件（229 测试全通过）；效应识别方案 C；构建打包脚本 | 实现 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
+| 2026-06-21 | Phase 2 计划 15 轮审计（67 项修复）+ 5 份审计记录 + 活跃文档同步 | 审计+文档 | ✅ 全部 owner docs | ✅ plan-audit、document-audit | `implement` |
 | 2026-06-20 | 第 8 轮审计修复：skipTypeAnn 停止消费 ident（修复跨行类型标注+函数定义） | 审计+修复 | ✅ syntax、zig-patterns | ✅ plan-audit | `implement` |
 | 2026-06-20 | 文档元审计（第7轮）：同步 backlog/导航/版本历史 | 文档 | ✅ - | ✅ writing-conventions | `implement` |
 | 2026-06-20 | 第 6 轮审计：移除死函数 exprSpan + typed.zig 接入编译 | 清理 | ✅ - | ✅ closure-audit | `implement` |
@@ -83,6 +85,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.21 | Phase 2 实现完成（typecheck + runtime + 229 测试）+ 效应识别方案 C + Phase 1 审计修复 + 构建打包脚本 |
 | 2026.06.20 | Phase 1 全部 8 轮审计完成：skipTypeAnn 修复；75 测试全通过零泄漏 |
 | 2026.06.20 | 第 7 轮元审计：文档基础设施同步（backlog/导航/版本历史） |
 | 2026.06.20 | 第 6 轮清理：移除死函数 exprSpan + typed.zig 接入编译 |

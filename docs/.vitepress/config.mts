@@ -350,6 +350,13 @@ function sidebarWorking() {
           { text: '第10轮全面性审计', link: '/ai-agent/audits/audit-round10-comprehensive' },
           { text: '第11轮深度审计', link: '/ai-agent/audits/audit-round11-deep' },
           { text: '第12轮聚焦审计', link: '/ai-agent/audits/audit-round12-focused' },
+          { text: '第13轮边缘审计', link: '/ai-agent/audits/audit-round13-edge' },
+          { text: '第14轮终审扫尾', link: '/ai-agent/audits/audit-round14-final-sweep' },
+          { text: 'Phase 2 计划第1轮审计', link: '/ai-agent/audits/audit-plan-phase2-round1' },
+          { text: 'Phase 2 计划第2–3轮审计', link: '/ai-agent/audits/audit-plan-phase2-round2-3' },
+          { text: 'Phase 2 计划第5–6轮审计', link: '/ai-agent/audits/audit-plan-phase2-round5-6' },
+          { text: 'Phase 2 计划第7–8轮审计', link: '/ai-agent/audits/audit-plan-phase2-round7-8' },
+          { text: 'Phase 2 计划第9–10轮审计', link: '/ai-agent/audits/audit-plan-phase2-round9-10' },
         ],
       },
       {
