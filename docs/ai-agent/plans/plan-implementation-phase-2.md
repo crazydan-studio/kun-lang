@@ -12,6 +12,8 @@ Phase 1 完成了词法分析器、语法分析器、AST 定义、CLI 骨架。P
 > - 优势：求值器单层 switch 分发（无二次解引用）、类型字段含义明确（无隐藏的 ty 字段）、Zig comptime 分支覆盖检查覆盖所有变体
 > - 代价：TypedExpr 需独立维护变体集（与 Expr 同步更新）、内存占用略增（部分字段重复）
 > - 结论：Phase 2 延续独立联合体方案。若后续 Expr 变体增长至 40+ 时，复查 wrapper vs 联合体方案
+>
+> **效应识别方案**：Phase 2 MVP 采用**三层机制**——(1) `do` 块 AST 扫描（用户定义函数），(2) `(a->b)!` 回调标注（高阶函数），(3) 硬编码命名空间前缀匹配（Primitive 标准库函数）。Phase 3+ 引入 `PrimitiveBinding.is_effect` 字段后，移除硬编码列表，Primitive 函数的效应标记迁移至编译期常量表中。不引入 `effect` 关键字。
 
 ## 基线数据
 
@@ -52,7 +54,7 @@ Phase 1 完成了词法分析器、语法分析器、AST 定义、CLI 骨架。P
 
 ### 暂不实现（Phase 3+）
 
-- `runtime/primitive.zig`（Primitive 函数表）— 标准库绑定阶段
+- `runtime/primitive.zig`（Primitive 函数表，含 `PrimitiveBinding.is_effect: bool` 字段——Phase 3+ 迁移效应识别从硬编码命名空间到编译期常量表）— 标准库绑定阶段
 - Stream 惰性求值— Phase 3
 - i18n 错误消息完整体系— Phase 3
 - Cmd.\<bin\> 命令调用— Phase 3
@@ -249,6 +251,8 @@ pub const regex_type: TypeId = 9;
 
 **用户定义函数的效应分类**：函数体含 `do` 块或调用效应命名空间（`IO.*`/`File.*`/`Env.*`/`Process.*`/`Task.*`/`Random.*`/`Signal.on`/effectively `Cmd.<bin>?`/`Cmd.<bin>!`/`Cmd.exec`/`Cmd.which`/`Cmd.pipe?`/`Cmd.pipe!`/`Cmd.timeout`/`Cmd.retry`/`Cmd.execSafe`）→ 约束生成阶段为该函数赋予 `effect_fn` 内部类型。纯函数（无上述特征）→ 赋予 `function` 类型。Lambda 同理按体自动分类。
 
+> **MVP 简化**：标准库 Primitive 函数的效应性通过上述命名空间前缀硬编码匹配识别——因为 Phase 2 尚未实现 `PrimitiveBinding` 表，无法从编译期常量获取效应标记。Phase 3+ 用 `PrimitiveBinding.is_effect: bool` 字段替代硬编码列表，保持 `do` 块扫描 + `!` 标注两种机制不变。
+
 **Let 多态**：
 1. `let x = e1 in e2`：为 `e1` 生成约束 → 求解 → `generalize(type_e1, env)` → 将泛化类型加入环境 → 为 `e2` 生成约束
 2. 每次 `ident("x")` 引用：`freshInstance(generalized_type)`
@@ -268,7 +272,7 @@ pub const regex_type: TypeId = 9;
 3. **`do`/`let` 互斥**：同一函数 scope 内 `do` 与 `let` 不可互相嵌套
 4. **`do in` 验证**：`in` 表达式结果非 `Unit`；`do`/`do in` body 非空
 5. **`let in` 纯性约束**：体内无效应函数调用、定义、或效应命名空间函数引用
-6. **效应命名空间识别**：通过模块名称前缀匹配——`IO.*`, `File.*`, `Env.*`, `Process.*`, `Task.*`, `Random.*`, `Signal.on`。`Cmd.*` 中的执行类函数（`<bin>?`, `<bin>!`, `exec`, `which`, `timeout`, `retry`, `pipe?`, `pipe!`, `execSafe`）为效应函数，构造/装饰类（`<bin>`, `withEnv`, `withStdin`, `withWorkDir`, `withRunAs`, `withRawOpt`, `mergeStderr`, `andThen`, `orElse`, `pipe`）为纯函数
+6. **效应命名空间识别**（MVP 简化——Phase 3+ 迁移至 `PrimitiveBinding.is_effect`）：通过模块名称前缀匹配——`IO.*`, `File.*`, `Env.*`, `Process.*`, `Task.*`, `Random.*`, `Signal.on`。`Cmd.*` 中的执行类函数（`<bin>?`, `<bin>!`, `exec`, `which`, `timeout`, `retry`, `pipe?`, `pipe!`, `execSafe`）为效应函数，构造/装饰类（`<bin>`, `withEnv`, `withStdin`, `withWorkDir`, `withRunAs`, `withRawOpt`, `mergeStderr`, `andThen`, `orElse`, `pipe`）为纯函数
 7. **变量重复绑定检测**：同一 scope 内变量名重复 → 编译错误
 
 **Phase 3+ 补充**：
@@ -276,6 +280,7 @@ pub const regex_type: TypeId = 9;
 - 隐式 do 上下文识别（unbound case/if 分支）
 - 无效应调用的 do 块告警
 - `!` 回调参数效应匹配
+- 效应识别迁移至 `PrimitiveBinding.is_effect`：移除效应命名空间硬编码列表，Primitive 函数的效应标记收归编译期 Primitive 常量表
 
 ### Step 6: 模式穷举检查
 
