@@ -12,8 +12,8 @@ Phase 1 完成了词法分析器、语法分析器、AST 定义、CLI 骨架。P
 |------|-----|
 | `Expr` 总变体 | **32**（`ast.zig`） |
 | `TypedExpr` 现有变体 | **20**（`typed.zig`） |
-| Phase 2 需补齐的 TypedExpr 变体 | **7**（`duration_literal`, `path_literal`, `regex_literal`, `bytes_literal`, `pipe_reverse`, `compose`, `compose_reverse`） |
-| Phase 3+ 补齐的 TypedExpr 变体 | **5**（`record_update`, `map_literal`, `set_literal`, `range_literal`, `ternary`—对应 Expr 中 parser 未实现的变体） |
+| Phase 2 需补齐的 TypedExpr 变体 | **9**（`duration_literal`, `path_literal`, `regex_literal`, `bytes_literal`, `pipe_reverse`, `compose`, `compose_reverse`, `map_literal`, `set_literal`） |
+| Phase 3+ 补齐的 TypedExpr 变体 | **3**（`record_update`, `range_literal`, `ternary`—对应 Expr 中 parser 尚未产生这些变体） |
 | Phase 1 测试 | **75**（均通过） |
 
 ## 变更范围
@@ -69,9 +69,42 @@ Phase 2 MVP 实现以下 10 个核心错误模板，其余 12 个（`TooManyArgs
 // 新增：
 duration_literal, path_literal, regex_literal, bytes_literal,
 pipe_reverse, compose, compose_reverse,
+map_literal, set_literal,
 ```
 
-`record_update`, `map_literal`, `set_literal`, `range_literal`, `ternary` 对应 parser 尚未实现的 Expr 变体，推迟到 Phase 3+。
+`record_update`, `range_literal`, `ternary` 对应 parser 尚未产生这些 Expr 变体，推迟到 Phase 3+。
+
+#### 1.3 TypedExpr 增加 Span 字段
+
+所有 `TypedExpr` 变体增加 `span: Span` 字段（从对应 `Expr` 传播），用于错误报告中的源码位置定位。
+
+#### 1.4 TypedDecl 定义
+
+```zig
+pub const TypedDecl = struct {
+    kind: union(enum) {
+        import: struct { module: []const u8, alias: ?[]const u8 },
+        export_: struct { names: []const []const u8 },
+        type_def: struct { name: []const u8, type_: Type },
+        function_def: struct {
+            name: []const u8,
+            params: []const Param,
+            body: *const TypedExpr,
+            type_: Type,
+            is_effect: bool,
+        },
+    },
+    span: Span,
+};
+```
+
+#### 1.5 约束表补充 pattern_type 规则
+
+`pattern_type` 由 scrutinee 类型和模式结构共同确定：
+- 字面量模式：`pattern_type := literal_type`（如 `42` → `Int`）
+- 变体模式：`pattern_type := adt_variant_type`（如 `Ok v` → `Result T E` 中 v 的类型）
+- 通配符模式：`pattern_type := scrutinee_type`（当前模式不改变类型）
+- 元组/Record 模式：递归结构分解
 
 #### 1.2 Type 联合体重构
 
@@ -248,7 +281,7 @@ pub const Value = union(enum) {
 };
 ```
 
-> `regex`, `decimal`, `command`, `map`, `set`, `adt`, `stream` 的运行时表示推迟到 Phase 3+。类型检查器可推断这些类型，但求值器遇到时会 panic（`@panic("unimplemented")`）。
+> `regex`, `decimal`, `command`, `map`, `set`, `adt`, `stream` 的运行时表示推迟到 Phase 3+。类型检查器可推断这些类型，但求值器遇到对应类型表达式时会 panic（`@panic("unimplemented")`）。`map_literal`/`set_literal` 的 TypedExpr 变体在 Phase 2 实现（以确保 eval switch 编译覆盖），但其 Value 表示在 Phase 3+。
 
 **闭包表示**（Phase 2 MVP 使用环境指针浅捕获策略）：
 ```zig
@@ -276,7 +309,9 @@ pub fn bind(frame: *Frame, name: []const u8, val: Value) !void
 
 `code/kun-lang/src/runtime/eval.zig`：使用 Zig 0.17 labeled switch 实现 TypedExpr 节点分发。
 
-核心分发函数覆盖 TypedExpr 全部 27 个变体（20 现有 + 7 新增），未实现的变体（regex/decimal/map/set/adt/stream 等）标记 `@panic("unimplemented")`。
+核心分发函数覆盖 TypedExpr 全部 29 个变体（20 现有 + 9 新增），未实现的变体（regex/decimal/map/set/adt/stream 等）标记 `@panic("unimplemented")`。
+
+> `error.UnboundVariable` 是求值器内部保护性错误——类型检查器在正常情况下已杜绝未绑定变量。若运行时触发此错误，表示类型检查或闭包捕获实现有 bug，非面向用户的错误。
 
 ```zig
 pub fn eval(expr: *const TypedExpr, env: *Frame, allocator: std.mem.Allocator) !Value {
