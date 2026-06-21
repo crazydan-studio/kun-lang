@@ -55,7 +55,7 @@ Phase 1 完成了词法分析器、语法分析器、AST 定义、CLI 骨架。P
 
 ### 不在 MVP 的错误模板（12 个核心 vs 21 个完整）
 
-Phase 2 MVP 实现以下 12 个核心错误模板，其余 10 个（`TooManyArgs`, `RedundantPattern`, `TupleIndexOutOfRange`, `CommandNotConsumed`, `StreamNotConsumed`, `EffectCallbackMismatch`, `NilableUsedAsT`, `RecursiveAliasDepth`, `PureUnitReturn`, `EffectInLet`）在 Phase 3+ 补充。
+Phase 2 MVP 实现以下 10 个核心错误模板，其余 12 个（`TooManyArgs`, `RedundantPattern`, `TupleIndexOutOfRange`, `RecursiveAliasDepth`, `PureUnitReturn`, `CommandNotConsumed`, `StreamNotConsumed`, `EffectCallbackMismatch`, `NilableUsedAsT`, `EffectInLet`, `EmptyBody`, `DuplicateBinding`）在 Phase 3+ 补充。
 
 ## 实施步骤
 
