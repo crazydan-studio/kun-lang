@@ -154,3 +154,112 @@ test "unify record field name mismatch" {
 
     try std.testing.expectError(error.RecordFieldMismatch, unify_mod.unify(&env, std.testing.allocator, r1, r2));
 }
+
+test "unify set types" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const set_int = try env.registerType(std.testing.allocator, .{ .set = env_mod.int_type });
+    const a = try env.newVar(std.testing.allocator, 1);
+    const set_a = try env.registerType(std.testing.allocator, .{ .set = a });
+
+    try unify_mod.unify(&env, std.testing.allocator, set_int, set_a);
+    try std.testing.expectEqual(env_mod.int_type, env.applySubst(a));
+}
+
+test "unify stream types" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const s_int = try env.registerType(std.testing.allocator, .{ .stream = env_mod.int_type });
+    const a = try env.newVar(std.testing.allocator, 1);
+    const s_a = try env.registerType(std.testing.allocator, .{ .stream = a });
+
+    try unify_mod.unify(&env, std.testing.allocator, s_int, s_a);
+    try std.testing.expectEqual(env_mod.int_type, env.applySubst(a));
+}
+
+test "unify map types" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const m1 = try env.registerType(std.testing.allocator, .{ .map = .{ .key = env_mod.string_type, .value = env_mod.int_type } });
+    const v = try env.newVar(std.testing.allocator, 1);
+    const m2 = try env.registerType(std.testing.allocator, .{ .map = .{ .key = env_mod.string_type, .value = v } });
+
+    try unify_mod.unify(&env, std.testing.allocator, m1, m2);
+    try std.testing.expectEqual(env_mod.int_type, env.applySubst(v));
+}
+
+test "unify effect_fn with effect_fn" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const e1 = try env.registerFunctionType(std.testing.allocator, true, env_mod.int_type, env_mod.bool_type);
+    const a = try env.newVar(std.testing.allocator, 1);
+    const b = try env.newVar(std.testing.allocator, 2);
+    const e2 = try env.registerFunctionType(std.testing.allocator, true, a, b);
+
+    try unify_mod.unify(&env, std.testing.allocator, e1, e2);
+    try std.testing.expectEqual(env_mod.int_type, env.applySubst(a));
+    try std.testing.expectEqual(env_mod.bool_type, env.applySubst(b));
+}
+
+test "unify adt types" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const a1 = try env.registerType(std.testing.allocator, .{ .adt = .{ .name = "Option", .variants = &.{
+        .{ .name = "Some", .payload = &.{env_mod.int_type} },
+        .{ .name = "None", .payload = &.{} },
+    } } });
+    const a = try env.newVar(std.testing.allocator, 1);
+    const a2 = try env.registerType(std.testing.allocator, .{ .adt = .{ .name = "Option", .variants = &.{
+        .{ .name = "Some", .payload = &.{a} },
+        .{ .name = "None", .payload = &.{} },
+    } } });
+
+    try unify_mod.unify(&env, std.testing.allocator, a1, a2);
+    try std.testing.expectEqual(env_mod.int_type, env.applySubst(a));
+}
+
+test "unify adt name mismatch" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const a1 = try env.registerType(std.testing.allocator, .{ .adt = .{ .name = "Option", .variants = &.{} } });
+    const a2 = try env.registerType(std.testing.allocator, .{ .adt = .{ .name = "Result", .variants = &.{} } });
+
+    try std.testing.expectError(error.AdtNameMismatch, unify_mod.unify(&env, std.testing.allocator, a1, a2));
+}
+
+test "unify occurs check with nested list" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const a = try env.newVar(std.testing.allocator, 1);
+    const list_a = try env.registerType(std.testing.allocator, .{ .list = a });
+    const list_list_a = try env.registerType(std.testing.allocator, .{ .list = list_a });
+
+    try std.testing.expectError(error.InfiniteType, unify_mod.unify(&env, std.testing.allocator, a, list_list_a));
+}
+
+test "unify compound type mismatch" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const list_int = try env.registerType(std.testing.allocator, .{ .list = env_mod.int_type });
+    const fn_ty = try env.registerFunctionType(std.testing.allocator, false, env_mod.int_type, env_mod.int_type);
+
+    try std.testing.expectError(error.Mismatch, unify_mod.unify(&env, std.testing.allocator, list_int, fn_ty));
+}
+
+test "unify after substitution verification" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const a = try env.newVar(std.testing.allocator, 1);
+    const b = try env.newVar(std.testing.allocator, 2);
+    try unify_mod.unify(&env, std.testing.allocator, a, b);
+    try std.testing.expectEqual(b, env.applySubst(a));
+}

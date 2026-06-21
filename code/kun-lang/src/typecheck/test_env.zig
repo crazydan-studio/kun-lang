@@ -94,3 +94,31 @@ test "env typeName" {
     try std.testing.expectEqualStrings("bool", env.typeName(env_mod.bool_type));
     try std.testing.expectEqualStrings("string", env.typeName(env_mod.string_type));
 }
+
+test "env freshInstance on base type returns same" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const fresh = try env.freshInstance(std.testing.allocator, env_mod.int_type);
+    try std.testing.expectEqual(env_mod.int_type, fresh);
+}
+
+test "env freshInstance on variable creates new" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const a = try env.newVar(std.testing.allocator, 1);
+    const fresh = try env.freshInstance(std.testing.allocator, a);
+    try std.testing.expect(a != fresh);
+    try std.testing.expect(env.getType(fresh) == .variable);
+}
+
+test "env freshInstance on function creates fresh inner types" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+
+    const fn_id = try env.registerFunctionType(std.testing.allocator, false, env_mod.int_type, env_mod.bool_type);
+    const fresh = try env.freshInstance(std.testing.allocator, fn_id);
+    try std.testing.expect(fresh != fn_id);
+    try std.testing.expect(env.getType(fresh) == .function);
+}
