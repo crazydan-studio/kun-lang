@@ -9,6 +9,7 @@
 - **Kun 模块文件**（`lib/` 内的 `.kun` 文件）使用 **PascalCase**：`Builder.kun`、`Cmd/Git.kun`、`MyApp/Config.kun`
 - **Kun 入口脚本**（含 `main` 的可执行文件）使用 **kebab-case**：`deploy.kun`、`build-all.kun`
 - Zig 源文件使用 snake_case：`lexer.zig`、`type_check.zig`
+- **Zig 测试文件**使用 `test_{target}.zig` 格式，与实现文件同目录放置：`lexer/test_lexer.zig`、`parser/test_parser.zig`
 
 ### 目录命名
 
