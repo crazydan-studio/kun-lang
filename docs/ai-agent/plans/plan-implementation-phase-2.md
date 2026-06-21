@@ -64,16 +64,46 @@ Phase 2 MVP 实现以下 10 个核心错误模板，其余 12 个（`TooManyArgs
 
 **前置依赖**：无
 
-#### 1.1 补充 7 个缺失的 TypedExpr 变体
+#### 1.1 补充 9 个缺失的 TypedExpr 变体
 
 ```zig
-// 新增：
 duration_literal, path_literal, regex_literal, bytes_literal,
 pipe_reverse, compose, compose_reverse,
 map_literal, set_literal,
 ```
 
 `record_update`, `range_literal`, `ternary` 对应 parser 尚未产生这些 Expr 变体，推迟到 Phase 3+。
+
+#### 1.2 Type 联合体重构
+
+对齐 `system-baseline.md` 的设计，移除 `void`（Kun 无 void 类型）：
+
+```zig
+pub const Type = union(enum) {
+    int, float, bool, string, char, bytes, unit,
+    path, duration, regex, decimal_t, command_t, datetime_t,
+    nilable: TypeId,
+    list: TypeId,
+    map: struct { key: TypeId, value: TypeId },
+    set: TypeId,
+    stream: TypeId,
+    tuple: []const TypeId,
+    record: []const RecordFieldType,
+    function: struct { param: TypeId, result: TypeId },  // 柯里化单参
+    effect_fn: struct { param: TypeId, result: TypeId },
+    adt: struct { name: []const u8, variants: []const AdtVariant },
+    variable: struct { id: u32, level: u32 },
+    error_: void,  // 类型错误占位
+};
+```
+
+> `Unit` 仅用于函数签名中指代无返回值的效应函数。无字面量，不可绑定变量。纯函数返回类型不可为 `Unit`。
+
+关键变更：
+- 函数类型从多参 `params: []const Type` 改为柯里化 `param: TypeId, result: TypeId`
+- `variable` 增加 `level: u32` 字段（HM Let 多态泛化的前提条件）
+- 所有类型引用从 `*const Type` 改为 `TypeId`（Arena 索引）
+- `nilable` 从 `*const Type` 改为 `TypeId`
 
 #### 1.3 TypedExpr 增加 Span 字段
 
@@ -99,44 +129,13 @@ pub const TypedDecl = struct {
 };
 ```
 
-#### 1.5 约束表补充 pattern_type 规则
+#### 1.5 pattern_type 确定规则
 
 `pattern_type` 由 scrutinee 类型和模式结构共同确定：
 - 字面量模式：`pattern_type := literal_type`（如 `42` → `Int`）
 - 变体模式：`pattern_type := adt_variant_type`（如 `Ok v` → `Result T E` 中 v 的类型）
-- 通配符模式：`pattern_type := scrutinee_type`（当前模式不改变类型）
+- 通配符模式：`pattern_type := scrutinee_type`
 - 元组/Record 模式：递归结构分解
-
-#### 1.2 Type 联合体重构
-
-对齐 `system-baseline.md` 的设计：
-
-```zig
-pub const Type = union(enum) {
-    int, float, bool, string, char, bytes, unit, void,
-    path, duration, regex, decimal_t, command_t, datetime_t,
-    nilable: TypeId,           // ?T
-    list: TypeId,              // List T
-    map: struct { key: TypeId, value: TypeId },  // Map K V
-    set: TypeId,               // Set T
-    stream: TypeId,            // Stream T
-    tuple: []const TypeId,     // (T1, T2, ...)
-    record: []const RecordFieldType,  // { f1: T1, f2: T2 }
-    function: struct { param: TypeId, result: TypeId },  // 柯里化单参
-    effect_fn: struct { param: TypeId, result: TypeId }, // 效应函数
-    adt: struct { name: []const u8, variants: []const AdtVariant },
-    variable: struct { id: u32, level: u32 },  // level 用于 HM 泛化
-    error_: void,                  // 类型错误占位
-};
-```
-
-> `void` 是为 `Process.exit` 等无返回值函数预留的类型，与 `unit` 不同——`unit` 有值 `()`, `void` 无值。`void` 类型变量不能被绑定或返回。`void` 在 `system-baseline.md` 中尚未定型，Phase 2 将其加入 Type 环境供类型检查用，求值器遇到 `void` 类型表达式时 panic。
-
-关键变更：
-- 函数类型从多参 `params: []const Type` 改为柯里化 `param: TypeId, result: TypeId`（柯里化单参，对齐 HM 模型）
-- `variable` 增加 `level: u32` 字段（HM Let 多态泛化的前提条件）
-- 所有类型引用从 `*const Type` 改为 `TypeId`（Arena 索引）
-- `nilable` 从 `*const Type` 改为 `TypeId`
 
 ### Step 2: 类型环境
 
@@ -150,10 +149,9 @@ pub const string_type: TypeId = 3;
 pub const char_type: TypeId = 4;
 pub const bytes_type: TypeId = 5;
 pub const unit_type: TypeId = 6;
-pub const void_type: TypeId = 7;
-pub const path_type: TypeId = 8;
-pub const duration_type: TypeId = 9;
-pub const regex_type: TypeId = 10;
+pub const path_type: TypeId = 7;
+pub const duration_type: TypeId = 8;
+pub const regex_type: TypeId = 9;
 ```
 - `TypeEnv`：`ArrayListUnmanaged(Type)` + 代换映射
 - `init()`：在 ArrayList 中按上述顺序预注册所有内置类型
@@ -441,7 +439,6 @@ pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator) !void 
 | decimal_t | 无 | Phase 3+ |
 | command_t | 无 | Phase 3+ |
 | datetime_t | 无 | Phase 3+ |
-| void | 无 | Phase 3+ |
 | map | 无 | Phase 3+ |
 | set | 无 | Phase 3+ |
 | stream | 无 | Phase 3+ |
