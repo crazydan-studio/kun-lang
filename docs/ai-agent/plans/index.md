@@ -27,3 +27,4 @@
 | [标准库内置函数绑定机制设计](plan-stdlib-builtin-binding.md) | Primitive 函数表、模块绑定规则、安全防护、逐函数实现类别标注 | 已完成 |
 | [错误消息国际化（i18n）子系统设计](plan-i18n.md) | msgid 体系、.po 管理、构建时代码生成、locale 检测、消息格式化 API | 进行中 |
 | [首阶段实现 — 骨架 + Lexer + Parser + AST](plan-implementation-phase-1.md) | build.zig + 词法分析器 + AST + 语法分析器 + CLI dump-ast | 已完成 |
+| [Phase 2 — 类型检查器 + 运行时求值器 MVP](plan-implementation-phase-2.md) | HM 类型推断 + 效应检查 + 模式穷举 + 标记 switch 求值器 | 未审计 |
