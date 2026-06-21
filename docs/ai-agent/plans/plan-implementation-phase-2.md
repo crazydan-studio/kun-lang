@@ -32,7 +32,7 @@ Phase 1 完成了词法分析器、语法分析器、AST 定义、CLI 骨架。P
 | `code/kun-lang/src/runtime/value.zig` | ~250 | Value 联合体（覆盖 Type 中所有有运行时表示的变体） |
 | `code/kun-lang/src/runtime/env.zig` | ~150 | 帧栈：作用域链、变量查找 |
 | `code/kun-lang/src/runtime/eval.zig` | ~550 | 标记 switch 求值器：TypedExpr 节点分发 |
-| `code/kun-lang/src/runtime/defer.zig` | ~80 | defer LIFO 栈（嵌套 do 块） |
+| `code/kun-lang/src/runtime/defer.zig` | ~80 | defer LIFO 栈（嵌套 do 块）。每个 do_block 有独立 DeferFrame，退出时 LIFO 逆序执行注册的 defer 表达式。panic 展开时也执行 defer。Frame 由 Arena 分配，无独立 deinit |
 
 ### 修改文件
 
@@ -141,8 +141,22 @@ pub const Type = union(enum) {
 ### Step 2: 类型环境
 
 `code/kun-lang/src/typecheck/env.zig`：
-- `TypeId = u32`
+- `TypeId = u32`，前几个 ID 预留给内置类型：
+```zig
+pub const int_type: TypeId = 0;
+pub const float_type: TypeId = 1;
+pub const bool_type: TypeId = 2;
+pub const string_type: TypeId = 3;
+pub const char_type: TypeId = 4;
+pub const bytes_type: TypeId = 5;
+pub const unit_type: TypeId = 6;
+pub const void_type: TypeId = 7;
+pub const path_type: TypeId = 8;
+pub const duration_type: TypeId = 9;
+pub const regex_type: TypeId = 10;
+```
 - `TypeEnv`：`ArrayListUnmanaged(Type)` + 代换映射
+- `init()`：在 ArrayList 中按上述顺序预注册所有内置类型
 - `newVar(level: u32)`：创建新类型变量
 - `freshInstance()`：实例化多态类型（新变量替换泛型变量，设置 level=∞）
 - `generalize()`：泛化（自由变量→泛型变量）
@@ -190,7 +204,9 @@ pub const Type = union(enum) {
 | `let_in(binds, body)` | 为每个 binding 生成约束 + 泛化 + 实例化 |
 | `if_expr(c, t, e)` | `t_c ~ Bool`, `t_t ~ t_e` |
 | `case_expr(s, bs)` | `t_s ~ pattern_type`, `t_bi` 合一 |
-| `binary_op(op, l, r)` | 按 op 生成：`+`→`t_l ~ Int`, `t_r ~ Int`, `t := Int` |
+| `binary_op(op, l, r)` | 按运算符类型生成：算术类（`+`/`-`/`*`/`/`/`%`）→ `t_l ~ Int`, `t_r ~ Int`, `t := Int`（Float 同理）；比较类（`==`/`/=` → `t_l ~ t_r`, `t := Bool`；`<`/`>`/`<=`/`>=` → `t_l ~ t_r`, `t := Bool`）；逻辑类（`&&`/`||` → `t_l ~ Bool`, `t_r ~ Bool`, `t := Bool`）；拼接类（`++` → `t_l ~ t_r`, `t := t_l` 且 `t_l ~ String|List(a)`） |
+| `unary_op(op, o)` | `neg` → `t_o ~ Int|Float`, `t := t_o`；`not` → `t_o ~ Bool`, `t := Bool` |
+| `nil_literal` | `t := ?a`（多态 Nil，新类型变量 a） |
 | `list_literal(items)` | `items[i]` 类型全部合一，`t := list(t_item)` |
 | `record_literal(fields)` | `t := record({field: types})` |
 | `record_access(r, f)` | `t_r ~ record({f: t})`（新变量 t） |
@@ -213,7 +229,7 @@ pub const Type = union(enum) {
 3. **`do`/`let` 互斥**：同一函数 scope 内 `do` 与 `let` 不可互相嵌套
 4. **`do in` 验证**：`in` 表达式结果非 `Unit`；`do`/`do in` body 非空
 5. **`let in` 纯性约束**：体内无效应函数调用、定义、或效应命名空间函数引用
-6. **效应命名空间识别**：`IO.*`, `File.*`, `Env.*`, `Process.*`, `Cmd.*`（仅执行类函数）
+6. **效应命名空间识别**：通过模块名称前缀匹配——`IO.*`, `File.*`, `Env.*`, `Process.*`, `Random.*`, `Signal.on`。`Cmd.*` 中的执行类函数（`<bin>?`, `<bin>!`, `exec`, `exec?`, `which`, `timeout`, `retry`, `pipe?`, `pipe!`, `execSafe`）为效应函数，构造/装饰类（`<bin>`, `withEnv`, `withStdin`, `withWorkDir`, `withRunAs`, `withRawOpt`, `mergeStderr`, `andThen`, `orElse`, `pipe`）为纯函数
 7. **变量重复绑定检测**：同一 scope 内变量名重复 → 编译错误
 
 **Phase 3+ 补充**：
@@ -284,14 +300,17 @@ pub const Value = union(enum) {
 
 > `regex`, `decimal`, `command`, `map`, `set`, `adt`, `stream` 的运行时表示推迟到 Phase 3+。类型检查器可推断这些类型，但求值器遇到对应类型表达式时会 panic（`@panic("unimplemented")`）。`map_literal`/`set_literal` 的 TypedExpr 变体在 Phase 2 实现（以确保 eval switch 编译覆盖），但其 Value 表示在 Phase 3+。
 
-**闭包表示**（Phase 2 MVP 使用环境指针浅捕获策略）：
+**闭包表示**（Phase 2 MVP 使用 Arena 分配帧，避免 env 悬空指针）：
 ```zig
 pub const Closure = struct {
     params: []const ast.Param,  // 参数列表
     body: *const TypedExpr,     // 函数体
-    env: *Frame,                // 捕获的环境帧（浅拷贝指针）
+    env: *Frame,                // 捕获的环境帧（Arena 分配，与脚本同生命周期）
 };
 ```
+
+> Frame 由 ArenaAllocator 统一分配，不单独 `deinit`。闭包的 `env` 指针在脚本执行期间始终有效（Arena 在脚本执行结束时整体释放）。<br>
+> `let_in`/`do_block` 中 `local.bindings` 不使用 `deinit`（由 Arena 管理），避免闭包逃逸后访问已释放的 HashMap 数据。
 
 `code/kun-lang/src/runtime/env.zig`：
 ```zig
@@ -303,6 +322,8 @@ pub const Frame = struct {
 pub fn lookup(frame: *Frame, name: []const u8) ?Value
 pub fn bind(frame: *Frame, name: []const u8, val: Value) !void
 ```
+
+> Frame 由 Arena 统一分配，`bindings` 的 HashMap 数据在脚本生命周期结束时由 Arena 整体释放，不单独调用 `deinit`。闭包的 `env` 指针在整个执行期间有效。
 
 ### Step 9: 标记 switch 求值器
 
@@ -332,8 +353,8 @@ pub fn eval(expr: *const TypedExpr, env: *Frame, allocator: std.mem.Allocator) !
             return apply(func, arg, allocator);
         },
         .let_in => |v| {
+            // Phase 2 MVP 使用立即求值（非延迟求值）。Frame 由 Arena 管理，不单独 deinit。
             var local = Frame{ .bindings = .{}, .parent = env };
-            defer local.bindings.deinit(allocator);
             for (v.bindings) |b| {
                 const val = try eval(b.value, env, allocator);
                 try local.bindings.put(allocator, b.name, val);
@@ -341,8 +362,8 @@ pub fn eval(expr: *const TypedExpr, env: *Frame, allocator: std.mem.Allocator) !
             return eval(v.body, &local, allocator);
         },
         .do_block => |v| {
+            // do 块创建新帧，不单独 deinit（Arena 统一释放）。defer 栈在 Step 9 的 defer.zig 中实现。
             var local = Frame{ .bindings = .{}, .parent = env };
-            defer local.bindings.deinit(allocator);
             for (v.body) |stmt| { /* execute statement */ }
             if (v.result) |r| return eval(r, &local, allocator);
             return Value{ .unit = {} };
@@ -373,14 +394,23 @@ pub fn eval(expr: *const TypedExpr, env: *Frame, allocator: std.mem.Allocator) !
 ```zig
 pub fn main(init: std.process.Init) !void {
     // Phase 1: 源码读取 → 词法分析 → 语法分析
+    const allocator = init.arena.allocator();
+    // ... Phase 1 code ...
+    const decls = try parser.parseModule(allocator, tokens);
     // Phase 2: 类型推断 → 效应检查 → 求值执行
-    const tokens = try lexer.tokenize(arena_alloc, source);
-    const decls = try parser.parseModule(arena_alloc, tokens);
-    var type_env = try typecheck.env.TypeEnv.init(arena_alloc);
-    const typed = try typecheck.infer.infer(arena_alloc, decls, &type_env);
-    if (typed.len > 0) {
-        _ = try runtime.eval.evalModule(typed, arena_alloc);
-    }
+    var type_env = try typecheck.env.TypeEnv.init(allocator);
+    const typed = try typecheck.infer.infer(allocator, decls, &type_env);
+    try runtime.eval.evalModule(typed, allocator);
+}
+```
+
+`runtime/eval.zig`：
+```zig
+/// 执行类型化 AST 模块。查找 main 入口并执行。
+pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator) !void {
+    // 查找 main: [...]? 或 main : List String -> Unit
+    // 无 main 时第一个非 import/export/type 的函数作为入口
+    // 执行入口函数，丢弃结果（入口函数返回 Unit）
 }
 ```
 
