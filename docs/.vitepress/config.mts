@@ -299,6 +299,7 @@ function sidebarWorking() {
           { text: '标准库内置函数绑定机制设计', link: '/ai-agent/plans/plan-stdlib-builtin-binding' },
           { text: '错误消息国际化子系统设计', link: '/ai-agent/plans/plan-i18n' },
           { text: '首阶段实现 — 骨架+Lexer+Parser+AST', link: '/ai-agent/plans/plan-implementation-phase-1' },
+          { text: 'Phase 2 — 类型检查器+运行时求值器', link: '/ai-agent/plans/plan-implementation-phase-2' },
         ],
       },
       {
