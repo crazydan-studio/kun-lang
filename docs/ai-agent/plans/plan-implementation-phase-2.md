@@ -55,7 +55,7 @@ Phase 1 完成了词法分析器、语法分析器、AST 定义、CLI 骨架。P
 
 ### 不在 MVP 的错误模板（12 个核心 vs 21 个完整）
 
-Phase 2 MVP 实现以下 12 个核心错误模板，其余 9 个（`TooManyArgs`, `RedundantPattern`, `TupleIndexOutOfRange`, `CommandNotConsumed`, `StreamNotConsumed`, `EffectCallbackMismatch`, `NilableUsedAsT`, `RecursiveAliasDepth`, `PureUnitReturn`）在 Phase 3+ 补充。
+Phase 2 MVP 实现以下 12 个核心错误模板，其余 10 个（`TooManyArgs`, `RedundantPattern`, `TupleIndexOutOfRange`, `CommandNotConsumed`, `StreamNotConsumed`, `EffectCallbackMismatch`, `NilableUsedAsT`, `RecursiveAliasDepth`, `PureUnitReturn`, `EffectInLet`）在 Phase 3+ 补充。
 
 ## 实施步骤
 
@@ -96,7 +96,7 @@ pub const Type = union(enum) {
 };
 ```
 
-> `void` 是为 `Process.exit` 等无返回值函数预留的类型，与 `unit` 不同——`unit` 有值 `()`, `void` 无值。`void` 类型变量不能被绑定或返回。
+> `void` 是为 `Process.exit` 等无返回值函数预留的类型，与 `unit` 不同——`unit` 有值 `()`, `void` 无值。`void` 类型变量不能被绑定或返回。`void` 在 `system-baseline.md` 中尚未定型，Phase 2 将其加入 Type 环境供类型检查用，求值器遇到 `void` 类型表达式时 panic。
 
 关键变更：
 - 函数类型从多参 `params: []const Type` 改为柯里化 `param: TypeId, result: TypeId`（柯里化单参，对齐 HM 模型）
@@ -145,7 +145,7 @@ pub const Type = union(enum) {
 - 遍历已解析的 `Decl[]`，为每个顶层函数体生成约束
 - 核心模式：对每个 `Expr` 生成其类型 `t`，递归生成子表达式约束
 
-**关键规则**：
+**关键规则**（表为代表性示例，所有未列出的字面量模式为 `t := LiteralType`）：
 
 | 表达式 | 约束生成 |
 |--------|---------|
@@ -165,6 +165,7 @@ pub const Type = union(enum) {
 **Let 多态**：
 1. `let x = e1 in e2`：为 `e1` 生成约束 → 求解 → `generalize(type_e1, env)` → 将泛化类型加入环境 → 为 `e2` 生成约束
 2. 每次 `ident("x")` 引用：`freshInstance(generalized_type)`
+3. 递归 let（`let x = e1 in e2` 中 `e1` 引用 `x`）：分配类型变量 → 合一引用时实例化 → Phase 3+ 支持
 
 ### Step 5: 效应检查
 
@@ -176,9 +177,10 @@ pub const Type = union(enum) {
 1. **do 块标记**：扫描函数体 AST，含 do 块 → 标记为效应函数（内部类型 `effect_fn`）
 2. **纯函数约束**：纯函数体中无效应函数调用 → 编译错误；纯函数体中无效应命名空间函数引用（`IO.*`, `File.*` 等）
 3. **`do`/`let` 互斥**：同一函数 scope 内 `do` 与 `let` 不可互相嵌套
-4. **`do in` 验证**：`in` 表达式结果非 `Unit`
+4. **`do in` 验证**：`in` 表达式结果非 `Unit`；`do`/`do in` body 非空
 5. **`let in` 纯性约束**：体内无效应函数调用、定义、或效应命名空间函数引用
 6. **效应命名空间识别**：`IO.*`, `File.*`, `Env.*`, `Process.*`, `Cmd.*`（仅执行类函数）
+7. **变量重复绑定检测**：同一 scope 内变量名重复 → 编译错误
 
 **Phase 3+ 补充**：
 - Stream/Command 消费检查
@@ -218,8 +220,6 @@ pub const TypeError = union(enum) {
     unbound_variable: []const u8,
     unbound_type: []const u8,
     infinite_type: Span,
-    recursive_alias_depth: Span,
-    pure_unit_return: Span,
 };
 ```
 
@@ -235,8 +235,8 @@ pub const Value = union(enum) {
     float: f64,
     bool: bool,
     char: u32,
-    unit: void,
-    nil: void,
+    unit,
+    nil,
     string: []const u8,
     bytes: []const u8,
     path: []const u8,
@@ -250,21 +250,14 @@ pub const Value = union(enum) {
 
 > `regex`, `decimal`, `command`, `map`, `set`, `adt`, `stream` 的运行时表示推迟到 Phase 3+。类型检查器可推断这些类型，但求值器遇到时会 panic（`@panic("unimplemented")`）。
 
-**闭包表示**（Phase 2 内实现）：
+**闭包表示**（Phase 2 MVP 使用环境指针浅捕获策略）：
 ```zig
 pub const Closure = struct {
     params: []const ast.Param,  // 参数列表
     body: *const TypedExpr,     // 函数体
-    captures: Captures,         // 捕获的自由变量
-};
-
-pub const Captures = struct {
-    names: []const []const u8,
-    values: []const Value,
+    env: *Frame,                // 捕获的环境帧（浅拷贝指针）
 };
 ```
-
-闭包转换在 `eval.zig` 的 `lambda` 分支处理：扫描 body 中的自由变量，从当前环境捕获。
 
 `code/kun-lang/src/runtime/env.zig`：
 ```zig
