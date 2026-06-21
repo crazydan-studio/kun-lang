@@ -51,7 +51,8 @@ Phase 1 完成了词法分析器、语法分析器、AST 定义、CLI 骨架。P
 - Cmd.\<bin\> 命令调用— Phase 3
 - 完整标准库— Phase 3+
 - Stream/Command 消费检查（效应分析）— Phase 3
-- `record_update`, `map_literal`, `set_literal`, `range_literal`, `ternary` 类型检查+求值— 对应 parser 实现后
+- `map_literal`/`set_literal` 类型检查+求值— Value 表示推迟到 Phase 3+
+- `record_update`, `range_literal`, `ternary` 类型检查+求值— 对应 parser 实现后
 
 ### 不在 MVP 的错误模板（12 个核心 vs 21 个完整）
 
