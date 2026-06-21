@@ -5,6 +5,7 @@ const parser = @import("../parser/parser.zig");
 const env_mod = @import("env.zig");
 const unify_mod = @import("unify.zig");
 const error_mod = @import("error.zig");
+const pattern_mod = @import("pattern.zig");
 
 const Type = typed.Type;
 const TypeId = typed.TypeId;
@@ -247,6 +248,9 @@ pub fn inferExpr(
                 try typed_branches.append(ea, Branch{ .pattern = b.pattern, .body = typed_body, .type_ = exprType(typed_body) });
             }
             const branches = try typed_branches.toOwnedSlice(ea);
+            if (pattern_mod.checkExhaustive(allocator, exprType(typed_subject), branches) catch null) |missing| {
+                try errors.add(allocator, .{ .non_exhaustive = .{ .missing = missing, .span = v.span } });
+            }
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .case_expr = .{ .subject = typed_subject, .branches = branches, .type_ = if (branches.len > 0) branches[0].type_ else unit_type, .span = v.span } };
             return node;
@@ -296,7 +300,16 @@ pub fn inferExpr(
                         else => try errors.add(allocator, .{ .mismatch = .{ .expected = left_type, .found = right_type, .span = v.span } }),
                     };
                 },
-                .nil_coal, .range => {},
+                .nil_coal => {
+                    const nilable_right = try env.registerType(allocator, Type{ .nilable = right_type });
+                    unify_mod.unify(env, allocator, left_type, nilable_right) catch |err| switch (err) {
+                        error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = nilable_right, .found = left_type, .span = v.span } }),
+                        error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
+                        else => try errors.add(allocator, .{ .mismatch = .{ .expected = nilable_right, .found = left_type, .span = v.span } }),
+                    };
+                },
+                .range => {},
             }
 
             const result_type = switch (v.op) {

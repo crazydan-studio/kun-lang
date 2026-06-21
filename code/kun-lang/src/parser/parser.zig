@@ -604,6 +604,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         },
         .lparen => {
             _ = state.advance();
+            if (state.peek() == .rparen) return error.UnexpectedToken;
             const first = try parseExpr(state);
             if (state.peek() == .comma) {
                 var items = std.ArrayListUnmanaged(*const Expr).empty;

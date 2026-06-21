@@ -504,7 +504,7 @@ test "parser defer in do block" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    const tokens = try lexer.tokenize(allocator, "f = do defer cleanup ()");
+    const tokens = try lexer.tokenize(allocator, "f = do defer cleanup");
     const decls = try parseModule(allocator, tokens);
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(usize, 1), e.do_block.body.len);
