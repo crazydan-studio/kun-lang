@@ -14,4 +14,8 @@ pub const Frame = struct {
         }
         return null;
     }
+
+    pub fn bind(self: *Frame, allocator: std.mem.Allocator, name: []const u8, val: Value) !void {
+        try self.bindings.put(allocator, name, val);
+    }
 };

@@ -2,6 +2,8 @@ const std = @import("std");
 const ast = @import("../ast/ast.zig");
 const typed = @import("../ast/typed.zig");
 
+const missing_patterns = [1][]const u8{"_"};
+
 pub fn checkExhaustive(
     allocator: std.mem.Allocator,
     scrutinee_ty: typed.TypeId,
@@ -10,9 +12,7 @@ pub fn checkExhaustive(
     _ = allocator;
     _ = scrutinee_ty;
     if (branches.len == 0) {
-        var missing = std.ArrayList([]const u8).init(allocator);
-        try missing.append("_");
-        return try missing.toOwnedSlice();
+        return @constCast(&missing_patterns);
     }
 
     var has_wildcard = false;
@@ -30,9 +30,7 @@ pub fn checkExhaustive(
     }
 
     if (!has_wildcard) {
-        var missing = std.ArrayList([]const u8).init(allocator);
-        try missing.append("_");
-        return try missing.toOwnedSlice();
+        return @constCast(&missing_patterns);
     }
     return null;
 }
@@ -43,8 +41,6 @@ pub fn narrowType(
     env: anytype,
     allocator: std.mem.Allocator,
 ) !typed.TypeId {
-    _ = env;
-    _ = allocator;
     return switch (pattern) {
         .wildcard => scrutinee_ty,
         .literal => scrutinee_ty,

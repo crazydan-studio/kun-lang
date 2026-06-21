@@ -63,6 +63,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             const local = try allocator.create(Frame);
             local.* = Frame{ .bindings = .empty, .parent = frame };
             var defers = DeferStack.init(allocator);
+            defer defers.deinit();
             for (v.body) |stmt| {
                 switch (stmt.kind) {
                     .binding => |b| {
@@ -93,12 +94,9 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             _ = left;
             return eval(v.right, frame, allocator);
         },
-        .pipe_reverse => |v| {
-            _ = v;
-            return Value{ .unit = {} };
-        },
-        .compose => @panic("unimplemented: compose"),
-        .compose_reverse => @panic("unimplemented: compose_reverse"),
+        .pipe_reverse => @panic("unimplemented: pipe_reverse (should be desugared to call)"),
+        .compose => @panic("unimplemented: compose (should be desugared to lambda+call)"),
+        .compose_reverse => @panic("unimplemented: compose_reverse (should be desugared to lambda+call)"),
         .map_literal => @panic("unimplemented: map"),
         .set_literal => @panic("unimplemented: set"),
         .case_expr => |v| evalCase(v.subject, v.branches, frame, allocator),
@@ -337,12 +335,13 @@ fn matchPattern(
             return null;
         },
         .ident => |id| {
-            if (std.mem.eql(u8, id.name, "Nil")) {
-                if (value == .nil) return Frame{ .bindings = .empty, .parent = null };
-                return null;
-            }
             if (id.name.len > 0 and id.name[0] >= 'A' and id.name[0] <= 'Z') {
-                if (value == .nil) return Frame{ .bindings = .empty, .parent = null };
+                if (std.mem.eql(u8, id.name, "True") and value == .bool and value.bool == true)
+                    return Frame{ .bindings = .empty, .parent = null };
+                if (std.mem.eql(u8, id.name, "False") and value == .bool and value.bool == false)
+                    return Frame{ .bindings = .empty, .parent = null };
+                if (std.mem.eql(u8, id.name, "Nil") and value == .nil)
+                    return Frame{ .bindings = .empty, .parent = null };
                 return null;
             }
             var bindings: std.StringHashMapUnmanaged(Value) = .empty;
@@ -404,6 +403,7 @@ fn valueEqual(a: Value, b: Value) bool {
         .path => |ap| std.mem.eql(u8, ap, b.path),
         .nil => true,
         .unit => true,
+        .duration => |ad| b.duration == ad,
         else => false,
     };
 }

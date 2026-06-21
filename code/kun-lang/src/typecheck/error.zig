@@ -17,18 +17,18 @@ pub const TypeError = union(enum) {
 
 pub const ErrorList = struct {
     items: std.ArrayListUnmanaged(TypeError),
+    gpa: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !ErrorList {
-        _ = allocator;
-        return ErrorList{ .items = .empty };
+        return ErrorList{ .items = .empty, .gpa = allocator };
     }
 
-    pub fn deinit(self: *ErrorList, allocator: std.mem.Allocator) void {
-        self.items.deinit(allocator);
+    pub fn deinit(self: *ErrorList, _: std.mem.Allocator) void {
+        self.items.deinit(self.gpa);
     }
 
-    pub fn add(self: *ErrorList, allocator: std.mem.Allocator, err: TypeError) !void {
-        try self.items.append(allocator, err);
+    pub fn add(self: *ErrorList, _: std.mem.Allocator, err: TypeError) !void {
+        try self.items.append(self.gpa, err);
     }
 
     pub fn hasErrors(self: *const ErrorList) bool {

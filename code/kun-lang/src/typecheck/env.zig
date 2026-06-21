@@ -18,6 +18,8 @@ pub const regex_type: TypeId = 9;
 pub const TypeEnv = struct {
     types: std.ArrayListUnmanaged(Type),
     subst: std.AutoArrayHashMapUnmanaged(TypeId, TypeId),
+    _allocator: std.mem.Allocator,
+    expr_arena: std.heap.ArenaAllocator,
 
     pub fn init(allocator: std.mem.Allocator) !TypeEnv {
         var types: std.ArrayListUnmanaged(Type) = .empty;
@@ -35,17 +37,26 @@ pub const TypeEnv = struct {
         return TypeEnv{
             .types = types,
             .subst = .empty,
+            ._allocator = allocator,
+            .expr_arena = std.heap.ArenaAllocator.init(allocator),
         };
     }
 
     pub fn deinit(self: *TypeEnv, allocator: std.mem.Allocator) void {
-        self.types.deinit(allocator);
-        self.subst.deinit(allocator);
+        _ = allocator;
+        self.types.deinit(self._allocator);
+        self.subst.deinit(self._allocator);
+        self.expr_arena.deinit();
+    }
+
+    pub fn exprAllocator(self: *TypeEnv) std.mem.Allocator {
+        return self.expr_arena.allocator();
     }
 
     pub fn newVar(self: *TypeEnv, allocator: std.mem.Allocator, level: u32) !TypeId {
+        _ = allocator;
         const id: TypeId = @intCast(self.types.items.len);
-        try self.types.append(allocator, Type{ .variable = .{ .id = id, .level = level } });
+        try self.types.append(self._allocator, Type{ .variable = .{ .id = id, .level = level } });
         return id;
     }
 
@@ -96,8 +107,9 @@ pub const TypeEnv = struct {
     }
 
     pub fn registerType(self: *TypeEnv, allocator: std.mem.Allocator, ty: Type) !TypeId {
+        _ = allocator;
         const id: TypeId = @intCast(self.types.items.len);
-        try self.types.append(allocator, ty);
+        try self.types.append(self._allocator, ty);
         return id;
     }
 
@@ -108,11 +120,12 @@ pub const TypeEnv = struct {
         param: TypeId,
         result: TypeId,
     ) !TypeId {
+        _ = allocator;
         const id: TypeId = @intCast(self.types.items.len);
         if (is_effect) {
-            try self.types.append(allocator, Type{ .effect_fn = .{ .param = param, .result = result } });
+            try self.types.append(self._allocator, Type{ .effect_fn = .{ .param = param, .result = result } });
         } else {
-            try self.types.append(allocator, Type{ .function = .{ .param = param, .result = result } });
+            try self.types.append(self._allocator, Type{ .function = .{ .param = param, .result = result } });
         }
         return id;
     }

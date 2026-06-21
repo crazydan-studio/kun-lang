@@ -10,7 +10,7 @@ pub const DeferStack = struct {
     }
 
     pub fn deinit(self: *DeferStack) void {
-        self.items.deinit(self.allocator);
+        self.items.clearAndFree(self.allocator);
     }
 
     pub fn push(self: *DeferStack, expr: *const typed.TypedExpr) !void {

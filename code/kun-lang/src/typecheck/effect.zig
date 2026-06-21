@@ -36,7 +36,7 @@ pub fn isEffectNamespaceCall(name: []const u8) bool {
 pub fn hasEffectInExpr(expr: *const ast.Expr) bool {
     return switch (expr.*) {
         .do_block => true,
-        .call => |c| isEffectCall(c.func),
+        .call => |c| isEffectCall(c.func) or hasEffectInExpr(c.arg),
         .let_in => |l| {
             for (l.bindings) |b| {
                 if (hasEffectInExpr(b.value)) return true;
@@ -58,8 +58,10 @@ pub fn hasEffectInExpr(expr: *const ast.Expr) bool {
         .compose_reverse => |c| hasEffectInExpr(c.left) or hasEffectInExpr(c.right),
         .list_literal => |l| {
             for (l.items) |item| {
-                if (hasEffectInExpr(item.expr)) return true;
-                if (item == .spread and hasEffectInExpr(item.spread)) return true;
+                switch (item) {
+                    .expr => |e| { if (hasEffectInExpr(e)) return true; },
+                    .spread => |s| { if (hasEffectInExpr(s)) return true; },
+                }
             }
             return false;
         },
@@ -111,7 +113,7 @@ fn isEffectCall(func: *const ast.Expr) bool {
 
 pub fn checkDuplicateBindings(allocator: std.mem.Allocator, bindings: []const ast.Binding) !bool {
     for (bindings, 0..) |b1, i| {
-        for (bindings, i + 1..) |b2, _| {
+        for (bindings[i + 1 ..]) |b2| {
             if (std.mem.eql(u8, b1.name, b2.name)) {
                 _ = allocator;
                 return true;
