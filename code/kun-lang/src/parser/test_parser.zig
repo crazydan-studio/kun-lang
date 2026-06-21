@@ -519,3 +519,4 @@ test "parser big int literal" {
     const e = decls[0].function_def.body.*;
     try std.testing.expectEqual(@as(i64, 9223372036854775807), e.int_literal.value);
 }
+
