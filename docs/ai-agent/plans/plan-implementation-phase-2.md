@@ -204,7 +204,7 @@ pub const regex_type: TypeId = 10;
 | `let_in(binds, body)` | 为每个 binding 生成约束 + 泛化 + 实例化 |
 | `if_expr(c, t, e)` | `t_c ~ Bool`, `t_t ~ t_e` |
 | `case_expr(s, bs)` | `t_s ~ pattern_type`, `t_bi` 合一 |
-| `binary_op(op, l, r)` | 按运算符类型生成：算术类（`+`/`-`/`*`/`/`/`%`）→ `t_l ~ Int`, `t_r ~ Int`, `t := Int`（Float 同理）；比较类（`==`/`/=` → `t_l ~ t_r`, `t := Bool`；`<`/`>`/`<=`/`>=` → `t_l ~ t_r`, `t := Bool`）；逻辑类（`&&`/`||` → `t_l ~ Bool`, `t_r ~ Bool`, `t := Bool`）；拼接类（`++` → `t_l ~ t_r`, `t := t_l` 且 `t_l ~ String|List(a)`） |
+| `binary_op(op, l, r)` | 按运算符类型生成：算术类（`+`/`-`/`*`/`/`/`%`）→ `t_l ~ Int`, `t_r ~ Int`, `t := Int`（Float 同理）；比较类（`==`/`/=` → `t_l ~ t_r`, `t := Bool`；`<`/`>`/`<=`/`>=` → `t_l ~ t_r`, `t := Bool`）；逻辑类（`&&`/`||` → `t_l ~ Bool`, `t_r ~ Bool`, `t := Bool`）；拼接类（`++` → `t_l ~ t_r`, `t := t_l` 且 `t_l ~ String|List(a)`）；Nil 合并（`??` → `t_l ~ ?t_r`, `t := t_r`） |
 | `unary_op(op, o)` | `neg` → `t_o ~ Int|Float`, `t := t_o`；`not` → `t_o ~ Bool`, `t := Bool` |
 | `nil_literal` | `t := ?a`（多态 Nil，新类型变量 a） |
 | `list_literal(items)` | `items[i]` 类型全部合一，`t := list(t_item)` |
