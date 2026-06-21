@@ -1,5 +1,5 @@
 const std = @import("std");
-const lexer = @import("lexer/lexer.zig");
+const lexer = @import("lexer.zig");
 const TokenKind = lexer.TokenKind;
 const tokenize = lexer.tokenize;
 

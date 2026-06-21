@@ -1,7 +1,7 @@
 const std = @import("std");
 
-const test_lexer = @import("test_lexer.zig");
-const test_parser = @import("test_parser.zig");
+const test_lexer = @import("lexer/test_lexer.zig");
+const test_parser = @import("parser/test_parser.zig");
 
 comptime {
     _ = test_lexer;
