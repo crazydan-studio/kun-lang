@@ -69,11 +69,11 @@ test "lexer hex int vs bytes" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    const source = "0xFF 0x48656C6C6F";
+    const source = "0xFF 0x48656C6C6F48656C6C6F4865";
     const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.int_literal, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.bytes_literal, tokens[1].kind);
-    try std.testing.expectEqualStrings("0x48656C6C6F", tokens[1].slice);
+    try std.testing.expectEqualStrings("0x48656C6C6F48656C6C6F4865", tokens[1].slice);
 }
 
 test "lexer multiline string" {

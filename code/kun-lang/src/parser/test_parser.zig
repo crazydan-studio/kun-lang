@@ -369,10 +369,10 @@ test "parser bytes literal" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    const tokens = try lexer.tokenize(allocator, "b = 0x48656C6C6F");
+    const tokens = try lexer.tokenize(allocator, "b = 0x48656C6C6F48656C6C6F4865");
     const decls = try parseModule(allocator, tokens);
     const e = decls[0].function_def.body.*;
-    try std.testing.expectEqualStrings("0x48656C6C6F", e.bytes_literal.value);
+    try std.testing.expectEqualStrings("0x48656C6C6F48656C6C6F4865", e.bytes_literal.value);
 }
 
 test "parser pipe reverse" {

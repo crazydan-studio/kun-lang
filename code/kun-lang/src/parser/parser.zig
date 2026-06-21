@@ -175,6 +175,7 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
                 while (state.peek() != .eof and state.peek() != .kw_import and state.peek() != .kw_export and state.peek() != .kw_type and state.peek() != .assign) {
                     if (state.peek() == .pipe_pat) { _ = state.advance(); continue; }
                     const v = state.advance();
+                    if (v.kind != .ident and v.kind != .type_ident and v.kind != .kw_nil) return error.UnexpectedToken;
                     try variants.append(state.allocator, v.slice);
                 }
                 const def = try state.allocator.create(TypeDef);
@@ -714,7 +715,7 @@ fn parseLetIn(state: *ParserState, start: SourceLoc) ParserError!Expr {
 
 fn parseDoBlock(state: *ParserState, start: SourceLoc) ParserError!Expr {
     var stmts = std.ArrayListUnmanaged(ast.Stmt).empty;
-    while (state.peek() != .kw_in and state.peek() != .eof and state.peek() != .rbrace and state.peek() != .rbrack and state.peek() != .rparen) {
+    while (state.peek() != .kw_in and state.peek() != .eof and state.peek() != .rbrace and state.peek() != .rbrack and state.peek() != .rparen and state.peek() != .assign) {
         if (state.peek() == .kw_defer) {
             _ = state.advance();
             const expr = try parseExpr(state);

@@ -523,7 +523,7 @@ fn readHexLiteral(state: *LexerState, start: ast.SourceLoc) !void {
         }
     }
     const text = state.source[start.offset..state.pos];
-    if (hex_count > 2) {
+    if (hex_count > 16) {
         // Bytes literal: pairs of hex digits
         try state.pushToken(.bytes_literal, text, state.span(start));
     } else {
