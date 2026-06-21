@@ -81,7 +81,7 @@ const ParserState = struct {
     }
 
     fn span(self: *ParserState, start: SourceLoc) Span {
-        const end = if (self.pos > 0) self.tokens[self.pos - 1].span.end else self.current().span.start;
+        const end = if (self.pos > 0) self.tokens[self.pos - 1].span.end else self.current().span.end;
         return .{ .start = start, .end = end };
     }
 };

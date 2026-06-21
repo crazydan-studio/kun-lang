@@ -108,8 +108,16 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
         .closure => |c| {
             const frame = try allocator.create(Frame);
             frame.* = Frame{ .bindings = .empty, .parent = c.env };
-            if (c.param_names.len > 0) {
+            if (c.param_names.len == 1) {
                 try frame.bindings.put(allocator, c.param_names[0], arg);
+            } else if (c.param_names.len > 1) {
+                if (arg == .tuple) {
+                    const elems = arg.tuple.items;
+                    const n = @min(c.param_names.len, elems.len);
+                    for (0..n) |i| {
+                        try frame.bindings.put(allocator, c.param_names[i], elems[i]);
+                    }
+                }
             }
             return eval(c.body, frame, allocator);
         },

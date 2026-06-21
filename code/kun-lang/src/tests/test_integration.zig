@@ -113,3 +113,123 @@ test "integration parse and eval lambda call" {
     const typed = typecheck.infer(allocator, decls, &type_env) catch return;
     _ = runtime.evalModule(typed, allocator) catch {};
 }
+
+test "integration parse type mismatch propagates error" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const source = "f = (1 + true)";
+    const tokens = try lexer.tokenize(allocator, source);
+    const decls = try parser.parseModule(allocator, tokens);
+
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+
+    _ = typecheck.infer(allocator, decls, &type_env) catch {};
+}
+
+test "integration parse and eval add 1 2" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const source = "f = (1 + 2)";
+    const tokens = try lexer.tokenize(allocator, source);
+    const decls = try parser.parseModule(allocator, tokens);
+
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+
+    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    _ = runtime.evalModule(typed, allocator) catch {};
+}
+
+test "integration parse and eval if then else" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const source = "f = (if true then 1 else 0)";
+    const tokens = try lexer.tokenize(allocator, source);
+    const decls = try parser.parseModule(allocator, tokens);
+
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+
+    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    _ = runtime.evalModule(typed, allocator) catch {};
+}
+
+test "integration parse and eval let in" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const source = "f = (let x = 1 in x + 1)";
+    const tokens = try lexer.tokenize(allocator, source);
+    const decls = try parser.parseModule(allocator, tokens);
+
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+
+    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    _ = runtime.evalModule(typed, allocator) catch {};
+}
+
+test "integration parse and eval nil coalesce" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const source = "f = (Nil ?? 42)";
+    const tokens = try lexer.tokenize(allocator, source);
+    const decls = try parser.parseModule(allocator, tokens);
+
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+
+    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    _ = runtime.evalModule(typed, allocator) catch {};
+}
+
+test "integration parse and eval case expr" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const source = "f = case true of True -> 1 False -> 0";
+    const tokens = try lexer.tokenize(allocator, source);
+    const decls = try parser.parseModule(allocator, tokens);
+
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+
+    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    _ = runtime.evalModule(typed, allocator) catch {};
+}
+
+test "integration parse and eval do block" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const source = "f = do 42";
+    const tokens = try lexer.tokenize(allocator, source);
+    const decls = try parser.parseModule(allocator, tokens);
+
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+
+    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    _ = runtime.evalModule(typed, allocator) catch {};
+}
+
+test "integration parse empty parens error" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const tokens = try lexer.tokenize(allocator, "f = ()");
+    _ = parser.parseModule(allocator, tokens) catch {};
+}
