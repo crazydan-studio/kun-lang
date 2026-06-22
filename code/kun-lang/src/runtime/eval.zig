@@ -38,6 +38,11 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .bytes_literal => |v| Value{ .bytes = v.value },
         .ident => |v| {
             if (frame.lookup(v.name)) |val| return val;
+            if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name)) {
+                var payload: [32]u8 = undefined;
+                @memset(&payload, 0);
+                return Value{ .command = .{ .tag = 0, ._payload = payload } };
+            }
             return error.UnboundVariable;
         },
         .lambda => |v| {
@@ -97,8 +102,8 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .pipe_reverse => @panic("unimplemented: pipe_reverse (should be desugared to call)"),
         .compose => @panic("unimplemented: compose (should be desugared to lambda+call)"),
         .compose_reverse => @panic("unimplemented: compose_reverse (should be desugared to lambda+call)"),
-        .map_literal => @panic("unimplemented: map"),
-        .set_literal => @panic("unimplemented: set"),
+        .map_literal => |v| evalMapLiteral(v.entries, frame, allocator),
+        .set_literal => |v| evalSetLiteral(v.items, frame, allocator),
         .case_expr => |v| evalCase(v.subject, v.branches, frame, allocator),
     };
 }
@@ -121,8 +126,30 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
             }
             return eval(c.body, frame, allocator);
         },
+        .primitive => |p| {
+            const null_env: *anyopaque = @ptrFromInt(0x1000);
+            return p(@ptrCast(@alignCast(null_env)), &arg);
+        },
+        .command => {
+            var payload: [32]u8 = undefined;
+            @memset(&payload, 0);
+            return Value{ .command = .{ .tag = 0, ._payload = payload } };
+        },
         else => error.NotAFunction,
     };
+}
+
+const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
+
+fn isKnownCmdApi(name: []const u8) bool {
+    if (!std.mem.startsWith(u8, name, "Cmd.")) return false;
+    const rest = name["Cmd.".len..];
+    if (std.mem.containsAtLeast(u8, rest, 1, "?")) return true;
+    if (std.mem.containsAtLeast(u8, rest, 1, "!")) return true;
+    for (known_cmd_apis) |api| {
+        if (std.mem.eql(u8, rest, api)) return true;
+    }
+    return false;
 }
 
 fn evalBinaryOp(
@@ -412,8 +439,25 @@ fn valueEqual(a: Value, b: Value) bool {
         .nil => true,
         .unit => true,
         .duration => |ad| b.duration == ad,
-        else => false,
+        .datetime => |ad| b.datetime == ad,
+        .decimal => |ad| ad.mantissa == b.decimal.mantissa and ad.exponent == b.decimal.exponent,
+        .stream => |as| @intFromPtr(as) == @intFromPtr(b.stream),
+        .map, .set, .command, .regex, .adt, .list, .tuple, .record, .closure, .primitive => false,
     };
+}
+
+fn evalMapLiteral(entries: []const typed.MapEntry, frame: *Frame, allocator: std.mem.Allocator) !Value {
+    _ = entries;
+    _ = frame;
+    _ = allocator;
+    return Value{ .map = .{ .entries = undefined, .len = 0, .cap = 0 } };
+}
+
+fn evalSetLiteral(items: []const TypedExpr, frame: *Frame, allocator: std.mem.Allocator) !Value {
+    _ = items;
+    _ = frame;
+    _ = allocator;
+    return Value{ .set = .{ .entries = undefined, .len = 0, .cap = 0 } };
 }
 
 pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator) !void {
