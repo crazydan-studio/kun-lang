@@ -4,14 +4,18 @@ const typed = @import("../ast/typed.zig");
 const value_mod = @import("value.zig");
 const env_mod = @import("env.zig");
 const defer_mod = @import("defer.zig");
+const primitive_mod = @import("primitive.zig");
 
 const Value = value_mod.Value;
 const Closure = value_mod.Closure;
 const RecordFieldValue = value_mod.RecordFieldValue;
 const Frame = env_mod.Frame;
 const DeferStack = defer_mod.DeferStack;
+const PrimitiveFn = primitive_mod.PrimitiveFn;
+const RuntimeEnv = primitive_mod.RuntimeEnv;
 const TypedExpr = typed.TypedExpr;
 const TypedDecl = typed.TypedDecl;
+const MapEntry = typed.MapEntry;
 
 pub const EvalError = error{
     UnboundVariable,
@@ -39,8 +43,9 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .ident => |v| {
             if (frame.lookup(v.name)) |val| return val;
             if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name)) {
-                var payload: [32]u8 = undefined;
-                @memset(&payload, 0);
+                var payload = std.mem.zeroes([32]u8);
+                const bin_name = if (std.mem.indexOf(u8, v.name, ".")) |dot| v.name[dot + 1 ..] else v.name;
+                @memcpy(payload[0..@min(bin_name.len, 31)], bin_name);
                 return Value{ .command = .{ .tag = 0, ._payload = payload } };
             }
             return error.UnboundVariable;
@@ -127,16 +132,26 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
             return eval(c.body, frame, allocator);
         },
         .primitive => |p| {
-            const null_env: *anyopaque = @ptrFromInt(0x1000);
-            return p(@ptrCast(@alignCast(null_env)), &arg);
+            var renv = RuntimeEnv{ .frame = undefined, .primitives = undefined, .allocator = allocator };
+            return p(&renv, &arg);
         },
-        .command => {
-            var payload: [32]u8 = undefined;
-            @memset(&payload, 0);
-            return Value{ .command = .{ .tag = 0, ._payload = payload } };
+        .command => |c| {
+            if (arg == .string) {
+                var payload = c._payload;
+                @memcpy(payload[@min(binNameLen(payload), 31)..@min(binNameLen(payload) + arg.string.len, 31)], arg.string);
+                return Value{ .command = .{ .tag = 0, ._payload = payload } };
+            }
+            return func;
         },
         else => error.NotAFunction,
     };
+}
+
+fn binNameLen(payload: [32]u8) usize {
+    for (payload, 0..) |b, i| {
+        if (b == 0) return i;
+    }
+    return 32;
 }
 
 const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
@@ -446,18 +461,18 @@ fn valueEqual(a: Value, b: Value) bool {
     };
 }
 
-fn evalMapLiteral(entries: []const typed.MapEntry, frame: *Frame, allocator: std.mem.Allocator) !Value {
+fn evalMapLiteral(entries: []const MapEntry, frame: *Frame, allocator: std.mem.Allocator) !Value {
     _ = entries;
     _ = frame;
     _ = allocator;
-    return Value{ .map = .{ .entries = undefined, .len = 0, .cap = 0 } };
+    return Value{ .map = .{ .entries = @as([*]u8, @ptrFromInt(0x1)), .len = 0, .cap = 0 } };
 }
 
 fn evalSetLiteral(items: []const TypedExpr, frame: *Frame, allocator: std.mem.Allocator) !Value {
     _ = items;
     _ = frame;
     _ = allocator;
-    return Value{ .set = .{ .entries = undefined, .len = 0, .cap = 0 } };
+    return Value{ .set = .{ .entries = @as([*]u8, @ptrFromInt(0x1)), .len = 0, .cap = 0 } };
 }
 
 pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator) !void {

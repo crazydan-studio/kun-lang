@@ -222,7 +222,11 @@ pub fn inferExpr(
 
             for (v.bindings) |b| {
                 const typed_val = try inferExpr(allocator, b.value, env, errors);
-                try typed_bindings.append(ea, Binding{ .name = b.name, .value = typed_val });
+                const generalized = try env.generalize(allocator, exprType(typed_val), 1);
+                const gen_val = try ea.create(TypedExpr);
+                gen_val.* = typed_val.*;
+                setExprType(gen_val, generalized);
+                try typed_bindings.append(ea, Binding{ .name = b.name, .value = gen_val });
             }
             const typed_body = try inferExpr(allocator, v.body, env, errors);
             const body_type = exprType(typed_body);
@@ -415,7 +419,11 @@ pub fn inferExpr(
             const typed_right = try inferExpr(allocator, v.right, env, errors);
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const node = try ea.create(TypedExpr);
-            node.* = TypedExpr{ .call = .{ .func = typed_right, .arg = typed_left, .type_ = result_id, .span = v.span } };
+            if (isCommandIdent(v.left)) {
+                node.* = TypedExpr{ .pipe = .{ .left = typed_left, .right = typed_right, .type_ = result_id, .span = v.span } };
+            } else {
+                node.* = TypedExpr{ .call = .{ .func = typed_right, .arg = typed_left, .type_ = result_id, .span = v.span } };
+            }
             return node;
         },
         .pipe_reverse => |v| {
@@ -527,6 +535,12 @@ fn exprType(expr: *const TypedExpr) TypeId {
     };
 }
 
+fn setExprType(expr: *TypedExpr, ty: TypeId) void {
+    switch (expr.*) {
+        inline else => |*v| v.type_ = ty,
+    }
+}
+
 pub fn hasEffect(expr: *const ast.Expr) bool {
     return switch (expr.*) {
         .do_block => true,
@@ -611,6 +625,14 @@ pub fn isEffectNamespaceCall(name: []const u8) bool {
 }
 
 const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
+
+fn isCommandIdent(expr: *const ast.Expr) bool {
+    if (expr.* == .ident) {
+        const name = expr.ident.name;
+        return std.mem.startsWith(u8, name, "Cmd.") and !isKnownCmdApi(name) and name[name.len - 1] != '?' and name[name.len - 1] != '!';
+    }
+    return false;
+}
 
 fn isKnownCmdApi(name: []const u8) bool {
     if (!std.mem.startsWith(u8, name, "Cmd.")) return false;
