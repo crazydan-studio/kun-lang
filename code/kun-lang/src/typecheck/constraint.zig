@@ -6,6 +6,7 @@ const env_mod = @import("env.zig");
 const unify_mod = @import("unify.zig");
 const error_mod = @import("error.zig");
 const pattern_mod = @import("pattern.zig");
+const effect_mod = @import("effect.zig");
 
 const Type = typed.Type;
 const TypeId = typed.TypeId;
@@ -32,6 +33,7 @@ const unit_type = env_mod.unit_type;
 const path_type = env_mod.path_type;
 const duration_type = env_mod.duration_type;
 const regex_type = env_mod.regex_type;
+const command_type = env_mod.command_type;
 
 const InferenceError = error{
     OutOfMemory,
@@ -178,7 +180,10 @@ pub fn inferExpr(
         },
         .ident => |v| {
             const node = try ea.create(TypedExpr);
-            const ty = try env.newVar(allocator, std.math.maxInt(u32));
+            const ty = if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name))
+                command_type
+            else
+                try env.newVar(allocator, std.math.maxInt(u32));
             node.* = TypedExpr{ .ident = .{ .name = v.name, .type_ = ty, .span = v.span } };
             return node;
         },
@@ -208,6 +213,13 @@ pub fn inferExpr(
         .let_in => |v| {
             var typed_bindings: std.ArrayListUnmanaged(Binding) = .empty;
             defer typed_bindings.deinit(ea);
+
+            if (try effect_mod.checkDuplicateBindings(allocator, v.bindings)) {
+                try errors.add(allocator, .{ .duplicate_binding = .{ .name = "let binding", .span = v.span } });
+            }
+            try effect_mod.checkLetInPurity(allocator, v.bindings, v.body, errors);
+            try effect_mod.checkEmptyBody(allocator, v.body, "let in", errors);
+
             for (v.bindings) |b| {
                 const typed_val = try inferExpr(allocator, b.value, env, errors);
                 try typed_bindings.append(ea, Binding{ .name = b.name, .value = typed_val });
@@ -221,6 +233,24 @@ pub fn inferExpr(
         .do_block => |v| {
             var typed_stmts: std.ArrayListUnmanaged(Stmt) = .empty;
             defer typed_stmts.deinit(ea);
+
+            try effect_mod.checkEmptyBody(allocator, expr, "do block", errors);
+
+            {
+                var names: std.StringHashMapUnmanaged(void) = .empty;
+                defer names.deinit(ea);
+                for (v.body) |stmt| {
+                    if (stmt.kind == .binding) {
+                        const name = stmt.kind.binding.name;
+                        if (names.contains(name)) {
+                            try errors.add(allocator, .{ .duplicate_binding = .{ .name = name, .span = stmt.span } });
+                        } else {
+                            try names.put(ea, name, {});
+                        }
+                    }
+                }
+            }
+
             for (v.body) |stmt| {
                 const typed_stmt = try inferStmt(allocator, stmt, env, errors);
                 try typed_stmts.append(ea, typed_stmt);
@@ -248,7 +278,7 @@ pub fn inferExpr(
                 try typed_branches.append(ea, Branch{ .pattern = b.pattern, .body = typed_body, .type_ = exprType(typed_body) });
             }
             const branches = try typed_branches.toOwnedSlice(ea);
-            if (pattern_mod.checkExhaustive(allocator, exprType(typed_subject), branches) catch null) |missing| {
+            if (pattern_mod.checkExhaustive(allocator, env, exprType(typed_subject), branches) catch null) |missing| {
                 try errors.add(allocator, .{ .non_exhaustive = .{ .missing = missing, .span = v.span } });
             }
             const node = try ea.create(TypedExpr);
@@ -577,25 +607,18 @@ fn isEffectCall(func: *const ast.Expr) bool {
 }
 
 pub fn isEffectNamespaceCall(name: []const u8) bool {
-    if (std.mem.eql(u8, name, "Signal.on")) return true;
+    return @import("../runtime/primitive.zig").isEffectBinding(name);
+}
 
-    if (std.mem.startsWith(u8, name, "Cmd.")) {
-        const rest = name["Cmd.".len..];
-        if (std.mem.containsAtLeast(u8, rest, 1, "?")) return true;
-        if (std.mem.containsAtLeast(u8, rest, 1, "!")) return true;
-        if (std.mem.startsWith(u8, rest, "pipe?")) return true;
-        if (std.mem.startsWith(u8, rest, "pipe!")) return true;
-        inline for (.{ "exec", "which", "timeout", "retry", "execSafe" }) |efn| {
-            if (std.mem.eql(u8, rest, efn)) return true;
-        }
-        return false;
-    }
+const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
 
-    inline for (.{ "IO", "File", "Env", "Process", "Task", "Random" }) |ns| {
-        if (std.mem.startsWith(u8, name, ns)) {
-            if (name.len == ns.len) return true;
-            if (name.len > ns.len and name[ns.len] == '.') return true;
-        }
+fn isKnownCmdApi(name: []const u8) bool {
+    if (!std.mem.startsWith(u8, name, "Cmd.")) return false;
+    const rest = name["Cmd.".len..];
+    if (std.mem.containsAtLeast(u8, rest, 1, "?")) return true;
+    if (std.mem.containsAtLeast(u8, rest, 1, "!")) return true;
+    for (known_cmd_apis) |api| {
+        if (std.mem.eql(u8, rest, api)) return true;
     }
     return false;
 }

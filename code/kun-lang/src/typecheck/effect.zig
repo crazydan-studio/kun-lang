@@ -1,36 +1,14 @@
 const std = @import("std");
 const ast = @import("../ast/ast.zig");
+const typed = @import("../ast/typed.zig");
+const primitive = @import("../runtime/primitive.zig");
+const error_mod = @import("error.zig");
 
-const EffectNamespaces = [_][]const u8{
-    "IO", "File", "Env", "Process", "Task", "Random",
-};
-
-const CmdEffectFns = [_][]const u8{
-    "exec", "which", "timeout", "retry", "execSafe",
-};
+const TypeError = error_mod.TypeError;
+const ErrorList = error_mod.ErrorList;
 
 pub fn isEffectNamespaceCall(name: []const u8) bool {
-    if (std.mem.eql(u8, name, "Signal.on")) return true;
-
-    if (std.mem.startsWith(u8, name, "Cmd.")) {
-        const rest = name["Cmd.".len..];
-        if (std.mem.containsAtLeast(u8, rest, 1, "?")) return true;
-        if (std.mem.containsAtLeast(u8, rest, 1, "!")) return true;
-        if (std.mem.startsWith(u8, rest, "pipe?")) return true;
-        if (std.mem.startsWith(u8, rest, "pipe!")) return true;
-        for (CmdEffectFns) |efn| {
-            if (std.mem.eql(u8, rest, efn)) return true;
-        }
-        return false;
-    }
-
-    for (EffectNamespaces) |ns| {
-        if (std.mem.startsWith(u8, name, ns)) {
-            if (name.len == ns.len) return true;
-            if (name.len > ns.len and name[ns.len] == '.') return true;
-        }
-    }
-    return false;
+    return primitive.isEffectBinding(name);
 }
 
 pub fn hasEffectInExpr(expr: *const ast.Expr) bool {
@@ -121,4 +99,134 @@ pub fn checkDuplicateBindings(allocator: std.mem.Allocator, bindings: []const as
         }
     }
     return false;
+}
+
+pub fn checkPureFunctionBody(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
+    _ = allocator;
+    _ = errors;
+    if (hasEffectInExpr(body)) {
+        return error.EffectInPure;
+    }
+}
+
+pub fn checkLetInPurity(allocator: std.mem.Allocator, bindings: []const ast.Binding, body: *const ast.Expr, errors: *ErrorList) !void {
+    for (bindings) |b| {
+        if (hasEffectInExpr(b.value)) {
+            try errors.add(allocator, .{ .effect_in_let = .{ .called_func = b.name, .span = b.span } });
+        }
+    }
+    if (hasEffectInExpr(body)) {
+        try errors.add(allocator, .{ .effect_in_let = .{ .called_func = "let body", .span = exprSpan(body) } });
+    }
+}
+
+fn exprSpan(expr: *const ast.Expr) ast.Span {
+    return switch (expr.*) {
+        .int_literal => |v| v.span,
+        .float_literal => |v| v.span,
+        .string_literal => |v| v.span,
+        .bool_literal => |v| v.span,
+        .char_literal => |v| v.span,
+        .nil_literal => |s| s,
+        .duration_literal => |v| v.span,
+        .path_literal => |v| v.span,
+        .regex_literal => |v| v.span,
+        .bytes_literal => |v| v.span,
+        .ident => |v| v.span,
+        .lambda => |v| v.span,
+        .call => |v| v.span,
+        .let_in => |v| v.span,
+        .do_block => |v| v.span,
+        .if_expr => |v| v.span,
+        .case_expr => |v| v.span,
+        .pipe => |v| v.span,
+        .pipe_reverse => |v| v.span,
+        .compose => |v| v.span,
+        .compose_reverse => |v| v.span,
+        .binary_op => |v| v.span,
+        .unary_op => |v| v.span,
+        .list_literal => |v| v.span,
+        .tuple_literal => |v| v.span,
+        .record_literal => |v| v.span,
+        .record_access => |v| v.span,
+        .record_update => |v| v.span,
+        .map_literal => |v| v.span,
+        .set_literal => |v| v.span,
+        .range_literal => |v| v.span,
+        .ternary => |v| v.span,
+    };
+}
+
+pub fn checkDoLetExclusion(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+    _ = body;
+}
+
+pub fn checkEmptyBody(allocator: std.mem.Allocator, body: *const ast.Expr, context: []const u8, errors: *ErrorList) !void {
+    switch (body.*) {
+        .do_block => |d| {
+            if (d.body.len == 0 and d.result == null) {
+                try errors.add(allocator, .{ .empty_body = .{ .context = context, .span = d.span } });
+            }
+        },
+        .let_in => |l| {
+            if (l.bindings.len == 0) {
+                try errors.add(allocator, .{ .empty_body = .{ .context = context, .span = l.span } });
+            }
+        },
+        else => {},
+    }
+}
+
+pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+    _ = body;
+}
+
+pub fn checkEffectCallback(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+}
+
+pub fn checkCmdInDo(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+}
+
+pub fn checkPipeCommand(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+}
+
+pub fn checkImplicitDo(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+    _ = body;
+}
+
+pub fn checkStreamConsumption(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+}
+
+pub fn checkCommandConsumption(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+}
+
+pub fn checkUnusedBindings(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+}
+
+pub fn checkUnusedResult(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
+}
+
+pub fn checkPureExprLast(allocator: std.mem.Allocator, errors: *ErrorList) !void {
+    _ = errors;
+    _ = allocator;
 }
