@@ -28,9 +28,15 @@ test "infer function with do_block detects effect" {
     var env = try TypeEnv.init(std.testing.allocator);
     defer env.deinit(std.testing.allocator);
 
+    const int_lit = try std.testing.allocator.create(ast.Expr);
+    defer std.testing.allocator.destroy(int_lit);
+    int_lit.* = .{ .int_literal = .{ .value = 1, .span = undefined } };
+    const stmts = [_]ast.Stmt{
+        .{ .kind = .{ .expr = int_lit }, .span = undefined },
+    };
     const body = try std.testing.allocator.create(ast.Expr);
     defer std.testing.allocator.destroy(body);
-    body.* = .{ .do_block = .{ .body = &.{}, .result = null, .span = undefined } };
+    body.* = .{ .do_block = .{ .body = &stmts, .result = null, .span = undefined } };
 
     const decls = [_]parser.Decl{
         .{ .function_def = .{ .name = "f", .params = &.{}, .return_type = null, .body = body, .span = undefined } },
