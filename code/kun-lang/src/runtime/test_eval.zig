@@ -1001,3 +1001,63 @@ test "eval binary div float" {
     const result = try eval_mod.eval(&expr, global, allocator);
     try std.testing.expectApproxEqRel(3.0, result.float, 1e-10);
 }
+
+test "eval map literal returns map" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null };
+
+    const key = try allocator.create(typed.TypedExpr);
+    key.* = .{ .string_literal = .{ .value = "k", .type_ = 3, .span = undefined } };
+    const val = try allocator.create(typed.TypedExpr);
+    val.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const entries = try allocator.alloc(typed.MapEntry, 1);
+    entries[0] = .{ .key = key, .value = val };
+
+    const expr = typed.TypedExpr{ .map_literal = .{ .entries = entries, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .map);
+}
+
+test "eval set literal returns set" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null };
+
+    const e1 = try allocator.create(typed.TypedExpr);
+    e1.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const items = try allocator.alloc(typed.TypedExpr, 1);
+    items[0] = e1.*;
+
+    const expr = typed.TypedExpr{ .set_literal = .{ .items = items, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .set);
+}
+
+test "eval Cmd.echo ident returns command" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null };
+
+    const expr = typed.TypedExpr{ .ident = .{ .name = "Cmd.echo", .type_ = 11, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .command);
+}
+
+test "eval Cmd.ls ident returns command" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null };
+
+    const expr = typed.TypedExpr{ .ident = .{ .name = "Cmd.ls", .type_ = 11, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .command);
+}

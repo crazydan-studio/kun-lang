@@ -127,3 +127,141 @@ test "env freshInstance on function creates fresh inner types" {
     try std.testing.expect(fresh != fn_id);
     try std.testing.expect(env.getType(fresh) == .function);
 }
+
+test "env typeName compound list" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const list_int = try env.registerType(std.testing.allocator, .{ .list = env_mod.int_type });
+    try std.testing.expectEqualStrings("List Int", try env.typeName(std.testing.allocator, list_int));
+}
+
+test "env typeName compound map" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const map_ty = try env.registerType(std.testing.allocator, .{ .map = .{ .key = env_mod.string_type, .value = env_mod.bool_type } });
+    try std.testing.expectEqualStrings("Map String Bool", try env.typeName(std.testing.allocator, map_ty));
+}
+
+test "env typeName compound set" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const set_ty = try env.registerType(std.testing.allocator, .{ .set = env_mod.int_type });
+    try std.testing.expectEqualStrings("Set Int", try env.typeName(std.testing.allocator, set_ty));
+}
+
+test "env typeName compound stream" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const stream_ty = try env.registerType(std.testing.allocator, .{ .stream = env_mod.string_type });
+    try std.testing.expectEqualStrings("Stream String", try env.typeName(std.testing.allocator, stream_ty));
+}
+
+test "env typeName compound function" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const fn_ty = try env.registerFunctionType(std.testing.allocator, false, env_mod.int_type, env_mod.bool_type);
+    try std.testing.expectEqualStrings("Fn(Int, Bool)", try env.typeName(std.testing.allocator, fn_ty));
+}
+
+test "env typeName compound effect_fn" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const eff_ty = try env.registerFunctionType(std.testing.allocator, true, env_mod.string_type, env_mod.unit_type);
+    try std.testing.expectEqualStrings("EffectFn(String, Unit)", try env.typeName(std.testing.allocator, eff_ty));
+}
+
+test "env typeName compound nilable" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const nil_ty = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    try std.testing.expectEqualStrings("?Int", try env.typeName(std.testing.allocator, nil_ty));
+}
+
+test "env typeName compound tuple" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const tup_ty = try env.registerType(std.testing.allocator, .{ .tuple = &.{ env_mod.int_type, env_mod.bool_type } });
+    try std.testing.expectEqualStrings("(Int, Bool)", try env.typeName(std.testing.allocator, tup_ty));
+}
+
+test "env typeName compound record" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const rec_ty = try env.registerType(std.testing.allocator, .{ .record = &.{
+        .{ .name = "x", .type_ = env_mod.int_type },
+        .{ .name = "y", .type_ = env_mod.bool_type },
+    } });
+    try std.testing.expectEqualStrings("{ x: Int, y: Bool }", try env.typeName(std.testing.allocator, rec_ty));
+}
+
+test "env generalize base type unchanged" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    try std.testing.expectEqual(env_mod.int_type, try env.generalize(std.testing.allocator, env_mod.int_type, 0));
+}
+
+test "env generalize variable at higher level becomes polymorphic" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const a = try env.newVar(std.testing.allocator, 5);
+    const g = try env.generalize(std.testing.allocator, a, 3);
+    try std.testing.expect(a != g);
+    try std.testing.expect(env.resolveType(g) == .variable);
+    try std.testing.expectEqual(std.math.maxInt(u32), env.resolveType(g).variable.level);
+}
+
+test "env generalize variable at same level unchanged" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const a = try env.newVar(std.testing.allocator, 1);
+    try std.testing.expectEqual(a, try env.generalize(std.testing.allocator, a, 1));
+}
+
+test "env generalize function type" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const a = try env.newVar(std.testing.allocator, 5);
+    const b = try env.newVar(std.testing.allocator, 5);
+    const fn_ty = try env.registerFunctionType(std.testing.allocator, false, a, b);
+    const g = try env.generalize(std.testing.allocator, fn_ty, 3);
+    try std.testing.expect(env.resolveType(g) == .function);
+}
+
+test "env freshInstance on set type" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const set_int = try env.registerType(std.testing.allocator, .{ .set = env_mod.int_type });
+    const fresh = try env.freshInstance(std.testing.allocator, set_int);
+    try std.testing.expect(fresh != set_int);
+    try std.testing.expect(env.getType(fresh) == .set);
+}
+
+test "env freshInstance on stream type" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const s = try env.registerType(std.testing.allocator, .{ .stream = env_mod.string_type });
+    const fresh = try env.freshInstance(std.testing.allocator, s);
+    try std.testing.expect(fresh != s);
+    try std.testing.expect(env.getType(fresh) == .stream);
+}
+
+test "env freshInstance on map type" {
+    var env = try TypeEnv.init(std.testing.allocator);
+    defer env.deinit(std.testing.allocator);
+    const m = try env.registerType(std.testing.allocator, .{ .map = .{ .key = env_mod.string_type, .value = env_mod.int_type } });
+    const fresh = try env.freshInstance(std.testing.allocator, m);
+    try std.testing.expect(fresh != m);
+    try std.testing.expect(env.getType(fresh) == .map);
+}
+
+test "env decimal_type constant" {
+    try std.testing.expectEqual(@as(TypeId, 10), env_mod.decimal_type);
+}
+
+test "env command_type constant" {
+    try std.testing.expectEqual(@as(TypeId, 11), env_mod.command_type);
+}
+
+test "env datetime_type constant" {
+    try std.testing.expectEqual(@as(TypeId, 12), env_mod.datetime_type);
+}

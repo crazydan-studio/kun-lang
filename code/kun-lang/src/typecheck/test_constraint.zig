@@ -391,3 +391,61 @@ test "constraint infers do_block with in result" {
     try std.testing.expect(result.* == .do_block);
     try std.testing.expectEqual(env_mod.int_type, result.do_block.type_);
 }
+
+test "constraint Cmd.echo ident is command_t" {
+    var s = try setup();
+    defer s.env.deinit(std.testing.allocator);
+    defer s.arena.deinit();
+    const allocator = s.arena.allocator();
+
+    const expr = ast.Expr{ .ident = .{ .name = "Cmd.echo", .span = undefined } };
+    var errors = try ErrorList.init(std.testing.allocator);
+    defer errors.deinit(std.testing.allocator);
+
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    try std.testing.expect(result.* == .ident);
+    try std.testing.expectEqual(env_mod.command_type, result.ident.type_);
+}
+
+test "constraint Cmd.withEnv ident is not command_t" {
+    var s = try setup();
+    defer s.env.deinit(std.testing.allocator);
+    defer s.arena.deinit();
+    const allocator = s.arena.allocator();
+
+    const expr = ast.Expr{ .ident = .{ .name = "Cmd.withEnv", .span = undefined } };
+    var errors = try ErrorList.init(std.testing.allocator);
+    defer errors.deinit(std.testing.allocator);
+
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    try std.testing.expect(result.ident.type_ != env_mod.command_type);
+}
+
+test "constraint Cmd.exec ident is not command_t" {
+    var s = try setup();
+    defer s.env.deinit(std.testing.allocator);
+    defer s.arena.deinit();
+    const allocator = s.arena.allocator();
+
+    const expr = ast.Expr{ .ident = .{ .name = "Cmd.exec", .span = undefined } };
+    var errors = try ErrorList.init(std.testing.allocator);
+    defer errors.deinit(std.testing.allocator);
+
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    try std.testing.expect(result.ident.type_ != env_mod.command_type);
+}
+
+test "constraint Cmd.ls? ident is not command_t" {
+    // ? suffix — known effect, not bare command
+    var s = try setup();
+    defer s.env.deinit(std.testing.allocator);
+    defer s.arena.deinit();
+    const allocator = s.arena.allocator();
+
+    const expr = ast.Expr{ .ident = .{ .name = "Cmd.ls?", .span = undefined } };
+    var errors = try ErrorList.init(std.testing.allocator);
+    defer errors.deinit(std.testing.allocator);
+
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    try std.testing.expect(result.ident.type_ != env_mod.command_type);
+}

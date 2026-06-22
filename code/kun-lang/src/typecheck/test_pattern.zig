@@ -158,3 +158,105 @@ test "checkExhaustive single variant True covers Bool" {
     const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, 0, &branches);
     try std.testing.expect(result != null);
 }
+
+test "checkExhaustive ADT all variants covered" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const opt_ty = try env.registerType(std.testing.allocator, .{ .adt = .{
+        .name = "Option",
+        .variants = &.{
+            .{ .name = "Some", .payload = &.{env_mod.int_type} },
+            .{ .name = "None", .payload = &.{} },
+        },
+    } });
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .ident = .{ .name = "Some", .span = undefined } }, .body = body, .type_ = 0 },
+        .{ .pattern = .{ .ident = .{ .name = "None", .span = undefined } }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, opt_ty, &branches);
+    try std.testing.expectEqual(@as(?[][]const u8, null), result);
+}
+
+test "checkExhaustive ADT missing variant" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const opt_ty = try env.registerType(std.testing.allocator, .{ .adt = .{
+        .name = "Option",
+        .variants = &.{
+            .{ .name = "Some", .payload = &.{env_mod.int_type} },
+            .{ .name = "None", .payload = &.{} },
+        },
+    } });
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .ident = .{ .name = "Some", .span = undefined } }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, opt_ty, &branches);
+    try std.testing.expect(result != null);
+    try std.testing.expectEqual(@as(usize, 1), result.?.len);
+    try std.testing.expectEqualStrings("None", result.?[0]);
+}
+
+test "checkExhaustive bool type both variants exhaustive" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .ident = .{ .name = "True", .span = undefined } }, .body = body, .type_ = 0 },
+        .{ .pattern = .{ .ident = .{ .name = "False", .span = undefined } }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, env_mod.bool_type, &branches);
+    try std.testing.expectEqual(@as(?[][]const u8, null), result);
+}
+
+test "checkExhaustive bool type only True is non-exhaustive" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .ident = .{ .name = "True", .span = undefined } }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, env_mod.bool_type, &branches);
+    try std.testing.expect(result != null);
+    try std.testing.expectEqual(@as(usize, 1), result.?.len);
+}
+
+test "checkExhaustive bool type with wildcard is exhaustive" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .wildcard = undefined }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, env_mod.bool_type, &branches);
+    try std.testing.expectEqual(@as(?[][]const u8, null), result);
+}
+
+test "narrowType Nil on nilable returns scrutinee" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    const pat = ast.Pattern{ .ident = .{ .name = "Nil", .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
+    try std.testing.expectEqual(nil_int, narrowed);
+}
+
+test "narrowType variable on nilable narrows to inner" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    const pat = ast.Pattern{ .ident = .{ .name = "x", .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
+    try std.testing.expectEqual(env_mod.int_type, narrowed);
+}
