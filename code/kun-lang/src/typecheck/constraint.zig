@@ -215,7 +215,13 @@ pub fn inferExpr(
             defer typed_bindings.deinit(ea);
 
             if (try effect_mod.checkDuplicateBindings(allocator, v.bindings)) {
-                try errors.add(allocator, .{ .duplicate_binding = .{ .name = "let binding", .span = v.span } });
+                for (v.bindings, 0..) |b1, i| {
+                    for (v.bindings[i + 1 ..]) |b2| {
+                        if (std.mem.eql(u8, b1.name, b2.name)) {
+                            try errors.add(allocator, .{ .duplicate_binding = .{ .name = b1.name, .span = b1.span } });
+                        }
+                    }
+                }
             }
             try effect_mod.checkLetInPurity(allocator, v.bindings, v.body, errors);
             try effect_mod.checkEmptyBody(allocator, v.body, "let in", errors);
@@ -270,7 +276,12 @@ pub fn inferExpr(
             const typed_then = try inferExpr(allocator, v.then, env, errors);
             const typed_else = try inferExpr(allocator, v.else_, env, errors);
             const node = try ea.create(TypedExpr);
-            node.* = TypedExpr{ .if_expr = .{ .cond = typed_cond, .then = typed_then, .else_ = typed_else, .type_ = exprType(typed_then), .span = v.span } };
+            const result_type = exprType(typed_then);
+            unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch |err| switch (err) {
+                error.Mismatch => try errors.add(allocator, .{ .if_branch_mismatch = .{ .then_type = result_type, .else_type = exprType(typed_else), .span = v.span } }),
+                else => {},
+            };
+            node.* = TypedExpr{ .if_expr = .{ .cond = typed_cond, .then = typed_then, .else_ = typed_else, .type_ = result_type, .span = v.span } };
             return node;
         },
         .case_expr => |v| {

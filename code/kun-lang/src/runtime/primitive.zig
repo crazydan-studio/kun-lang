@@ -40,7 +40,7 @@ fn printlnImpl(env: *RuntimeEnv, args: *const Value) Value {
 fn readlnImpl(env: *RuntimeEnv, args: *const Value) Value {
     _ = env;
     _ = args;
-    return Value{ .string = "" };
+    @panic("unimplemented: IO.readln");
 }
 
 pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, comptime unit_t: TypeId, comptime stream_string_t: TypeId) PrimitiveTable {

@@ -255,14 +255,18 @@ fn evalBinaryOp(
         },
         .and_ => {
             const l = try eval(left_expr, frame, allocator);
+            if (l != .bool) return error.TypeMismatch;
             if (!l.bool) return Value{ .bool = false };
             const r = try eval(right_expr, frame, allocator);
+            if (r != .bool) return error.TypeMismatch;
             return Value{ .bool = r.bool };
         },
         .or_ => {
             const l = try eval(left_expr, frame, allocator);
+            if (l != .bool) return error.TypeMismatch;
             if (l.bool) return Value{ .bool = true };
             const r = try eval(right_expr, frame, allocator);
+            if (r != .bool) return error.TypeMismatch;
             return Value{ .bool = r.bool };
         },
         .concat => {
