@@ -3,11 +3,11 @@ const env_mod = @import("env.zig");
 const TypeEnv = env_mod.TypeEnv;
 const TypeId = env_mod.TypeId;
 
-test "env init has 10 built-in types" {
+test "env init has 13 built-in types" {
     var env = try TypeEnv.init(std.testing.allocator);
     defer env.deinit(std.testing.allocator);
 
-    try std.testing.expectEqual(@as(usize, 10), env.types.items.len);
+    try std.testing.expectEqual(@as(usize, 13), env.types.items.len);
     try std.testing.expect(env.getType(0) == .int);
     try std.testing.expect(env.getType(1) == .float);
     try std.testing.expect(env.getType(2) == .bool);
@@ -18,6 +18,9 @@ test "env init has 10 built-in types" {
     try std.testing.expect(env.getType(7) == .path);
     try std.testing.expect(env.getType(8) == .duration);
     try std.testing.expect(env.getType(9) == .regex);
+    try std.testing.expect(env.getType(10) == .decimal_t);
+    try std.testing.expect(env.getType(11) == .command_t);
+    try std.testing.expect(env.getType(12) == .datetime_t);
 }
 
 test "env built-in type constants" {
@@ -41,7 +44,7 @@ test "env newVar creates fresh type variable" {
     const b = try env.newVar(std.testing.allocator, 2);
 
     try std.testing.expect(a != b);
-    try std.testing.expectEqual(@as(usize, 12), env.types.items.len);
+    try std.testing.expectEqual(@as(usize, 15), env.types.items.len);
 
     const ta = env.getType(a);
     try std.testing.expect(ta == .variable);
@@ -90,9 +93,11 @@ test "env typeName" {
     var env = try TypeEnv.init(std.testing.allocator);
     defer env.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("int", env.typeName(env_mod.int_type));
-    try std.testing.expectEqualStrings("bool", env.typeName(env_mod.bool_type));
-    try std.testing.expectEqualStrings("string", env.typeName(env_mod.string_type));
+    try std.testing.expectEqualStrings("Int", try env.typeName(std.testing.allocator, env_mod.int_type));
+    try std.testing.expectEqualStrings("Bool", try env.typeName(std.testing.allocator, env_mod.bool_type));
+    try std.testing.expectEqualStrings("String", try env.typeName(std.testing.allocator, env_mod.string_type));
+    try std.testing.expectEqualStrings("Decimal", try env.typeName(std.testing.allocator, env_mod.decimal_type));
+    try std.testing.expectEqualStrings("Command", try env.typeName(std.testing.allocator, env_mod.command_type));
 }
 
 test "env freshInstance on base type returns same" {

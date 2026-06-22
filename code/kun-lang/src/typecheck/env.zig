@@ -15,6 +15,10 @@ pub const path_type: TypeId = 7;
 pub const duration_type: TypeId = 8;
 pub const regex_type: TypeId = 9;
 
+pub const decimal_type: TypeId = 10;
+pub const command_type: TypeId = 11;
+pub const datetime_type: TypeId = 12;
+
 pub const TypeEnv = struct {
     types: std.ArrayListUnmanaged(Type),
     subst: std.AutoArrayHashMapUnmanaged(TypeId, TypeId),
@@ -33,6 +37,9 @@ pub const TypeEnv = struct {
         try types.append(allocator, .{ .path = {} });
         try types.append(allocator, .{ .duration = {} });
         try types.append(allocator, .{ .regex = {} });
+        try types.append(allocator, .{ .decimal_t = {} });
+        try types.append(allocator, .{ .command_t = {} });
+        try types.append(allocator, .{ .datetime_t = {} });
 
         return TypeEnv{
             .types = types,
@@ -102,6 +109,97 @@ pub const TypeEnv = struct {
                 const i = try self.freshInstance(allocator, inner);
                 return self.registerType(allocator, .{ .list = i });
             },
+            .set => |inner| {
+                const i = try self.freshInstance(allocator, inner);
+                return self.registerType(allocator, .{ .set = i });
+            },
+            .stream => |inner| {
+                const i = try self.freshInstance(allocator, inner);
+                return self.registerType(allocator, .{ .stream = i });
+            },
+            .map => |m| {
+                const k = try self.freshInstance(allocator, m.key);
+                const v = try self.freshInstance(allocator, m.value);
+                return self.registerType(allocator, .{ .map = .{ .key = k, .value = v } });
+            },
+            else => return id,
+        };
+    }
+
+    pub fn generalize(self: *TypeEnv, allocator: std.mem.Allocator, id: TypeId, level: u32) !TypeId {
+        const ty = self.resolveType(id);
+        return switch (ty) {
+            .variable => |v| {
+                if (v.level > level) {
+                    const polymorphic = try self.newVar(allocator, std.math.maxInt(u32));
+                    try self.subst.put(allocator, id, polymorphic);
+                    return polymorphic;
+                }
+                return id;
+            },
+            .function => |f| {
+                const p = try self.generalize(allocator, f.param, level);
+                const r = try self.generalize(allocator, f.result, level);
+                return self.registerFunctionType(allocator, false, p, r);
+            },
+            .effect_fn => |f| {
+                const p = try self.generalize(allocator, f.param, level);
+                const r = try self.generalize(allocator, f.result, level);
+                return self.registerFunctionType(allocator, true, p, r);
+            },
+            .nilable => |inner| {
+                const i = try self.generalize(allocator, inner, level);
+                return self.registerType(allocator, .{ .nilable = i });
+            },
+            .list => |inner| {
+                const i = try self.generalize(allocator, inner, level);
+                return self.registerType(allocator, .{ .list = i });
+            },
+            .set => |inner| {
+                const i = try self.generalize(allocator, inner, level);
+                return self.registerType(allocator, .{ .set = i });
+            },
+            .stream => |inner| {
+                const i = try self.generalize(allocator, inner, level);
+                return self.registerType(allocator, .{ .stream = i });
+            },
+            .map => |m| {
+                const k = try self.generalize(allocator, m.key, level);
+                const v = try self.generalize(allocator, m.value, level);
+                return self.registerType(allocator, .{ .map = .{ .key = k, .value = v } });
+            },
+            .tuple => |t| {
+                var elems: std.ArrayListUnmanaged(TypeId) = .empty;
+                defer elems.deinit(self._allocator);
+                for (t) |ti| {
+                    const gi = try self.generalize(allocator, ti, level);
+                    try elems.append(self._allocator, gi);
+                }
+                return self.registerType(allocator, .{ .tuple = try elems.toOwnedSlice(self._allocator) });
+            },
+            .record => |r| {
+                var fields: std.ArrayListUnmanaged(typed.RecordFieldType) = .empty;
+                defer fields.deinit(self._allocator);
+                for (r) |f| {
+                    const gf = try self.generalize(allocator, f.type_, level);
+                    try fields.append(self._allocator, .{ .name = f.name, .type_ = gf });
+                }
+                return self.registerType(allocator, .{ .record = try fields.toOwnedSlice(self._allocator) });
+            },
+            .adt => |a| {
+                var variants: std.ArrayListUnmanaged(typed.AdtVariant) = .empty;
+                defer variants.deinit(self._allocator);
+                for (a.variants) |va| {
+                    var payload: std.ArrayListUnmanaged(TypeId) = .empty;
+                    defer payload.deinit(self._allocator);
+                    for (va.payload) |p| {
+                        const gp = try self.generalize(allocator, p, level);
+                        try payload.append(self._allocator, gp);
+                    }
+                    try variants.append(self._allocator, .{ .name = va.name, .payload = try payload.toOwnedSlice(self._allocator) });
+                }
+                return self.registerType(allocator, .{ .adt = .{ .name = a.name, .variants = try variants.toOwnedSlice(self._allocator) } });
+            },
             else => return id,
         };
     }
@@ -130,9 +228,85 @@ pub const TypeEnv = struct {
         return id;
     }
 
-    pub fn typeName(self: *const TypeEnv, id: TypeId) []const u8 {
+    pub fn typeName(self: *const TypeEnv, allocator: std.mem.Allocator, id: TypeId) ![]const u8 {
         const resolved = self.resolveType(id);
-        return @tagName(resolved);
+        return switch (resolved) {
+            .int => "Int",
+            .float => "Float",
+            .bool => "Bool",
+            .string => "String",
+            .char => "Char",
+            .bytes => "Bytes",
+            .unit => "Unit",
+            .path => "Path",
+            .duration => "Duration",
+            .regex => "Regex",
+            .decimal_t => "Decimal",
+            .command_t => "Command",
+            .datetime_t => "DateTime",
+            .nilable => |inner| {
+                const inner_name = try self.typeName(allocator, inner);
+                return std.fmt.allocPrint(allocator, "?{s}", .{inner_name});
+            },
+            .list => |inner| {
+                const inner_name = try self.typeName(allocator, inner);
+                return std.fmt.allocPrint(allocator, "List {s}", .{inner_name});
+            },
+            .set => |inner| {
+                const inner_name = try self.typeName(allocator, inner);
+                return std.fmt.allocPrint(allocator, "Set {s}", .{inner_name});
+            },
+            .stream => |inner| {
+                const inner_name = try self.typeName(allocator, inner);
+                return std.fmt.allocPrint(allocator, "Stream {s}", .{inner_name});
+            },
+            .map => |m| {
+                const key_name = try self.typeName(allocator, m.key);
+                const val_name = try self.typeName(allocator, m.value);
+                return std.fmt.allocPrint(allocator, "Map {s} {s}", .{ key_name, val_name });
+            },
+            .function => |f| {
+                const param_name = try self.typeName(allocator, f.param);
+                const result_name = try self.typeName(allocator, f.result);
+                return std.fmt.allocPrint(allocator, "Fn({s}, {s})", .{ param_name, result_name });
+            },
+            .effect_fn => |f| {
+                const param_name = try self.typeName(allocator, f.param);
+                const result_name = try self.typeName(allocator, f.result);
+                return std.fmt.allocPrint(allocator, "EffectFn({s}, {s})", .{ param_name, result_name });
+            },
+            .tuple => |t| {
+                var result: []const u8 = "(";
+                for (t, 0..) |ti, i| {
+                    const name = try self.typeName(allocator, ti);
+                    if (i == 0) {
+                        result = try std.fmt.allocPrint(allocator, "({s}", .{name});
+                    } else {
+                        result = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ result, name });
+                    }
+                }
+                return try std.fmt.allocPrint(allocator, "{s})", .{result});
+            },
+            .record => |r| {
+                var result: []const u8 = "{";
+                for (r, 0..) |f, i| {
+                    const name = try self.typeName(allocator, f.type_);
+                    if (i == 0) {
+                        result = try std.fmt.allocPrint(allocator, "{{ {s}: {s}", .{ f.name, name });
+                    } else {
+                        result = try std.fmt.allocPrint(allocator, "{s}, {s}: {s}", .{ result, f.name, name });
+                    }
+                }
+                return try std.fmt.allocPrint(allocator, "{s} }}", .{result});
+            },
+            .adt => |a| {
+                return std.fmt.allocPrint(allocator, "{s}", .{a.name});
+            },
+            .variable => |v| {
+                return std.fmt.allocPrint(allocator, "a{d}", .{v.id});
+            },
+            .error_ => "Error",
+        };
     }
 
     pub fn applySubst(self: *TypeEnv, ty: TypeId) TypeId {
