@@ -2,16 +2,16 @@
 
 ## 背景与目标
 
-Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generalize、Value 扩展、Stream 基础、模式穷举、Cmd ident 识别），306 测试全通过。Phase 4 的目标是补齐 Phase 3 推迟的全部功能，并对齐 MVP（v0.1）的完整交付。
+Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generalize、Value 扩展、Stream 基础、模式穷举、Cmd ident 识别），306 测试全通过。Phase 4 的目标是补齐 Phase 3 推迟的核心功能——效应检查完成 + 命令系统 + HM 完备化。注意：完整 MVP（v0.1）还包含 ~50 项标准库 Primitive 实现（List/Map/Set/String/Int/Float/Regex/Hash 等）和 CLI 沙箱，这些推迟至 Phase 5。
 
 ## 基线数据
 
 | 维度 | 值 |
 |------|-----|
 | Phase 3 测试 | **306**（均通过） |
-| Phase 3 推迟项 | **23 项**（12 effect 函数 + 11 功能模块，详见下方清单） |
-| 推迟的 effect 存根 | **12 个** |
-| 推迟的功能模块 | **11 个**（i18n/execCommand/Stream primitives/HM 合一/freshInstance 集成/类型别名/TypedExpr×3/Stream 变换/Cmd Record/代码重复消除） |
+| Phase 3 推迟项 | **27 项**（11 effect 存根 + 1 effect 部分实现 + 15 功能模块） |
+| 推迟的 effect 存根 | **11 个**（doLetExclusion/doInResult/effectCallback/cmdInDo/pipeCommand/implicitDo/streamConsumption/commandConsumption/unusedBindings/unusedResult/pureExprLast） |
+| 推迟的 effect 部分实现 | **1 个**（checkPureFunctionBody——returns error.EffectInPure，需改为 emit TypeError） |
 
 ## Phase 3 推迟项清单
 
@@ -58,7 +58,7 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 
 | 文件 | 变更 |
 |------|------|
-| `code/kun-lang/src/typecheck/effect.zig` | 12 个存根函数 → 完整实现（do/let 互斥、do-in 验证、! 回调匹配、Cmd do 约束、`\|>` Command 约束、隐式 do、Stream/Command 消费、告警系统） |
+| `code/kun-lang/src/typecheck/effect.zig` | 11 个存根函数 → 完整实现；`checkPureFunctionBody` 改造为 emit TypeError（替代 return error.EffectInPure） |
 | `code/kun-lang/src/typecheck/constraint.zig` | 消除重复代码（hasEffect→effect_mod.hasEffectInExpr）；call/lambda/record_access HM 约束合一；if_expr 统一所有 unify 错误变体；ident handler freshInstance 集成（Let 多态修复）；类型别名解析；record_update/range_literal/ternary TypedExpr |
 | `code/kun-lang/src/runtime/primitive.zig` | 注册 Stream.* 6 个 Primitive 函数签名；实现 IO.println/IO.readln/File.readString/File.list/File.stat/Env.get/Process.exit 函数体 |
 | `code/kun-lang/src/runtime/eval.zig` | ident handler PrimitiveTable 查询集成（`frame.lookup()` 失败后查 Primitive 表）；pipe Command 执行（execCommand 调用）；消除重复 isKnownCmdApi（→ cmd.zig）；record_update/range_literal/ternary eval |
@@ -77,7 +77,7 @@ Phase 3 注册了 Primitive 签名但 eval.zig 从未查询——所有 Primitiv
 - 实现 `Process.exit`/`Process.pid`/`Process.args` 函数体
 - 模块导入解析：`import Xxx` → 将 Primitive 表对应模块的 bindings 注册到全局 Frame
 
-### Step 2: 效应检查补齐 — 12 个存根函数
+### Step 2: 效应检查补齐 — 11 存根 + 1 改造
 
 | 函数 | 类型 | 逻辑 |
 |------|------|------|
@@ -110,7 +110,7 @@ Phase 3 注册了 Primitive 签名但 eval.zig 从未查询——所有 Primitiv
 ### Step 5: i18n.zig — 错误消息格式化
 
 - `formatError(allocator, err: TypeError, locale: Locale) ![]const u8`
-- 23 msgid 内嵌翻译表（zh_CN + en）
+- 25 msgid 内嵌翻译表（type-system.md 21 错误类型 + 4 元数据标签 Expected/Found/Hint/Reason）+ 2 Phase 3 新增（Empty Body/Duplicate Binding）= 27 模板
 - 集成 `typeName` 递归格式化
 
 ### Step 6: execCommand — fork-exec 实现
@@ -138,7 +138,9 @@ Phase 3 注册了 Primitive 签名但 eval.zig 从未查询——所有 Primitiv
 
 ### Step 11: 代码重复消除 + 集成测试
 
-- `isKnownCmdApi`/`hasEffect`/`isEffectNamespaceCall` 统一到单一模块
+- **`hasEffect`/`hasEffectInExpr`**: `constraint.zig:555` 与 `effect.zig:14` 为独立的 AST 递归遍历（~60 行重复），合并为 `effect.zig` 单一实现
+- **`isKnownCmdApi`**: `eval.zig:163` 与 `constraint.zig:648` 完全重复（15 项 API 数组），移至 `cmd.zig` 单例
+- **`isEffectNamespaceCall`**: 统一点为 `primitive.zig:isEffectBinding`（`effect.zig` 和 `constraint.zig` 均委托于此）
 - 新增测试：primitive_full、effect_full、i18n、stream_transform、cmd_exec、type_alias、record_update/range/ternary
 - 回归 306 通过
 
@@ -147,7 +149,7 @@ Phase 3 注册了 Primitive 签名但 eval.zig 从未查询——所有 Primitiv
 | 阶段 | 产出 | 验证标准 |
 |------|------|---------|
 | M1: 运行时集成 | Primitive 表 eval 查询 + IO/File/Env 实现 | `IO.println "hi"` 经 `kun --run` 输出 |
-| M2: 效应补齐 | 12 函数实现 | 纯函数调 IO.println → `effect_in_pure` 格式化错误 |
+| M2: 效应补齐 | 11 存根 + 1 改造函数实现 | 纯函数调 IO.println → `effect_in_pure` 格式化错误 |
 | M3: HM 完备 | call/lambda/record_access 合一 | `f 42` 类型错误 → `function_apply_arg` |
 | M4: Let 多态 | freshInstance + local type env | `let id = \x -> x in (id 42, id "hi")` 正确推断 |
 | M5: i18n | 23 模板 + zh_CN/en 渲染 | `TypeError` → 格式化消息 |
