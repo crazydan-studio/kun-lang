@@ -122,3 +122,4 @@ pub fn narrowType(
 
     return scrutinee_ty;
 }
+

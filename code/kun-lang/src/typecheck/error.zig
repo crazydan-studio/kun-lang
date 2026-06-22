@@ -1,3 +1,4 @@
+const std = @import("std");
 const typed = @import("../ast/typed.zig");
 const ast = @import("../ast/ast.zig");
 const TypeId = typed.TypeId;
