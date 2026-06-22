@@ -358,6 +358,7 @@ function sidebarWorking() {
           { text: 'Phase 2 计划第5–6轮审计', link: '/ai-agent/audits/audit-plan-phase2-round5-6' },
           { text: 'Phase 2 计划第7–8轮审计', link: '/ai-agent/audits/audit-plan-phase2-round7-8' },
           { text: 'Phase 2 计划第9–10轮审计', link: '/ai-agent/audits/audit-plan-phase2-round9-10' },
+          { text: 'Phase 3 实现审计', link: '/ai-agent/audits/audit-phase3-implementation' },
         ],
       },
       {
