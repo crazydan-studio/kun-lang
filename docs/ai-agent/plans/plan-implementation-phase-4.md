@@ -9,10 +9,9 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 | 维度 | 值 |
 |------|-----|
 | Phase 3 测试 | **306**（均通过） |
-| Phase 3 源码文件 | 10 新建/修改（primitive/value/eval/effect/constraint/error/env/pattern + test_main + 7 测试文件） |
-| Phase 3 推迟项 | **12 类**（见下方） |
-| 推迟的 effect 函数 | **12 个**（doLetExclusion/doInResult/effectCallback/cmdInDo/pipeCommand/implicitDo/streamConsumption/commandConsumption/unusedBindings/unusedResult/pureExprLast + pureFunctionBody 部分） |
-| 未实现的功能 | i18n.zig、execCommand、Stream primitives、HM 约束合一、类型别名、TypedExpr 补全、Stream 变换、Cmd Record |
+| Phase 3 推迟项 | **23 项**（12 effect 函数 + 11 功能模块，详见下方清单） |
+| 推迟的 effect 存根 | **12 个** |
+| 推迟的功能模块 | **11 个**（i18n/execCommand/Stream primitives/HM 合一/freshInstance 集成/类型别名/TypedExpr×3/Stream 变换/Cmd Record/代码重复消除） |
 
 ## Phase 3 推迟项清单
 
@@ -33,7 +32,7 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 | 13 | `i18n.zig` | 错误消息格式化渲染 |
 | 14 | `Stream.*` Primitive 注册 | lines/iter/fold/toList/string/bytes |
 | 15 | `execCommand` | fork-exec 子进程 |
-| 16 | call/lambda/record_access HM 合一 | 类型推断完整性 |
+| 16 | call/lambda/record_access HM 合一 | 类型推断完整性——注：需先修复 Phase 3 中 `subst.put` 与 `deinit` 的 allocator 不一致（subst 用 arena allocator、deinit 用 test allocator），否则 call handler 创建函数类型时触发 double-free |
 | 17 | 类型别名解析 | 递归展开 + recursive_alias_depth |
 | 18 | `record_update` TypedExpr | 记录更新类型推断 |
 | 19 | `range_literal` TypedExpr | 范围字面量类型推断 |
@@ -41,6 +40,7 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 | 21 | Stream `mapped`/`filtered` 等变换 | Stream 变换操作 |
 | 22 | Cmd Record 选项解析 | camelCase→kebab-case |
 | 23 | 代码重复消除 | isKnownCmdApi/hasEffect/isEffectNamespaceCall 统一 |
+| 24 | `freshInstance` 集成到 ident 查找 | Phase 3 中 `generalize()` 已实现但 ident handler 从未调用 `freshInstance()`——Let 多态仅靠巧合工作，需在 ident handler 中查本地类型环境并实例化泛化类型 |
 
 ## 变更范围
 
@@ -56,7 +56,7 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 | 文件 | 变更 |
 |------|------|
 | `code/kun-lang/src/typecheck/effect.zig` | 12 个存根函数 → 完整实现（do/let 互斥、do-in 验证、! 回调匹配、Cmd do 约束、`\|>` Command 约束、隐式 do、Stream/Command 消费、告警系统） |
-| `code/kun-lang/src/typecheck/constraint.zig` | 消除重复代码（hasEffect→effect_mod.hasEffectInExpr）；call/lambda/record_access HM 约束合一；if_expr 统一所有 unify 错误变体；类型别名解析；record_update/range_literal/ternary TypedExpr |
+| `code/kun-lang/src/typecheck/constraint.zig` | 消除重复代码（hasEffect→effect_mod.hasEffectInExpr）；call/lambda/record_access HM 约束合一；if_expr 统一所有 unify 错误变体；ident handler freshInstance 集成（Let 多态修复）；类型别名解析；record_update/range_literal/ternary TypedExpr |
 | `code/kun-lang/src/runtime/primitive.zig` | 注册 Stream.* 6 个 Primitive 函数签名 |
 | `code/kun-lang/src/runtime/eval.zig` | pipe Command 执行（execCommand 调用）；消除重复 isKnownCmdApi（→ cmd.zig）；record_update/range_literal/ternary eval |
 | `code/kun-lang/src/runtime/value.zig` | StreamFn 闭包调用集成 |
@@ -75,9 +75,8 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 
 实现 `typecheck/i18n.zig`：
 - `formatError(allocator, err: TypeError, locale: Locale) ![]const u8`
-- 23 msgid 内嵌翻译表（zh_CN + en）
-- 21 种 type-system.md 已有模板 + 2 种新增（Empty Body / Duplicate Binding）
-- `effect_in_pure` / `effect_in_let` 共用 msgid 含不同 hint
+- 23 msgid 内嵌翻译表（zh_CN + en）——type-system.md 已有 21 种 + Phase 3 补齐 2 种（Empty Body / Duplicate Binding）
+- `effect_in_pure` / `effect_in_let` 共用 `"Effect In Pure Function"` msgid，不同 hint
 - 集成 `typeName` 递归格式化输出期望/实际类型
 
 ### Step 3: effect.zig — 补齐 12 个检查函数
@@ -97,7 +96,14 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 | `checkPureExprLast` | Warn | do body | 最后语句为纯表达式告警 |
 | `checkPureFunctionBody` | Error | 函数体 | emit `effect_in_pure` TypeError（替代 return error） |
 
-### Step 4: HM 约束合一 — 类型推断完备化
+### Step 4: Let 多态缺陷修复
+
+Phase 3 的 `generalize()` 将绑定类型泛化，但 ident handler 从不调用 `freshInstance()` 实例化——每次 ident 引用创建独立新鲜类型变量。修复：
+- 在 `constraint.zig` 的 ident handler 中：若名称匹配 let 绑定，从本地类型环境获取泛化类型 → `freshInstance()` 实例化 → 使用实例化后的类型
+- 引入局部类型环境（`std.StringHashMapUnmanaged(TypeId)`）在 `let_in` 处理中存储泛化后的绑定类型
+- 多绑定组：所有 binding 泛化后一起注册
+
+### Step 5: HM 约束合一 — 类型推断完备化
 
 在 `constraint.zig` 中：
 - **call handler**: `unify(func_type ~ Fn(arg_type, result_id))`，emit `function_apply_arg` on mismatch
@@ -120,13 +126,21 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 | `range_literal` | `from`/`to` 统一为 Int → `List Int` | 生成 `[from..to]` 列表 |
 | `ternary` | `then`/`else` 类型统一 | 条件求值后选择分支 |
 
-### Step 7: Stream 变换 + Cmd Record 选项
+### Step 7: Stream 变换操作
 
-- Stream `mapped`/`filtered`/`taken`/`dropped`/`lines`/`parse_mapped`/`parse_mapped_keep` 构造器
-- `Cmd.<bin> { options }` Record 选项解析 + camelCase→kebab-case CLI flag 映射
+实现 Stream `mapped`/`filtered`/`taken`/`dropped`/`lines`/`parse_mapped`/`parse_mapped_keep` 构造器：
+- 每个变换创建一个新 `StreamNode` 变体包裹上游
+- `cmd` 变体已实现（Phase 3），`lines` 变体仅构造不消费
+- 纯变换合并优化：相邻纯变换折叠为单次遍历
+
+### Step 8: Cmd Record 选项解析
+
+- `Cmd.<bin> { options }` 语法 → Record 选项类型检查
+- camelCase 字段名 → kebab-case CLI flag 自动映射（`maxCount` → `--max-count`）
+- 全小写字段不做连字符拆分（`readonly` → `--readonly`）
 - `Cmd.ls { long = true } p"/tmp"` → `ls --long /tmp`
 
-### Step 8: execCommand — fork-exec 实现
+### Step 9: execCommand — fork-exec 实现
 
 - `fn execCommand(bin, args, allocator) !*StreamNode`
 - Linux `fork()` → child `execve()` + parent `pipe()` 捕获 stdout
@@ -157,12 +171,14 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 | M1: 代码清理 | isKnownCmdApi/hasEffect 单源 | 编译通过，0 重复 |
 | M2: i18n | 23 模板 + zh_CN/en 渲染 | `TypeError` → 格式化消息 |
 | M3: 效应补齐 | 12 函数实现 | 纯函数调 IO.println → `effect_in_pure` 格式化错误 |
-| M4: HM 完备 | call/lambda/record_access 合一 | `f 42` 类型错误 → `function_apply_arg` |
-| M5: 类型别名 | 递归展开 + 深度限制 | `type Tree = { children: List Tree }` 类型推断 |
-| M6: TypedExpr 补全 | record_update/range/ternary | `{ r \| x = 1 }` 求值 |
-| M7: Stream 变换 | mapped/filtered/taken/dropped/lines | `Cmd.ls \|> Stream.lines \|> Stream.take 5` |
-| M8: 命令系统 | execCommand + Record 选项 | `Cmd.ls { long = true } p"/tmp"` fork-exec |
-| M9: 集成 | 306 + 新增约 150 测试通过 | `zig build test` 全通过 |
+| M4: Let 多态 | freshInstance + local type env | `let id = \x -> x in (id 42, id "hi")` 正确推断 |
+| M5: HM 完备 | call/lambda/record_access 合一 | `f 42` 类型错误 → `function_apply_arg` |
+| M6: 类型别名 | 递归展开 + 深度限制 | `type Tree = { children: List Tree }` 类型推断 |
+| M7: TypedExpr | record_update/range/ternary eval | `{ r \| x = 1 }` 求值 |
+| M8: Stream 变换 | mapped/filtered/taken/dropped/lines | `Cmd.ls \|> Stream.lines \|> Stream.take 5` |
+| M9: Cmd Record | camelCase→kebab-case 选项解析 | `Cmd.ls { long = true } p"/tmp"` 类型检查 |
+| M10: 命令系统 | execCommand fork-exec | `Cmd.ls?` 子进程 stdout 捕获 |
+| M11: 集成 | 306 + 新增约 180 测试通过 | `zig build test` 全通过 |
 
 ## 风险评估
 
@@ -170,8 +186,9 @@ Phase 3 完成了基础设施（Primitive 表、ErrorType、typeName、generaliz
 |------|---------|
 | 效应检查复杂度（12 函数） | 逐函数独立实现 + 独立测试，编译错误 7 项优先 |
 | fork-exec 子进程管理 | Linux pipe+waitpid+O_NONBLOCK，Phase 4 仅单命令 |
-| HM 约束合一破坏性 | 对现有 306 测试保持回归，逐步添加合一约束 |
+| HM 约束合一破坏性 | 对现有 306 测试保持回归，逐步添加合一约束；先修复 subst allocator 不一致 |
 | 类型别名递归展开 | 256 层上限 + occurs check 选择性启用 |
+| Let 多态环境管理 | 局部类型环境仅在 `let_in` scope 内有效，不影响其他 ident 推断 |
 
 ## 版本历史
 
