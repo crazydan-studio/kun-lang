@@ -19,7 +19,7 @@
 |---|---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 4 待启动 |
+| 活跃计划 | Phase 4 计划已编写（待审计） |
 | 最近完成 | Phase 3 实现：Primitive 函数表 + 效应识别迁移 + 14 种 TypeError 变体 + recursive typeName + generalize()/freshInstance + 18 项效应检查集成 + Value 扩展 9 变体 + StreamNode/StreamFn + map/set eval + Cmd ident fallback + 模式穷举升级 + 23 轮计划审计（77 项修复）+ 双代理测试审计（+59 测试 → 306 全通过）+ 3 轮实现审计（修复 20 项） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
