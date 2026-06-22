@@ -90,6 +90,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .if_expr => |v| {
             const cond = try eval(v.cond, frame, allocator);
+            if (cond != .bool) return error.TypeMismatch;
             if (cond.bool) return eval(v.then, frame, allocator);
             return eval(v.else_, frame, allocator);
         },
@@ -101,8 +102,11 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .record_access => |v| evalRecordAccess(v.record, v.field, frame, allocator),
         .pipe => |v| {
             const left = try eval(v.left, frame, allocator);
-            _ = left;
-            return eval(v.right, frame, allocator);
+            const right = try eval(v.right, frame, allocator);
+            if (left == .command) {
+                return error.Unimplemented;
+            }
+            return apply(right, left, allocator);
         },
         .pipe_reverse => @panic("unimplemented: pipe_reverse (should be desugared to call)"),
         .compose => @panic("unimplemented: compose (should be desugared to lambda+call)"),

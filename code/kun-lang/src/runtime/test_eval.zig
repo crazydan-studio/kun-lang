@@ -780,12 +780,19 @@ test "eval pipe expression" {
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const body = try allocator.create(typed.TypedExpr);
+    body.* = .{ .ident = .{ .name = "x", .type_ = 0, .span = undefined } };
     const right = try allocator.create(typed.TypedExpr);
-    right.* = .{ .int_literal = .{ .value = 2, .type_ = 0, .span = undefined } };
+    const params = [_]typed.Param{.{
+        .name = "x",
+        .type_ = 0,
+    }};
+    right.* = typed.TypedExpr{ .lambda = .{ .params = &params, .body = body, .type_ = 0, .span = undefined } };
+    try global.bindings.put(allocator, "x", Value{ .int = 1 });
 
     const expr = typed.TypedExpr{ .pipe = .{ .left = left, .right = right, .type_ = 0, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
-    try std.testing.expectEqual(@as(i64, 2), result.int);
+    try std.testing.expectEqual(@as(i64, 1), result.int);
 }
 
 test "eval case tuple pattern with Nil narrowing" {
