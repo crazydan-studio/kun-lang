@@ -116,7 +116,14 @@ Phase 3 注册了 Primitive 签名但 eval.zig 从未查询——所有 Primitiv
 ### Step 6: execCommand — fork-exec 实现
 
 - `fn execCommand(bin, args, allocator) !*StreamNode`
-- fork → execve + pipe stdout → `O_NONBLOCK`
+- 系统契约（对齐 `system-baseline.md:630-639`）：
+  - `fork()` → 子进程 `execve()` + 父进程 `pipe2()` 捕获 stdout
+  - stderr 透传到父进程（`mergeStderr` 时合并到 stdout pipe）
+  - stdin 继承父进程（`/dev/null` 或外部管道）
+  - `O_NONBLOCK` fd 设置
+  - `waitpid` 回收子进程
+  - PATH 解析：运行时查找可执行文件（`NotFound` panic）
+- 错误传播：`fork`/`exec`/`pipe` 失败 → `EvalError`
 - eval.zig pipe 分支：`Value.command` → `execCommand` → Stream → `apply(right, stream)`
 
 ### Step 7: Stream 变换 + Primitive 注册
