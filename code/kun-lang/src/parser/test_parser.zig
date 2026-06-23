@@ -520,3 +520,73 @@ test "parser big int literal" {
     try std.testing.expectEqual(@as(i64, 9223372036854775807), e.int_literal.value);
 }
 
+test "parser map literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "x = #{ \"a\" = 1, \"b\" = 2 }");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 2), e.map_literal.entries.len);
+}
+
+test "parser map literal empty" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "x = #{}");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 0), e.map_literal.entries.len);
+}
+
+test "parser set literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "x = #[1, 2, 3]");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 3), e.set_literal.items.len);
+}
+
+test "parser set literal empty" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "x = #[]");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 0), e.set_literal.items.len);
+}
+
+test "parser let in verifies binding value and body" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "x = let y = 42 in y");
+    const decls = try parseModule(allocator, tokens);
+    const e = decls[0].function_def.body.*;
+    try std.testing.expectEqual(@as(usize, 1), e.let_in.bindings.len);
+    try std.testing.expectEqualStrings("y", e.let_in.bindings[0].name);
+    try std.testing.expectEqual(@as(i64, 42), e.let_in.bindings[0].value.*.int_literal.value);
+}
+
+test "parser error unexpected token" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "x = }");
+    const result = parseModule(allocator, tokens);
+    try std.testing.expectError(error.UnexpectedToken, result);
+}
+
+test "parser error empty decl" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 0), decls.len);
+}
+

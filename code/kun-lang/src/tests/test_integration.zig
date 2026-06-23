@@ -5,19 +5,23 @@ const typecheck = @import("../typecheck/infer.zig");
 const typecheck_env = @import("../typecheck/env.zig");
 const runtime = @import("../runtime/eval.zig");
 
+fn setupPipeline(allocator: std.mem.Allocator, source: []const u8) ![]const parser.Decl {
+    const tokens = try lexer.tokenize(allocator, source);
+    return try parser.parseModule(allocator, tokens);
+}
+
 test "integration parse and typecheck simple binding" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const tokens = try lexer.tokenize(allocator, "x = 42");
-    const decls = try parser.parseModule(allocator, tokens);
+    const decls = try setupPipeline(allocator, "x = 42");
     try std.testing.expectEqual(@as(usize, 1), decls.len);
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    _ = typecheck.infer(allocator, decls, &type_env) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
 test "integration parse and typecheck add function" {
@@ -25,14 +29,13 @@ test "integration parse and typecheck add function" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const tokens = try lexer.tokenize(allocator, "add = (\\a -> (\\b -> a + b))");
-    const decls = try parser.parseModule(allocator, tokens);
+    const decls = try setupPipeline(allocator, "add = (\\a -> (\\b -> a + b))");
     try std.testing.expectEqual(@as(usize, 1), decls.len);
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    _ = typecheck.infer(allocator, decls, &type_env) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
 test "integration parse and typecheck if expression" {
@@ -40,14 +43,13 @@ test "integration parse and typecheck if expression" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const tokens = try lexer.tokenize(allocator, "f = (if true then 1 else 0)");
-    const decls = try parser.parseModule(allocator, tokens);
+    const decls = try setupPipeline(allocator, "f = (if true then 1 else 0)");
     try std.testing.expectEqual(@as(usize, 1), decls.len);
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    _ = typecheck.infer(allocator, decls, &type_env) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
 test "integration parse and typecheck let expression" {
@@ -55,14 +57,13 @@ test "integration parse and typecheck let expression" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const tokens = try lexer.tokenize(allocator, "f = (let x = 1 in x + 1)");
-    const decls = try parser.parseModule(allocator, tokens);
+    const decls = try setupPipeline(allocator, "f = (let x = 1 in x + 1)");
     try std.testing.expectEqual(@as(usize, 1), decls.len);
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    _ = typecheck.infer(allocator, decls, &type_env) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
 test "integration parse and eval simple" {
@@ -70,16 +71,11 @@ test "integration parse and eval simple" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = 42";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-    try std.testing.expectEqual(@as(usize, 1), decls.len);
-
+    const decls = try setupPipeline(allocator, "f = 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
 test "integration parse and eval binary op" {
@@ -87,15 +83,11 @@ test "integration parse and eval binary op" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = (1 + 2)";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = (1 + 2)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
 test "integration parse and eval lambda call" {
@@ -103,30 +95,23 @@ test "integration parse and eval lambda call" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = (\\x -> x + 1)";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = (\\x -> x + 1)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
-test "integration parse type mismatch propagates error" {
+test "integration type mismatch returns error" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = (1 + true)";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = (1 + true)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    _ = typecheck.infer(allocator, decls, &type_env) catch {};
+    const result = typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expectError(error.TypeCheckFailed, result);
 }
 
 test "integration parse and eval add 1 2" {
@@ -134,15 +119,11 @@ test "integration parse and eval add 1 2" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = (1 + 2)";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = (1 + 2)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
 test "integration parse and eval if then else" {
@@ -150,15 +131,11 @@ test "integration parse and eval if then else" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = (if true then 1 else 0)";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = (if true then 1 else 0)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
 test "integration parse and eval let in" {
@@ -166,15 +143,11 @@ test "integration parse and eval let in" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = (let x = 1 in x + 1)";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = (let x = 1 in x + 1)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
 test "integration parse and eval nil coalesce" {
@@ -182,15 +155,11 @@ test "integration parse and eval nil coalesce" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = (Nil ?? 42)";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = (Nil ?? 42)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
 test "integration parse and eval case expr" {
@@ -198,13 +167,9 @@ test "integration parse and eval case expr" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = case true of True -> 1 False -> 0";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = case true of True -> 1 False -> 0");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
     const typed = typecheck.infer(allocator, decls, &type_env) catch return;
     _ = runtime.evalModule(typed, allocator) catch {};
 }
@@ -214,22 +179,31 @@ test "integration parse and eval do block" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const source = "f = do 42";
-    const tokens = try lexer.tokenize(allocator, source);
-    const decls = try parser.parseModule(allocator, tokens);
-
+    const decls = try setupPipeline(allocator, "f = do 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }
 
-test "integration parse empty parens error" {
+test "integration parse empty parens returns error" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
     const tokens = try lexer.tokenize(allocator, "f = ()");
-    _ = parser.parseModule(allocator, tokens) catch {};
+    const result = parser.parseModule(allocator, tokens);
+    try std.testing.expectError(error.UnexpectedToken, result);
+}
+
+test "integration parse and eval main function" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const decls = try setupPipeline(allocator, "main = 42");
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try runtime.evalModule(typed, allocator);
 }

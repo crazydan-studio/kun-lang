@@ -261,5 +261,5 @@ test "unify after substitution verification" {
     const a = try env.newVar(std.testing.allocator, 1);
     const b = try env.newVar(std.testing.allocator, 2);
     try unify_mod.unify(&env, std.testing.allocator, a, b);
-    try std.testing.expectEqual(b, env.applySubst(a));
+    try std.testing.expectEqual(a, env.applySubst(b));
 }

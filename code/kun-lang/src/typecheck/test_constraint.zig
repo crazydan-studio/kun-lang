@@ -4,6 +4,7 @@ const typed = @import("../ast/typed.zig");
 const env_mod = @import("env.zig");
 const constraint_mod = @import("constraint.zig");
 const error_mod = @import("error.zig");
+const effect_mod = @import("effect.zig");
 
 const TypeEnv = env_mod.TypeEnv;
 const ErrorList = error_mod.ErrorList;
@@ -170,12 +171,12 @@ test "constraint infers binary op types" {
 
 test "constraint hasEffect detects do_block" {
     const body = ast.Expr{ .do_block = .{ .body = &.{}, .result = null, .span = undefined } };
-    try std.testing.expect(constraint_mod.hasEffect(&body));
+    try std.testing.expect(effect_mod.hasEffectInExpr(&body));
 }
 
 test "constraint hasEffect false for pure expr" {
     const body = ast.Expr{ .int_literal = .{ .value = 42, .span = undefined } };
-    try std.testing.expect(!constraint_mod.hasEffect(&body));
+    try std.testing.expect(!effect_mod.hasEffectInExpr(&body));
 }
 
 test "effect namespace detection" {
@@ -235,7 +236,7 @@ test "constraint hasEffect detects effect in nested call" {
     outer_func.* = .{ .ident = .{ .name = "List.map", .span = undefined } };
     const outer_call = ast.Expr{ .call = .{ .func = outer_func, .arg = effect_call, .span = undefined } };
 
-    try std.testing.expect(constraint_mod.hasEffect(&outer_call));
+    try std.testing.expect(effect_mod.hasEffectInExpr(&outer_call));
 }
 
 test "constraint infers call expression" {
