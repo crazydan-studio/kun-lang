@@ -194,6 +194,12 @@ test "Phase4 primitive impl functions return correct variant" {
         .{ .mod = "Process", .name = "uid", .arg = .{ .unit = {} }, .expected = .int },
         .{ .mod = "Process", .name = "gid", .arg = .{ .unit = {} }, .expected = .int },
         .{ .mod = "Cmd", .name = "which", .arg = .{ .unit = {} }, .expected = .nil },
+        .{ .mod = "Stream", .name = "lines", .arg = .{ .unit = {} }, .expected = .nil },
+        .{ .mod = "Stream", .name = "iter", .arg = .{ .unit = {} }, .expected = .unit },
+        .{ .mod = "Stream", .name = "fold", .arg = .{ .unit = {} }, .expected = .unit },
+        .{ .mod = "Stream", .name = "toList", .arg = .{ .unit = {} }, .expected = .nil },
+        .{ .mod = "Stream", .name = "string", .arg = .{ .unit = {} }, .expected = .string },
+        .{ .mod = "Stream", .name = "bytes", .arg = .{ .unit = {} }, .expected = .bytes },
     };
     for (cases) |c| {
         var found = false;

@@ -950,3 +950,98 @@ test "Phase4 multiple statement do blocks parse typecheck eval" {
         try runtime.evalModule(typed, allocator, pt);
     }
 }
+
+// --- Phase4 Stream primitives pipeline integration ---
+
+test "Phase4 Stream module import and typecheck" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const decls = try setupPipeline(allocator, "import Stream f = 1");
+    try std.testing.expectEqual(@as(usize, 2), decls.len);
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expect(typed.len >= 2);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    try runtime.evalModule(typed, allocator, pt);
+}
+
+test "Phase4 all effect module imports typecheck" {
+    const names = [_][]const u8{
+        "import Stream f = 1",
+        "import IO f = 1",
+        "import File f = 1",
+        "import Env f = 1",
+        "import Process f = 1",
+        "import Signal f = 1",
+        "import Random f = 1",
+        "import Task f = 1",
+        "import Cmd f = 1",
+    };
+    for (names) |src| {
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+        const allocator = arena.allocator();
+
+        const decls = try setupPipeline(allocator, src);
+        var type_env = try typecheck_env.TypeEnv.init(allocator);
+        defer type_env.deinit(allocator);
+        const typed = try typecheck.infer(allocator, decls, &type_env);
+        try std.testing.expect(typed.len >= 2);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        try runtime.evalModule(typed, allocator, pt);
+    }
+}
+
+// --- Phase4 freshInstance let_types scope ---
+
+test "Phase4 let polymorphism with multiple bindings" {
+    const cases = [_][]const u8{
+        "f = (let id = \\x -> x, k = \\x -> \\_ -> x in (id 1, k \"hi\" 42))",
+        "f = (let a = \\x -> x + 1, b = \\y -> y * 2 in (a 3, b 4))",
+        "f = (let x = 1, y = \"hi\" in (x, y))",
+    };
+    for (cases) |src| {
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+        const allocator = arena.allocator();
+
+        const decls = try setupPipeline(allocator, src);
+        var type_env = try typecheck_env.TypeEnv.init(allocator);
+        defer type_env.deinit(allocator);
+        const typed = try typecheck.infer(allocator, decls, &type_env);
+        try std.testing.expect(typed.len == 1);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        try runtime.evalModule(typed, allocator, pt);
+    }
+}
+
+test "Phase4 nested let shadowing freshInstance" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const decls = try setupPipeline(allocator, "f = (let x = 1 in (let x = \"hi\" in x))");
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expect(typed.len == 1);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    try runtime.evalModule(typed, allocator, pt);
+}
+
+test "Phase4 let with polymorphic function multiple instantiations" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const decls = try setupPipeline(allocator, "f = (let id = \\x -> x in (id 42, id true, id \"hi\"))");
+    var type_env = try typecheck_env.TypeEnv.init(allocator);
+    defer type_env.deinit(allocator);
+    const typed = try typecheck.infer(allocator, decls, &type_env);
+    try std.testing.expect(typed.len == 1);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    try runtime.evalModule(typed, allocator, pt);
+}

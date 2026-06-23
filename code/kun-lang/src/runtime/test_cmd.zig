@@ -49,3 +49,33 @@ test "Phase4 execCommand with empty args returns StreamNode" {
 test "Phase4 known_cmd_apis has 15 entries" {
     try std.testing.expectEqual(@as(usize, 15), cmd_mod.known_cmd_apis.len);
 }
+
+test "Phase4 execCommand pipe buffer contains data" {
+    const node = try cmd_mod.execCommand("echo", &.{"hello"}, std.testing.allocator);
+    defer std.testing.allocator.destroy(node);
+    defer std.testing.allocator.free(node.cmd.buf);
+    try std.testing.expect(node.* == .cmd);
+    try std.testing.expect(node.cmd.fd > 0);
+    try std.testing.expect(node.cmd.pid > 0);
+
+    var status: i32 = 0;
+    const waited = std.os.linux.waitpid(node.cmd.pid, &status, 0);
+    try std.testing.expect(waited > 0);
+
+    var buf: [256]u8 = undefined;
+    const n = std.os.linux.read(node.cmd.fd, &buf, buf.len);
+    if (n > 0 and n <= buf.len) {
+        try std.testing.expect(std.mem.startsWith(u8, buf[0..n], "hello"));
+    }
+}
+
+test "Phase4 execCommand invalid bin returns StreamNode" {
+    const node = try cmd_mod.execCommand("nonexistent_bin_xyz", &.{}, std.testing.allocator);
+    defer std.testing.allocator.destroy(node);
+    defer std.testing.allocator.free(node.cmd.buf);
+    defer _ = std.os.linux.close(node.cmd.fd);
+    try std.testing.expect(node.* == .cmd);
+    var status: i32 = 0;
+    _ = std.os.linux.waitpid(node.cmd.pid, &status, 0);
+    try std.testing.expect(status != 0);
+}
