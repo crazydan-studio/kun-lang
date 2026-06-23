@@ -450,3 +450,63 @@ test "constraint Cmd.ls? ident is not command_t" {
     const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
     try std.testing.expect(result.ident.type_ != env_mod.command_type);
 }
+
+test "constraint infers record_update" {
+    var s = try setup();
+    defer s.env.deinit(std.testing.allocator);
+    defer s.arena.deinit();
+    const allocator = s.arena.allocator();
+
+    const rec = try allocator.create(ast.Expr);
+    rec.* = .{ .ident = .{ .name = "r", .span = undefined } };
+    const val = try allocator.create(ast.Expr);
+    val.* = .{ .int_literal = .{ .value = 42, .span = undefined } };
+    const fields = try allocator.alloc(ast.RecordField, 1);
+    fields[0] = .{ .name = "x", .value = val };
+    const expr = ast.Expr{ .record_update = .{ .record = rec, .fields = fields, .span = undefined } };
+    var errors = try ErrorList.init(std.testing.allocator);
+    defer errors.deinit(std.testing.allocator);
+
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    try std.testing.expect(result.* == .record_update);
+    try std.testing.expectEqual(@as(usize, 1), result.record_update.fields.len);
+    try std.testing.expectEqualStrings("x", result.record_update.fields[0].name);
+}
+
+test "constraint infers range_literal" {
+    var s = try setup();
+    defer s.env.deinit(std.testing.allocator);
+    defer s.arena.deinit();
+    const allocator = s.arena.allocator();
+
+    const from_val = try allocator.create(ast.Expr);
+    from_val.* = .{ .int_literal = .{ .value = 1, .span = undefined } };
+    const to_val = try allocator.create(ast.Expr);
+    to_val.* = .{ .int_literal = .{ .value = 10, .span = undefined } };
+    const expr = ast.Expr{ .range_literal = .{ .from = from_val, .to = to_val, .step = null, .span = undefined } };
+    var errors = try ErrorList.init(std.testing.allocator);
+    defer errors.deinit(std.testing.allocator);
+
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    try std.testing.expect(result.* == .range_literal);
+}
+
+test "constraint infers ternary" {
+    var s = try setup();
+    defer s.env.deinit(std.testing.allocator);
+    defer s.arena.deinit();
+    const allocator = s.arena.allocator();
+
+    const cond = try allocator.create(ast.Expr);
+    cond.* = .{ .bool_literal = .{ .value = true, .span = undefined } };
+    const then_val = try allocator.create(ast.Expr);
+    then_val.* = .{ .int_literal = .{ .value = 1, .span = undefined } };
+    const else_val = try allocator.create(ast.Expr);
+    else_val.* = .{ .int_literal = .{ .value = 0, .span = undefined } };
+    const expr = ast.Expr{ .ternary = .{ .cond = cond, .then = then_val, .else_ = else_val, .span = undefined } };
+    var errors = try ErrorList.init(std.testing.allocator);
+    defer errors.deinit(std.testing.allocator);
+
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    try std.testing.expect(result.* == .ternary);
+}

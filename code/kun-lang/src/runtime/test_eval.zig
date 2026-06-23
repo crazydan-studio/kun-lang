@@ -4,6 +4,8 @@ const ast = @import("../ast/ast.zig");
 const value_mod = @import("value.zig");
 const eval_mod = @import("eval.zig");
 const env_mod = @import("env.zig");
+const primitive_mod = @import("primitive.zig");
+const tc_env = @import("../typecheck/env.zig");
 
 const Value = value_mod.Value;
 const Frame = env_mod.Frame;
@@ -1067,4 +1069,164 @@ test "eval Cmd.ls ident returns command" {
     const expr = typed.TypedExpr{ .ident = .{ .name = "Cmd.ls", .type_ = 11, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
     try std.testing.expect(result == .command);
+}
+
+test "eval record_update existing field" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const val_rec = try allocator.create(typed.TypedExpr);
+    val_rec.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const fields_rec = try allocator.alloc(typed.RecordField, 1);
+    fields_rec[0] = .{ .name = "x", .value = val_rec };
+    const rec = try allocator.create(typed.TypedExpr);
+    rec.* = .{ .record_literal = .{ .fields = fields_rec, .type_ = 0, .span = undefined } };
+
+    const new_val = try allocator.create(typed.TypedExpr);
+    new_val.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
+    const update_fields = try allocator.alloc(typed.RecordField, 1);
+    update_fields[0] = .{ .name = "x", .value = new_val };
+
+    const expr = typed.TypedExpr{ .record_update = .{ .record = rec, .fields = update_fields, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .record);
+    try std.testing.expectEqual(@as(usize, 1), result.record.fields.len);
+    try std.testing.expectEqualStrings("x", result.record.fields[0].name);
+    try std.testing.expectEqual(@as(i64, 42), result.record.fields[0].value.int);
+}
+
+test "eval record_update missing field error" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const val_rec = try allocator.create(typed.TypedExpr);
+    val_rec.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const fields_rec = try allocator.alloc(typed.RecordField, 1);
+    fields_rec[0] = .{ .name = "x", .value = val_rec };
+    const rec = try allocator.create(typed.TypedExpr);
+    rec.* = .{ .record_literal = .{ .fields = fields_rec, .type_ = 0, .span = undefined } };
+
+    const new_val = try allocator.create(typed.TypedExpr);
+    new_val.* = .{ .int_literal = .{ .value = 99, .type_ = 0, .span = undefined } };
+    const update_fields = try allocator.alloc(typed.RecordField, 1);
+    update_fields[0] = .{ .name = "y", .value = new_val };
+
+    const expr = typed.TypedExpr{ .record_update = .{ .record = rec, .fields = update_fields, .type_ = 0, .span = undefined } };
+    try std.testing.expectError(error.UnknownField, eval_mod.eval(&expr, global, allocator));
+}
+
+test "eval record_update non-record base error" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const int_rec = try allocator.create(typed.TypedExpr);
+    int_rec.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const new_val = try allocator.create(typed.TypedExpr);
+    new_val.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
+    const update_fields = try allocator.alloc(typed.RecordField, 1);
+    update_fields[0] = .{ .name = "x", .value = new_val };
+
+    const expr = typed.TypedExpr{ .record_update = .{ .record = int_rec, .fields = update_fields, .type_ = 0, .span = undefined } };
+    try std.testing.expectError(error.TypeMismatch, eval_mod.eval(&expr, global, allocator));
+}
+
+test "eval ternary true branch" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const cond = try allocator.create(typed.TypedExpr);
+    cond.* = .{ .bool_literal = .{ .value = true, .type_ = 2, .span = undefined } };
+    const then_val = try allocator.create(typed.TypedExpr);
+    then_val.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const else_val = try allocator.create(typed.TypedExpr);
+    else_val.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const expr = typed.TypedExpr{ .ternary = .{ .cond = cond, .then = then_val, .else_ = else_val, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expectEqual(@as(i64, 1), result.int);
+}
+
+test "eval ternary false branch" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const cond = try allocator.create(typed.TypedExpr);
+    cond.* = .{ .bool_literal = .{ .value = false, .type_ = 2, .span = undefined } };
+    const then_val = try allocator.create(typed.TypedExpr);
+    then_val.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const else_val = try allocator.create(typed.TypedExpr);
+    else_val.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const expr = typed.TypedExpr{ .ternary = .{ .cond = cond, .then = then_val, .else_ = else_val, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expectEqual(@as(i64, 0), result.int);
+}
+
+test "eval ternary non-bool cond falls through to else" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const cond = try allocator.create(typed.TypedExpr);
+    cond.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const then_val = try allocator.create(typed.TypedExpr);
+    then_val.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const else_val = try allocator.create(typed.TypedExpr);
+    else_val.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const expr = typed.TypedExpr{ .ternary = .{ .cond = cond, .then = then_val, .else_ = else_val, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expectEqual(@as(i64, 0), result.int);
+}
+
+test "eval ident lookup via PrimitiveTable" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = @constCast(@ptrCast(&table)) };
+
+    const expr = typed.TypedExpr{ .ident = .{ .name = "IO.println", .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .primitive);
+}
+
+test "eval ident lookup PrimitiveTable File.readString" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = @constCast(@ptrCast(&table)) };
+
+    const expr = typed.TypedExpr{ .ident = .{ .name = "File.readString", .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .primitive);
+}
+
+test "eval ident lookup PrimitiveTable unbound still error" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = @constCast(@ptrCast(&table)) };
+
+    const expr = typed.TypedExpr{ .ident = .{ .name = "Undefined.var", .type_ = 0, .span = undefined } };
+    try std.testing.expectError(error.UnboundVariable, eval_mod.eval(&expr, global, allocator));
 }
