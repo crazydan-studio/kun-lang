@@ -6,9 +6,9 @@
 |---|---|
 | 项目名称 | Kun（鲲） |
 | 项目类型 | 编程语言设计与实现 |
-| 当前版本 | 0.1.0（设计阶段，代码待开发） |
+| 当前版本 | 0.1.0（Phase 4 实现完成） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
-| 里程碑 | 架构重设计完成，语言设计定型 |
+| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-4 实现完成（Lexer→Parser→TypeCheck→Eval→Primitive→Effect→i18n→Cmd 全管线） |
 | 宿主语言 | Zig（锁定 0.17.0-dev，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
@@ -19,8 +19,8 @@
 |---|---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 4 计划已编写（待审计） |
-| 最近完成 | Phase 3 实现：Primitive 函数表 + 效应识别迁移 + 14 种 TypeError 变体 + recursive typeName + generalize()/freshInstance + 18 项效应检查集成 + Value 扩展 9 变体 + StreamNode/StreamFn + map/set eval + Cmd ident fallback + 模式穷举升级 + 23 轮计划审计（77 项修复）+ 双代理测试审计（+59 测试 → 306 全通过）+ 3 轮实现审计（修复 20 项） |
+| 活跃计划 | Phase 4 计划已完成实施（审计 18 轮，52 项修复） |
+| 最近完成 | Phase 4 实现：PrimitiveTable 管道 + 12 Primitive 实现 + 效应检查接线（8/11 函数）+ i18n.zig（24 msgid 中英双语）+ cmd.zig（isKnownCmdApi 去重）+ TypedExpr 补全（record_update/range_literal/ternary）+ Phase 1-3 深度审计修复（44 项缺陷）+ 双代理测试审计（314→545 测试，7 轮收敛） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -50,6 +50,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-23 | Phase 4 实现 + 计划审计（18 轮 52 项修复）+ Phase 1-3 深度审计修复（44 项缺陷）+ 双代理测试审计（314→545 测试 7 轮收敛）+ i18n 重构 | 实现+审计 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
 | 2026-06-22 | Phase 3 实现：Primitive 函数表 + 效应识别迁移 + 14 TypeError + recursive typeName + generalize()/freshInstance + 18 项效应检查 + Value 9 变体 + StreamNode + map/set eval + Cmd ident + 模式穷举升级 | 实现 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
 | 2026-06-22 | Phase 3 计划 23 轮审计（77 项修复）+ 双代理测试审计（+59 测试 → 306 全通过）+ 3 轮实现审计（修复 20 项） | 审计+测试 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit、multi-dim | `implement` |
 | 2026-06-21 | Phase 2 实现：类型检查器 + 运行时求值器 + 12 测试文件（229 测试全通过）；效应识别方案 C；构建打包脚本 | 实现 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
@@ -87,6 +88,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026-06-23 | Phase 4 实现完成：PrimitiveTable 管道 + 12 Primitive + 效应接线（8/11）+ i18n.zig（24 msgid）+ cmd.zig + TypedExpr 补全 + Phase 1-3 深度审计（44 项修复）+ 双代理测试审计（545 测试收敛） |
 | 2026.06.22 | Phase 3 实现完成：Primitive 表 + 效应迁移 + 14 ErrorType + typeName/generalize + 效应检查 + Value 9 变体 + StreamNode + map/set eval + Cmd ident + 模式穷举；计划 23 轮审计（77 项修复）；双代理测试审计（306 全通过）；3 轮实现审计（20 项修复） |
 | 2026.06.21 | Phase 2 实现完成（typecheck + runtime + 229 测试）+ 效应识别方案 C + Phase 1 审计修复 + 构建打包脚本 |
 | 2026.06.20 | Phase 1 全部 8 轮审计完成：skipTypeAnn 修复；75 测试全通过零泄漏 |

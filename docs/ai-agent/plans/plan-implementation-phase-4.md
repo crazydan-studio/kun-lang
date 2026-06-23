@@ -166,7 +166,7 @@ Phase 3 计划担心 `typecheck/constraint.zig` 中 `subst.put` 与 `deinit` 使
 
 ### Step 6: execCommand — fork-exec 实现
 
-**前置依赖**：Step 1（eval.zig ident handler 已能查找 Primitive 表 + Cmd.<bin> ident 已识别为 command_t）
+**前置依赖**：Step 1（eval.zig ident handler 已能查找 Primitive 表 + Cmd.`<bin>` ident 已识别为 command_t）
 
 - `fn execCommand(bin, args, allocator) !*StreamNode`
 - 系统契约（对齐 `system-baseline.md`「Command 执行的系统契约」章节）：
