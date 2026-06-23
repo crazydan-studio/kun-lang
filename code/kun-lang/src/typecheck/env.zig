@@ -260,7 +260,9 @@ pub const TypeEnv = struct {
         return id;
     }
 
-    pub fn typeName(self: *const TypeEnv, allocator: std.mem.Allocator, id: TypeId) ![]const u8 {
+    pub fn typeName(self: *TypeEnv, allocator: std.mem.Allocator, id: TypeId) ![]const u8 {
+        _ = allocator;
+        const arena = self.expr_arena.allocator();
         const resolved = self.resolveType(id);
         return switch (resolved) {
             .int => "Int",
@@ -277,65 +279,65 @@ pub const TypeEnv = struct {
             .command_t => "Command",
             .datetime_t => "DateTime",
             .nilable => |inner| {
-                const inner_name = try self.typeName(allocator, inner);
-                return std.fmt.allocPrint(allocator, "?{s}", .{inner_name});
+                const inner_name = try self.typeName(arena, inner);
+                return std.fmt.allocPrint(arena, "?{s}", .{inner_name});
             },
             .list => |inner| {
-                const inner_name = try self.typeName(allocator, inner);
-                return std.fmt.allocPrint(allocator, "List {s}", .{inner_name});
+                const inner_name = try self.typeName(arena, inner);
+                return std.fmt.allocPrint(arena, "List {s}", .{inner_name});
             },
             .set => |inner| {
-                const inner_name = try self.typeName(allocator, inner);
-                return std.fmt.allocPrint(allocator, "Set {s}", .{inner_name});
+                const inner_name = try self.typeName(arena, inner);
+                return std.fmt.allocPrint(arena, "Set {s}", .{inner_name});
             },
             .stream => |inner| {
-                const inner_name = try self.typeName(allocator, inner);
-                return std.fmt.allocPrint(allocator, "Stream {s}", .{inner_name});
+                const inner_name = try self.typeName(arena, inner);
+                return std.fmt.allocPrint(arena, "Stream {s}", .{inner_name});
             },
             .map => |m| {
-                const key_name = try self.typeName(allocator, m.key);
-                const val_name = try self.typeName(allocator, m.value);
-                return std.fmt.allocPrint(allocator, "Map {s} {s}", .{ key_name, val_name });
+                const key_name = try self.typeName(arena, m.key);
+                const val_name = try self.typeName(arena, m.value);
+                return std.fmt.allocPrint(arena, "Map {s} {s}", .{ key_name, val_name });
             },
             .function => |f| {
-                const param_name = try self.typeName(allocator, f.param);
-                const result_name = try self.typeName(allocator, f.result);
-                return std.fmt.allocPrint(allocator, "Fn({s}, {s})", .{ param_name, result_name });
+                const param_name = try self.typeName(arena, f.param);
+                const result_name = try self.typeName(arena, f.result);
+                return std.fmt.allocPrint(arena, "Fn({s}, {s})", .{ param_name, result_name });
             },
             .effect_fn => |f| {
-                const param_name = try self.typeName(allocator, f.param);
-                const result_name = try self.typeName(allocator, f.result);
-                return std.fmt.allocPrint(allocator, "EffectFn({s}, {s})", .{ param_name, result_name });
+                const param_name = try self.typeName(arena, f.param);
+                const result_name = try self.typeName(arena, f.result);
+                return std.fmt.allocPrint(arena, "EffectFn({s}, {s})", .{ param_name, result_name });
             },
             .tuple => |t| {
                 var result: []const u8 = "(";
                 for (t, 0..) |ti, i| {
-                    const name = try self.typeName(allocator, ti);
+                    const name = try self.typeName(arena, ti);
                     if (i == 0) {
-                        result = try std.fmt.allocPrint(allocator, "({s}", .{name});
+                        result = try std.fmt.allocPrint(arena, "({s}", .{name});
                     } else {
-                        result = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ result, name });
+                        result = try std.fmt.allocPrint(arena, "{s}, {s}", .{ result, name });
                     }
                 }
-                return try std.fmt.allocPrint(allocator, "{s})", .{result});
+                return try std.fmt.allocPrint(arena, "{s})", .{result});
             },
             .record => |r| {
                 var result: []const u8 = "{";
                 for (r, 0..) |f, i| {
-                    const name = try self.typeName(allocator, f.type_);
+                    const name = try self.typeName(arena, f.type_);
                     if (i == 0) {
-                        result = try std.fmt.allocPrint(allocator, "{{ {s}: {s}", .{ f.name, name });
+                        result = try std.fmt.allocPrint(arena, "{{ {s}: {s}", .{ f.name, name });
                     } else {
-                        result = try std.fmt.allocPrint(allocator, "{s}, {s}: {s}", .{ result, f.name, name });
+                        result = try std.fmt.allocPrint(arena, "{s}, {s}: {s}", .{ result, f.name, name });
                     }
                 }
-                return try std.fmt.allocPrint(allocator, "{s} }}", .{result});
+                return try std.fmt.allocPrint(arena, "{s} }}", .{result});
             },
             .adt => |a| {
-                return std.fmt.allocPrint(allocator, "{s}", .{a.name});
+                return std.fmt.allocPrint(arena, "{s}", .{a.name});
             },
             .variable => |v| {
-                return std.fmt.allocPrint(allocator, "a{d}", .{v.id});
+                return std.fmt.allocPrint(arena, "a{d}", .{v.id});
             },
             .error_ => "Error",
         };

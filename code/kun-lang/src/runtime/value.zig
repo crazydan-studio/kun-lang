@@ -30,7 +30,7 @@ pub const CommandPayload = struct {
 
 pub const RegexHandle = opaque {};
 
-const Frame = @import("env.zig").Frame;
+pub const Frame = @import("env.zig").Frame;
 const PrimitiveFn = @import("primitive.zig").PrimitiveFn;
 
 pub const StreamFn = union(enum) {

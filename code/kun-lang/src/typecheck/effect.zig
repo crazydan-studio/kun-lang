@@ -15,6 +15,7 @@ pub fn isEffectNamespaceCall(name: []const u8) bool {
 pub fn hasEffectInExpr(expr: *const ast.Expr) bool {
     return switch (expr.*) {
         .do_block => true,
+        .lambda => |l| hasEffectInExpr(l.body),
         .call => |c| isEffectCall(c.func) or hasEffectInExpr(c.arg),
         .let_in => |l| {
             for (l.bindings) |b| {
@@ -24,6 +25,7 @@ pub fn hasEffectInExpr(expr: *const ast.Expr) bool {
         },
         .if_expr => |i| hasEffectInExpr(i.then) or hasEffectInExpr(i.else_),
         .case_expr => |c| {
+            if (hasEffectInExpr(c.subject)) return true;
             for (c.branches) |b| {
                 if (hasEffectInExpr(b.body)) return true;
             }
@@ -83,9 +85,20 @@ pub fn hasEffectInExpr(expr: *const ast.Expr) bool {
 fn isEffectCall(func: *const ast.Expr) bool {
     return switch (func.*) {
         .ident => |id| isEffectNamespaceCall(id.name),
+        .record_access => |ra| {
+            if (ra.record.* == .ident) {
+                const rec_name = ra.record.ident.name;
+                var buf: [256]u8 = undefined;
+                const combined = std.fmt.bufPrint(&buf, "{s}.{s}", .{ rec_name, ra.field }) catch return false;
+                return isEffectNamespaceCall(combined);
+            }
+            return false;
+        },
         .call => |c| isEffectCall(c.func),
         .pipe => |p| isEffectCall(p.right),
         .pipe_reverse => |p| isEffectCall(p.left),
+        .compose => |c| isEffectCall(c.right),
+        .compose_reverse => |c| isEffectCall(c.left),
         else => false,
     };
 }
@@ -203,6 +216,14 @@ fn checkDoLetExclusionRecurse(allocator: std.mem.Allocator, expr: *const ast.Exp
             try checkDoLetExclusionRecurse(allocator, p.left, in_context, errors);
             try checkDoLetExclusionRecurse(allocator, p.right, in_context, errors);
         },
+        .compose => |c| {
+            try checkDoLetExclusionRecurse(allocator, c.left, in_context, errors);
+            try checkDoLetExclusionRecurse(allocator, c.right, in_context, errors);
+        },
+        .compose_reverse => |c| {
+            try checkDoLetExclusionRecurse(allocator, c.left, in_context, errors);
+            try checkDoLetExclusionRecurse(allocator, c.right, in_context, errors);
+        },
         .list_literal => |l| {
             for (l.items) |item| {
                 switch (item) {
@@ -252,7 +273,10 @@ pub fn checkEmptyBody(allocator: std.mem.Allocator, body: *const ast.Expr, conte
 
 pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, typed_result: ?*const typed.TypedExpr, errors: *ErrorList) !void {
     if (typed_result) |tr| {
-        if (tr.type_ == env_mod.unit_type) {
+        const result_type = switch (tr.*) {
+            inline else => |v| v.type_,
+        };
+        if (result_type == env_mod.unit_type) {
             try errors.add(allocator, .{ .pure_unit_return = .{ .func_name = "do in result", .span = exprSpan(body) } });
         }
     }

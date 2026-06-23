@@ -12,11 +12,13 @@ pub fn checkExhaustive(
     scrutinee_ty: TypeId,
     branches: []const typed.Branch,
 ) !?[][]const u8 {
+    _ = allocator;
+    const arena = env.exprAllocator();
     const resolved = env.resolveType(scrutinee_ty);
     if (branches.len == 0) {
         var missing: std.ArrayListUnmanaged([]const u8) = .empty;
-        try missing.append(allocator, "_");
-            return @as(?[][]const u8, try missing.toOwnedSlice(allocator));
+        try missing.append(arena, "_");
+            return @as(?[][]const u8, try missing.toOwnedSlice(arena));
     }
 
     switch (resolved) {
@@ -44,11 +46,11 @@ pub fn checkExhaustive(
                     }
                 }
                 if (!covered) {
-                    try uncovered.append(allocator, try std.fmt.allocPrint(allocator, "{s}", .{variant.name}));
+                    try uncovered.append(arena, try std.fmt.allocPrint(arena, "{s}", .{variant.name}));
                 }
             }
             if (uncovered.items.len > 0) {
-                return @as(?[][]const u8, try uncovered.toOwnedSlice(allocator));
+                return @as(?[][]const u8, try uncovered.toOwnedSlice(arena));
             }
             return null;
         },
@@ -71,9 +73,9 @@ pub fn checkExhaustive(
             }
             if (!has_wildcard) {
                 var missing: std.ArrayListUnmanaged([]const u8) = .empty;
-                if (!has_true) try missing.append(allocator, "True");
-                if (!has_false) try missing.append(allocator, "False");
-                if (missing.items.len > 0) return @as(?[][]const u8, try missing.toOwnedSlice(allocator));
+                if (!has_true) try missing.append(arena, "True");
+                if (!has_false) try missing.append(arena, "False");
+                if (missing.items.len > 0) return @as(?[][]const u8, try missing.toOwnedSlice(arena));
             }
             return null;
         },
@@ -90,8 +92,8 @@ pub fn checkExhaustive(
             }
             if (!has_wildcard) {
                 var missing: std.ArrayListUnmanaged([]const u8) = .empty;
-        try missing.append(allocator, "_");
-        return @as(?[][]const u8, try missing.toOwnedSlice(allocator));
+        try missing.append(arena, "_");
+        return @as(?[][]const u8, try missing.toOwnedSlice(arena));
             }
             return null;
         },

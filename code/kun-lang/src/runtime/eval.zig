@@ -147,12 +147,15 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             @memcpy(fields, rec_val.record.fields);
             for (v.fields) |f| {
                 const new_val = try eval(f.value, frame, allocator);
+                var found = false;
                 for (fields) |*rf| {
                     if (std.mem.eql(u8, rf.name, f.name)) {
                         rf.value = new_val;
+                        found = true;
                         break;
                     }
                 }
+                if (!found) return error.UnknownField;
             }
             return Value{ .record = .{ .fields = fields } };
         },
@@ -167,8 +170,9 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .ternary => |v| {
             const cond = try eval(v.cond, frame, allocator);
-            if (cond == .bool and cond.bool) {
-                return eval(v.then, frame, allocator);
+            if (cond == .bool) {
+                if (cond.bool) return eval(v.then, frame, allocator);
+                return eval(v.else_, frame, allocator);
             }
             return eval(v.else_, frame, allocator);
         },

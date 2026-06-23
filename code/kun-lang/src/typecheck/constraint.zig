@@ -105,6 +105,9 @@ fn inferFunction(
     }
 
     const has_effect = effect_mod.hasEffectInExpr(body);
+    if (!has_effect) {
+        try effect_mod.checkPureFunctionBody(allocator, body, errors);
+    }
 
     return TypedDecl{
         .kind = .{ .function_def = .{
@@ -197,6 +200,9 @@ pub fn inferExpr(
                 param_type_ids[i] = pty;
             }
             const has_effect = effect_mod.hasEffectInExpr(v.body);
+            if (!has_effect) {
+                try effect_mod.checkPureFunctionBody(allocator, v.body, errors);
+            }
             const body_type = exprType(typed_body);
             var fn_ty_id = body_type;
             var i: usize = param_type_ids.len;
@@ -235,8 +241,8 @@ pub fn inferExpr(
                 }
             }
             try effect_mod.checkLetInPurity(allocator, v.bindings, v.body, errors);
-            try effect_mod.checkEmptyBody(allocator, v.body, "let in", errors);
-            try effect_mod.checkDoLetExclusion(allocator, v.body, errors);
+            try effect_mod.checkEmptyBody(allocator, expr, "let in", errors);
+            try effect_mod.checkDoLetExclusion(allocator, expr, errors);
 
             for (v.bindings) |b| {
                 const typed_val = try inferExpr(allocator, b.value, env, errors);
@@ -280,6 +286,7 @@ pub fn inferExpr(
             }
             const typed_result = if (v.result) |r| try inferExpr(allocator, r, env, errors) else null;
             const result_type = if (typed_result) |r| exprType(r) else unit_type;
+            try effect_mod.checkDoInResult(allocator, expr, typed_result, errors);
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .do_block = .{ .body = try typed_stmts.toOwnedSlice(ea), .result = typed_result, .type_ = result_type, .span = v.span } };
             return node;
@@ -293,7 +300,9 @@ pub fn inferExpr(
             unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch {
                 try errors.add(allocator, .{ .if_branch_mismatch = .{ .then_type = result_type, .else_type = exprType(typed_else), .span = v.span } });
             };
-            unify_mod.unify(env, allocator, exprType(typed_cond), bool_type) catch {};
+            unify_mod.unify(env, allocator, exprType(typed_cond), bool_type) catch {
+                try errors.add(allocator, .{ .mismatch = .{ .expected = bool_type, .found = exprType(typed_cond), .span = v.span } });
+            };
             node.* = TypedExpr{ .if_expr = .{ .cond = typed_cond, .then = typed_then, .else_ = typed_else, .type_ = result_type, .span = v.span } };
             return node;
         },
@@ -560,7 +569,9 @@ pub fn inferExpr(
             const typed_then = try inferExpr(allocator, v.then, env, errors);
             const typed_else = try inferExpr(allocator, v.else_, env, errors);
             const result_type = exprType(typed_then);
-            unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch {};
+            unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch {
+                try errors.add(allocator, .{ .if_branch_mismatch = .{ .then_type = result_type, .else_type = exprType(typed_else), .span = v.span } });
+            };
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .ternary = .{ .cond = typed_cond, .then = typed_then, .else_ = typed_else, .type_ = result_type, .span = v.span } };
             return node;

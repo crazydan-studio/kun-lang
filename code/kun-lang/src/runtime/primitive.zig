@@ -33,7 +33,6 @@ pub const PrimitiveTable = struct {
 fn printlnImpl(env: *RuntimeEnv, args: *const Value) Value {
     _ = env;
     if (args.* != .string) return Value{ .unit = {} };
-    std.debug.print("{s}\n", .{args.string});
     return Value{ .unit = {} };
 }
 
