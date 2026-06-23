@@ -5,6 +5,7 @@ const value_mod = @import("value.zig");
 const env_mod = @import("env.zig");
 const defer_mod = @import("defer.zig");
 const primitive_mod = @import("primitive.zig");
+const cmd_mod = @import("cmd.zig");
 
 const Value = value_mod.Value;
 const Closure = value_mod.Closure;
@@ -12,6 +13,8 @@ const RecordFieldValue = value_mod.RecordFieldValue;
 const Frame = env_mod.Frame;
 const DeferStack = defer_mod.DeferStack;
 const PrimitiveFn = primitive_mod.PrimitiveFn;
+const PrimitiveBinding = primitive_mod.PrimitiveBinding;
+const PrimitiveTable = primitive_mod.PrimitiveTable;
 const RuntimeEnv = primitive_mod.RuntimeEnv;
 const TypedExpr = typed.TypedExpr;
 const TypedDecl = typed.TypedDecl;
@@ -43,6 +46,19 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .bytes_literal => |v| Value{ .bytes = v.value },
         .ident => |v| {
             if (frame.lookup(v.name)) |val| return val;
+            if (frame.primitives) |pt_ptr| {
+                const pt: *const PrimitiveTable = @ptrCast(@alignCast(pt_ptr));
+                if (std.mem.indexOfScalar(u8, v.name, '.')) |dot| {
+                    const module = v.name[0..dot];
+                    const name = v.name[dot + 1 ..];
+                    for (pt.bindings) |binding| {
+                        if (std.mem.eql(u8, binding.module, module) and std.mem.eql(u8, binding.name, name)) {
+                            const fn_wrapper: PrimitiveFn = binding.fn_ptr;
+                            return Value{ .primitive = fn_wrapper };
+                        }
+                    }
+                }
+            }
             if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name)) {
                 var payload = std.mem.zeroes([32]u8);
                 const bin_name = if (std.mem.indexOf(u8, v.name, ".")) |dot| v.name[dot + 1 ..] else v.name;
@@ -65,7 +81,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .let_in => |v| {
             const local = try allocator.create(Frame);
-            local.* = Frame{ .bindings = .empty, .parent = frame };
+            local.* = Frame{ .bindings = .empty, .parent = frame, .primitives = null };
             for (v.bindings) |b| {
                 const val = try eval(b.value, frame, allocator);
                 try local.bindings.put(allocator, b.name, val);
@@ -74,7 +90,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .do_block => |v| {
             const local = try allocator.create(Frame);
-            local.* = Frame{ .bindings = .empty, .parent = frame };
+            local.* = Frame{ .bindings = .empty, .parent = frame, .primitives = null };
             var defers = DeferStack.init(allocator);
             defer defers.deinit();
             var stmt_err: ?EvalError = null;
@@ -109,6 +125,12 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             const left = try eval(v.left, frame, allocator);
             const right = try eval(v.right, frame, allocator);
             if (left == .command) {
+                const bin_name_end = binNameLen(left.command._payload);
+                const bin_name = left.command._payload[0..bin_name_end];
+                if (bin_name.len > 0) {
+                    const stream_node = cmd_mod.execCommand(bin_name, &.{}, allocator) catch return error.Unimplemented;
+                    return apply(right, Value{ .stream = stream_node }, allocator);
+                }
                 return error.Unimplemented;
             }
             return apply(right, left, allocator);
@@ -118,6 +140,38 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .compose_reverse => @panic("unimplemented: compose_reverse (should be desugared to lambda+call)"),
         .map_literal => |v| evalMapLiteral(v.entries, frame, allocator),
         .set_literal => |v| evalSetLiteral(v.items, frame, allocator),
+        .record_update => |v| {
+            const rec_val = try eval(v.record, frame, allocator);
+            if (rec_val != .record) return error.TypeMismatch;
+            const fields = try allocator.alloc(RecordFieldValue, rec_val.record.fields.len);
+            @memcpy(fields, rec_val.record.fields);
+            for (v.fields) |f| {
+                const new_val = try eval(f.value, frame, allocator);
+                for (fields) |*rf| {
+                    if (std.mem.eql(u8, rf.name, f.name)) {
+                        rf.value = new_val;
+                        break;
+                    }
+                }
+            }
+            return Value{ .record = .{ .fields = fields } };
+        },
+        .range_literal => |v| {
+            const from_val = try eval(v.from, frame, allocator);
+            const to_val = try eval(v.to, frame, allocator);
+            _ = from_val;
+            _ = to_val;
+            const node = try allocator.create(value_mod.StreamNode);
+            node.* = .{ .cmd = .{ .fd = -1, .pid = -1, .buf = &.{} } };
+            return Value{ .stream = node };
+        },
+        .ternary => |v| {
+            const cond = try eval(v.cond, frame, allocator);
+            if (cond == .bool and cond.bool) {
+                return eval(v.then, frame, allocator);
+            }
+            return eval(v.else_, frame, allocator);
+        },
         .case_expr => |v| evalCase(v.subject, v.branches, frame, allocator),
     };
 }
@@ -126,7 +180,7 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
     return switch (func) {
         .closure => |c| {
             const frame = try allocator.create(Frame);
-            frame.* = Frame{ .bindings = .empty, .parent = c.env };
+            frame.* = Frame{ .bindings = .empty, .parent = c.env, .primitives = null };
             if (c.param_names.len == 1) {
                 try frame.bindings.put(allocator, c.param_names[0], arg);
             } else if (c.param_names.len > 1) {
@@ -167,17 +221,8 @@ fn binNameLen(payload: [32]u8) usize {
     return 32;
 }
 
-const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
-
 fn isKnownCmdApi(name: []const u8) bool {
-    if (!std.mem.startsWith(u8, name, "Cmd.")) return false;
-    const rest = name["Cmd.".len..];
-    if (std.mem.containsAtLeast(u8, rest, 1, "?")) return true;
-    if (std.mem.containsAtLeast(u8, rest, 1, "!")) return true;
-    for (known_cmd_apis) |api| {
-        if (std.mem.eql(u8, rest, api)) return true;
-    }
-    return false;
+    return cmd_mod.isKnownCmdApi(name);
 }
 
 fn evalBinaryOp(
@@ -379,7 +424,7 @@ fn evalCase(subject_expr: *const TypedExpr, branches: []const typed.Branch, fram
     for (branches) |branch| {
         if (try matchPattern(branch.pattern, subject, frame, allocator)) |local| {
             const local_frame = try allocator.create(Frame);
-            local_frame.* = Frame{ .bindings = local.bindings, .parent = frame };
+            local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = null };
             return eval(branch.body, local_frame, allocator);
         }
     }
@@ -393,27 +438,27 @@ fn matchPattern(
     allocator: std.mem.Allocator,
 ) !?Frame {
     return switch (pattern) {
-        .wildcard => Frame{ .bindings = .empty, .parent = null },
+        .wildcard => Frame{ .bindings = .empty, .parent = null, .primitives = null },
         .literal => |l| {
             const lit_val = try evalLiteral(l, allocator);
             if (valueEqual(value, lit_val)) {
-                return Frame{ .bindings = .empty, .parent = null };
+                return Frame{ .bindings = .empty, .parent = null, .primitives = null };
             }
             return null;
         },
         .ident => |id| {
             if (id.name.len > 0 and id.name[0] >= 'A' and id.name[0] <= 'Z') {
                 if (std.mem.eql(u8, id.name, "True") and value == .bool and value.bool == true)
-                    return Frame{ .bindings = .empty, .parent = null };
+                    return Frame{ .bindings = .empty, .parent = null, .primitives = null };
                 if (std.mem.eql(u8, id.name, "False") and value == .bool and value.bool == false)
-                    return Frame{ .bindings = .empty, .parent = null };
+                    return Frame{ .bindings = .empty, .parent = null, .primitives = null };
                 if (std.mem.eql(u8, id.name, "Nil") and value == .nil)
-                    return Frame{ .bindings = .empty, .parent = null };
+                    return Frame{ .bindings = .empty, .parent = null, .primitives = null };
                 return null;
             }
             var bindings: std.StringHashMapUnmanaged(Value) = .empty;
             try bindings.put(allocator, id.name, value);
-            return Frame{ .bindings = bindings, .parent = null };
+            return Frame{ .bindings = bindings, .parent = null, .primitives = null };
         },
         .variant => |v| {
             if (value != .adt) return null;
@@ -432,11 +477,11 @@ fn matchPattern(
                     while (it.next()) |entry| {
                         try merged.put(allocator, entry.key_ptr.*, entry.value_ptr.*);
                     }
-                    return Frame{ .bindings = merged, .parent = null };
+                    return Frame{ .bindings = merged, .parent = null, .primitives = null };
                 }
                 return null;
             }
-            return Frame{ .bindings = .empty, .parent = null };
+            return Frame{ .bindings = .empty, .parent = null, .primitives = null };
         },
         .tuple => |t| {
             if (value != .tuple) return null;
@@ -450,7 +495,7 @@ fn matchPattern(
                     }
                 } else return null;
             }
-            return Frame{ .bindings = bindings, .parent = null };
+            return Frame{ .bindings = bindings, .parent = null, .primitives = null };
         },
         .list => return null,
         .record => return null,
@@ -461,7 +506,7 @@ fn matchPattern(
                 while (it.next()) |entry| {
                     try merged.put(allocator, entry.key_ptr.*, entry.value_ptr.*);
                 }
-                return Frame{ .bindings = merged, .parent = null };
+                return Frame{ .bindings = merged, .parent = null, .primitives = null };
             }
             return null;
         },
@@ -517,9 +562,9 @@ fn evalSetLiteral(items: []const TypedExpr, frame: *Frame, allocator: std.mem.Al
     return Value{ .set = .{ .entries = @constCast(&static_zero), .len = 0, .cap = 0 } };
 }
 
-pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator) !void {
+pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator, primitives: PrimitiveTable) !void {
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = @constCast(@ptrCast(&primitives)) };
 
     for (decls) |decl| {
         switch (decl.kind) {

@@ -4,6 +4,7 @@ const parser = @import("parser/parser.zig");
 const typecheck = @import("typecheck/infer.zig");
 const typecheck_env = @import("typecheck/env.zig");
 const runtime = @import("runtime/eval.zig");
+const primitive_mod = @import("runtime/primitive.zig");
 
 pub fn main(init: std.process.Init) !void {
     const allocator = init.arena.allocator();
@@ -46,7 +47,13 @@ pub fn main(init: std.process.Init) !void {
         return err;
     };
 
-    try runtime.evalModule(typed_decls, allocator);
+    const primitives = primitive_mod.buildPrimitiveTable(
+        typecheck_env.int_type,
+        typecheck_env.string_type,
+        typecheck_env.unit_type,
+        typecheck_env.string_type,
+    );
+    try runtime.evalModule(typed_decls, allocator, primitives);
 }
 
 fn usage() !void {

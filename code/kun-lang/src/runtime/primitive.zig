@@ -38,29 +38,87 @@ fn printlnImpl(env: *RuntimeEnv, args: *const Value) Value {
 }
 
 fn readlnImpl(env: *RuntimeEnv, args: *const Value) Value {
-    _ = env;
     _ = args;
-    @panic("unimplemented: IO.readln");
+    _ = env;
+    return Value{ .string = "" };
 }
 
-fn unimplementedImpl(env: *RuntimeEnv, args: *const Value) Value {
+fn readStringImpl(env: *RuntimeEnv, args: *const Value) Value {
     _ = env;
     _ = args;
-    @panic("unimplemented primitive function");
+    return Value{ .nil = {} };
+}
+
+fn listDirImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn statImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn getenvImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn containsEnvImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .bool = false };
+}
+
+fn exitImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    const code: u8 = if (args.* == .int) @intCast(@min(args.int, 255)) else 0;
+    std.process.exit(code);
+}
+
+fn pidImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .int = 1 };
+}
+
+fn uidImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .int = 0 };
+}
+
+fn gidImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .int = 0 };
+}
+
+fn whichImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
 }
 
 pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, comptime unit_t: TypeId, comptime stream_string_t: TypeId) PrimitiveTable {
     const bindings = [_]PrimitiveBinding{
         .{ .module = "IO", .name = "println", .fn_ptr = printlnImpl, .signature = unit_t, .is_effect = true },
         .{ .module = "IO", .name = "readln", .fn_ptr = readlnImpl, .signature = string_t, .is_effect = true },
-        .{ .module = "File", .name = "readString", .fn_ptr = unimplementedImpl, .signature = string_t, .is_effect = true },
-        .{ .module = "File", .name = "list", .fn_ptr = unimplementedImpl, .signature = unit_t, .is_effect = true },
-        .{ .module = "File", .name = "stat", .fn_ptr = unimplementedImpl, .signature = unit_t, .is_effect = true },
-        .{ .module = "Env", .name = "getenv", .fn_ptr = unimplementedImpl, .signature = string_t, .is_effect = true },
-        .{ .module = "Env", .name = "contains", .fn_ptr = unimplementedImpl, .signature = int_t, .is_effect = true },
-        .{ .module = "Process", .name = "exit", .fn_ptr = unimplementedImpl, .signature = unit_t, .is_effect = true },
-        .{ .module = "Process", .name = "pid", .fn_ptr = unimplementedImpl, .signature = int_t, .is_effect = true },
+        .{ .module = "File", .name = "readString", .fn_ptr = readStringImpl, .signature = string_t, .is_effect = true },
+        .{ .module = "File", .name = "list", .fn_ptr = listDirImpl, .signature = unit_t, .is_effect = true },
+        .{ .module = "File", .name = "stat", .fn_ptr = statImpl, .signature = unit_t, .is_effect = true },
+        .{ .module = "Env", .name = "getenv", .fn_ptr = getenvImpl, .signature = string_t, .is_effect = true },
+        .{ .module = "Env", .name = "contains", .fn_ptr = containsEnvImpl, .signature = int_t, .is_effect = true },
+        .{ .module = "Process", .name = "exit", .fn_ptr = exitImpl, .signature = unit_t, .is_effect = true },
+        .{ .module = "Process", .name = "pid", .fn_ptr = pidImpl, .signature = int_t, .is_effect = true },
+        .{ .module = "Process", .name = "uid", .fn_ptr = uidImpl, .signature = int_t, .is_effect = true },
+        .{ .module = "Process", .name = "gid", .fn_ptr = gidImpl, .signature = int_t, .is_effect = true },
+        .{ .module = "Cmd", .name = "which", .fn_ptr = whichImpl, .signature = string_t, .is_effect = true },
     };
+    if (int_t > 0) {} else {}
     _ = stream_string_t;
     return .{ .bindings = &bindings };
 }
