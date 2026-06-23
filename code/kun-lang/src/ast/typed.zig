@@ -83,6 +83,9 @@ pub const TypedExpr = union(enum) {
     compose_reverse: struct { left: *const TypedExpr, right: *const TypedExpr, type_: TypeId, span: ast.Span },
     map_literal: struct { entries: []const MapEntry, type_: TypeId, span: ast.Span },
     set_literal: struct { items: []const TypedExpr, type_: TypeId, span: ast.Span },
+    record_update: struct { record: *const TypedExpr, fields: []const RecordField, type_: TypeId, span: ast.Span },
+    range_literal: struct { from: *const TypedExpr, to: *const TypedExpr, step: ?*const TypedExpr, type_: TypeId, span: ast.Span },
+    ternary: struct { cond: *const TypedExpr, then: *const TypedExpr, else_: *const TypedExpr, type_: TypeId, span: ast.Span },
 };
 
 pub const MapEntry = struct { key: *const TypedExpr, value: *const TypedExpr };
