@@ -43,12 +43,24 @@ fn readlnImpl(env: *RuntimeEnv, args: *const Value) Value {
     @panic("unimplemented: IO.readln");
 }
 
+fn unimplementedImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    @panic("unimplemented primitive function");
+}
+
 pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, comptime unit_t: TypeId, comptime stream_string_t: TypeId) PrimitiveTable {
     const bindings = [_]PrimitiveBinding{
         .{ .module = "IO", .name = "println", .fn_ptr = printlnImpl, .signature = unit_t, .is_effect = true },
         .{ .module = "IO", .name = "readln", .fn_ptr = readlnImpl, .signature = string_t, .is_effect = true },
+        .{ .module = "File", .name = "readString", .fn_ptr = unimplementedImpl, .signature = string_t, .is_effect = true },
+        .{ .module = "File", .name = "list", .fn_ptr = unimplementedImpl, .signature = unit_t, .is_effect = true },
+        .{ .module = "File", .name = "stat", .fn_ptr = unimplementedImpl, .signature = unit_t, .is_effect = true },
+        .{ .module = "Env", .name = "getenv", .fn_ptr = unimplementedImpl, .signature = string_t, .is_effect = true },
+        .{ .module = "Env", .name = "contains", .fn_ptr = unimplementedImpl, .signature = int_t, .is_effect = true },
+        .{ .module = "Process", .name = "exit", .fn_ptr = unimplementedImpl, .signature = unit_t, .is_effect = true },
+        .{ .module = "Process", .name = "pid", .fn_ptr = unimplementedImpl, .signature = int_t, .is_effect = true },
     };
-    _ = int_t;
     _ = stream_string_t;
     return .{ .bindings = &bindings };
 }

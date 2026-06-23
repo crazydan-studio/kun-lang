@@ -26,6 +26,7 @@ pub const EvalError = error{
     NoMatch,
     Unimplemented,
     OutOfMemory,
+    MissingArgument,
 };
 
 pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator) EvalError!Value {
@@ -38,7 +39,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .nil_literal => Value{ .nil = {} },
         .duration_literal => |v| Value{ .duration = v.value },
         .path_literal => |v| Value{ .path = v.value },
-        .regex_literal => @panic("unimplemented: regex"),
+        .regex_literal => @panic("regex engine not yet implemented"),
         .bytes_literal => |v| Value{ .bytes = v.value },
         .ident => |v| {
             if (frame.lookup(v.name)) |val| return val;
@@ -52,7 +53,9 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .lambda => |v| {
             const names = try allocator.alloc([]const u8, v.params.len);
-            for (v.params, 0..) |p, i| names[i] = p.name;
+            for (v.params, 0..) |p, i| {
+                names[i] = try allocator.dupe(u8, p.name);
+            }
             return Value{ .closure = Closure{ .param_names = names, .body = v.body, .env = frame } };
         },
         .call => |v| {
@@ -74,17 +77,19 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             local.* = Frame{ .bindings = .empty, .parent = frame };
             var defers = DeferStack.init(allocator);
             defer defers.deinit();
+            var stmt_err: ?EvalError = null;
             for (v.body) |stmt| {
                 switch (stmt.kind) {
                     .binding => |b| {
-                        const val = try eval(b.value, local, allocator);
+                        const val = eval(b.value, local, allocator) catch |e| { stmt_err = e; break; };
                         try local.bindings.put(allocator, b.name, val);
                     },
                     .defer_ => |d| try defers.push(d.expr),
-                    .expr => |e| _ = try eval(e, local, allocator),
+                    .expr => |e| _ = eval(e, local, allocator) catch |err| { stmt_err = err; break; },
                 }
             }
-            while (defers.pop()) |deferred| _ = try eval(deferred, local, allocator);
+            while (defers.pop()) |deferred| _ = eval(deferred, local, allocator) catch {};
+            if (stmt_err) |e| return e;
             if (v.result) |r| return eval(r, local, allocator);
             return Value{ .unit = {} };
         },
@@ -127,8 +132,8 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
             } else if (c.param_names.len > 1) {
                 if (arg == .tuple) {
                     const elems = arg.tuple.items;
-                    const n = @min(c.param_names.len, elems.len);
-                    for (0..n) |i| {
+                    if (elems.len < c.param_names.len) return error.MissingArgument;
+                    for (c.param_names, 0..) |_, i| {
                         try frame.bindings.put(allocator, c.param_names[i], elems[i]);
                     }
                 }
@@ -142,7 +147,11 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
         .command => |c| {
             if (arg == .string) {
                 var payload = c._payload;
-                @memcpy(payload[@min(binNameLen(payload), 31)..@min(binNameLen(payload) + arg.string.len, 31)], arg.string);
+                const bin_len = binNameLen(payload);
+                if (bin_len < 31) {
+                    const dst = payload[bin_len..@min(bin_len + arg.string.len, 31)];
+                    @memcpy(dst, arg.string[0..dst.len]);
+                }
                 return Value{ .command = .{ .tag = 0, ._payload = payload } };
             }
             return func;
@@ -407,7 +416,26 @@ fn matchPattern(
             return Frame{ .bindings = bindings, .parent = null };
         },
         .variant => |v| {
-            _ = v;
+            if (value != .adt) return null;
+            const expected_tag: u8 = if (std.mem.eql(u8, v.name, "Ok")) @as(u8, 0)
+                else if (std.mem.eql(u8, v.name, "Err")) @as(u8, 1)
+                else blk: {
+                    if (std.fmt.parseInt(u8, v.name, 10)) |n| break :blk n else |_| return null;
+                };
+            if (value.adt.tag != expected_tag) return null;
+            if (v.arg) |arg| {
+                const payload_ptr: [*:0]const u8 = @ptrCast(value.adt.payload);
+                const payload_val = if (payload_ptr[0] != 0) Value{ .string = std.mem.span(payload_ptr) } else Value{ .nil = {} };
+                if (try matchPattern(arg.*, payload_val, frame, allocator)) |sub| {
+                    var merged: std.StringHashMapUnmanaged(Value) = .empty;
+                    var it = sub.bindings.iterator();
+                    while (it.next()) |entry| {
+                        try merged.put(allocator, entry.key_ptr.*, entry.value_ptr.*);
+                    }
+                    return Frame{ .bindings = merged, .parent = null };
+                }
+                return null;
+            }
             return Frame{ .bindings = .empty, .parent = null };
         },
         .tuple => |t| {
@@ -428,8 +456,12 @@ fn matchPattern(
         .record => return null,
         .guard => |g| {
             if (try matchPattern(g.inner.*, value, frame, allocator)) |sub| {
-                _ = sub;
-                return Frame{ .bindings = .empty, .parent = null };
+                var merged: std.StringHashMapUnmanaged(Value) = .empty;
+                var it = sub.bindings.iterator();
+                while (it.next()) |entry| {
+                    try merged.put(allocator, entry.key_ptr.*, entry.value_ptr.*);
+                }
+                return Frame{ .bindings = merged, .parent = null };
             }
             return null;
         },
@@ -470,17 +502,19 @@ fn valueEqual(a: Value, b: Value) bool {
 }
 
 fn evalMapLiteral(entries: []const MapEntry, frame: *Frame, allocator: std.mem.Allocator) !Value {
-    _ = entries;
     _ = frame;
     _ = allocator;
-    return Value{ .map = .{ .entries = @as([*]u8, @ptrFromInt(0x1)), .len = 0, .cap = 0 } };
+    _ = entries;
+    const static_zero: [0]u8 = .{};
+    return Value{ .map = .{ .entries = @constCast(&static_zero), .len = 0, .cap = 0 } };
 }
 
 fn evalSetLiteral(items: []const TypedExpr, frame: *Frame, allocator: std.mem.Allocator) !Value {
-    _ = items;
     _ = frame;
     _ = allocator;
-    return Value{ .set = .{ .entries = @as([*]u8, @ptrFromInt(0x1)), .len = 0, .cap = 0 } };
+    _ = items;
+    const static_zero: [0]u8 = .{};
+    return Value{ .set = .{ .entries = @constCast(&static_zero), .len = 0, .cap = 0 } };
 }
 
 pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator) !void {
@@ -488,26 +522,24 @@ pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator) !void 
     global.* = Frame{ .bindings = .empty, .parent = null };
 
     for (decls) |decl| {
+        switch (decl.kind) {
+            .function_def => |f| {
+                if (!std.mem.eql(u8, f.name, "main")) {
+                    const fn_val = try eval(f.body, global, allocator);
+                    try global.bindings.put(allocator, f.name, fn_val);
+                }
+            },
+            .import, .export_, .type_def => {},
+        }
+    }
+
+    for (decls) |decl| {
         if (decl.kind == .function_def) {
             const f = decl.kind.function_def;
-            if (!std.mem.eql(u8, f.name, "main")) {
-                const fn_val = try eval(f.body, global, allocator);
-                try global.bindings.put(allocator, f.name, fn_val);
+            if (std.mem.eql(u8, f.name, "main")) {
+                _ = try eval(f.body, global, allocator);
+                return;
             }
-        }
-    }
-
-    for (decls) |decl| {
-        if (decl.kind == .function_def and std.mem.eql(u8, decl.kind.function_def.name, "main")) {
-            _ = try eval(decl.kind.function_def.body, global, allocator);
-            return;
-        }
-    }
-
-    for (decls) |decl| {
-        if (decl.kind == .function_def) {
-            _ = try eval(decl.kind.function_def.body, global, allocator);
-            return;
         }
     }
 }
