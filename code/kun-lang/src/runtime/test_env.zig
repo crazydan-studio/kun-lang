@@ -6,7 +6,7 @@ const Frame = env_mod.Frame;
 const Value = value_mod.Value;
 
 test "frame lookup returns null for unknown name" {
-    var frame = Frame{ .bindings = .empty, .parent = null };
+    var frame = Frame{ .bindings = .empty, .parent = null, .primitives = null };
     try std.testing.expectEqual(@as(?Value, null), frame.lookup("x"));
 }
 
@@ -15,7 +15,7 @@ test "frame bind and lookup" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var frame = Frame{ .bindings = .empty, .parent = null };
+    var frame = Frame{ .bindings = .empty, .parent = null, .primitives = null };
     try frame.bindings.put(allocator, "x", Value{ .int = 42 });
 
     const val = frame.lookup("x");
@@ -28,10 +28,10 @@ test "frame chain lookup traverses parent" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var parent = Frame{ .bindings = .empty, .parent = null };
+    var parent = Frame{ .bindings = .empty, .parent = null, .primitives = null };
     try parent.bindings.put(allocator, "parent_var", Value{ .int = 10 });
 
-    var child = Frame{ .bindings = .empty, .parent = &parent };
+    var child = Frame{ .bindings = .empty, .parent = &parent, .primitives = null };
     try child.bindings.put(allocator, "child_var", Value{ .int = 20 });
 
     try std.testing.expectEqual(@as(i64, 10), child.lookup("parent_var").?.int);
@@ -44,10 +44,10 @@ test "frame shadowing" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var parent = Frame{ .bindings = .empty, .parent = null };
+    var parent = Frame{ .bindings = .empty, .parent = null, .primitives = null };
     try parent.bindings.put(allocator, "x", Value{ .int = 1 });
 
-    var child = Frame{ .bindings = .empty, .parent = &parent };
+    var child = Frame{ .bindings = .empty, .parent = &parent, .primitives = null };
     try child.bindings.put(allocator, "x", Value{ .int = 2 });
 
     try std.testing.expectEqual(@as(i64, 2), child.lookup("x").?.int);

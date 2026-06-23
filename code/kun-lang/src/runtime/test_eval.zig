@@ -13,7 +13,7 @@ test "eval int literal" {
     defer arena.deinit();
 
     const global = try arena.allocator().create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, arena.allocator());
@@ -24,7 +24,7 @@ test "eval bool literal" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const global = try arena.allocator().create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .bool_literal = .{ .value = true, .type_ = 2, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, arena.allocator());
@@ -35,7 +35,7 @@ test "eval string literal" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const global = try arena.allocator().create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .string_literal = .{ .value = "hello", .type_ = 3, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, arena.allocator());
@@ -46,7 +46,7 @@ test "eval nil literal" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const global = try arena.allocator().create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .nil_literal = .{ .type_ = 0, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, arena.allocator());
@@ -57,7 +57,7 @@ test "eval char literal" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const global = try arena.allocator().create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .char_literal = .{ .value = 'A', .type_ = 4, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, arena.allocator());
@@ -68,7 +68,7 @@ test "eval float literal" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const global = try arena.allocator().create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .float_literal = .{ .value = 3.14, .type_ = 1, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, arena.allocator());
@@ -80,7 +80,7 @@ test "eval if_expr true" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const cond = try allocator.create(typed.TypedExpr);
     cond.* = .{ .bool_literal = .{ .value = true, .type_ = 2, .span = undefined } };
@@ -99,7 +99,7 @@ test "eval if_expr false" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const cond = try allocator.create(typed.TypedExpr);
     cond.* = .{ .bool_literal = .{ .value = false, .type_ = 2, .span = undefined } };
@@ -118,7 +118,7 @@ test "eval binary add int" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -135,7 +135,7 @@ test "eval binary sub" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 5, .type_ = 0, .span = undefined } };
@@ -152,7 +152,7 @@ test "eval binary mul" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 6, .type_ = 0, .span = undefined } };
@@ -169,7 +169,7 @@ test "eval binary eq true" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -186,7 +186,7 @@ test "eval binary eq false" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -203,7 +203,7 @@ test "eval binary lt gt" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const l = try allocator.create(typed.TypedExpr);
     l.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -222,7 +222,7 @@ test "eval binary and or short circuit" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const t = try allocator.create(typed.TypedExpr);
     t.* = .{ .bool_literal = .{ .value = true, .type_ = 2, .span = undefined } };
@@ -241,7 +241,7 @@ test "eval binary concat strings" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .string_literal = .{ .value = "hello", .type_ = 3, .span = undefined } };
@@ -258,7 +258,7 @@ test "eval binary nil coalesce" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
@@ -275,7 +275,7 @@ test "eval unary neg" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const operand = try allocator.create(typed.TypedExpr);
     operand.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -289,7 +289,7 @@ test "eval unary not" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const operand = try allocator.create(typed.TypedExpr);
     operand.* = .{ .bool_literal = .{ .value = true, .type_ = 2, .span = undefined } };
@@ -303,7 +303,7 @@ test "eval let_in" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const val_expr = try allocator.create(typed.TypedExpr);
     val_expr.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -322,7 +322,7 @@ test "eval lambda and call" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const params = try allocator.alloc(typed.Param, 1);
     params[0] = .{ .name = "x", .type_ = 0 };
@@ -344,7 +344,7 @@ test "eval record literal and access" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const val = try allocator.create(typed.TypedExpr);
     val.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -363,7 +363,7 @@ test "eval tuple literal" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     var items: [2]typed.TypedExpr = undefined;
     items[0] = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -381,7 +381,7 @@ test "eval list literal" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const e1 = try allocator.create(typed.TypedExpr);
     e1.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -402,7 +402,7 @@ test "eval case wildcard" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const subject = try allocator.create(typed.TypedExpr);
     subject.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -421,7 +421,7 @@ test "eval case nil vs value" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const subject = try allocator.create(typed.TypedExpr);
     subject.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
@@ -444,7 +444,7 @@ test "eval duration literal" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .duration_literal = .{ .value = 5000, .unit = .ms, .type_ = 8, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
@@ -456,7 +456,7 @@ test "eval path literal" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .path_literal = .{ .value = "/tmp/test", .type_ = 7, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
@@ -468,7 +468,7 @@ test "eval bytes literal" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .bytes_literal = .{ .value = "deadbeef", .type_ = 5, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
@@ -480,7 +480,7 @@ test "eval do_block returns unit" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .do_block = .{ .body = &.{}, .result = null, .type_ = 6, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
@@ -492,7 +492,7 @@ test "eval do_block with binding" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const val_expr = try allocator.create(typed.TypedExpr);
     val_expr.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -509,7 +509,7 @@ test "eval binary div" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 10, .type_ = 0, .span = undefined } };
@@ -525,7 +525,7 @@ test "eval binary div by zero" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 10, .type_ = 0, .span = undefined } };
@@ -540,7 +540,7 @@ test "eval binary mod" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 10, .type_ = 0, .span = undefined } };
@@ -556,7 +556,7 @@ test "eval binary neq" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -572,7 +572,7 @@ test "eval binary le ge" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const l = try allocator.create(typed.TypedExpr);
     l.* = .{ .int_literal = .{ .value = 5, .type_ = 0, .span = undefined } };
@@ -591,7 +591,7 @@ test "eval ident unbound variable error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .ident = .{ .name = "undefined_var", .type_ = 0, .span = undefined } };
     try std.testing.expectError(error.UnboundVariable, eval_mod.eval(&expr, global, allocator));
@@ -602,7 +602,7 @@ test "eval call with non-function error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const func = try allocator.create(typed.TypedExpr);
     func.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -617,7 +617,7 @@ test "eval nil coalesce non-nil returns left" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -633,7 +633,7 @@ test "eval list literal with spread" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const e1 = try allocator.create(typed.TypedExpr);
     e1.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -666,7 +666,7 @@ test "eval let_in with body expression" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const val_expr = try allocator.create(typed.TypedExpr);
     val_expr.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -690,7 +690,7 @@ test "eval nested let_in" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const y_val = try allocator.create(typed.TypedExpr);
     y_val.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -725,7 +725,7 @@ test "eval nested do_block with defer" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const defer_expr = try allocator.create(typed.TypedExpr);
     defer_expr.* = .{ .int_literal = .{ .value = 99, .type_ = 0, .span = undefined } };
@@ -752,7 +752,7 @@ test "eval do_block defer runs LIFO with bindings" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const val_expr = try allocator.create(typed.TypedExpr);
     val_expr.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -776,7 +776,7 @@ test "eval pipe expression" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -800,7 +800,7 @@ test "eval case tuple pattern with Nil narrowing" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const nil_item = try allocator.create(typed.TypedExpr);
     nil_item.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
@@ -839,7 +839,7 @@ test "eval case True literal match" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const subject = try allocator.create(typed.TypedExpr);
     subject.* = .{ .bool_literal = .{ .value = true, .type_ = 2, .span = undefined } };
@@ -858,7 +858,7 @@ test "eval case no match error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const subject = try allocator.create(typed.TypedExpr);
     subject.* = .{ .int_literal = .{ .value = 99, .type_ = 0, .span = undefined } };
@@ -876,7 +876,7 @@ test "eval record access on non-record error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const int_val = try allocator.create(typed.TypedExpr);
     int_val.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -889,7 +889,7 @@ test "eval unary not on non-bool error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const operand = try allocator.create(typed.TypedExpr);
     operand.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -902,7 +902,7 @@ test "eval unary neg on non-numeric error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const operand = try allocator.create(typed.TypedExpr);
     operand.* = .{ .bool_literal = .{ .value = true, .type_ = 2, .span = undefined } };
@@ -915,7 +915,7 @@ test "eval do_in with result" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const result = try allocator.create(typed.TypedExpr);
     result.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -929,7 +929,7 @@ test "eval defer with observable side effect" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const val_expr = try allocator.create(typed.TypedExpr);
     val_expr.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -949,7 +949,7 @@ test "eval binary add float operands" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .float_literal = .{ .value = 1.5, .type_ = 1, .span = undefined } };
@@ -965,7 +965,7 @@ test "eval string equality" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .string_literal = .{ .value = "abc", .type_ = 3, .span = undefined } };
@@ -981,7 +981,7 @@ test "eval record access missing field error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const val = try allocator.create(typed.TypedExpr);
     val.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
@@ -998,7 +998,7 @@ test "eval binary div float" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
     left.* = .{ .float_literal = .{ .value = 6.0, .type_ = 1, .span = undefined } };
@@ -1014,7 +1014,7 @@ test "eval map literal returns map" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const key = try allocator.create(typed.TypedExpr);
     key.* = .{ .string_literal = .{ .value = "k", .type_ = 3, .span = undefined } };
@@ -1033,7 +1033,7 @@ test "eval set literal returns set" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const e1 = try allocator.create(typed.TypedExpr);
     e1.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
@@ -1050,7 +1050,7 @@ test "eval Cmd.echo ident returns command" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .ident = .{ .name = "Cmd.echo", .type_ = 11, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
@@ -1062,7 +1062,7 @@ test "eval Cmd.ls ident returns command" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    global.* = Frame{ .bindings = .empty, .parent = null };
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const expr = typed.TypedExpr{ .ident = .{ .name = "Cmd.ls", .type_ = 11, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);

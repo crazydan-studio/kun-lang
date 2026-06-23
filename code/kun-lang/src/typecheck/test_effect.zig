@@ -119,7 +119,8 @@ test "checkPureFunctionBody with effect returns error" {
     defer std.testing.allocator.destroy(arg);
     arg.* = .{ .string_literal = .{ .value = "hi", .span = undefined } };
     const body = ast.Expr{ .call = .{ .func = func, .arg = arg, .span = undefined } };
-    try std.testing.expectError(error.EffectInPure, effect_mod.checkPureFunctionBody(std.testing.allocator, &body, &errors));
+    try effect_mod.checkPureFunctionBody(std.testing.allocator, &body, &errors);
+    try std.testing.expect(errors.hasErrors());
 }
 
 test "checkLetInPurity effect in binding emits error" {

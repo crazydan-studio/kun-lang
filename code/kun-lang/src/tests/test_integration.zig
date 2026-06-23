@@ -4,6 +4,9 @@ const parser = @import("../parser/parser.zig");
 const typecheck = @import("../typecheck/infer.zig");
 const typecheck_env = @import("../typecheck/env.zig");
 const runtime = @import("../runtime/eval.zig");
+const primitive_mod = @import("../runtime/primitive.zig");
+
+const empty_primitives = primitive_mod.PrimitiveTable{ .bindings = &.{} };
 
 fn setupPipeline(allocator: std.mem.Allocator, source: []const u8) ![]const parser.Decl {
     const tokens = try lexer.tokenize(allocator, source);
@@ -75,7 +78,7 @@ test "integration parse and eval simple" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse and eval binary op" {
@@ -87,7 +90,7 @@ test "integration parse and eval binary op" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse and eval lambda call" {
@@ -99,7 +102,7 @@ test "integration parse and eval lambda call" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration type mismatch returns error" {
@@ -123,7 +126,7 @@ test "integration parse and eval add 1 2" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse and eval if then else" {
@@ -135,7 +138,7 @@ test "integration parse and eval if then else" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse and eval let in" {
@@ -147,7 +150,7 @@ test "integration parse and eval let in" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse and eval nil coalesce" {
@@ -159,7 +162,7 @@ test "integration parse and eval nil coalesce" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse and eval case expr" {
@@ -171,7 +174,7 @@ test "integration parse and eval case expr" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = typecheck.infer(allocator, decls, &type_env) catch return;
-    _ = runtime.evalModule(typed, allocator) catch {};
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse and eval do block" {
@@ -183,7 +186,7 @@ test "integration parse and eval do block" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
 test "integration parse empty parens returns error" {
@@ -205,5 +208,5 @@ test "integration parse and eval main function" {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
     const typed = try typecheck.infer(allocator, decls, &type_env);
-    try runtime.evalModule(typed, allocator);
+    try runtime.evalModule(typed, allocator, empty_primitives);
 }
