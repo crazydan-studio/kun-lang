@@ -158,9 +158,81 @@ fn exprSpan(expr: *const ast.Expr) ast.Span {
 }
 
 pub fn checkDoLetExclusion(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
-    _ = body;
+    try checkDoLetExclusionRecurse(allocator, body, null, errors);
+}
+
+fn checkDoLetExclusionRecurse(allocator: std.mem.Allocator, expr: *const ast.Expr, in_context: ?enum { do_block, let_in }, errors: *ErrorList) !void {
+    switch (expr.*) {
+        .do_block => |d| {
+            if (in_context == .let_in) {
+                try errors.add(allocator, .{ .effect_in_let = .{ .called_func = "do block in let bindings", .span = d.span } });
+            }
+            for (d.body) |stmt| {
+                switch (stmt.kind) {
+                    .binding => |b| try checkDoLetExclusionRecurse(allocator, b.value, .do_block, errors),
+                    .defer_ => |de| try checkDoLetExclusionRecurse(allocator, de.expr, .do_block, errors),
+                    .expr => |e| try checkDoLetExclusionRecurse(allocator, e, .do_block, errors),
+                }
+            }
+            if (d.result) |r| try checkDoLetExclusionRecurse(allocator, r, .do_block, errors);
+        },
+        .let_in => |l| {
+            if (in_context == .do_block) {
+                try errors.add(allocator, .{ .effect_in_let = .{ .called_func = "let bindings in do block", .span = l.span } });
+            }
+            for (l.bindings) |b| try checkDoLetExclusionRecurse(allocator, b.value, .let_in, errors);
+            try checkDoLetExclusionRecurse(allocator, l.body, .let_in, errors);
+        },
+        .call => |c| {
+            try checkDoLetExclusionRecurse(allocator, c.func, in_context, errors);
+            try checkDoLetExclusionRecurse(allocator, c.arg, in_context, errors);
+        },
+        .if_expr => |i| {
+            try checkDoLetExclusionRecurse(allocator, i.then, in_context, errors);
+            try checkDoLetExclusionRecurse(allocator, i.else_, in_context, errors);
+        },
+        .case_expr => |c| {
+            for (c.branches) |b| try checkDoLetExclusionRecurse(allocator, b.body, in_context, errors);
+        },
+        .lambda => |l| try checkDoLetExclusionRecurse(allocator, l.body, in_context, errors),
+        .binary_op => |b| {
+            try checkDoLetExclusionRecurse(allocator, b.left, in_context, errors);
+            try checkDoLetExclusionRecurse(allocator, b.right, in_context, errors);
+        },
+        .unary_op => |u| try checkDoLetExclusionRecurse(allocator, u.operand, in_context, errors),
+        .pipe => |p| {
+            try checkDoLetExclusionRecurse(allocator, p.left, in_context, errors);
+            try checkDoLetExclusionRecurse(allocator, p.right, in_context, errors);
+        },
+        .list_literal => |l| {
+            for (l.items) |item| {
+                switch (item) {
+                    .expr => |e| try checkDoLetExclusionRecurse(allocator, e, in_context, errors),
+                    .spread => |s| try checkDoLetExclusionRecurse(allocator, s, in_context, errors),
+                }
+            }
+        },
+        .tuple_literal => |t| {
+            for (t.items) |item| try checkDoLetExclusionRecurse(allocator, item, in_context, errors);
+        },
+        .record_literal => |r| {
+            for (r.fields) |f| try checkDoLetExclusionRecurse(allocator, f.value, in_context, errors);
+        },
+        .record_access => |r| try checkDoLetExclusionRecurse(allocator, r.record, in_context, errors),
+        .record_update => |r| {
+            for (r.fields) |f| try checkDoLetExclusionRecurse(allocator, f.value, in_context, errors);
+        },
+        .map_literal => |m| {
+            for (m.entries) |e| {
+                try checkDoLetExclusionRecurse(allocator, e.key, in_context, errors);
+                try checkDoLetExclusionRecurse(allocator, e.value, in_context, errors);
+            }
+        },
+        .set_literal => |s| {
+            for (s.items) |item| try checkDoLetExclusionRecurse(allocator, item, in_context, errors);
+        },
+        else => {},
+    }
 }
 
 pub fn checkEmptyBody(allocator: std.mem.Allocator, body: *const ast.Expr, context: []const u8, errors: *ErrorList) !void {
@@ -179,10 +251,12 @@ pub fn checkEmptyBody(allocator: std.mem.Allocator, body: *const ast.Expr, conte
     }
 }
 
-pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
-    _ = body;
+pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, typed_result: ?*const typed.TypedExpr, errors: *ErrorList) !void {
+    if (typed_result) |tr| {
+        if (tr.type_ == typed.unit_t) {
+            try errors.add(allocator, .{ .pure_unit_return = .{ .func_name = "do in result", .span = exprSpan(body) } });
+        }
+    }
 }
 
 pub fn checkEffectCallback(allocator: std.mem.Allocator, errors: *ErrorList) !void {

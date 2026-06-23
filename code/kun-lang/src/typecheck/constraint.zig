@@ -104,7 +104,7 @@ fn inferFunction(
         try param_types.append(ea, Param{ .name = p.name, .type_ = pty });
     }
 
-    const has_effect = hasEffect(body);
+    const has_effect = effect_mod.hasEffectInExpr(body);
 
     return TypedDecl{
         .kind = .{ .function_def = .{
@@ -190,14 +190,25 @@ pub fn inferExpr(
         .lambda => |v| {
             const typed_body = try inferExpr(allocator, v.body, env, errors);
             const typed_params = try ea.alloc(Param, v.params.len);
+            var param_type_ids = try ea.alloc(TypeId, v.params.len);
             for (v.params, 0..) |p, i| {
                 const pty = try env.newVar(allocator, 1);
                 typed_params[i] = Param{ .name = p.name, .type_ = pty };
+                param_type_ids[i] = pty;
             }
-            const param_id = if (typed_params.len > 0) typed_params[0].type_ else try env.newVar(allocator, 1);
-            const has_effect = hasEffect(v.body);
+            const has_effect = effect_mod.hasEffectInExpr(v.body);
             const body_type = exprType(typed_body);
-            const fn_ty_id = try env.registerFunctionType(allocator, has_effect, param_id, body_type);
+            var fn_ty_id = body_type;
+            var i: usize = param_type_ids.len;
+            while (i > 0) : (i -= 1) {
+                const is_outer = i > 1;
+                const level_effect = if (is_outer) false else has_effect;
+                fn_ty_id = try env.registerFunctionType(allocator, level_effect, param_type_ids[i - 1], fn_ty_id);
+            }
+            if (param_type_ids.len == 0) {
+                const dummy_param = try env.newVar(allocator, 1);
+                fn_ty_id = try env.registerFunctionType(allocator, has_effect, dummy_param, body_type);
+            }
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .lambda = .{ .params = typed_params, .body = typed_body, .type_ = fn_ty_id, .span = v.span } };
             return node;
@@ -378,12 +389,17 @@ pub fn inferExpr(
         .list_literal => |v| {
             var typed_items: std.ArrayListUnmanaged(ExprItem) = .empty;
             defer typed_items.deinit(ea);
+            const elem_ty = try env.newVar(allocator, std.math.maxInt(u32));
             for (v.items) |item| {
                 const typed_item = try inferExprItem(allocator, item, env, errors);
+                const item_type = switch (typed_item) {
+                    .expr => |e| exprType(e),
+                    .spread => |s| exprType(s),
+                };
+                unify_mod.unify(env, allocator, item_type, elem_ty) catch {};
                 try typed_items.append(ea, typed_item);
             }
-            const list_ty_id = try env.newVar(allocator, std.math.maxInt(u32));
-            const list_id = try env.registerType(allocator, Type{ .list = list_ty_id });
+            const list_id = try env.registerType(allocator, Type{ .list = elem_ty });
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .list_literal = .{ .items = try typed_items.toOwnedSlice(ea), .type_ = list_id, .span = v.span } };
             return node;
@@ -421,6 +437,11 @@ pub fn inferExpr(
         .record_access => |v| {
             const typed_rec = try inferExpr(allocator, v.record, env, errors);
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
+            const rec_type = exprType(typed_rec);
+            const field_types = try ea.alloc(typed.RecordFieldType, 1);
+            field_types[0] = typed.RecordFieldType{ .name = v.field, .type_ = result_id };
+            const expected_rec = try env.registerType(allocator, Type{ .record = field_types });
+            unify_mod.unify(env, allocator, rec_type, expected_rec) catch {};
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .record_access = .{ .record = typed_rec, .field = v.field, .type_ = result_id, .span = v.span } };
             return node;
@@ -448,13 +469,14 @@ pub fn inferExpr(
         .compose => |v| {
             const typed_left = try inferExpr(allocator, v.left, env, errors);
             const typed_right = try inferExpr(allocator, v.right, env, errors);
+            const intermediate_id = try env.newVar(allocator, std.math.maxInt(u32));
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const param_name = try ea.alloc(Param, 1);
             param_name[0] = .{ .name = "x", .type_ = try env.newVar(allocator, 1) };
             const x_ref = try ea.create(TypedExpr);
             x_ref.* = .{ .ident = .{ .name = "x", .type_ = param_name[0].type_, .span = v.span } };
             const f_call = try ea.create(TypedExpr);
-            f_call.* = .{ .call = .{ .func = typed_left, .arg = x_ref, .type_ = result_id, .span = v.span } };
+            f_call.* = .{ .call = .{ .func = typed_left, .arg = x_ref, .type_ = intermediate_id, .span = v.span } };
             const g_call = try ea.create(TypedExpr);
             g_call.* = .{ .call = .{ .func = typed_right, .arg = f_call, .type_ = result_id, .span = v.span } };
             const node = try ea.create(TypedExpr);
@@ -464,13 +486,14 @@ pub fn inferExpr(
         .compose_reverse => |v| {
             const typed_left = try inferExpr(allocator, v.left, env, errors);
             const typed_right = try inferExpr(allocator, v.right, env, errors);
+            const intermediate_id = try env.newVar(allocator, std.math.maxInt(u32));
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const param_name = try ea.alloc(Param, 1);
             param_name[0] = .{ .name = "x", .type_ = try env.newVar(allocator, 1) };
             const x_ref = try ea.create(TypedExpr);
             x_ref.* = .{ .ident = .{ .name = "x", .type_ = param_name[0].type_, .span = v.span } };
             const g_call = try ea.create(TypedExpr);
-            g_call.* = .{ .call = .{ .func = typed_right, .arg = x_ref, .type_ = result_id, .span = v.span } };
+            g_call.* = .{ .call = .{ .func = typed_right, .arg = x_ref, .type_ = intermediate_id, .span = v.span } };
             const f_call = try ea.create(TypedExpr);
             f_call.* = .{ .call = .{ .func = typed_left, .arg = g_call, .type_ = result_id, .span = v.span } };
             const node = try ea.create(TypedExpr);
@@ -480,26 +503,32 @@ pub fn inferExpr(
         .map_literal => |v| {
             var typed_entries: std.ArrayListUnmanaged(MapEntry) = .empty;
             defer typed_entries.deinit(ea);
+            const key_ty = try env.newVar(allocator, std.math.maxInt(u32));
+            const val_ty = try env.newVar(allocator, std.math.maxInt(u32));
             for (v.entries) |e| {
                 const typed_key = try inferExpr(allocator, e.key, env, errors);
                 const typed_val = try inferExpr(allocator, e.value, env, errors);
+                unify_mod.unify(env, allocator, exprType(typed_key), key_ty) catch {};
+                unify_mod.unify(env, allocator, exprType(typed_val), val_ty) catch {};
                 try typed_entries.append(ea, MapEntry{ .key = typed_key, .value = typed_val });
             }
-            const map_ty_id = try env.newVar(allocator, std.math.maxInt(u32));
+            const map_id = try env.registerType(allocator, Type{ .map = .{ .key = key_ty, .value = val_ty } });
             const node = try ea.create(TypedExpr);
-            node.* = TypedExpr{ .map_literal = .{ .entries = try typed_entries.toOwnedSlice(ea), .type_ = map_ty_id, .span = v.span } };
+            node.* = TypedExpr{ .map_literal = .{ .entries = try typed_entries.toOwnedSlice(ea), .type_ = map_id, .span = v.span } };
             return node;
         },
         .set_literal => |v| {
             var typed_items: std.ArrayListUnmanaged(TypedExpr) = .empty;
             defer typed_items.deinit(ea);
+            const elem_ty = try env.newVar(allocator, std.math.maxInt(u32));
             for (v.items) |item| {
                 const typed_item = try inferExpr(allocator, item, env, errors);
+                unify_mod.unify(env, allocator, exprType(typed_item), elem_ty) catch {};
                 try typed_items.append(ea, typed_item.*);
             }
-            const set_ty_id = try env.newVar(allocator, std.math.maxInt(u32));
+            const set_id = try env.registerType(allocator, Type{ .set = elem_ty });
             const node = try ea.create(TypedExpr);
-            node.* = TypedExpr{ .set_literal = .{ .items = try typed_items.toOwnedSlice(ea), .type_ = set_ty_id, .span = v.span } };
+            node.* = TypedExpr{ .set_literal = .{ .items = try typed_items.toOwnedSlice(ea), .type_ = set_id, .span = v.span } };
             return node;
         },
         .record_update, .range_literal, .ternary => return error.Unimplemented,
@@ -550,85 +579,6 @@ fn setExprType(expr: *TypedExpr, ty: TypeId) void {
     switch (expr.*) {
         inline else => |*v| v.type_ = ty,
     }
-}
-
-pub fn hasEffect(expr: *const ast.Expr) bool {
-    return switch (expr.*) {
-        .do_block => true,
-        .call => |c| isEffectCall(c.func) or hasEffect(c.arg),
-        .let_in => |l| {
-            for (l.bindings) |b| {
-                if (hasEffect(b.value)) return true;
-            }
-            return hasEffect(l.body);
-        },
-        .if_expr => |i| hasEffect(i.then) or hasEffect(i.else_),
-        .case_expr => |c| {
-            for (c.branches) |b| {
-                if (hasEffect(b.body)) return true;
-            }
-            return false;
-        },
-        .binary_op => |b| hasEffect(b.left) or hasEffect(b.right),
-        .unary_op => |u| hasEffect(u.operand),
-        .pipe => |p| hasEffect(p.left) or hasEffect(p.right),
-        .pipe_reverse => |p| hasEffect(p.left) or hasEffect(p.right),
-        .compose => |c| hasEffect(c.left) or hasEffect(c.right),
-        .compose_reverse => |c| hasEffect(c.left) or hasEffect(c.right),
-        .list_literal => |l| {
-            for (l.items) |item| {
-                switch (item) {
-                    .expr => |e| { if (hasEffect(e)) return true; },
-                    .spread => |s| { if (hasEffect(s)) return true; },
-                }
-            }
-            return false;
-        },
-        .tuple_literal => |t| {
-            for (t.items) |item| {
-                if (hasEffect(item)) return true;
-            }
-            return false;
-        },
-        .record_literal => |r| {
-            for (r.fields) |f| {
-                if (hasEffect(f.value)) return true;
-            }
-            return false;
-        },
-        .record_access => |r| hasEffect(r.record),
-        .record_update => |r| {
-            for (r.fields) |f| {
-                if (hasEffect(f.value)) return true;
-            }
-            return false;
-        },
-        .map_literal => |m| {
-            for (m.entries) |e| {
-                if (hasEffect(e.key)) return true;
-                if (hasEffect(e.value)) return true;
-            }
-            return false;
-        },
-        .set_literal => |s| {
-            for (s.items) |item| {
-                if (hasEffect(item)) return true;
-            }
-            return false;
-        },
-        .range_literal, .ternary => false,
-        else => false,
-    };
-}
-
-fn isEffectCall(func: *const ast.Expr) bool {
-    return switch (func.*) {
-        .ident => |id| isEffectNamespaceCall(id.name),
-        .call => |c| isEffectCall(c.func),
-        .pipe => |p| isEffectCall(p.right),
-        .pipe_reverse => |p| isEffectCall(p.left),
-        else => false,
-    };
 }
 
 pub fn isEffectNamespaceCall(name: []const u8) bool {

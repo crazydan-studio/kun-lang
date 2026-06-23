@@ -84,52 +84,84 @@ pub const TypeEnv = struct {
     }
 
     pub fn freshInstance(self: *TypeEnv, allocator: std.mem.Allocator, id: TypeId) !TypeId {
-        const ty = self.resolveType(id);
-        return switch (ty) {
-            .variable => |v| {
-                const fresh = try self.newVar(allocator, std.math.maxInt(u32));
-                _ = v;
-                return fresh;
-            },
+        var map: std.AutoHashMapUnmanaged(TypeId, TypeId) = .empty;
+        defer map.deinit(allocator);
+        return self.freshInstanceMapped(allocator, id, &map);
+    }
+
+    fn freshInstanceMapped(self: *TypeEnv, allocator: std.mem.Allocator, id: TypeId, map: *std.AutoHashMapUnmanaged(TypeId, TypeId)) !TypeId {
+        const resolved = self.applySubst(id);
+        if (map.get(resolved)) |existing| return existing;
+        const ty = self.resolveType(resolved);
+        const result = switch (ty) {
+            .variable => try self.newVar(allocator, std.math.maxInt(u32)),
             .function => |f| {
-                const p = try self.freshInstance(allocator, f.param);
-                const r = try self.freshInstance(allocator, f.result);
+                const p = try self.freshInstanceMapped(allocator, f.param, map);
+                const r = try self.freshInstanceMapped(allocator, f.result, map);
                 return self.registerFunctionType(allocator, false, p, r);
             },
             .effect_fn => |f| {
-                const p = try self.freshInstance(allocator, f.param);
-                const r = try self.freshInstance(allocator, f.result);
+                const p = try self.freshInstanceMapped(allocator, f.param, map);
+                const r = try self.freshInstanceMapped(allocator, f.result, map);
                 return self.registerFunctionType(allocator, true, p, r);
             },
             .nilable => |inner| {
-                const i = try self.freshInstance(allocator, inner);
+                const i = try self.freshInstanceMapped(allocator, inner, map);
                 return self.registerType(allocator, .{ .nilable = i });
             },
             .list => |inner| {
-                const i = try self.freshInstance(allocator, inner);
+                const i = try self.freshInstanceMapped(allocator, inner, map);
                 return self.registerType(allocator, .{ .list = i });
             },
             .set => |inner| {
-                const i = try self.freshInstance(allocator, inner);
+                const i = try self.freshInstanceMapped(allocator, inner, map);
                 return self.registerType(allocator, .{ .set = i });
             },
             .stream => |inner| {
-                const i = try self.freshInstance(allocator, inner);
+                const i = try self.freshInstanceMapped(allocator, inner, map);
                 return self.registerType(allocator, .{ .stream = i });
             },
             .map => |m| {
-                const k = try self.freshInstance(allocator, m.key);
-                const v = try self.freshInstance(allocator, m.value);
+                const k = try self.freshInstanceMapped(allocator, m.key, map);
+                const v = try self.freshInstanceMapped(allocator, m.value, map);
                 return self.registerType(allocator, .{ .map = .{ .key = k, .value = v } });
+            },
+            .tuple => |t| {
+                var new_elems = try allocator.alloc(TypeId, t.len);
+                for (t, 0..) |elem, i| {
+                    new_elems[i] = try self.freshInstanceMapped(allocator, elem, map);
+                }
+                return self.registerType(allocator, .{ .tuple = new_elems });
+            },
+            .record => |r| {
+                var new_fields = try allocator.alloc(typed.RecordFieldType, r.len);
+                for (r, 0..) |f, i| {
+                    new_fields[i] = .{ .name = f.name, .type_ = try self.freshInstanceMapped(allocator, f.type_, map) };
+                }
+                return self.registerType(allocator, .{ .record = new_fields });
+            },
+            .adt => |a| {
+                var new_variants = try allocator.alloc(typed.AdtVariant, a.variants.len);
+                for (a.variants, 0..) |v, i| {
+                    var new_payload = try allocator.alloc(TypeId, v.payload.len);
+                    for (v.payload, 0..) |pt, j| {
+                        new_payload[j] = try self.freshInstanceMapped(allocator, pt, map);
+                    }
+                    new_variants[i] = .{ .name = v.name, .payload = new_payload };
+                }
+                return self.registerType(allocator, .{ .adt = .{ .name = a.name, .variants = new_variants } });
             },
             else => return id,
         };
+        try map.put(allocator, resolved, result);
+        return result;
     }
 
     pub fn generalize(self: *TypeEnv, allocator: std.mem.Allocator, id: TypeId, level: u32) !TypeId {
         const ty = self.resolveType(id);
         return switch (ty) {
             .variable => |v| {
+                if (v.level >= std.math.maxInt(u32)) return id;
                 if (v.level > level) {
                     const polymorphic = try self.newVar(allocator, std.math.maxInt(u32));
                     try self.subst.put(allocator, id, polymorphic);
