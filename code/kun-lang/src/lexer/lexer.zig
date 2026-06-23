@@ -448,7 +448,6 @@ fn readNumber(state: *LexerState, start: ast.SourceLoc) !void {
                 return;
             },
             'm' => {
-                // Check for ms or min
                 if (state.peekN(1)) |n| {
                     if (n == 's') {
                         _ = state.advance(); // m
@@ -456,19 +455,7 @@ fn readNumber(state: *LexerState, start: ast.SourceLoc) !void {
                         try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
                         return;
                     }
-                    if (n == 'i') {
-                        if (state.peekN(2)) |n2| {
-                            if (n2 == 'n') {
-                                _ = state.advance(); // m
-                                _ = state.advance(); // i
-                                _ = state.advance(); // n
-                                try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
-                                return;
-                            }
-                        }
-                    }
                 }
-                // single m = minute
                 _ = state.advance();
                 try state.pushToken(.duration_literal, state.source[start.offset..state.pos], state.span(start));
                 return;

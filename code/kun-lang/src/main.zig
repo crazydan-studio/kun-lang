@@ -58,7 +58,19 @@ fn dumpAST(decls: []const parser.Decl, source: []const u8) void {
     _ = source;
     std.log.info("=== AST dump: {} declarations ===", .{decls.len});
     for (decls, 0..) |decl, i| {
-        std.log.info("  [{}] {s}", .{ i, @tagName(decl) });
+        switch (decl) {
+            .import => |imp| std.log.info("  [{d}] import {s}", .{ i, imp.module }),
+            .export_ => |exp| {
+                std.log.info("  [{d}] export", .{i});
+                for (exp.names) |name| std.log.info("        {s}", .{name});
+            },
+            .function_def => |f| {
+                std.log.info("  [{d}] function_def {s}", .{ i, f.name });
+                std.log.info("        params: {}", .{f.params.len});
+                std.log.info("        span: {d}:{d}-{d}:{d}", .{ f.span.start.line, f.span.start.col, f.span.end.line, f.span.end.col });
+            },
+            .type_def => |t| std.log.info("  [{d}] type_def {s}", .{ i, t.name }),
+        }
     }
     std.log.info("=== end ===", .{});
 }

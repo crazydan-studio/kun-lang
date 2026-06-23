@@ -541,9 +541,16 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                     .int_literal, .float_literal, .string_literal, .multiline_string,
                     .path_literal, .regex_literal, .char_literal, .bytes_literal,
                     .kw_true, .kw_false, .kw_nil, .duration_literal,
-                    .ident, .type_ident,
                     .lparen, .lbrack, .lbrace, .hash_lparen, .hash_lbrack, .hash_lbrace,
                     .minus, .kw_not, .backslash => {
+                        const arg = try parsePrefix(state);
+                        try args.append(state.allocator, try heapExpr(state, &arg));
+                    },
+                    .ident => {
+                        const next_slice = state.tokens[state.pos].slice;
+                        if (std.mem.eql(u8, next_slice, "import") or
+                            std.mem.eql(u8, next_slice, "export"))
+                            break;
                         const arg = try parsePrefix(state);
                         try args.append(state.allocator, try heapExpr(state, &arg));
                     },
