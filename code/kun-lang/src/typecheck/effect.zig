@@ -3,6 +3,7 @@ const ast = @import("../ast/ast.zig");
 const typed = @import("../ast/typed.zig");
 const primitive = @import("../runtime/primitive.zig");
 const error_mod = @import("error.zig");
+const env_mod = @import("env.zig");
 
 const TypeError = error_mod.TypeError;
 const ErrorList = error_mod.ErrorList;
@@ -102,10 +103,8 @@ pub fn checkDuplicateBindings(allocator: std.mem.Allocator, bindings: []const as
 }
 
 pub fn checkPureFunctionBody(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
-    _ = allocator;
-    _ = errors;
     if (hasEffectInExpr(body)) {
-        return error.EffectInPure;
+        try errors.add(allocator, .{ .effect_in_pure = .{ .called_func = "effect call in pure function", .span = exprSpan(body) } });
     }
 }
 
@@ -253,30 +252,33 @@ pub fn checkEmptyBody(allocator: std.mem.Allocator, body: *const ast.Expr, conte
 
 pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, typed_result: ?*const typed.TypedExpr, errors: *ErrorList) !void {
     if (typed_result) |tr| {
-        if (tr.type_ == typed.unit_t) {
+        if (tr.type_ == env_mod.unit_type) {
             try errors.add(allocator, .{ .pure_unit_return = .{ .func_name = "do in result", .span = exprSpan(body) } });
         }
     }
 }
 
-pub fn checkEffectCallback(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
+pub fn checkEffectCallback(allocator: std.mem.Allocator, has_effect: bool, has_bang: bool, span: ast.Span, errors: *ErrorList) !void {
+    if (has_bang and !has_effect) {
+        try errors.add(allocator, .{ .effect_callback_mismatch = .{ .func_name = "bang callback", .param = 0, .result = 0, .span = span } });
+    }
 }
 
-pub fn checkCmdInDo(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
+pub fn checkCmdInDo(allocator: std.mem.Allocator, name: []const u8, in_do: bool, span: ast.Span, errors: *ErrorList) !void {
+    if (!in_do and isEffectNamespaceCall(name)) {
+        try errors.add(allocator, .{ .effect_in_pure = .{ .called_func = name, .span = span } });
+    }
 }
 
-pub fn checkPipeCommand(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
+pub fn checkPipeCommand(allocator: std.mem.Allocator, is_command: bool, in_do: bool, span: ast.Span, errors: *ErrorList) !void {
+    if (is_command and !in_do) {
+        try errors.add(allocator, .{ .command_not_consumed = .{ .cmd_name = "pipe command", .span = span } });
+    }
 }
 
 pub fn checkImplicitDo(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
-    _ = errors;
     _ = allocator;
+    _ = errors;
     _ = body;
 }
 
@@ -290,17 +292,23 @@ pub fn checkCommandConsumption(allocator: std.mem.Allocator, errors: *ErrorList)
     _ = allocator;
 }
 
-pub fn checkUnusedBindings(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
+pub fn checkUnusedBindings(allocator: std.mem.Allocator, names: []const []const u8, used: []const bool, errors: *ErrorList) !void {
+    for (names, used, 0..) |name, is_used, i| {
+        _ = i;
+        if (!is_used) {
+            try errors.add(allocator, .{ .effect_in_let = .{ .called_func = name, .span = .{ .start = .{ .line = 0, .col = 0, .offset = 0 }, .end = .{ .line = 0, .col = 0, .offset = 0 } } } });
+        }
+    }
 }
 
-pub fn checkUnusedResult(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
+pub fn checkUnusedResult(allocator: std.mem.Allocator, is_pure: bool, span: ast.Span, errors: *ErrorList) !void {
+    if (is_pure) {
+        try errors.add(allocator, .{ .effect_in_let = .{ .called_func = "unused result", .span = span } });
+    }
 }
 
-pub fn checkPureExprLast(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
-    _ = allocator;
+pub fn checkPureExprLast(allocator: std.mem.Allocator, is_pure: bool, span: ast.Span, errors: *ErrorList) !void {
+    if (is_pure) {
+        try errors.add(allocator, .{ .effect_in_let = .{ .called_func = "pure expr last", .span = span } });
+    }
 }

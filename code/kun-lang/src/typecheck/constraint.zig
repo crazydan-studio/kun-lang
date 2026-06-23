@@ -236,6 +236,7 @@ pub fn inferExpr(
             }
             try effect_mod.checkLetInPurity(allocator, v.bindings, v.body, errors);
             try effect_mod.checkEmptyBody(allocator, v.body, "let in", errors);
+            try effect_mod.checkDoLetExclusion(allocator, v.body, errors);
 
             for (v.bindings) |b| {
                 const typed_val = try inferExpr(allocator, b.value, env, errors);
@@ -256,6 +257,7 @@ pub fn inferExpr(
             defer typed_stmts.deinit(ea);
 
             try effect_mod.checkEmptyBody(allocator, expr, "do block", errors);
+            try effect_mod.checkDoLetExclusion(allocator, expr, errors);
 
             {
                 var names: std.StringHashMapUnmanaged(void) = .empty;
@@ -288,10 +290,10 @@ pub fn inferExpr(
             const typed_else = try inferExpr(allocator, v.else_, env, errors);
             const node = try ea.create(TypedExpr);
             const result_type = exprType(typed_then);
-            unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch |err| switch (err) {
-                error.Mismatch => try errors.add(allocator, .{ .if_branch_mismatch = .{ .then_type = result_type, .else_type = exprType(typed_else), .span = v.span } }),
-                else => {},
+            unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch {
+                try errors.add(allocator, .{ .if_branch_mismatch = .{ .then_type = result_type, .else_type = exprType(typed_else), .span = v.span } });
             };
+            unify_mod.unify(env, allocator, exprType(typed_cond), bool_type) catch {};
             node.* = TypedExpr{ .if_expr = .{ .cond = typed_cond, .then = typed_then, .else_ = typed_else, .type_ = result_type, .span = v.span } };
             return node;
         },
@@ -531,7 +533,38 @@ pub fn inferExpr(
             node.* = TypedExpr{ .set_literal = .{ .items = try typed_items.toOwnedSlice(ea), .type_ = set_id, .span = v.span } };
             return node;
         },
-        .record_update, .range_literal, .ternary => return error.Unimplemented,
+        .record_update => |v| {
+            const typed_rec = try inferExpr(allocator, v.record, env, errors);
+            var typed_fields: std.ArrayListUnmanaged(RecordField) = .empty;
+            defer typed_fields.deinit(ea);
+            for (v.fields) |f| {
+                const typed_val = try inferExpr(allocator, f.value, env, errors);
+                try typed_fields.append(ea, RecordField{ .name = f.name, .value = typed_val });
+            }
+            const result_id = try env.newVar(allocator, std.math.maxInt(u32));
+            const node = try ea.create(TypedExpr);
+            node.* = TypedExpr{ .record_update = .{ .record = typed_rec, .fields = try typed_fields.toOwnedSlice(ea), .type_ = result_id, .span = v.span } };
+            return node;
+        },
+        .range_literal => |v| {
+            const typed_from = try inferExpr(allocator, v.from, env, errors);
+            const typed_to = try inferExpr(allocator, v.to, env, errors);
+            const typed_step = if (v.step) |s| try inferExpr(allocator, s, env, errors) else null;
+            const result_id = try env.newVar(allocator, std.math.maxInt(u32));
+            const node = try ea.create(TypedExpr);
+            node.* = TypedExpr{ .range_literal = .{ .from = typed_from, .to = typed_to, .step = typed_step, .type_ = result_id, .span = v.span } };
+            return node;
+        },
+        .ternary => |v| {
+            const typed_cond = try inferExpr(allocator, v.cond, env, errors);
+            const typed_then = try inferExpr(allocator, v.then, env, errors);
+            const typed_else = try inferExpr(allocator, v.else_, env, errors);
+            const result_type = exprType(typed_then);
+            unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch {};
+            const node = try ea.create(TypedExpr);
+            node.* = TypedExpr{ .ternary = .{ .cond = typed_cond, .then = typed_then, .else_ = typed_else, .type_ = result_type, .span = v.span } };
+            return node;
+        },
     };
 }
 
@@ -585,8 +618,6 @@ pub fn isEffectNamespaceCall(name: []const u8) bool {
     return @import("../runtime/primitive.zig").isEffectBinding(name);
 }
 
-const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
-
 fn isCommandIdent(expr: *const ast.Expr) bool {
     if (expr.* == .ident) {
         const name = expr.ident.name;
@@ -596,12 +627,5 @@ fn isCommandIdent(expr: *const ast.Expr) bool {
 }
 
 fn isKnownCmdApi(name: []const u8) bool {
-    if (!std.mem.startsWith(u8, name, "Cmd.")) return false;
-    const rest = name["Cmd.".len..];
-    if (std.mem.containsAtLeast(u8, rest, 1, "?")) return true;
-    if (std.mem.containsAtLeast(u8, rest, 1, "!")) return true;
-    for (known_cmd_apis) |api| {
-        if (std.mem.eql(u8, rest, api)) return true;
-    }
-    return false;
+    return @import("../runtime/cmd.zig").isKnownCmdApi(name);
 }
