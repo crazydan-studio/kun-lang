@@ -109,7 +109,7 @@ test "Phase4 dotted name lookup fails for unknown module" {
 
 test "Phase4 primitive table has 12 bindings" {
     const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
-    try std.testing.expectEqual(@as(usize, 12), table.bindings.len);
+    try std.testing.expectEqual(@as(usize, 18), table.bindings.len);
 }
 
 fn lookupBinding(table: primitive.PrimitiveTable, module: []const u8, name: []const u8) bool {
@@ -240,7 +240,7 @@ test "Phase4 primitive table binding count consistent" {
     const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
     var count: usize = 0;
     for (table.bindings) |_| count += 1;
-    try std.testing.expectEqual(@as(usize, 12), count);
+    try std.testing.expectEqual(@as(usize, 18), count);
 }
 
 test "Phase4 isEffectBinding true for bare effect namespace names" {
@@ -325,7 +325,7 @@ test "Phase4 all bindings have valid signature" {
     for (table.bindings) |b| {
         _ = b.signature;
     }
-    try std.testing.expectEqual(@as(usize, 12), table.bindings.len);
+    try std.testing.expectEqual(@as(usize, 18), table.bindings.len);
 }
 
 test "Phase4 all bindings have non-null fn_ptr" {
