@@ -102,6 +102,42 @@ fn whichImpl(env: *RuntimeEnv, args: *const Value) Value {
     return Value{ .nil = {} };
 }
 
+fn streamLinesImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn streamIterImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .unit = {} };
+}
+
+fn streamFoldImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .unit = {} };
+}
+
+fn streamToListImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn streamStringImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .string = "" };
+}
+
+fn streamBytesImpl(env: *RuntimeEnv, args: *const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .bytes = &.{} };
+}
+
 pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, comptime unit_t: TypeId, comptime stream_string_t: TypeId) PrimitiveTable {
     const bindings = [_]PrimitiveBinding{
         .{ .module = "IO", .name = "println", .fn_ptr = printlnImpl, .signature = unit_t, .is_effect = true },
@@ -116,9 +152,14 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "Process", .name = "uid", .fn_ptr = uidImpl, .signature = int_t, .is_effect = true },
         .{ .module = "Process", .name = "gid", .fn_ptr = gidImpl, .signature = int_t, .is_effect = true },
         .{ .module = "Cmd", .name = "which", .fn_ptr = whichImpl, .signature = string_t, .is_effect = true },
+        .{ .module = "Stream", .name = "lines", .fn_ptr = streamLinesImpl, .signature = stream_string_t, .is_effect = false },
+        .{ .module = "Stream", .name = "iter", .fn_ptr = streamIterImpl, .signature = unit_t, .is_effect = true },
+        .{ .module = "Stream", .name = "fold", .fn_ptr = streamFoldImpl, .signature = unit_t, .is_effect = false },
+        .{ .module = "Stream", .name = "toList", .fn_ptr = streamToListImpl, .signature = unit_t, .is_effect = false },
+        .{ .module = "Stream", .name = "string", .fn_ptr = streamStringImpl, .signature = string_t, .is_effect = false },
+        .{ .module = "Stream", .name = "bytes", .fn_ptr = streamBytesImpl, .signature = int_t, .is_effect = false },
     };
     if (int_t > 0) {} else {}
-    _ = stream_string_t;
     return .{ .bindings = &bindings };
 }
 

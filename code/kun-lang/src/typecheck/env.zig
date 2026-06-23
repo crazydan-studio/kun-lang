@@ -24,6 +24,7 @@ pub const TypeEnv = struct {
     subst: std.AutoArrayHashMapUnmanaged(TypeId, TypeId),
     _allocator: std.mem.Allocator,
     expr_arena: std.heap.ArenaAllocator,
+    let_types: std.StringHashMapUnmanaged(TypeId) = .empty,
 
     pub fn init(allocator: std.mem.Allocator) !TypeEnv {
         var types: std.ArrayListUnmanaged(Type) = .empty;

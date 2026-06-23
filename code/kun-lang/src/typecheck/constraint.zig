@@ -185,6 +185,8 @@ pub fn inferExpr(
             const node = try ea.create(TypedExpr);
             const ty = if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name))
                 command_type
+            else if (env.let_types.get(v.name)) |poly_id|
+                try env.freshInstance(allocator, poly_id)
             else
                 try env.newVar(allocator, std.math.maxInt(u32));
             node.* = TypedExpr{ .ident = .{ .name = v.name, .type_ = ty, .span = v.span } };
@@ -244,12 +246,20 @@ pub fn inferExpr(
             try effect_mod.checkEmptyBody(allocator, expr, "let in", errors);
             try effect_mod.checkDoLetExclusion(allocator, expr, errors);
 
+            const saved_let_types = env.let_types;
+            defer {
+                env.let_types.deinit(ea);
+                env.let_types = saved_let_types;
+            }
+            env.let_types = .empty;
+
             for (v.bindings) |b| {
                 const typed_val = try inferExpr(allocator, b.value, env, errors);
                 const generalized = try env.generalize(allocator, exprType(typed_val), 1);
                 const gen_val = try ea.create(TypedExpr);
                 gen_val.* = typed_val.*;
                 setExprType(gen_val, generalized);
+                try env.let_types.put(ea, b.name, generalized);
                 try typed_bindings.append(ea, Binding{ .name = b.name, .value = gen_val });
             }
             const typed_body = try inferExpr(allocator, v.body, env, errors);
