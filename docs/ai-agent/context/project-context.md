@@ -6,9 +6,9 @@
 |---|---|
 | 项目名称 | Kun（鲲） |
 | 项目类型 | 编程语言设计与实现 |
-| 当前版本 | 0.1.0（Phase 6 实施中：Map/Set 哈希表完成、Parser 语法补齐 4/10、效应检查器接线、Stream 消费检查体） |
+| 当前版本 | 0.1.0（Phase 6 全部完成，470 测试通过，28/37 审计缺陷修复） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
-| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-5 实现完成；Phase 6 审计缺陷修复中（519 测试全通过，Map/Set 可用，效应检查器接线完成） |
+| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-6 全部完成；标准库 95% 真实实现，效应检查完备，Parser 9/10 语法补齐 |
 | 宿主语言 | Zig（锁定 0.17.0-dev，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
@@ -19,9 +19,9 @@
 |---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型 — 实现推迟 v0.2）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型）、模块系统搜索路径设计（定型 — Phase 6 实施） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 6 进行中：Step 1-3 完成（Map/Set 哈希表、Parser 4/10 语法、效应检查器接线+消费体）；待执行：Stream.iter/fold（eval_fn 注入）、File 流操作、JSON（std.json）、Parser 剩余 6 语法、质量加固；Regex/DateTime 推迟 v1.1；CLI 沙箱推迟 v0.2 |
-| 最近完成 | Phase 6 Steps 1-3：hash_map.zig（~280 行）→ Map/Set 8 存根替换 + 字面量求值 + Env.list 真实化；Parser 三元/范围/Record更新/import 路径；效应检查 checkCmdInDo 接线 + Stream/Command 消费检查体；519 测试全通过 |
-| 推迟项 | Regex 引擎 + Validator → v1.1；DateTime 格式化 → v1.1；沙箱（Landlock/seccomp/rlimit）→ v0.2；Kun Shell → v2.0；等递归类型 → v0.3 |
+| 活跃计划 | Phase 6 全部完成（7 Steps，470 测试）；待执行：模块系统搜索路径、CLI 沙箱推迟 v0.2 |
+| 最近完成 | Phase 6 全部 7 Steps：Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 函数接线、Stream.iter/fold/range/pipe、File 25 函数全真实、JSON(std.json)、glob 引擎、质量加固；审计缺陷修复 28/37 项 |
+| 推迟项 | Regex 引擎 + Validator → v1.1；DateTime 格式化 → v1.1；沙箱（Landlock/seccomp/rlimit）→ v0.2；Kun Shell → v2.0；等递归类型 → v0.3；模块系统搜索路径 → Phase 7 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -51,7 +51,9 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
-| 2026-06-24 | Phase 6 实施 Steps 1-3：Map/Set 哈希表 + Parser 语法补齐 + 效应检查器接线 + Stream/Command 消费检查体 | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
+| 2026-06-24 | Phase 6 全面审计 + 缺陷修复（28/37）：walkDir UAF、中置 spread、effect 变体、streamRange step、write 错误检查、envList 泄漏、whichImpl PATH、jsonToString map、record_update 类型、.error_ 合一、cmdPipe arg_count、checkDoInResult 代换、compose 错误消息、stream 帧泄漏、ternary 优先级等 | 审计+修复 | ✅ 全部 owner docs | ✅ - | `implement` |
+| 2026-06-24 | Phase 6 Steps 4-7 完成：Stream.iter/fold（eval_fn 注入）、File 25 函数全真实（copy/rename/removeAll/atomicWrite/walkDir/glob/statx 等）、JSON(std.json)、质量加固（span/内存泄漏/narrowType/docs） | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
+| 2026-06-24 | Phase 6 Steps 1-3：Map/Set 哈希表 + Parser 语法补齐 + 效应检查器接线 + Stream/Command 消费检查体 | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
 | 2026-06-24 | Phase 5 实施（Steps 6-8）：Stream 新注册 + 加密/编码/解析/日期 + 构建通过 | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
 | 2026-06-24 | Phase 5 实施（Steps 3-5）：基础 syscall stub→real + IO/Env/Process 扩展 + 数据结构（List/Map/Set/String/Bytes） | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
 | 2026-06-24 | 测试规范重构：35→8 tests（列表+循环模式）+ conventions.md 新增测试编写规范 | 重构+文档 | ✅ conventions | ✅ writing-conventions | `implement` |
@@ -96,6 +98,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.24 | Phase 6 全部完成（7 Steps，470 测试）：Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 函数接线、Stream.iter/fold/range/pipe、File 25 函数全真实（含 statx/walkDir/glob/copy/atomicWrite）、JSON(std.json)、glob_engine.zig、质量加固（span/内存泄漏/narrowType/docs）；审计缺陷修复 28/37 项 |
 | 2026.06.24 | Phase 5 实施完成：前置架构修复（A1-A4, R2, F9-F11）+ Steps 1-5（签名注册 + Stream + Syscall + 数据结构），106 Primitive 绑定；Primitive 拆分为 5 子模块（子目录 primitive/）；测试重构（50→13 tests，列表+循环模式） |
 | 2026.06.23 | 版本路线图重构：模块系统搜索路径提升至 v0.1；CLI 沙箱推迟至 v0.2；Cli.parse/show + Parser.Record + Random.* + 类型化命令模块 + Hash.md5 提升至 v0.3；Task.spawn/all 提升至 v0.4；kun doc 推迟至 v0.5；Test 推迟至 v1.2；移除 PlantUML 图表任务 |
 | 2026.06.23 | Phase 4 实现完成：PrimitiveTable 管道 + 12 Primitive + 效应接线（8/11）+ i18n.zig（24 msgid）+ cmd.zig + TypedExpr 补全 + Phase 1-3 深度审计（44 项修复）+ 双代理测试审计（545 测试收敛） |

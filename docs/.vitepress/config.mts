@@ -303,6 +303,7 @@ function sidebarWorking() {
           { text: 'Phase 3 — 标准库基础+效应补齐+错误消息完整化+Cmd命令调用', link: '/ai-agent/plans/plan-implementation-phase-3' },
           { text: 'Phase 4 — 效应检查完成+命令系统+HM完备化', link: '/ai-agent/plans/plan-implementation-phase-4' },
           { text: 'Phase 5 — 标准库 Primitives 补全+Stream 函数体', link: '/ai-agent/plans/plan-implementation-phase-5' },
+          { text: 'Phase 6 — 审计缺陷收官+基础设施补齐', link: '/ai-agent/plans/plan-implementation-phase-6' },
         ],
       },
       {
