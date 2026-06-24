@@ -117,6 +117,13 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
         .kw_import => {
             _ = state.advance();
             const module_tok = state.advance();
+            var module_name = module_tok.slice;
+            while (state.peek() == .dot) {
+                _ = state.advance();
+                const next = state.advance();
+                const combined = try std.fmt.allocPrint(state.allocator, "{s}.{s}", .{ module_name, next.slice });
+                module_name = combined;
+            }
             var alias: ?[]const u8 = null;
             if (state.peek() == .kw_as) {
                 _ = state.advance();
@@ -124,7 +131,7 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
                 alias = alias_tok.slice;
             }
             return Decl{ .import = .{
-                .module = module_tok.slice,
+                .module = module_name,
                 .alias = alias,
                 .span = state.span(start),
             } };
@@ -274,7 +281,19 @@ fn parseBinaryOp(state: *ParserState, min_prec: u8) ParserError!Expr {
         const kind = state.peek();
         // Stop at expression terminators
         if (kind == .rbrace or kind == .rbrack or kind == .rparen or kind == .comma or kind == .eof) break;
-        
+
+        // Handle ternary ?:
+        if (kind == .question) {
+            _ = state.advance();
+            const then_expr = try parseExpr(state);
+            try state.expect(.colon);
+            const else_expr = try parseExpr(state);
+            const start_span = spanOf(&left).start;
+            const end_span = spanOf(&else_expr).end;
+            left = Expr{ .ternary = .{ .cond = try heapExpr(state, &left), .then = try heapExpr(state, &then_expr), .else_ = try heapExpr(state, &else_expr), .span = .{ .start = start_span, .end = end_span } } };
+            continue;
+        }
+
         const prec_info = getPrecedence(kind);
         if (prec_info) |info| {
             if (info.prec < min_prec) break;
@@ -631,7 +650,30 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         .lbrack => {
             _ = state.advance();
             var items = std.ArrayListUnmanaged(ExprItem).empty;
+            if (state.peek() == .rbrack) {
+                _ = state.advance();
+                return Expr{ .list_literal = .{ .items = &.{}, .span = Span{ .start = start, .end = state.current().span.end } } };
+            }
+            const first = try parseExpr(state);
+            // Check for range literal: [expr .. expr]
+            if (state.peek() == .dot and state.pos + 1 < state.tokens.len and state.tokens[state.pos + 1].kind == .dot) {
+                const after_dots = if (state.pos + 2 < state.tokens.len) state.tokens[state.pos + 2].kind else null;
+                if (after_dots != null and after_dots != .rbrack and after_dots != .comma) {
+                    _ = state.advance(); // .
+                    _ = state.advance(); // .
+                    const to = try parseExpr(state);
+                    const step = if (state.peek() == .dot and state.pos + 1 < state.tokens.len and state.tokens[state.pos + 1].kind == .dot) blk: {
+                        _ = state.advance();
+                        _ = state.advance();
+                        break :blk try heapExpr(state, &(try parseExpr(state)));
+                    } else null;
+                    try state.expect(.rbrack);
+                    return Expr{ .range_literal = .{ .from = try heapExpr(state, &first), .to = try heapExpr(state, &to), .step = step, .span = Span{ .start = start, .end = state.current().span.end } } };
+                }
+            }
+            try items.append(state.allocator, .{ .expr = try heapExpr(state, &first) });
             while (state.peek() != .rbrack and state.peek() != .eof) {
+                if (state.peek() == .comma) _ = state.advance();
                 if (state.peek() == .dot and state.pos + 1 < state.tokens.len and state.tokens[state.pos + 1].kind == .dot) {
                     _ = state.advance(); // .
                     _ = state.advance(); // .
@@ -641,7 +683,6 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                 }
                 const item = try parseExpr(state);
                 try items.append(state.allocator, .{ .expr = try heapExpr(state, &item) });
-                if (state.peek() == .comma) _ = state.advance();
             }
             try state.expect(.rbrack);
             const span = Span{ .start = start, .end = state.current().span.end };
@@ -649,7 +690,38 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         },
         .lbrace => {
             _ = state.advance();
+            if (state.peek() == .rbrace) {
+                _ = state.advance();
+                return Expr{ .record_literal = .{ .fields = &.{}, .span = Span{ .start = start, .end = state.current().span.end } } };
+            }
+            // Try parsing as record update: { expr | field = value, ... }
+            const first = try parseExpr(state);
+            if (state.peek() == .pipe_pat) {
+                _ = state.advance();
+                var fields = std.ArrayListUnmanaged(ast.RecordField).empty;
+                while (state.peek() != .rbrace and state.peek() != .eof) {
+                    const name_tok = state.advance();
+                    try state.expect(.assign);
+                    const value = try parseExpr(state);
+                    try fields.append(state.allocator, .{ .name = name_tok.slice, .value = try heapExpr(state, &value) });
+                    if (state.peek() == .comma) _ = state.advance();
+                }
+                try state.expect(.rbrace);
+                const span = Span{ .start = start, .end = state.current().span.end };
+                return Expr{ .record_update = .{ .record = try heapExpr(state, &first), .fields = fields.items, .span = span } };
+            }
+            // Fall through: record literal
             var fields = std.ArrayListUnmanaged(ast.RecordField).empty;
+            if (first == .ident and state.peek() == .assign) {
+                const name = first.ident.name;
+                _ = state.advance(); // =
+                const value = try parseExpr(state);
+                try fields.append(state.allocator, .{ .name = name, .value = try heapExpr(state, &value) });
+                if (state.peek() == .comma) _ = state.advance();
+            } else {
+                // Expression without = or |: treat as record literal with expr value
+                try fields.append(state.allocator, .{ .name = "_", .value = try heapExpr(state, &first) });
+            }
             while (state.peek() != .rbrace and state.peek() != .eof) {
                 const name_tok = state.advance();
                 try state.expect(.assign);
