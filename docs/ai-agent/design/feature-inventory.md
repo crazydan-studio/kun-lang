@@ -26,7 +26,7 @@
 | Signal | ✅ 设计定型 | POSIX 信号枚举，`Signal.on`（signalfd），仅可执行脚本可用 |
 | IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
 | CommandError | ✅ 设计定型 | 语义化命令错误类型（NotFound/PermissionDenied/CommandFailed/KilledBySignal/IoError/PipeFailed/Timeout） |
-| DateTime | ✅ 设计定型 | newtype，`format` 返回 `Result String String` |
+| DateTime | ✅ 设计定型 [推迟 v1.1] | newtype，`format` 返回 `Result String String` |
 | Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型（Int newtype） |
 | Decimal | ✅ 设计定型 | 精确十进制数值（非编译器内置） |
 
@@ -37,7 +37,7 @@
 | Function | ✅ 设计定型 | `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`，始终缺省可用 |
 | Nil | ✅ 设计定型 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`，变体 `Nil` 缺省可用，函数需显式导入 |
 | String | ✅ 设计定型 | `toString`（编译器级泛型）+ 类型互转函数 |
-| Regex | ✅ 设计定型 | 正则匹配与替换（`fromString` 运行时构造） |
+| Regex | ✅ 设计定型 [推迟 v1.1] | 正则匹配与替换（`fromString` 运行时构造） |
 | Bytes | ✅ 设计定型 | 二进制编解码（`toHex`/`fromHex`） |
 | List | ✅ 设计定型 | 不可变列表查询与变换 |
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
@@ -55,7 +55,7 @@
 | Hash | ✅ 设计定型 | SHA-256 哈希（`sha256`/`sha256Hex`；`md5` 推迟 v0.3） |
 | Base64 | ✅ 设计定型 | Base64 编解码（`encode`/`decode`） |
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
-| Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
+| Validator | ✅ 设计定型 [推迟 v1.1] | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用（依赖 Regex） |
 | Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
 | Path | ✅ 设计定型 | `parent`/`fileName`/`extension`/`join`/`(++)`/`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`/`toString` |
