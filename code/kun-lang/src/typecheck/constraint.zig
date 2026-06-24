@@ -266,6 +266,10 @@ pub fn inferExpr(
             const func_type = exprType(typed_func);
             const arg_type = exprType(typed_arg);
             const is_effect_fn = env.isEffectFn(func_type);
+            if (is_effect_fn and typed_arg.* == .ident) {
+                const arg_has_effect = effect_mod.isEffectNamespaceCall(typed_arg.ident.name);
+                try effect_mod.checkEffectCallback(allocator, arg_has_effect, true, v.span, errors);
+            }
             const expected_fn = try env.registerFunctionType(allocator, is_effect_fn, arg_type, result_id);
             unify_mod.unify(env, allocator, func_type, expected_fn) catch |err| switch (err) {
                 error.Mismatch => {
@@ -574,7 +578,7 @@ pub fn inferExpr(
             const left_fn = try env.registerFunctionType(allocator, false, param_name[0].type_, intermediate_id);
             unify_mod.unify(env, allocator, exprType(typed_left), left_fn) catch |err| {
                 switch (err) {
-                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-left", .expected = param_name[0].type_, .found = param_name[0].type_, .span = v.span } }),
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-left", .expected = param_name[0].type_, .found = exprType(typed_left), .span = v.span } }),
                     error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
                     else => {},
                 }
@@ -582,7 +586,7 @@ pub fn inferExpr(
             const right_fn = try env.registerFunctionType(allocator, false, intermediate_id, result_id);
             unify_mod.unify(env, allocator, exprType(typed_right), right_fn) catch |err| {
                 switch (err) {
-                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-right", .expected = intermediate_id, .found = intermediate_id, .span = v.span } }),
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-right", .expected = intermediate_id, .found = exprType(typed_right), .span = v.span } }),
                     error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
                     else => {},
                 }
@@ -609,7 +613,7 @@ pub fn inferExpr(
             const right_fn = try env.registerFunctionType(allocator, false, param_name[0].type_, intermediate_id);
             unify_mod.unify(env, allocator, exprType(typed_right), right_fn) catch |err| {
                 switch (err) {
-                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-left", .expected = param_name[0].type_, .found = param_name[0].type_, .span = v.span } }),
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-left", .expected = param_name[0].type_, .found = exprType(typed_right), .span = v.span } }),
                     error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
                     else => {},
                 }
@@ -617,7 +621,7 @@ pub fn inferExpr(
             const left_fn = try env.registerFunctionType(allocator, false, intermediate_id, result_id);
             unify_mod.unify(env, allocator, exprType(typed_left), left_fn) catch |err| {
                 switch (err) {
-                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-right", .expected = intermediate_id, .found = intermediate_id, .span = v.span } }),
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-right", .expected = intermediate_id, .found = exprType(typed_left), .span = v.span } }),
                     error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
                     else => {},
                 }
