@@ -80,7 +80,8 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .call => |v| {
             const func = try eval(v.func, frame, allocator);
             const arg = try eval(v.arg, frame, allocator);
-            return apply(func, arg, allocator);
+            const eval_opaque: ?*anyopaque = @ptrCast(@constCast(&eval));
+            return apply(func, arg, allocator, eval_opaque);
         },
         .let_in => |v| {
             const local = try allocator.create(Frame);
@@ -131,11 +132,13 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
                 const cmd = left.command;
                 if (cmd.bin.len > 0) {
                     const stream_node = cmd_mod.execCommand(&cmd, allocator) catch return error.Unimplemented;
-                    return apply(right, Value{ .stream = stream_node }, allocator);
+                    const eval_opaque2: ?*anyopaque = @ptrCast(@constCast(&eval));
+                    return apply(right, Value{ .stream = stream_node }, allocator, eval_opaque2);
                 }
                 return error.Unimplemented;
             }
-            return apply(right, left, allocator);
+            const eval_opaque3: ?*anyopaque = @ptrCast(@constCast(&eval));
+            return apply(right, left, allocator, eval_opaque3);
         },
         .pipe_reverse => @panic("unimplemented: pipe_reverse (should be desugared to call)"),
         .compose => @panic("unimplemented: compose (should be desugared to lambda+call)"),
@@ -182,7 +185,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
     };
 }
 
-fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value {
+fn apply(func: Value, arg: Value, allocator: std.mem.Allocator, eval_ptr: ?*anyopaque) EvalError!Value {
     return switch (func) {
         .closure => |c| {
             const frame = try allocator.create(Frame);
@@ -201,7 +204,7 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
             return eval(c.body, frame, allocator);
         },
         .primitive => |p| {
-            var renv = RuntimeEnv{ .frame = undefined, .primitives = .{ .bindings = &.{} }, .allocator = allocator };
+            var renv = RuntimeEnv{ .frame = undefined, .primitives = .{ .bindings = &.{} }, .allocator = allocator, .eval_fn = eval_ptr };
             const args = try allocator.alloc(Value, 1);
             args[0] = arg;
             return p(&renv, args);
@@ -214,7 +217,7 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
             if (p.remaining > 1) {
                 return Value{ .partial = .{ .fn_ptr = p.fn_ptr, .args = new_args, .remaining = p.remaining - 1 } };
             }
-            var renv = RuntimeEnv{ .frame = undefined, .primitives = .{ .bindings = &.{} }, .allocator = allocator };
+            var renv = RuntimeEnv{ .frame = undefined, .primitives = .{ .bindings = &.{} }, .allocator = allocator, .eval_fn = eval_ptr };
             return p.fn_ptr(&renv, new_args);
         },
         .command => |c| {

@@ -16,11 +16,19 @@ pub const RuntimeEnv = struct {
     frame: *Frame,
     primitives: PrimitiveTable,
     allocator: std.mem.Allocator,
+    eval_fn: ?*anyopaque = null,
 
     pub fn init(frame: *Frame, primitives: PrimitiveTable, allocator: std.mem.Allocator) RuntimeEnv {
-        return .{ .frame = frame, .primitives = primitives, .allocator = allocator };
+        return .{ .frame = frame, .primitives = primitives, .allocator = allocator, .eval_fn = null };
     }
 };
+
+pub const EvalFn = *const fn (expr: *const typed.TypedExpr, frame: *Frame, allocator: std.mem.Allocator) anyerror!Value;
+
+pub fn callEval(env: *RuntimeEnv, expr: *const typed.TypedExpr, frame: *Frame) anyerror!Value {
+    const fn_ptr: EvalFn = @ptrCast(@alignCast(env.eval_fn.?));
+    return fn_ptr(expr, frame, env.allocator);
+}
 
 pub const PrimitiveFn = *const fn (env: *RuntimeEnv, args: []const Value) Value;
 
