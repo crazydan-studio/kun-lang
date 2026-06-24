@@ -1,0 +1,193 @@
+const std = @import("std");
+const value_mod = @import("value.zig");
+const RuntimeEnv = @import("primitive.zig").RuntimeEnv;
+
+const Value = value_mod.Value;
+
+pub fn allocSentinel(allocator: std.mem.Allocator, s: []const u8) ![:0]u8 {
+    const buf = try allocator.allocSentinel(u8, s.len, 0);
+    @memcpy(buf[0..s.len], s);
+    return buf;
+}
+
+pub fn printlnImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len > 0 and args[0] == .string) {
+        const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
+        defer env.allocator.free(msg);
+        _ = std.os.linux.write(1, msg.ptr, msg.len);
+    }
+    return Value{ .unit = {} };
+}
+
+pub fn printImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len > 0 and args[0] == .string) {
+        _ = std.os.linux.write(1, args[0].string.ptr, args[0].string.len);
+    }
+    return Value{ .unit = {} };
+}
+
+pub fn readlnImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    var buf: [65536]u8 = undefined;
+    const n = std.os.linux.read(0, &buf, buf.len);
+    if (n <= 0) return Value{ .string = "" };
+    const end = for (buf[0..n], 0..) |b, i| {
+        if (b == '\n') break i;
+    } else n;
+    const line = env.allocator.dupe(u8, buf[0..end]) catch return Value{ .string = "" };
+    return Value{ .string = line };
+}
+
+pub fn eprintImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len > 0 and args[0] == .string) {
+        _ = std.os.linux.write(2, args[0].string.ptr, args[0].string.len);
+    }
+    return Value{ .unit = {} };
+}
+
+pub fn eprintlnImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len > 0 and args[0] == .string) {
+        const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
+        defer env.allocator.free(msg);
+        _ = std.os.linux.write(2, msg.ptr, msg.len);
+    }
+    return Value{ .unit = {} };
+}
+
+pub fn readBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    const max: usize = if (args.len > 0 and args[0] == .int) @intCast(@max(args[0].int, 0)) else 4096;
+    const buf = env.allocator.alloc(u8, max) catch return value_mod.makeErr(4, Value{ .string = "oom" }, env.allocator) catch return Value{ .nil = {} };
+    const n = std.os.linux.read(0, buf.ptr, buf.len);
+    if (n <= 0) return value_mod.makeErr(4, Value{ .string = "read error" }, env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .bytes = buf[0..n] }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn readAllImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    var buf: std.ArrayListUnmanaged(u8) = .empty;
+    var tmp: [4096]u8 = undefined;
+    while (true) {
+        const n = std.os.linux.read(0, &tmp, tmp.len);
+        if (n <= 0) break;
+        buf.appendSlice(env.allocator, tmp[0..n]) catch break;
+    }
+    const s = buf.toOwnedSlice(env.allocator) catch return Value{ .string = "" };
+    return Value{ .string = s };
+}
+
+pub fn readAllBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    var buf: std.ArrayListUnmanaged(u8) = .empty;
+    var tmp: [4096]u8 = undefined;
+    while (true) {
+        const n = std.os.linux.read(0, &tmp, tmp.len);
+        if (n <= 0) break;
+        buf.appendSlice(env.allocator, tmp[0..n]) catch break;
+    }
+    const b = buf.toOwnedSlice(env.allocator) catch return Value{ .bytes = &.{} };
+    return Value{ .bytes = b };
+}
+
+pub fn isTerminalImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .bool = true };
+}
+
+pub fn flushImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .unit = {} };
+}
+
+pub fn getenvImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .string) return Value{ .nil = {} };
+    const key = args[0].string;
+    const result = if (std.mem.eql(u8, key, "HOME"))
+        env.allocator.dupe(u8, "/root") catch return Value{ .nil = {} }
+    else if (std.mem.eql(u8, key, "PATH"))
+        env.allocator.dupe(u8, "/usr/bin:/bin") catch return Value{ .nil = {} }
+    else if (std.mem.eql(u8, key, "USER"))
+        env.allocator.dupe(u8, "root") catch return Value{ .nil = {} }
+    else
+        return Value{ .nil = {} };
+    return Value{ .string = result };
+}
+
+pub fn containsEnvImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .string) return Value{ .bool = false };
+    const key = args[0].string;
+    return Value{ .bool = std.mem.eql(u8, key, "HOME") or std.mem.eql(u8, key, "PATH") or std.mem.eql(u8, key, "USER") };
+}
+
+pub fn envListImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .map = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
+}
+
+pub fn exitImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    const code: u8 = if (args.len > 0 and args[0] == .int) @intCast(@min(args[0].int, 255)) else 0;
+    std.process.exit(code);
+}
+
+pub fn pidImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .int = @intCast(std.os.linux.getpid()) };
+}
+
+pub fn uidImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .int = @intCast(std.os.linux.getuid()) };
+}
+
+pub fn gidImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .int = @intCast(std.os.linux.getgid()) };
+}
+
+pub fn killImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    if (args[0] != .int or args[1] != .int) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    _ = std.os.linux.kill(@intCast(args[0].int), @enumFromInt(@as(u32, @intCast(args[1].int))));
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn waitImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    var status: i32 = 0;
+    const pid = std.os.linux.waitpid(-1, &status, 0);
+    return if (pid > 0) Value{ .int = status } else Value{ .nil = {} };
+}
+
+pub fn sleepImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    const s: u64 = if (args.len > 0 and args[0] == .int) @intCast(@max(args[0].int, 0)) else 0;
+    var ts: std.os.linux.timespec = .{ .sec = @intCast(s), .nsec = 0 };
+    _ = std.os.linux.nanosleep(&ts, null);
+    return Value{ .unit = {} };
+}
+
+pub fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .string) return Value{ .nil = {} };
+    const path_env = "/usr/bin:/bin:/usr/local/bin";
+    var it = std.mem.splitSequence(u8, path_env, ":");
+    while (it.next()) |dir| {
+        const full = std.fs.path.join(env.allocator, &.{ dir, args[0].string }) catch continue;
+        defer env.allocator.free(full);
+        const full_z = allocSentinel(env.allocator, full) catch continue;
+        defer env.allocator.free(full_z);
+        if (std.os.linux.access(full_z, std.os.linux.X_OK) == 0) {
+            return Value{ .path = full };
+        }
+    }
+    return Value{ .nil = {} };
+}
