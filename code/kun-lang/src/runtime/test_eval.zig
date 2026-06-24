@@ -1198,7 +1198,7 @@ test "eval ident lookup via PrimitiveTable" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type);
+    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type, tc_env.bool_type, tc_env.bytes_type);
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = @constCast(@ptrCast(&table)) };
 
     const expr = typed.TypedExpr{ .ident = .{ .name = "IO.println", .type_ = 0, .span = undefined } };
@@ -1211,7 +1211,7 @@ test "eval ident lookup PrimitiveTable File.readString" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type);
+    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type, tc_env.bool_type, tc_env.bytes_type);
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = @constCast(@ptrCast(&table)) };
 
     const expr = typed.TypedExpr{ .ident = .{ .name = "File.readString", .type_ = 0, .span = undefined } };
@@ -1224,7 +1224,7 @@ test "eval ident lookup PrimitiveTable unbound still error" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
-    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type);
+    const table = primitive_mod.buildPrimitiveTable(tc_env.int_type, tc_env.string_type, tc_env.unit_type, tc_env.string_type, tc_env.bool_type, tc_env.bytes_type);
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = @constCast(@ptrCast(&table)) };
 
     const expr = typed.TypedExpr{ .ident = .{ .name = "Undefined.var", .type_ = 0, .span = undefined } };

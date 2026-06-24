@@ -18,7 +18,7 @@ test "infer function with int body detects non-effect" {
         .{ .function_def = .{ .name = "f", .params = &.{}, .return_type = null, .body = body, .span = undefined } },
     };
 
-    const result = try infer_mod.infer(std.testing.allocator, &decls, &env);
+    const result = try infer_mod.infer(std.testing.allocator, &decls, &env, .{ .bindings = &.{} });
     try std.testing.expect(result.len == 1);
     try std.testing.expect(!result[0].kind.function_def.is_effect);
     try std.testing.expectEqual(env_mod.int_type, result[0].kind.function_def.type_);
@@ -42,7 +42,7 @@ test "infer function with do_block detects effect" {
         .{ .function_def = .{ .name = "f", .params = &.{}, .return_type = null, .body = body, .span = undefined } },
     };
 
-    const result = try infer_mod.infer(std.testing.allocator, &decls, &env);
+    const result = try infer_mod.infer(std.testing.allocator, &decls, &env, .{ .bindings = &.{} });
     try std.testing.expect(result.len == 1);
     try std.testing.expect(result[0].kind.function_def.is_effect);
 }
@@ -65,7 +65,7 @@ test "infer function with IO.println detects effect" {
         .{ .function_def = .{ .name = "f", .params = &.{}, .return_type = null, .body = body, .span = undefined } },
     };
 
-    const result = try infer_mod.infer(std.testing.allocator, &decls, &env);
+    const result = try infer_mod.infer(std.testing.allocator, &decls, &env, .{ .bindings = &.{} });
     try std.testing.expect(result.len == 1);
     try std.testing.expect(result[0].kind.function_def.is_effect);
 }
@@ -82,7 +82,7 @@ test "infer verifies non-effect function has correct flag" {
         .{ .function_def = .{ .name = "answer", .params = &.{}, .return_type = null, .body = body, .span = undefined } },
     };
 
-    const result = try infer_mod.infer(std.testing.allocator, &decls, &env);
+    const result = try infer_mod.infer(std.testing.allocator, &decls, &env, .{ .bindings = &.{} });
     try std.testing.expect(result.len == 1);
     try std.testing.expect(!result[0].kind.function_def.is_effect);
 }
@@ -103,7 +103,7 @@ test "infer multiple decls" {
         .{ .function_def = .{ .name = "g", .params = &.{}, .return_type = null, .body = b2, .span = undefined } },
     };
 
-    const result = try infer_mod.infer(std.testing.allocator, &decls, &env);
+    const result = try infer_mod.infer(std.testing.allocator, &decls, &env, .{ .bindings = &.{} });
     try std.testing.expectEqual(@as(usize, 2), result.len);
 }
 
@@ -132,7 +132,7 @@ test "infer function with effect call in do_block marked effect" {
         .{ .function_def = .{ .name = "f", .params = &.{}, .return_type = null, .body = body, .span = undefined } },
     };
 
-    const result = try infer_mod.infer(std.testing.allocator, &decls, &env);
+    const result = try infer_mod.infer(std.testing.allocator, &decls, &env, .{ .bindings = &.{} });
     try std.testing.expect(result.len == 1);
     try std.testing.expect(result[0].kind.function_def.is_effect);
 }

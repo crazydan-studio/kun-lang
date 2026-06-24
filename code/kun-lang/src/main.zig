@@ -39,7 +39,15 @@ pub fn main(init: std.process.Init) !void {
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
 
-    const typed_decls = typecheck.infer(allocator, decls, &type_env) catch |err| {
+    const primitives = primitive_mod.buildPrimitiveTable(
+        typecheck_env.int_type,
+        typecheck_env.string_type,
+        typecheck_env.unit_type,
+        typecheck_env.string_type,
+        typecheck_env.bool_type,
+        typecheck_env.bytes_type,
+    );
+    const typed_decls = typecheck.infer(allocator, decls, &type_env, primitives) catch |err| {
         if (err == error.TypeCheckFailed) {
             std.log.err("type check failed", .{});
             return err;
@@ -47,12 +55,6 @@ pub fn main(init: std.process.Init) !void {
         return err;
     };
 
-    const primitives = primitive_mod.buildPrimitiveTable(
-        typecheck_env.int_type,
-        typecheck_env.string_type,
-        typecheck_env.unit_type,
-        typecheck_env.string_type,
-    );
     try runtime.evalModule(typed_decls, allocator, primitives);
 }
 

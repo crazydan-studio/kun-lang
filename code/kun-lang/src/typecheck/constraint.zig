@@ -7,10 +7,13 @@ const unify_mod = @import("unify.zig");
 const error_mod = @import("error.zig");
 const pattern_mod = @import("pattern.zig");
 const effect_mod = @import("effect.zig");
+const primitive_mod = @import("../runtime/primitive.zig");
 
 const Type = typed.Type;
 const TypeId = typed.TypeId;
 const TypeEnv = env_mod.TypeEnv;
+const PrimitiveTable = primitive_mod.PrimitiveTable;
+const PrimitiveBinding = primitive_mod.PrimitiveBinding;
 const TypedExpr = typed.TypedExpr;
 const TypedDecl = typed.TypedDecl;
 const Param = typed.Param;
@@ -46,10 +49,13 @@ pub fn inferModule(
     decls: []const parser.Decl,
     env: *TypeEnv,
     errors: *ErrorList,
+    primitives: PrimitiveTable,
 ) InferenceError![]const TypedDecl {
     const ea = env.exprAllocator();
     var typed_decls: std.ArrayListUnmanaged(TypedDecl) = .empty;
     errdefer typed_decls.deinit(ea);
+
+    try registerPrimitiveSignatures(allocator, env, primitives);
 
     for (decls) |decl| {
         const typed_decl = try inferDecl(allocator, decl, env, errors);
@@ -58,6 +64,30 @@ pub fn inferModule(
 
     if (errors.hasErrors()) return error.TypeCheckFailed;
     return try typed_decls.toOwnedSlice(ea);
+}
+
+fn registerPrimitiveSignatures(
+    allocator: std.mem.Allocator,
+    env: *TypeEnv,
+    primitives: PrimitiveTable,
+) !void {
+    const ea = env.exprAllocator();
+    for (primitives.bindings) |binding| {
+        if (binding.is_polymorphic) continue;
+
+        const full_name = try std.fmt.allocPrint(ea, "{s}.{s}", .{ binding.module, binding.name });
+        var ty = binding.return_type;
+        var i: u8 = binding.arg_count;
+        while (i > 0) : (i -= 1) {
+            const param_ty = try env.newVar(allocator, 0);
+            ty = try env.registerFunctionType(allocator, binding.is_effect and i == 1, param_ty, ty);
+        }
+        if (binding.arg_count == 0) {
+            const dummy_param = try env.newVar(allocator, 0);
+            ty = try env.registerFunctionType(allocator, binding.is_effect, dummy_param, ty);
+        }
+        try env.let_types.put(ea, full_name, ty);
+    }
 }
 
 fn inferDecl(
@@ -225,6 +255,21 @@ pub fn inferExpr(
             const typed_func = try inferExpr(allocator, v.func, env, errors);
             const typed_arg = try inferExpr(allocator, v.arg, env, errors);
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
+            const func_type = exprType(typed_func);
+            const arg_type = exprType(typed_arg);
+            const expected_fn = try env.registerFunctionType(allocator, false, arg_type, result_id);
+            unify_mod.unify(env, allocator, func_type, expected_fn) catch |err| switch (err) {
+                error.Mismatch => {
+                    const func_name = if (typed_func.* == .ident) typed_func.ident.name else "function";
+                    try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = func_name, .expected = arg_type, .found = arg_type, .span = v.span } });
+                },
+                error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
+                else => {
+                    const func_name = if (typed_func.* == .ident) typed_func.ident.name else "function";
+                    try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = func_name, .expected = arg_type, .found = arg_type, .span = v.span } });
+                },
+            };
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .call = .{ .func = typed_func, .arg = typed_arg, .type_ = result_id, .span = v.span } };
             return node;

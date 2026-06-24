@@ -33,14 +33,14 @@ test "Phase4 isKnownCmdApi returns false for non-Cmd prefix" {
 }
 
 test "Phase4 execCommand returns StreamNode with cmd variant" {
-    const node = try cmd_mod.execCommand("echo", &.{"hello"}, std.testing.allocator);
+    const node = try cmd_mod.execCommand(&.{ .bin = "echo", .options = &.{}, .positional = &.{} }, std.testing.allocator);
     defer std.testing.allocator.destroy(node);
     defer std.testing.allocator.free(node.cmd.buf);
     try std.testing.expect(node.* == .cmd);
 }
 
 test "Phase4 execCommand with empty args returns StreamNode" {
-    const node = try cmd_mod.execCommand("ls", &.{}, std.testing.allocator);
+    const node = try cmd_mod.execCommand(&.{ .bin = "ls", .options = &.{}, .positional = &.{} }, std.testing.allocator);
     defer std.testing.allocator.destroy(node);
     defer std.testing.allocator.free(node.cmd.buf);
     try std.testing.expect(node.* == .cmd);
@@ -51,7 +51,7 @@ test "Phase4 known_cmd_apis has 15 entries" {
 }
 
 test "Phase4 execCommand pipe buffer contains data" {
-    const node = try cmd_mod.execCommand("echo", &.{"hello"}, std.testing.allocator);
+    const node = try cmd_mod.execCommand(&.{ .bin = "echo", .options = &.{}, .positional = &.{} }, std.testing.allocator);
     defer std.testing.allocator.destroy(node);
     defer std.testing.allocator.free(node.cmd.buf);
     try std.testing.expect(node.* == .cmd);
@@ -70,7 +70,7 @@ test "Phase4 execCommand pipe buffer contains data" {
 }
 
 test "Phase4 execCommand invalid bin returns StreamNode" {
-    const node = try cmd_mod.execCommand("nonexistent_bin_xyz", &.{}, std.testing.allocator);
+    const node = try cmd_mod.execCommand(&.{ .bin = "nonexistent_bin_xyz", .options = &.{}, .positional = &.{} }, std.testing.allocator);
     defer std.testing.allocator.destroy(node);
     defer std.testing.allocator.free(node.cmd.buf);
     defer _ = std.os.linux.close(node.cmd.fd);

@@ -17,9 +17,9 @@
 
 | 维度 | 当前值 |
 |---|---|---|
-| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型 — 实现推迟 v0.2）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型）、模块系统搜索路径设计（定型 — Phase 5 实施） |
+| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型 — 实现推迟 v0.2）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型）、模块系统搜索路径设计（定型 — Phase 6 实施） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 5 待启动：标准库 Primitives 补全 + 模块系统搜索路径 + Stream 函数体；CLI 沙箱推迟至 v0.2 |
+| 活跃计划 | Phase 5 进行中：标准库 Primitives 补全 + Stream 函数体；Phase 6 待启动：模块系统搜索路径；CLI 沙箱推迟至 v0.2 |
 | 最近完成 | Phase 4 实现：PrimitiveTable 管道 + 12 Primitive 实现 + 效应检查接线（8/11 函数）+ i18n.zig（24 msgid 中英双语）+ cmd.zig（isKnownCmdApi 去重）+ TypedExpr 补全（record_update/range_literal/ternary）+ Phase 1-3 深度审计修复（44 项缺陷）+ 双代理测试审计（314→545 测试，7 轮收敛） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
@@ -50,6 +50,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-06-23 | Phase 5 计划编写：标准库 Primitives 补全（106 函数）+ Stream 函数体 + StreamNode 构造器/消费者 + 类型环境签名注册 | 计划 | ✅ 全部 owner docs | ✅ plan-audit（待执行） | `plan-first` |
 | 2026-06-23 | Phase 4 实现 + 计划审计（18 轮 52 项修复）+ Phase 1-3 深度审计修复（44 项缺陷）+ 双代理测试审计（314→545 测试 7 轮收敛）+ i18n 重构 | 实现+审计 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
 | 2026-06-22 | Phase 3 实现：Primitive 函数表 + 效应识别迁移 + 14 TypeError + recursive typeName + generalize()/freshInstance + 18 项效应检查 + Value 9 变体 + StreamNode + map/set eval + Cmd ident + 模式穷举升级 | 实现 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
 | 2026-06-22 | Phase 3 计划 23 轮审计（77 项修复）+ 双代理测试审计（+59 测试 → 306 全通过）+ 3 轮实现审计（修复 20 项） | 审计+测试 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit、multi-dim | `implement` |

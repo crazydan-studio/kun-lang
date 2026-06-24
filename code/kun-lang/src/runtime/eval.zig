@@ -53,17 +53,19 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
                     const name = v.name[dot + 1 ..];
                     for (pt.bindings) |binding| {
                         if (std.mem.eql(u8, binding.module, module) and std.mem.eql(u8, binding.name, name)) {
-                            const fn_wrapper: PrimitiveFn = binding.fn_ptr;
-                            return Value{ .primitive = fn_wrapper };
+                            if (binding.arg_count > 1) {
+                                const args = try allocator.alloc(Value, 0);
+                                return Value{ .partial = .{ .fn_ptr = binding.fn_ptr, .args = args, .remaining = binding.arg_count } };
+                            }
+                            return Value{ .primitive = binding.fn_ptr };
                         }
                     }
                 }
             }
             if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name)) {
-                var payload = std.mem.zeroes([32]u8);
                 const bin_name = if (std.mem.indexOf(u8, v.name, ".")) |dot| v.name[dot + 1 ..] else v.name;
-                @memcpy(payload[0..@min(bin_name.len, 31)], bin_name);
-                return Value{ .command = .{ .tag = 0, ._payload = payload } };
+                const bin = try allocator.dupe(u8, bin_name);
+                return Value{ .command = .{ .bin = bin, .options = &.{}, .positional = &.{} } };
             }
             return error.UnboundVariable;
         },
@@ -125,10 +127,9 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             const left = try eval(v.left, frame, allocator);
             const right = try eval(v.right, frame, allocator);
             if (left == .command) {
-                const bin_name_end = binNameLen(left.command._payload);
-                const bin_name = left.command._payload[0..bin_name_end];
-                if (bin_name.len > 0) {
-                    const stream_node = cmd_mod.execCommand(bin_name, &.{}, allocator) catch return error.Unimplemented;
+                const cmd = left.command;
+                if (cmd.bin.len > 0) {
+                    const stream_node = cmd_mod.execCommand(&cmd, allocator) catch return error.Unimplemented;
                     return apply(right, Value{ .stream = stream_node }, allocator);
                 }
                 return error.Unimplemented;
@@ -200,29 +201,36 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
         },
         .primitive => |p| {
             var renv = RuntimeEnv{ .frame = undefined, .primitives = undefined, .allocator = allocator };
-            return p(&renv, &arg);
+            const args = try allocator.alloc(Value, 1);
+            args[0] = arg;
+            return p(&renv, args);
+        },
+        .partial => |p| {
+            const new_len = p.args.len + 1;
+            const new_args = try allocator.alloc(Value, new_len);
+            @memcpy(new_args[0..p.args.len], p.args);
+            new_args[p.args.len] = arg;
+            if (p.remaining > 1) {
+                return Value{ .partial = .{ .fn_ptr = p.fn_ptr, .args = new_args, .remaining = p.remaining - 1 } };
+            }
+            var renv = RuntimeEnv{ .frame = undefined, .primitives = undefined, .allocator = allocator };
+            return p.fn_ptr(&renv, new_args);
         },
         .command => |c| {
-            if (arg == .string) {
-                var payload = c._payload;
-                const bin_len = binNameLen(payload);
-                if (bin_len < 31) {
-                    const dst = payload[bin_len..@min(bin_len + arg.string.len, 31)];
-                    @memcpy(dst, arg.string[0..dst.len]);
+            if (arg == .record) {
+                const opts = try allocator.alloc(value_mod.CmdOption, arg.record.fields.len);
+                for (arg.record.fields, 0..) |f, i| {
+                    opts[i] = .{ .name = f.name, .value = f.value };
                 }
-                return Value{ .command = .{ .tag = 0, ._payload = payload } };
+                return Value{ .command = .{ .bin = c.bin, .options = opts, .positional = c.positional } };
             }
-            return func;
+            const new_pos = try allocator.alloc(Value, c.positional.len + 1);
+            @memcpy(new_pos[0..c.positional.len], c.positional);
+            new_pos[c.positional.len] = arg;
+            return Value{ .command = .{ .bin = c.bin, .options = c.options, .positional = new_pos } };
         },
         else => error.NotAFunction,
     };
-}
-
-fn binNameLen(payload: [32]u8) usize {
-    for (payload, 0..) |b, i| {
-        if (b == 0) return i;
-    }
-    return 32;
 }
 
 fn isKnownCmdApi(name: []const u8) bool {
@@ -473,8 +481,7 @@ fn matchPattern(
                 };
             if (value.adt.tag != expected_tag) return null;
             if (v.arg) |arg| {
-                const payload_ptr: [*:0]const u8 = @ptrCast(value.adt.payload);
-                const payload_val = if (payload_ptr[0] != 0) Value{ .string = std.mem.span(payload_ptr) } else Value{ .nil = {} };
+                const payload_val = value.adt.payload.*;
                 if (try matchPattern(arg.*, payload_val, frame, allocator)) |sub| {
                     var merged: std.StringHashMapUnmanaged(Value) = .empty;
                     var it = sub.bindings.iterator();
@@ -546,7 +553,7 @@ fn valueEqual(a: Value, b: Value) bool {
         .datetime => |ad| b.datetime == ad,
         .decimal => |ad| ad.mantissa == b.decimal.mantissa and ad.exponent == b.decimal.exponent,
         .stream => |as| @intFromPtr(as) == @intFromPtr(b.stream),
-        .map, .set, .command, .regex, .adt, .list, .tuple, .record, .closure, .primitive => false,
+        .map, .set, .command, .regex, .adt, .list, .tuple, .record, .closure, .primitive, .partial => false,
     };
 }
 

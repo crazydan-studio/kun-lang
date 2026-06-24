@@ -23,7 +23,7 @@ test "integration parse and typecheck simple binding" {
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
@@ -37,7 +37,7 @@ test "integration parse and typecheck add function" {
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
@@ -51,7 +51,7 @@ test "integration parse and typecheck if expression" {
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
@@ -65,7 +65,7 @@ test "integration parse and typecheck let expression" {
 
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectEqual(@as(usize, 1), typed.len);
 }
 
@@ -77,7 +77,7 @@ test "integration parse and eval simple" {
     const decls = try setupPipeline(allocator, "f = 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -89,7 +89,7 @@ test "integration parse and eval binary op" {
     const decls = try setupPipeline(allocator, "f = (1 + 2)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -101,7 +101,7 @@ test "integration parse and eval lambda call" {
     const decls = try setupPipeline(allocator, "f = (\\x -> x + 1)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -113,7 +113,7 @@ test "integration type mismatch returns error" {
     const decls = try setupPipeline(allocator, "f = (1 + true)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const result = typecheck.infer(allocator, decls, &type_env);
+    const result = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectError(error.TypeCheckFailed, result);
 }
 
@@ -125,7 +125,7 @@ test "integration parse and eval add 1 2" {
     const decls = try setupPipeline(allocator, "f = (1 + 2)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -137,7 +137,7 @@ test "integration parse and eval if then else" {
     const decls = try setupPipeline(allocator, "f = (if true then 1 else 0)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -149,7 +149,7 @@ test "integration parse and eval let in" {
     const decls = try setupPipeline(allocator, "f = (let x = 1 in x + 1)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -161,7 +161,7 @@ test "integration parse and eval nil coalesce" {
     const decls = try setupPipeline(allocator, "f = (Nil ?? 42)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -173,7 +173,7 @@ test "integration parse and eval case expr" {
     const decls = try setupPipeline(allocator, "f = case true of True -> 1 False -> 0");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    const typed = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} }) catch return;
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -185,7 +185,7 @@ test "integration parse and eval do block" {
     const decls = try setupPipeline(allocator, "f = do 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -207,7 +207,7 @@ test "integration parse and eval main function" {
     const decls = try setupPipeline(allocator, "main = 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try runtime.evalModule(typed, allocator, empty_primitives);
 }
 
@@ -219,8 +219,8 @@ test "Phase4 evalModule with full PrimitiveTable" {
     const decls = try setupPipeline(allocator, "f = 1");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -233,7 +233,7 @@ test "Phase4 typecheck import IO passes" {
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    _ = try typecheck.infer(allocator, decls, &type_env);
+    _ = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
 }
 
 test "Phase4 effect check passes for do block" {
@@ -244,8 +244,8 @@ test "Phase4 effect check passes for do block" {
     const decls = try setupPipeline(allocator, "f = do 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -257,7 +257,7 @@ test "Phase4 empty do block fails typecheck" {
     const decls = try setupPipeline(allocator, "f = do");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const result = typecheck.infer(allocator, decls, &type_env);
+    const result = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectError(error.TypeCheckFailed, result);
 }
 
@@ -269,7 +269,7 @@ test "Phase4 do containing let_in fails typecheck" {
     const decls = try setupPipeline(allocator, "f = do let x = 1 in x + 1");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const result = typecheck.infer(allocator, decls, &type_env);
+    const result = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectError(error.TypeCheckFailed, result);
 }
 
@@ -281,7 +281,7 @@ test "Phase4 let containing do fails typecheck" {
     const decls = try setupPipeline(allocator, "f = let x = (do 42) in x");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const result = typecheck.infer(allocator, decls, &type_env);
+    const result = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectError(error.TypeCheckFailed, result);
 }
 
@@ -293,8 +293,8 @@ test "Phase4 evalModule with PrimitiveTable and lambda" {
     const decls = try setupPipeline(allocator, "f = (\\x -> x + 1)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -306,7 +306,7 @@ test "Phase4 do block with in result passes typecheck" {
     const decls = try setupPipeline(allocator, "f = do in 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len > 0);
 }
 
@@ -318,9 +318,9 @@ test "Phase4 do in with unit-typed result passes" {
     const decls = try setupPipeline(allocator, "f = do in 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len > 0);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -335,7 +335,7 @@ test "Phase4 typecheck import File Env Process Cmd passes" {
         try std.testing.expectEqual(@as(usize, 1), decls.len);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        _ = try typecheck.infer(allocator, decls, &type_env);
+        _ = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     }
 }
 
@@ -347,9 +347,9 @@ test "Phase4 do block with multiple statements typecheck passes" {
     const decls = try setupPipeline(allocator, "f = do 1 2 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -361,9 +361,9 @@ test "Phase4 record_literal typecheck passes" {
     const decls = try setupPipeline(allocator, "f = { x = 1, y = 2 }");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -375,9 +375,9 @@ test "Phase4 list_literal typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = [1, 2, 3]");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -389,9 +389,9 @@ test "Phase4 do block with binding passes typecheck" {
     const decls = try setupPipeline(allocator, "f = do x = 1 x + 1");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -403,9 +403,9 @@ test "Phase4 pipe expression typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = (1 |> (\\x -> x + 1))");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -417,9 +417,9 @@ test "Phase4 compose expression typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = ((\\x -> x + 1) >> (\\y -> y * 2))");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -431,9 +431,9 @@ test "Phase4 set_literal typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = #[1, 2, 3]");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -445,11 +445,11 @@ test "Phase4 map_literal typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = #{1 = true, 2 = false}");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = typecheck.infer(allocator, decls, &type_env) catch {
+    const typed = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} }) catch {
         return;
     };
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -464,7 +464,7 @@ test "Phase4 typecheck import Signal Random Task passes" {
         try std.testing.expectEqual(@as(usize, 1), decls.len);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        _ = try typecheck.infer(allocator, decls, &type_env);
+        _ = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     }
 }
 
@@ -476,9 +476,9 @@ test "Phase4 let polymorphism typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = (let id = \\x -> x in (id 42, id \"hi\"))");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -490,9 +490,9 @@ test "Phase4 record field access typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = (let r = { x = 1, y = 2 } in r.x)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -504,9 +504,9 @@ test "Phase4 do block with defer typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = do defer 42 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -519,7 +519,7 @@ test "Phase4 typecheck import Stream passes" {
     try std.testing.expectEqual(@as(usize, 1), decls.len);
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    _ = try typecheck.infer(allocator, decls, &type_env);
+    _ = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
 }
 
 // --- Phase4 literal types coverage ---
@@ -544,10 +544,10 @@ test "Phase4 all literal types parse and typecheck" {
         const decls = try setupPipeline(allocator, c.src);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        const typed = try typecheck.infer(allocator, decls, &type_env);
+        const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
         try std.testing.expect(typed.len == 1);
         if (c.do_eval) {
-            const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+            const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
             try runtime.evalModule(typed, allocator, pt);
         }
     }
@@ -561,9 +561,9 @@ test "Phase4 unary_op parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = (-42)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -575,9 +575,9 @@ test "Phase4 multi binding in do block typecheck eval" {
     const decls = try setupPipeline(allocator, "f = do a = 1 b = 2 a + b");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -589,9 +589,9 @@ test "Phase4 record_access with nested field parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = (let r = { x = { y = 1 } } in r.x)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -603,9 +603,9 @@ test "Phase4 list_literal with nested record parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = [{ x = 1 }, { x = 2 }]");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -617,9 +617,9 @@ test "Phase4 empty list parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = []");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -631,9 +631,9 @@ test "Phase4 empty set parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = #[]");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -645,11 +645,11 @@ test "Phase4 empty map parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = #{}");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = typecheck.infer(allocator, decls, &type_env) catch {
+    const typed = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} }) catch {
         return;
     };
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -661,9 +661,9 @@ test "Phase4 case_expr with variant pattern parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = case 42 of True -> 1 False -> 0");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = typecheck.infer(allocator, decls, &type_env) catch return;
+    const typed = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} }) catch return;
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -675,9 +675,9 @@ test "Phase4 do block with in binding result parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = do x = 1 in x + 2");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -689,9 +689,9 @@ test "Phase4 let with multiple bindings parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = (let x = 1 y = 2 in x + y)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -703,9 +703,9 @@ test "Phase4 pipe_reverse expression typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = ((\\x -> x + 1) <| 1)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -717,9 +717,9 @@ test "Phase4 compose_reverse expression typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = ((\\x -> x + 1) << (\\y -> y * 2))");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -731,9 +731,9 @@ test "Phase4 list spread expression typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = [1, ..[2, 3]]");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -745,7 +745,7 @@ test "Phase4 duplicate binding fails typecheck" {
     const decls = try setupPipeline(allocator, "f = (let x = 1 x = 2 in x)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const result = typecheck.infer(allocator, decls, &type_env);
+    const result = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectError(error.TypeCheckFailed, result);
 }
 
@@ -757,7 +757,7 @@ test "Phase4 empty let_in body fails typecheck" {
     const decls = try setupPipeline(allocator, "f = (let in 42)");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const result = typecheck.infer(allocator, decls, &type_env);
+    const result = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expectError(error.TypeCheckFailed, result);
 }
 
@@ -769,9 +769,9 @@ test "Phase4 do block with defers typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = do defer 1 defer 2 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -783,9 +783,9 @@ test "Phase4 do block with binding and defer typecheck eval" {
     const decls = try setupPipeline(allocator, "f = do x = 1 defer 42 x + 1");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -797,7 +797,7 @@ test "Phase4 do block containing IO.println passes typecheck" {
     const decls = try setupPipeline(allocator, "import IO f = do IO.println \"hello\"");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = typecheck.infer(allocator, decls, &type_env) catch |err| {
+    const typed = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} }) catch |err| {
         if (err == error.TypeCheckFailed) return;
         return err;
     };
@@ -813,7 +813,7 @@ test "Phase4 multiple imports parse and typecheck" {
     try std.testing.expectEqual(@as(usize, 4), decls.len);
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len >= 1);
 }
 
@@ -825,9 +825,9 @@ test "Phase4 lambda inside do block typecheck and eval" {
     const decls = try setupPipeline(allocator, "f = do (\\x -> x + 1) 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -845,9 +845,9 @@ test "Phase4 arithmetic operations parse typecheck and eval" {
         const decls = try setupPipeline(allocator, src);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        const typed = try typecheck.infer(allocator, decls, &type_env);
+        const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
         try std.testing.expect(typed.len == 1);
-        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
         try runtime.evalModule(typed, allocator, pt);
     }
 }
@@ -861,9 +861,9 @@ test "Phase4 import IO and Process with do block typecheck eval" {
     try std.testing.expectEqual(@as(usize, 3), decls.len);
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len >= 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -887,9 +887,9 @@ test "Phase4 pure let with no effect passes typecheck" {
         const decls = try setupPipeline(allocator, src);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        const typed = try typecheck.infer(allocator, decls, &type_env);
+        const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
         try std.testing.expect(typed.len == 1);
-        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
         try runtime.evalModule(typed, allocator, pt);
     }
 }
@@ -908,9 +908,9 @@ test "Phase4 case expression with guards parse typecheck eval" {
         const decls = try setupPipeline(allocator, src);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        const typed = typecheck.infer(allocator, decls, &type_env) catch continue;
+        const typed = typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} }) catch continue;
         try std.testing.expect(typed.len == 1);
-        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
         try runtime.evalModule(typed, allocator, pt);
     }
 }
@@ -923,9 +923,9 @@ test "Phase4 null coalesce in do block parse typecheck eval" {
     const decls = try setupPipeline(allocator, "f = do Nil ?? 42");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -944,9 +944,9 @@ test "Phase4 multiple statement do blocks parse typecheck eval" {
         const decls = try setupPipeline(allocator, src);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        const typed = try typecheck.infer(allocator, decls, &type_env);
+        const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
         try std.testing.expect(typed.len == 1);
-        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
         try runtime.evalModule(typed, allocator, pt);
     }
 }
@@ -962,9 +962,9 @@ test "Phase4 Stream module import and typecheck" {
     try std.testing.expectEqual(@as(usize, 2), decls.len);
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len >= 2);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -988,9 +988,9 @@ test "Phase4 all effect module imports typecheck" {
         const decls = try setupPipeline(allocator, src);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        const typed = try typecheck.infer(allocator, decls, &type_env);
+        const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
         try std.testing.expect(typed.len >= 2);
-        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
         try runtime.evalModule(typed, allocator, pt);
     }
 }
@@ -1011,9 +1011,9 @@ test "Phase4 let polymorphism with multiple bindings" {
         const decls = try setupPipeline(allocator, src);
         var type_env = try typecheck_env.TypeEnv.init(allocator);
         defer type_env.deinit(allocator);
-        const typed = try typecheck.infer(allocator, decls, &type_env);
+        const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
         try std.testing.expect(typed.len == 1);
-        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+        const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
         try runtime.evalModule(typed, allocator, pt);
     }
 }
@@ -1026,9 +1026,9 @@ test "Phase4 nested let shadowing freshInstance" {
     const decls = try setupPipeline(allocator, "f = (let x = 1 in (let x = \"hi\" in x))");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }
 
@@ -1040,8 +1040,8 @@ test "Phase4 let with polymorphic function multiple instantiations" {
     const decls = try setupPipeline(allocator, "f = (let id = \\x -> x in (id 42, id true, id \"hi\"))");
     var type_env = try typecheck_env.TypeEnv.init(allocator);
     defer type_env.deinit(allocator);
-    const typed = try typecheck.infer(allocator, decls, &type_env);
+    const typed = try typecheck.infer(allocator, decls, &type_env, .{ .bindings = &.{} });
     try std.testing.expect(typed.len == 1);
-    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type);
+    const pt = primitive_mod.buildPrimitiveTable(typecheck_env.int_type, typecheck_env.string_type, typecheck_env.unit_type, typecheck_env.string_type, typecheck_env.bool_type, typecheck_env.bytes_type);
     try runtime.evalModule(typed, allocator, pt);
 }

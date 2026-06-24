@@ -9,18 +9,18 @@ test "primitive table builds at comptime" {
     const string_t = env_mod.string_type;
     const unit_t = env_mod.unit_type;
     const stream_str = env_mod.string_type;
-    const table = primitive.buildPrimitiveTable(int_t, string_t, unit_t, stream_str);
+    const table = primitive.buildPrimitiveTable(int_t, string_t, unit_t, stream_str, int_t, int_t);
     try std.testing.expect(table.bindings.len >= 2);
 }
 
 test "primitive is_effect query" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     try std.testing.expect(table.bindings[0].is_effect == true);
     try std.testing.expect(table.bindings[1].is_effect == true);
 }
 
 test "primitive println outputs to stdout" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     try std.testing.expect(table.bindings[0].module[0] == 'I');
     try std.testing.expect(table.bindings[0].module[1] == 'O');
     try std.testing.expect(std.mem.eql(u8, table.bindings[0].name, "println"));
@@ -50,21 +50,21 @@ test "primitive isEffectBinding returns true for Stream.iter" {
 }
 
 test "Phase4 primitive printlnImpl returns unit" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     const entry = table.bindings[0];
     var renv = primitive.RuntimeEnv{ .frame = undefined, .primitives = table, .allocator = std.testing.allocator };
     const arg = value_mod.Value{ .string = "hi" };
-    const result = entry.fn_ptr(&renv, &arg);
+    const result = entry.fn_ptr(&renv, &[_]value_mod.Value{arg});
     try std.testing.expect(result == .unit);
 }
 
 test "Phase4 primitive pidImpl returns int" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |entry| {
         if (std.mem.eql(u8, entry.module, "Process") and std.mem.eql(u8, entry.name, "pid")) {
             var renv = primitive.RuntimeEnv{ .frame = undefined, .primitives = table, .allocator = std.testing.allocator };
             const arg = value_mod.Value{ .unit = {} };
-            const result = entry.fn_ptr(&renv, &arg);
+            const result = entry.fn_ptr(&renv, &[_]value_mod.Value{arg});
             try std.testing.expect(result == .int);
             break;
         }
@@ -72,7 +72,7 @@ test "Phase4 primitive pidImpl returns int" {
 }
 
 test "Phase4 dotted name lookup all bindings" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     const names = [_][]const u8{
         "IO.println", "IO.readln",
         "File.readString", "File.list", "File.stat",
@@ -93,7 +93,7 @@ test "Phase4 dotted name lookup all bindings" {
 }
 
 test "Phase4 dotted name lookup fails for unknown module" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     const names = [_][]const u8{ "Nonexistent.foo", "X.y", "IO.nonexistent", "Cmd.unknown" };
     for (names) |name| {
         const dot = std.mem.indexOfScalar(u8, name, '.').?;
@@ -108,7 +108,7 @@ test "Phase4 dotted name lookup fails for unknown module" {
 }
 
 test "Phase4 primitive table has 12 bindings" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     try std.testing.expectEqual(@as(usize, 18), table.bindings.len);
 }
 
@@ -120,7 +120,7 @@ fn lookupBinding(table: primitive.PrimitiveTable, module: []const u8, name: []co
 }
 
 test "Phase4 dotted name lookup finds all 12 bindings" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     try std.testing.expect(lookupBinding(table, "IO", "println"));
     try std.testing.expect(lookupBinding(table, "IO", "readln"));
     try std.testing.expect(lookupBinding(table, "File", "readString"));
@@ -136,7 +136,7 @@ test "Phase4 dotted name lookup finds all 12 bindings" {
 }
 
 test "Phase4 RuntimeEnv init" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     var frame = @import("env.zig").Frame{ .bindings = undefined, .parent = null, .primitives = null };
     const renv = primitive.RuntimeEnv.init(&frame, table, std.testing.allocator);
     try std.testing.expect(renv.frame == &frame);
@@ -144,7 +144,7 @@ test "Phase4 RuntimeEnv init" {
 }
 
 test "Phase4 primitive File operations all is_effect" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
         if (std.mem.eql(u8, b.module, "File")) {
             try std.testing.expect(b.is_effect);
@@ -153,7 +153,7 @@ test "Phase4 primitive File operations all is_effect" {
 }
 
 test "Phase4 primitive Env operations all is_effect" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
         if (std.mem.eql(u8, b.module, "Env")) {
             try std.testing.expect(b.is_effect);
@@ -162,7 +162,7 @@ test "Phase4 primitive Env operations all is_effect" {
 }
 
 test "Phase4 primitive Process operations all is_effect" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
         if (std.mem.eql(u8, b.module, "Process")) {
             try std.testing.expect(b.is_effect);
@@ -171,7 +171,7 @@ test "Phase4 primitive Process operations all is_effect" {
 }
 
 test "Phase4 primitive Cmd.which is_effect" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
         if (std.mem.eql(u8, b.module, "Cmd") and std.mem.eql(u8, b.name, "which")) {
             try std.testing.expect(b.is_effect);
@@ -183,7 +183,7 @@ test "Phase4 primitive Cmd.which is_effect" {
 
 test "Phase4 primitive impl functions return correct variant" {
     const Tag = @typeInfo(value_mod.Value).@"union".tag_type.?;
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     const cases = [_]struct { mod: []const u8, name: []const u8, arg: value_mod.Value, expected: Tag }{
         .{ .mod = "IO", .name = "readln", .arg = .{ .unit = {} }, .expected = .string },
         .{ .mod = "File", .name = "readString", .arg = .{ .unit = {} }, .expected = .nil },
@@ -206,7 +206,7 @@ test "Phase4 primitive impl functions return correct variant" {
         for (table.bindings) |entry| {
             if (std.mem.eql(u8, entry.module, c.mod) and std.mem.eql(u8, entry.name, c.name)) {
                 var renv = primitive.RuntimeEnv{ .frame = undefined, .primitives = table, .allocator = std.testing.allocator };
-                const result = entry.fn_ptr(&renv, &c.arg);
+                const result = entry.fn_ptr(&renv, &[_]value_mod.Value{c.arg});
                 try std.testing.expectEqual(@intFromEnum(c.expected), @intFromEnum(result));
                 found = true;
                 break;
@@ -243,7 +243,7 @@ test "Phase4 isEffectBinding false for various pure namespaces" {
 }
 
 test "Phase4 primitive table binding count consistent" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     var count: usize = 0;
     for (table.bindings) |_| count += 1;
     try std.testing.expectEqual(@as(usize, 18), count);
@@ -319,30 +319,30 @@ test "Phase4 isEffectBinding Cmd variant lookup" {
 // --- PrimitiveBinding validation ---
 
 test "Phase4 all IO bindings have non-empty module and name" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
         try std.testing.expect(b.module.len > 0);
         try std.testing.expect(b.name.len > 0);
     }
 }
 
-test "Phase4 all bindings have valid signature" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+test "Phase4 all bindings have valid return_type" {
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
-        _ = b.signature;
+        _ = b.return_type;
     }
     try std.testing.expectEqual(@as(usize, 18), table.bindings.len);
 }
 
 test "Phase4 all bindings have non-null fn_ptr" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
         _ = b.fn_ptr;
     }
 }
 
 test "Phase4 all bindings module name length valid" {
-    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type);
+    const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     for (table.bindings) |b| {
         try std.testing.expect(b.module.len > 0);
         try std.testing.expect(b.name.len > 0);

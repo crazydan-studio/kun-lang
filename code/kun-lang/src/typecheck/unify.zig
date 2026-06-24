@@ -34,22 +34,22 @@ pub fn unify(env: *TypeEnv, allocator: std.mem.Allocator, a: TypeId, b: TypeId) 
         if (occursCheck(env, allocator, va.id, resolved_b)) return error.InfiniteType;
         if (occursCheck(env, allocator, vb.id, resolved_a)) return error.InfiniteType;
         if (va.level >= vb.level) {
-            try env.subst.put(allocator, resolved_a, resolved_b);
+            try env.subst.put(env._allocator, resolved_a, resolved_b);
         } else {
-            try env.subst.put(allocator, resolved_b, resolved_a);
+            try env.subst.put(env._allocator, resolved_b, resolved_a);
         }
         return;
     }
     if (ta == .variable) {
         const va = ta.variable;
         if (occursCheck(env, allocator, va.id, resolved_b)) return error.InfiniteType;
-        try env.subst.put(allocator, resolved_a, resolved_b);
+        try env.subst.put(env._allocator, resolved_a, resolved_b);
         return;
     }
     if (tb == .variable) {
         const vb = tb.variable;
         if (occursCheck(env, allocator, vb.id, resolved_a)) return error.InfiniteType;
-        try env.subst.put(allocator, resolved_b, resolved_a);
+        try env.subst.put(env._allocator, resolved_b, resolved_a);
         return;
     }
 
