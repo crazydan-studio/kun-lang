@@ -257,7 +257,8 @@ pub fn inferExpr(
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const func_type = exprType(typed_func);
             const arg_type = exprType(typed_arg);
-            const expected_fn = try env.registerFunctionType(allocator, false, arg_type, result_id);
+            const is_effect_fn = env.isEffectFn(func_type);
+            const expected_fn = try env.registerFunctionType(allocator, is_effect_fn, arg_type, result_id);
             unify_mod.unify(env, allocator, func_type, expected_fn) catch |err| switch (err) {
                 error.Mismatch => {
                     const func_name = if (typed_func.* == .ident) typed_func.ident.name else "function";

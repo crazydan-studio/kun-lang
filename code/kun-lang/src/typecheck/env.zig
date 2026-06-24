@@ -355,4 +355,10 @@ pub const TypeEnv = struct {
         }
         return current;
     }
+
+    pub fn isEffectFn(self: *TypeEnv, ty: TypeId) bool {
+        const resolved = self.applySubst(ty);
+        if (resolved >= self.types.items.len) return false;
+        return self.types.items[resolved] == .effect_fn;
+    }
 };
