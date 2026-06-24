@@ -296,15 +296,74 @@ pub fn appendStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
 
-pub fn globImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
+pub fn globImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .string or args[1] != .path)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const pattern = args[0].string;
+    const dir_path = args[1].path;
+    const dir_z = io.allocSentinel(env.allocator, dir_path) catch return Value{ .nil = {} };
+    defer env.allocator.free(dir_z);
+    const fd = std.os.linux.open(dir_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
+    if (fd < 0) return value_mod.makeErr(0, Value{ .string = "dir not found" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    var list: std.ArrayListUnmanaged(Value) = .empty;
+    var buf: [4096]u8 align(8) = undefined;
+    var pos: usize = 0;
+    var nread: usize = 0;
+    const glob_mod = @import("../glob_engine.zig");
+    while (true) {
+        if (pos >= nread) {
+            const r = std.os.linux.getdents64(@intCast(fd), &buf, buf.len);
+            if (r <= 0) break;
+            nread = @intCast(r);
+            pos = 0;
+            if (nread == 0) break;
+        }
+        const de = @as(*align(1) std.os.linux.dirent64, @ptrCast(&buf[pos]));
+        if (de.ino != 0 and de.reclen != 0) {
+            const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
+            if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
+                if (glob_mod.match(pattern, name)) {
+                    const full = std.fs.path.join(env.allocator, &.{ dir_path, name }) catch continue;
+                    list.append(env.allocator, Value{ .path = full }) catch continue;
+                }
+            }
+        }
+        pos += de.reclen;
+    }
+    const items = list.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .list = .{ .items = items, .cap = items.len } }, env.allocator) catch return Value{ .nil = {} };
+}
 pub fn createTempFileImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
-    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_XXXXXX", .{}) catch return Value{ .nil = {} };
+    var random_bytes: [6]u8 = undefined;
+    const urandom = std.os.linux.open("/dev/urandom", .{}, 0);
+    if (urandom >= 0) {
+        _ = std.os.linux.read(@intCast(urandom), &random_bytes, random_bytes.len);
+        _ = std.os.linux.close(@intCast(urandom));
+    } else {
+        @memset(&random_bytes, 'X');
+    }
+    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
+        random_bytes[0], random_bytes[1], random_bytes[2],
+        random_bytes[3], random_bytes[4], random_bytes[5],
+    }) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .path = name }, env.allocator) catch return Value{ .nil = {} };
 }
 pub fn createTempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
-    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_XXXXXX", .{}) catch return Value{ .nil = {} };
+    var random_bytes: [6]u8 = undefined;
+    const urandom = std.os.linux.open("/dev/urandom", .{}, 0);
+    if (urandom >= 0) {
+        _ = std.os.linux.read(@intCast(urandom), &random_bytes, random_bytes.len);
+        _ = std.os.linux.close(@intCast(urandom));
+    } else {
+        @memset(&random_bytes, 'X');
+    }
+    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
+        random_bytes[0], random_bytes[1], random_bytes[2],
+        random_bytes[3], random_bytes[4], random_bytes[5],
+    }) catch return Value{ .nil = {} };
     _ = std.os.linux.mkdir(@ptrCast(name.ptr), 0o700);
     return value_mod.makeOk(Value{ .path = name }, env.allocator) catch return Value{ .nil = {} };
 }
