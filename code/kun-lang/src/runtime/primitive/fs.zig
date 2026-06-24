@@ -173,7 +173,88 @@ pub fn readBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
     return value_mod.makeOk(Value{ .stream = node }, env.allocator) catch return Value{ .nil = {} };
 }
 
-pub fn writeBytesImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
+pub fn writeBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .path or args[1] != .bytes)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{ .CREAT = true, .TRUNC = true }, 0o644);
+    if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    _ = std.os.linux.write(@intCast(fd), args[1].bytes.ptr, args[1].bytes.len);
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn appendBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .path or args[1] != .bytes)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{ .CREAT = true, .TRUNC = false }, 0o644);
+    if (fd < 0) return value_mod.makeErr(0, Value{ .string = "open" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    _ = std.os.linux.lseek(@intCast(fd), 0, std.os.linux.SEEK.END);
+    _ = std.os.linux.write(@intCast(fd), args[1].bytes.ptr, args[1].bytes.len);
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn readLinesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path)
+        return value_mod.makeErr(0, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{}, 0);
+    if (fd < 0) return value_mod.makeErr(0, Value{ .string = "not found" }, env.allocator) catch return Value{ .nil = {} };
+    const buf = env.allocator.alloc(u8, 4096) catch {
+        _ = std.os.linux.close(@intCast(fd));
+        return Value{ .nil = {} };
+    };
+    const raw_node = env.allocator.create(StreamNode) catch return Value{ .nil = {} };
+    raw_node.* = .{ .cmd = .{ .fd = @intCast(fd), .pid = -1, .buf = buf } };
+    const lines_node = value_mod.streamLines(env.allocator, raw_node, 65536) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .stream = lines_node }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn walkDirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path) return Value{ .nil = {} };
+    var list: std.ArrayListUnmanaged(Value) = .empty;
+    walkDirRecursive(env.allocator, args[0].path, &list);
+    const items = list.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .list = .{ .items = items, .cap = items.len } }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.ArrayListUnmanaged(Value)) void {
+    const path_z = allocator.allocSentinel(u8, root.len, 0) catch return;
+    @memcpy(path_z[0..root.len], root);
+    defer allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
+    if (fd < 0) return;
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [4096]u8 align(8) = undefined;
+    var pos: usize = 0;
+    var nread: usize = 0;
+    while (true) {
+        if (pos >= nread) {
+            const r = std.os.linux.getdents64(@intCast(fd), &buf, buf.len);
+            if (r <= 0) break;
+            nread = @intCast(r);
+            pos = 0;
+            if (nread == 0) break;
+        }
+        const de = @as(*align(1) std.os.linux.dirent64, @ptrCast(&buf[pos]));
+        if (de.ino != 0 and de.reclen != 0) {
+            const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
+            if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
+                const full = std.fs.path.join(allocator, &.{ root, name }) catch continue;
+                defer allocator.free(full);
+                list.append(allocator, Value{ .path = full }) catch continue;
+                walkDirRecursive(allocator, full, list);
+            }
+        }
+        pos += de.reclen;
+    }
+}
+
 pub fn appendStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .string)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
@@ -187,9 +268,6 @@ pub fn appendStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
 
-pub fn appendBytesImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn readLinesImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn walkDirImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
 pub fn globImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
 pub fn createTempFileImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
