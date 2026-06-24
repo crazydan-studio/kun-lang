@@ -704,6 +704,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                     _ = state.advance(); // .
                     const rest = try parseExpr(state);
                     try items.append(state.allocator, .{ .spread = try heapExpr(state, &rest) });
+                    continue;
                 }
                 const item = try parseExpr(state);
                 try items.append(state.allocator, .{ .expr = try heapExpr(state, &item) });

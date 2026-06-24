@@ -109,7 +109,7 @@ pub fn writeStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     const fd = std.os.linux.open(path_z, .{ .CREAT = true, .TRUNC = true }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
-    _ = std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len);
+    if (std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len) < 0) return value_mod.makeErr(1, Value{ .string = "write error" }, env.allocator) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -209,7 +209,7 @@ pub fn writeBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
     const fd = std.os.linux.open(path_z, .{ .CREAT = true, .TRUNC = true }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
-    _ = std.os.linux.write(@intCast(fd), args[1].bytes.ptr, args[1].bytes.len);
+    if (std.os.linux.write(@intCast(fd), args[1].bytes.ptr, args[1].bytes.len) < 0) return value_mod.makeErr(1, Value{ .string = "write error" }, env.allocator) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -222,7 +222,7 @@ pub fn appendBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (fd < 0) return value_mod.makeErr(0, Value{ .string = "open" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
     _ = std.os.linux.lseek(@intCast(fd), 0, std.os.linux.SEEK.END);
-    _ = std.os.linux.write(@intCast(fd), args[1].bytes.ptr, args[1].bytes.len);
+    if (std.os.linux.write(@intCast(fd), args[1].bytes.ptr, args[1].bytes.len) < 0) return value_mod.makeErr(1, Value{ .string = "write error" }, env.allocator) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -274,7 +274,6 @@ fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.A
             const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
             if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
                 const full = std.fs.path.join(allocator, &.{ root, name }) catch continue;
-                defer allocator.free(full);
                 list.append(allocator, Value{ .path = full }) catch continue;
                 walkDirRecursive(allocator, full, list);
             }
@@ -292,7 +291,7 @@ pub fn appendStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (fd < 0) return value_mod.makeErr(0, Value{ .string = "open" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
     _ = std.os.linux.lseek(@intCast(fd), 0, std.os.linux.SEEK.END);
-    _ = std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len);
+    if (std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len) < 0) return value_mod.makeErr(1, Value{ .string = "write error" }, env.allocator) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -453,7 +452,7 @@ pub fn atomicWriteImpl(env: *RuntimeEnv, args: []const Value) Value {
     const fd = std.os.linux.open(tmp_z, .{ .CREAT = true, .TRUNC = true }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
-    _ = std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len);
+    if (std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len) < 0) return value_mod.makeErr(1, Value{ .string = "write error" }, env.allocator) catch return Value{ .nil = {} };
     const dst_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
     defer env.allocator.free(dst_z);
     if (std.os.linux.rename(tmp_z, dst_z) != 0) {

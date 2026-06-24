@@ -543,19 +543,19 @@ pub fn checkUnusedBindings(allocator: std.mem.Allocator, names: []const []const 
     for (names, used, 0..) |name, is_used, i| {
         _ = i;
         if (!is_used) {
-            try errors.add(allocator, .{ .effect_in_let = .{ .called_func = name, .span = .{ .start = .{ .line = 0, .col = 0, .offset = 0 }, .end = .{ .line = 0, .col = 0, .offset = 0 } } } });
+            try errors.add(allocator, .{ .unused_binding = .{ .name = name, .span = .{ .start = .{ .line = 0, .col = 0, .offset = 0 }, .end = .{ .line = 0, .col = 0, .offset = 0 } } } });
         }
     }
 }
 
 pub fn checkUnusedResult(allocator: std.mem.Allocator, is_pure: bool, span: ast.Span, errors: *ErrorList) !void {
     if (is_pure) {
-        try errors.add(allocator, .{ .effect_in_let = .{ .called_func = "unused result", .span = span } });
+        try errors.add(allocator, .{ .unused_result = span });
     }
 }
 
 pub fn checkPureExprLast(allocator: std.mem.Allocator, is_pure: bool, span: ast.Span, errors: *ErrorList) !void {
     if (is_pure) {
-        try errors.add(allocator, .{ .effect_in_let = .{ .called_func = "pure expr last", .span = span } });
+        try errors.add(allocator, .{ .pure_expr_last = span });
     }
 }

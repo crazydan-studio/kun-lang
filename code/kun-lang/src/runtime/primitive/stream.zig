@@ -102,20 +102,16 @@ pub fn streamRangeImpl(env: *RuntimeEnv, args: []const Value) Value {
     const end = args[1];
     const step = args[2];
     if (start != .int or end != .int or step != .int) return Value{ .nil = {} };
-    const count: usize = if (step.int > 0)
-        @intCast(@max(0, @divTrunc(end.int - start.int + step.int - 1, step.int)))
-    else
-        0;
-    if (count == 0) return Value{ .nil = {} };
-    const gen = value_mod.streamGenerate(env.allocator, start, .{ .primitive = rangeStepFn }) catch return Value{ .nil = {} };
-    const node = value_mod.streamTake(env.allocator, gen, count) catch return Value{ .nil = {} };
+    if (step.int <= 0) return Value{ .nil = {} };
+    const count: i64 = @divTrunc(end.int - start.int + step.int - 1, step.int);
+    if (count <= 0) return Value{ .nil = {} };
+    const items = env.allocator.alloc(Value, @intCast(count)) catch return Value{ .nil = {} };
+    var i: i64 = 0;
+    while (i < count) : (i += 1) {
+        items[@intCast(i)] = Value{ .int = start.int + i * step.int };
+    }
+    const node = value_mod.streamFromList(env.allocator, items) catch return Value{ .nil = {} };
     return Value{ .stream = node };
-}
-
-fn rangeStepFn(renv: *RuntimeEnv, args: []const Value) Value {
-    _ = renv;
-    if (args.len < 1 or args[0] != .int) return Value{ .int = 0 };
-    return Value{ .int = args[0].int + 1 };
 }
 
 pub fn streamIterateImpl(env: *RuntimeEnv, args: []const Value) Value {
