@@ -79,16 +79,45 @@
 - 行尾：LF（Unix 风格）
 - 文件末尾需有且仅有一个空行
 
-## 注释标记
+## 测试用例编写规范
 
-- `FIXME:` — 已知缺陷，须在下一个版本中修复
-- `HACK:` — 临时解决方案，需标注原因和更优方案
-- `NOTE:` — 非显而易见的实现细节说明
+对于同类型（相同测试维度）但具体测试目标不同的测试用例，优先采用**数据列表 + 循环遍历**方式在单个测试中实现，而非为每个数据点创建独立测试函数。
+
+**模式**：
+
+```zig
+test "describes the category being tested" {
+    const cases = [_]struct { input: T, expected: U }{
+        .{ .input = ..., .expected = ... },
+        .{ .input = ..., .expected = ... },
+    };
+    for (cases) |c| {
+        // call function under test with c.input
+        // verify result matches c.expected
+    }
+}
+```
+
+**适用条件**：
+- 多个测试用例测试同一函数/同一维度的不同数据点
+- 每个用例的 setup/teardown 逻辑相同或仅参数不同
+- 用例结果为简单的 true/false 或枚举匹配
+
+**不适用**：
+- 测试需要不同的 setup/teardown 逻辑
+- 测试涉及副作用（IO、文件系统操作）且需隔离
+- 单个测试失败会使后续用例失效的有状态测试
+
+**示例**（`test_primitive.zig`）：
+- `isEffectBinding covers all known patterns` — 合并了 14 个原独立测试
+- `primitive impl functions return correct variant` — 合并了 5 个原独立测试
+- `isKnownCmdApi covers all known patterns`（`test_cmd.zig`）— 合并了 4 个原独立测试
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.24 | 新增测试用例编写规范（列表+循环模式） |
 | 2026.06.17 | 命名规范：新增 Kun 模块文件（PascalCase）、入口脚本（kebab-case）、`lib/` 子目录（PascalCase）、Zig 源文件（snake_case）命名规则；移除"待定"占位 |
 | 2026.06.15 | 新增代码审查/版本管理/编码约定/注释标记规范 |
 | 2026.06.10 | 初始版本 |
