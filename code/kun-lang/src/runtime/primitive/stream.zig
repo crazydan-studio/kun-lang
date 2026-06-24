@@ -19,9 +19,10 @@ pub fn streamIterImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .closure or args[1] != .stream) return Value{ .unit = {} };
     const callback = args[0].closure;
     const stream_node = args[1].stream;
+    const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
+    frame.* = env_mod.Frame{ .bindings = .empty, .parent = callback.env, .primitives = null };
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
-        const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
-        frame.* = env_mod.Frame{ .bindings = .empty, .parent = callback.env, .primitives = null };
+        frame.bindings.clearRetainingCapacity();
         frame.bindings.put(env.allocator, callback.param_names[0], val) catch return Value{ .unit = {} };
         _ = primitive_mod.callEval(env, callback.body, frame) catch {};
     }
@@ -33,9 +34,10 @@ pub fn streamFoldImpl(env: *RuntimeEnv, args: []const Value) Value {
     const folder = args[0].closure;
     var acc = args[1];
     const stream_node = args[2].stream;
+    const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
+    frame.* = env_mod.Frame{ .bindings = .empty, .parent = folder.env, .primitives = null };
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
-        const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
-        frame.* = env_mod.Frame{ .bindings = .empty, .parent = folder.env, .primitives = null };
+        frame.bindings.clearRetainingCapacity();
         if (folder.param_names.len >= 2) {
             frame.bindings.put(env.allocator, folder.param_names[0], acc) catch return Value{ .unit = {} };
             frame.bindings.put(env.allocator, folder.param_names[1], val) catch return Value{ .unit = {} };
