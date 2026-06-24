@@ -590,3 +590,81 @@ test "parser error empty decl" {
     try std.testing.expectEqual(@as(usize, 0), decls.len);
 }
 
+test "parser import dotted path" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "import Foo.Bar");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .import);
+    try std.testing.expectEqualStrings("Foo.Bar", decls[0].import.module);
+}
+
+test "parser record update syntax" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "f = \\r -> { r | x = 1 }");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
+test "parser or-pattern in case" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "f = \\x -> case x of True | False -> 0");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
+test "parser record pattern in case" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "f = \\r -> case r of { x = 1 } -> 0");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+}
+
+test "parser lambda destructure" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "f = \\(x, y) -> x + y");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
+test "parser dot shorthand lambda" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "f = List.map .name names");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+}
+
+test "parser ternary expression" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "f = \\x -> x > 0 ? 1 : 0");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
+test "parser range literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator, "f = [1..10]");
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+}
+

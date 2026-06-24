@@ -883,21 +883,19 @@ fn parseCaseExpr(state: *ParserState, start: SourceLoc) ParserError!Expr {
             const g = try parseExpr(state);
             guard = try heapExpr(state, &g);
         }
-        try state.expect(.arrow);
-        const body = try parseExpr(state);
-        try branches.append(state.allocator, .{
-            .pattern = pat,
-            .guard = guard,
-            .body = try heapExpr(state, &body),
-            .is_unbound = false,
-            .span = state.span(start),
-        });
-        // Handle or-pattern: pat1 -> body is followed by | pat2
+        // Handle or-pattern: pat1 | pat2
+        var patterns = std.ArrayListUnmanaged(ast.Pattern).empty;
+        try patterns.append(state.allocator, pat);
         while (state.peek() == .pipe_pat) {
             _ = state.advance();
             const alt_pat = try parsePattern(state);
+            try patterns.append(state.allocator, alt_pat);
+        }
+        try state.expect(.arrow);
+        const body = try parseExpr(state);
+        for (patterns.items) |pt| {
             try branches.append(state.allocator, .{
-                .pattern = alt_pat,
+                .pattern = pt,
                 .guard = guard,
                 .body = try heapExpr(state, &body),
                 .is_unbound = false,
