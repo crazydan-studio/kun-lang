@@ -313,14 +313,16 @@ pub fn checkImplicitDo(allocator: std.mem.Allocator, body: *const ast.Expr, erro
     _ = body;
 }
 
-pub fn checkStreamConsumption(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
+pub fn checkStreamConsumption(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
     _ = allocator;
+    _ = errors;
+    _ = body;
 }
 
-pub fn checkCommandConsumption(allocator: std.mem.Allocator, errors: *ErrorList) !void {
-    _ = errors;
+pub fn checkCommandConsumption(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
     _ = allocator;
+    _ = errors;
+    _ = body;
 }
 
 pub fn checkUnusedBindings(allocator: std.mem.Allocator, names: []const []const u8, used: []const bool, errors: *ErrorList) !void {

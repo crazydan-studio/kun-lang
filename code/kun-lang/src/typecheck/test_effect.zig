@@ -803,14 +803,14 @@ test "Phase4 checkImplicitDo callable" {
 test "Phase4 checkStreamConsumption callable" {
     var errors = try error_mod.ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
-    try effect_mod.checkStreamConsumption(std.testing.allocator, &errors);
+    try effect_mod.checkStreamConsumption(std.testing.allocator, @ptrCast(@alignCast(&[_]u8{})), &errors);
     try std.testing.expect(!errors.hasErrors());
 }
 
 test "Phase4 checkCommandConsumption callable" {
     var errors = try error_mod.ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
-    try effect_mod.checkCommandConsumption(std.testing.allocator, &errors);
+    try effect_mod.checkCommandConsumption(std.testing.allocator, @ptrCast(@alignCast(&[_]u8{})), &errors);
     try std.testing.expect(!errors.hasErrors());
 }
 

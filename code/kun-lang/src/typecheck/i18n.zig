@@ -45,6 +45,9 @@ pub fn formatError(allocator: std.mem.Allocator, err: TypeError, locale: Locale,
         .effect_in_let => |el| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ el.span.start.line, el.span.start.col }),
         .empty_body => |eb| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ eb.span.start.line, eb.span.start.col }),
         .duplicate_binding => |db| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ db.span.start.line, db.span.start.col }),
+        .unused_binding => |ub| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ub.span.start.line, ub.span.start.col }),
+        .unused_result => |ur| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ur.start.line, ur.start.col }),
+        .pure_expr_last => |pe| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ pe.start.line, pe.start.col }),
     };
     defer allocator.free(span_str);
 
@@ -197,6 +200,24 @@ pub fn formatError(allocator: std.mem.Allocator, err: TypeError, locale: Locale,
                 "Duplicate Binding: {s}\n  at {s}",
                 "重复绑定：{s}\n  位于 {s}",
                 locale, .{ db.name, span_str });
+        },
+        .unused_binding => |ub| {
+            return formatLoc(allocator,
+                "Unused Binding: {s}\n  at {s}",
+                "未使用的绑定：{s}\n  位于 {s}",
+                locale, .{ ub.name, span_str });
+        },
+        .unused_result => {
+            return formatLoc(allocator,
+                "Unused Result\n  at {s}",
+                "未使用的结果\n  位于 {s}",
+                locale, .{span_str});
+        },
+        .pure_expr_last => {
+            return formatLoc(allocator,
+                "Pure Expression as Last Statement\n  at {s}",
+                "纯表达式作为最后一条语句\n  位于 {s}",
+                locale, .{span_str});
         },
     };
 }

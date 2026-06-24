@@ -28,6 +28,9 @@ pub const TypeError = union(enum) {
     effect_in_let: struct { called_func: []const u8, span: ast.Span },
     empty_body: struct { context: []const u8, span: ast.Span },
     duplicate_binding: struct { name: []const u8, span: ast.Span },
+    unused_binding: struct { name: []const u8, span: ast.Span },
+    unused_result: ast.Span,
+    pure_expr_last: ast.Span,
 };
 
 pub const ErrorList = struct {
