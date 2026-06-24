@@ -142,14 +142,14 @@ pub fn containsEnvImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn envListImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
-    var result = Value{ .map = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
+    var map_repr = value_mod.MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
     const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
-    if (fd < 0) return result;
+    if (fd < 0) return Value{ .map = map_repr };
     defer _ = std.os.linux.close(@intCast(fd));
 
     var buf: [8192]u8 = undefined;
     const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
-    if (n <= 0) return result;
+    if (n <= 0) return Value{ .map = map_repr };
 
     var start: usize = 0;
     var pos: usize = 0;
@@ -166,13 +166,13 @@ pub fn envListImpl(env: *RuntimeEnv, args: []const Value) Value {
                         start = pos + 1;
                         continue;
                     };
-                    result = Value{ .map = hash_map.mapInsert(env.allocator, result.map.entries, result.map.len, result.map.cap, Value{ .string = key }, Value{ .string = val_str }) catch continue };
+                    map_repr = hash_map.mapInsert(env.allocator, map_repr.entries, map_repr.len, map_repr.cap, Value{ .string = key }, Value{ .string = val_str }) catch continue;
                 }
             }
             start = pos + 1;
         }
     }
-    return result;
+    return Value{ .map = map_repr };
 }
 
 pub fn exitImpl(env: *RuntimeEnv, args: []const Value) Value {
@@ -224,9 +224,10 @@ pub fn sleepImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .string) return Value{ .nil = {} };
-    const path_env = "/usr/bin:/bin:/usr/local/bin";
+    const path_env = getEnvValue(env.allocator, "PATH") orelse "/usr/bin:/bin";
     var it = std.mem.splitSequence(u8, path_env, ":");
     while (it.next()) |dir| {
+        if (dir.len == 0) continue;
         const full = std.fs.path.join(env.allocator, &.{ dir, args[0].string }) catch continue;
         defer env.allocator.free(full);
         const full_z = allocSentinel(env.allocator, full) catch continue;
@@ -236,4 +237,30 @@ pub fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
         }
     }
     return Value{ .nil = {} };
+}
+
+fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
+    const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
+    if (fd < 0) return null;
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [8192]u8 = undefined;
+    const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
+    if (n <= 0) return null;
+    var start: usize = 0;
+    var i: usize = 0;
+    const data = buf[0..@intCast(n)];
+    while (i < data.len) : (i += 1) {
+        if (data[i] == 0) {
+            if (i > start) {
+                const entry = data[start..i];
+                if (std.mem.indexOfScalar(u8, entry, '=')) |eq_pos| {
+                    if (std.mem.eql(u8, entry[0..eq_pos], key)) {
+                        return allocator.dupe(u8, entry[eq_pos + 1 ..]) catch return null;
+                    }
+                }
+            }
+            start = i + 1;
+        }
+    }
+    return null;
 }

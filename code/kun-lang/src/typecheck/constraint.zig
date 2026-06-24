@@ -694,7 +694,9 @@ pub fn inferExpr(
                     try typed_fields.append(ea, RecordField{ .name = f.name, .value = typed_val });
                 }
             }
+            const rec_type_id = exprType(typed_rec);
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
+            _ = unify_mod.unify(env, allocator, result_id, rec_type_id) catch {};
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .record_update = .{ .record = typed_rec, .fields = try typed_fields.toOwnedSlice(ea), .type_ = result_id, .span = v.span } };
             return node;

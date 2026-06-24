@@ -137,6 +137,7 @@ fn isBaseType(ty: Type) bool {
     return switch (ty) {
         .int, .float, .bool, .string, .char, .bytes, .unit,
         .path, .duration, .regex, .decimal_t, .command_t, .datetime_t,
+        .error_,
         => true,
         else => false,
     };

@@ -2,6 +2,7 @@ const std = @import("std");
 const value_mod = @import("../value.zig");
 const RuntimeEnv = @import("../primitive.zig").RuntimeEnv;
 const stream_consumer = @import("../stream_consumer.zig");
+const hash_map = @import("../hash_map.zig");
 
 const Value = value_mod.Value;
 
@@ -143,6 +144,25 @@ fn kunToJsonValue(allocator: std.mem.Allocator, val: Value, buf: *std.ArrayListU
                 try kunToJsonValue(allocator, item, buf);
             }
             buf.appendSliceAssumeCapacity("]");
+        },
+        .map => |m| {
+            buf.appendSliceAssumeCapacity("{");
+            const keys = hash_map.mapKeys(allocator, m.entries, m.len, m.cap) catch {
+                buf.appendSliceAssumeCapacity("null");
+                return;
+            };
+            defer allocator.free(keys);
+            for (keys, 0..) |key, idx| {
+                if (idx > 0) buf.appendSliceAssumeCapacity(",");
+                try kunToJsonValue(allocator, key, buf);
+                buf.appendSliceAssumeCapacity(":");
+                const found_val = hash_map.mapGet(m.entries, m.len, m.cap, key) orelse {
+                    buf.appendSliceAssumeCapacity("null");
+                    continue;
+                };
+                try kunToJsonValue(allocator, found_val, buf);
+            }
+            buf.appendSliceAssumeCapacity("}");
         },
         else => buf.appendSliceAssumeCapacity("null"),
     }
