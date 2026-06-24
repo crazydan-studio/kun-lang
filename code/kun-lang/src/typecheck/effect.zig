@@ -314,15 +314,213 @@ pub fn checkImplicitDo(allocator: std.mem.Allocator, body: *const ast.Expr, erro
 }
 
 pub fn checkStreamConsumption(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
-    _ = allocator;
-    _ = errors;
-    _ = body;
+    if (body.* != .do_block) return;
+    const stmts = body.do_block.body;
+    var stream_vars: std.StringHashMapUnmanaged(void) = .empty;
+    defer stream_vars.deinit(allocator);
+
+    for (stmts) |stmt| {
+        switch (stmt.kind) {
+            .binding => |b| {
+                if (isStreamSource(b.value)) {
+                    try stream_vars.put(allocator, b.name, {});
+                }
+            },
+            .defer_ => {}, // defer doesn't count for consumption
+            .expr => |e| {
+                markStreamConsumed(e, &stream_vars);
+            },
+        }
+    }
+
+    var it = stream_vars.iterator();
+    while (it.next()) |entry| {
+        _ = entry;
+        try errors.add(allocator, .{ .stream_not_consumed = body.do_block.span });
+    }
+}
+
+fn isStreamSource(expr: *const ast.Expr) bool {
+    return switch (expr.*) {
+        .pipe => |p| isCommandIdent(p.left),
+        .call => |c| isStreamConstructor(c.func),
+        else => false,
+    };
+}
+
+fn isCommandIdent(expr: *const ast.Expr) bool {
+    return switch (expr.*) {
+        .ident => |id| std.mem.startsWith(u8, id.name, "Cmd.") and !isKnownCmdApi(id.name) and !isCmdExecSuffix(id.name),
+        else => false,
+    };
+}
+
+fn isCmdExecSuffix(name: []const u8) bool {
+    return name.len > 1 and (name[name.len - 1] == '?' or name[name.len - 1] == '!');
+}
+
+fn isStreamConstructor(func: *const ast.Expr) bool {
+    return switch (func.*) {
+        .ident => |id| std.mem.startsWith(u8, id.name, "Stream.") and
+            (std.mem.eql(u8, id.name, "Stream.lines") or
+            std.mem.eql(u8, id.name, "Stream.fromList") or
+            std.mem.eql(u8, id.name, "Stream.range") or
+            std.mem.eql(u8, id.name, "Stream.iterate") or
+            std.mem.eql(u8, id.name, "Stream.linesMax")),
+        else => false,
+    };
+}
+
+fn isStreamConsumer(func: *const ast.Expr) bool {
+    return switch (func.*) {
+        .ident => |id| std.mem.startsWith(u8, id.name, "Stream.") and
+            (std.mem.eql(u8, id.name, "Stream.toList") or
+            std.mem.eql(u8, id.name, "Stream.iter") or
+            std.mem.eql(u8, id.name, "Stream.fold") or
+            std.mem.eql(u8, id.name, "Stream.string") or
+            std.mem.eql(u8, id.name, "Stream.bytes")),
+        else => false,
+    };
+}
+
+fn markStreamConsumed(expr: *const ast.Expr, vars: *std.StringHashMapUnmanaged(void)) void {
+    switch (expr.*) {
+        .pipe => |p| {
+            if (isStreamConsumer(p.right)) {
+                if (p.left.* == .ident) {
+                    _ = vars.remove(p.left.ident.name);
+                }
+            }
+            markStreamConsumed(p.left, vars);
+            markStreamConsumed(p.right, vars);
+        },
+        .call => |c| {
+            if (isStreamConsumer(c.func)) {
+                if (c.arg.* == .ident) {
+                    _ = vars.remove(c.arg.ident.name);
+                }
+            }
+        },
+        .let_in => |l| {
+            for (l.bindings) |b| {
+                markStreamConsumed(b.value, vars);
+            }
+            markStreamConsumed(l.body, vars);
+        },
+        .if_expr => |i| {
+            markStreamConsumed(i.then, vars);
+            markStreamConsumed(i.else_, vars);
+        },
+        .case_expr => |c| {
+            for (c.branches) |b| {
+                markStreamConsumed(b.body, vars);
+            }
+        },
+        .do_block => |d| {
+            for (d.body) |s| {
+                if (s.kind == .expr) {
+                    markStreamConsumed(s.kind.expr, vars);
+                }
+            }
+        },
+        .binary_op => |b| {
+            markStreamConsumed(b.left, vars);
+            markStreamConsumed(b.right, vars);
+        },
+        else => {},
+    }
 }
 
 pub fn checkCommandConsumption(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
-    _ = allocator;
-    _ = errors;
-    _ = body;
+    if (body.* != .do_block) return;
+    const stmts = body.do_block.body;
+    var cmd_vars: std.StringHashMapUnmanaged(void) = .empty;
+    defer cmd_vars.deinit(allocator);
+
+    for (stmts) |stmt| {
+        switch (stmt.kind) {
+            .binding => |b| {
+                if (isCmdSource(b.value)) {
+                    try cmd_vars.put(allocator, b.name, {});
+                }
+            },
+            .defer_ => {},
+            .expr => |e| {
+                markCmdConsumed(e, &cmd_vars);
+            },
+        }
+    }
+
+    var it = cmd_vars.iterator();
+    while (it.next()) |entry| {
+        _ = entry;
+        try errors.add(allocator, .{ .command_not_consumed = .{ .cmd_name = "command", .span = body.do_block.span } });
+    }
+}
+
+fn isCmdSource(expr: *const ast.Expr) bool {
+    return switch (expr.*) {
+        .ident => isCommandIdent(expr),
+        .call => |c| switch (c.func.*) {
+            .ident => |id| std.mem.startsWith(u8, id.name, "Cmd.") and !isKnownCmdApi(id.name) and !isCmdExecSuffix(id.name),
+            else => false,
+        },
+        else => false,
+    };
+}
+
+fn markCmdConsumed(expr: *const ast.Expr, vars: *std.StringHashMapUnmanaged(void)) void {
+    switch (expr.*) {
+        .pipe => |p| {
+            if (p.left.* == .ident) {
+                _ = vars.remove(p.left.ident.name);
+            }
+            markCmdConsumed(p.left, vars);
+            markCmdConsumed(p.right, vars);
+        },
+        .call => |c| {
+            if (isCmdExecCall(c.func)) {
+                if (c.arg.* == .ident) {
+                    _ = vars.remove(c.arg.ident.name);
+                }
+            }
+            if (isCmdSource(c.arg)) {
+                // Direct consumption: Cmd.exec (Cmd.echo "hi")
+            }
+        },
+        .let_in => |l| {
+            for (l.bindings) |b| {
+                markCmdConsumed(b.value, vars);
+            }
+            markCmdConsumed(l.body, vars);
+        },
+        .if_expr => |i| {
+            markCmdConsumed(i.then, vars);
+            markCmdConsumed(i.else_, vars);
+        },
+        .case_expr => |c| {
+            for (c.branches) |b| {
+                markCmdConsumed(b.body, vars);
+            }
+        },
+        else => {},
+    }
+}
+
+fn isCmdExecCall(func: *const ast.Expr) bool {
+    return switch (func.*) {
+        .ident => |id| std.mem.eql(u8, id.name, "Cmd.exec") or std.mem.eql(u8, id.name, "Cmd.execSafe"),
+        else => false,
+    };
+}
+
+fn isKnownCmdApi(name: []const u8) bool {
+    const rest = if (std.mem.startsWith(u8, name, "Cmd.")) name["Cmd.".len..] else return false;
+    const apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
+    for (apis) |api| {
+        if (std.mem.eql(u8, rest, api)) return true;
+    }
+    return false;
 }
 
 pub fn checkUnusedBindings(allocator: std.mem.Allocator, names: []const []const u8, used: []const bool, errors: *ErrorList) !void {
