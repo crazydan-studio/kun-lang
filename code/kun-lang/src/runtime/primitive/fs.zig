@@ -202,7 +202,97 @@ pub fn createTempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = std.os.linux.mkdir(@ptrCast(name.ptr), 0o700);
     return value_mod.makeOk(Value{ .path = name }, env.allocator) catch return Value{ .nil = {} };
 }
-pub fn copyImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn renameImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn removeAllImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn atomicWriteImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
+pub fn copyImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .path or args[1] != .path)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const src_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(src_z);
+    const dst_z = io.allocSentinel(env.allocator, args[1].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(dst_z);
+    const src_fd = std.os.linux.open(src_z, .{}, 0);
+    if (src_fd < 0) return value_mod.makeErr(0, Value{ .string = "open src" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(src_fd));
+    const dst_fd = std.os.linux.open(dst_z, .{ .CREAT = true, .TRUNC = true }, 0o644);
+    if (dst_fd < 0) return value_mod.makeErr(1, Value{ .string = "open dst" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(dst_fd));
+    var buf: [65536]u8 = undefined;
+    while (true) {
+        const n = std.os.linux.read(@intCast(src_fd), &buf, buf.len);
+        if (n <= 0) break;
+        _ = std.os.linux.write(@intCast(dst_fd), buf[0..@intCast(n)].ptr, @intCast(n));
+    }
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn renameImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .path or args[1] != .path)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const old_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(old_z);
+    const new_z = io.allocSentinel(env.allocator, args[1].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(new_z);
+    if (std.os.linux.rename(old_z, new_z) != 0) {
+        return value_mod.makeErr(1, Value{ .string = "rename error" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn removeAllImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    removeRecursive(env.allocator, path_z);
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn removeRecursive(allocator: std.mem.Allocator, path: [:0]u8) void {
+    const fd = std.os.linux.open(path, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
+    if (fd < 0) {
+        _ = std.os.linux.unlink(path);
+        return;
+    }
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [4096]u8 align(8) = undefined;
+    var pos: usize = 0;
+    var nread: usize = 0;
+    while (true) {
+        if (pos >= nread) {
+            const r = std.os.linux.getdents64(@intCast(fd), &buf, buf.len);
+            if (r <= 0) break;
+            nread = @intCast(r);
+            pos = 0;
+            if (nread == 0) break;
+        }
+        const de = @as(*align(1) std.os.linux.dirent64, @ptrCast(&buf[pos]));
+        if (de.ino != 0 and de.reclen != 0) {
+            const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
+            if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
+                const sub_path = std.fs.path.joinZ(allocator, &.{ path, name }) catch continue;
+                defer allocator.free(sub_path);
+                removeRecursive(allocator, sub_path);
+            }
+        }
+        pos += de.reclen;
+    }
+    _ = std.os.linux.rmdir(path);
+}
+
+pub fn atomicWriteImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .path or args[1] != .string)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const tmp_name = std.fmt.allocPrint(env.allocator, "{s}.tmp", .{args[0].path}) catch return Value{ .nil = {} };
+    defer env.allocator.free(tmp_name);
+    const tmp_z = io.allocSentinel(env.allocator, tmp_name) catch return Value{ .nil = {} };
+    defer env.allocator.free(tmp_z);
+    const fd = std.os.linux.open(tmp_z, .{ .CREAT = true, .TRUNC = true }, 0o644);
+    if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    _ = std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len);
+    const dst_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(dst_z);
+    if (std.os.linux.rename(tmp_z, dst_z) != 0) {
+        return value_mod.makeErr(1, Value{ .string = "rename error" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}

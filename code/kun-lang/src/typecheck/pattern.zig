@@ -122,6 +122,32 @@ pub fn narrowType(
         }
     }
 
+    if (resolved == .adt) {
+        if (pattern == .variant) {
+            const v = pattern.variant;
+            const variants = resolved.adt.variants;
+            for (variants) |var_info| {
+                if (std.mem.eql(u8, var_info.name, v.name)) {
+                    if (var_info.payload.len == 1) {
+                        return var_info.payload[0];
+                    }
+                    return scrutinee_ty;
+                }
+            }
+        }
+        if (pattern == .ident) {
+            const name = pattern.ident.name;
+            if (name.len > 0 and name[0] >= 'a' and name[0] <= 'z') return scrutinee_ty;
+        }
+    }
+
+    if (resolved == .bool) {
+        if (pattern == .ident) {
+            const name = pattern.ident.name;
+            if (std.mem.eql(u8, name, "True") or std.mem.eql(u8, name, "False")) return scrutinee_ty;
+        }
+    }
+
     return scrutinee_ty;
 }
 

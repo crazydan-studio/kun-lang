@@ -94,7 +94,10 @@ pub fn readAllBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn isTerminalImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     _ = args;
-    return Value{ .bool = true };
+    const TCGETS = 0x5401;
+    var termios: std.os.linux.termios = undefined;
+    const result = std.os.linux.ioctl(1, TCGETS, @intFromPtr(&termios));
+    return Value{ .bool = result == 0 };
 }
 
 pub fn flushImpl(env: *RuntimeEnv, args: []const Value) Value {
