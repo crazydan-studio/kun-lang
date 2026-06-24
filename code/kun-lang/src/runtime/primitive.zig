@@ -2,11 +2,11 @@ const std = @import("std");
 const value_mod = @import("value.zig");
 const typed = @import("../ast/typed.zig");
 
-const io = @import("primitive_io.zig");
-const fs = @import("primitive_fs.zig");
-const data = @import("primitive_data.zig");
-const stream = @import("primitive_stream.zig");
-const crypto = @import("primitive_crypto.zig");
+const io = @import("primitive/io.zig");
+const fs = @import("primitive/fs.zig");
+const data = @import("primitive/data.zig");
+const stream = @import("primitive/stream.zig");
+const crypto = @import("primitive/crypto.zig");
 
 const TypeId = typed.TypeId;
 const Frame = @import("env.zig").Frame;
