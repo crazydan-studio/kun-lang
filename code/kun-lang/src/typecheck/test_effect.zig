@@ -467,36 +467,39 @@ test "Phase4 checkPureExprLast no error for non-pure" {
 test "Phase4 checkDoInResult unit result emits error" {
     var errors = try error_mod.ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
+    var env = try env_mod.TypeEnv.init(std.testing.allocator); defer env.deinit(std.testing.allocator);
     const body = try std.testing.allocator.create(ast.Expr);
     defer std.testing.allocator.destroy(body);
     body.* = .{ .int_literal = .{ .value = 42, .span = undefined } };
     const typed_result = try std.testing.allocator.create(typed.TypedExpr);
     defer std.testing.allocator.destroy(typed_result);
     typed_result.* = .{ .int_literal = .{ .value = 0, .type_ = env_mod.unit_type, .span = undefined } };
-    try effect_mod.checkDoInResult(std.testing.allocator, body, typed_result, &errors);
+    try effect_mod.checkDoInResult(std.testing.allocator, body, typed_result, &env, &errors);
     try std.testing.expect(errors.hasErrors());
 }
 
 test "Phase4 checkDoInResult non-unit result no error" {
     var errors = try error_mod.ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
+    var env = try env_mod.TypeEnv.init(std.testing.allocator); defer env.deinit(std.testing.allocator);
     const body = try std.testing.allocator.create(ast.Expr);
     defer std.testing.allocator.destroy(body);
     body.* = .{ .int_literal = .{ .value = 42, .span = undefined } };
     const typed_result = try std.testing.allocator.create(typed.TypedExpr);
     defer std.testing.allocator.destroy(typed_result);
     typed_result.* = .{ .int_literal = .{ .value = 42, .type_ = env_mod.int_type, .span = undefined } };
-    try effect_mod.checkDoInResult(std.testing.allocator, body, typed_result, &errors);
+    try effect_mod.checkDoInResult(std.testing.allocator, body, typed_result, &env, &errors);
     try std.testing.expect(!errors.hasErrors());
 }
 
 test "Phase4 checkDoInResult nil typed_result no error" {
     var errors = try error_mod.ErrorList.init(std.testing.allocator);
+    var env = try env_mod.TypeEnv.init(std.testing.allocator); defer env.deinit(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
     const body = try std.testing.allocator.create(ast.Expr);
     defer std.testing.allocator.destroy(body);
     body.* = .{ .int_literal = .{ .value = 42, .span = undefined } };
-    try effect_mod.checkDoInResult(std.testing.allocator, body, null, &errors);
+    try effect_mod.checkDoInResult(std.testing.allocator, body, null, &env, &errors);
     try std.testing.expect(!errors.hasErrors());
 }
 
@@ -1584,6 +1587,7 @@ test "Phase4 checkPipeCommand emits command_not_consumed" {
 
 test "Phase4 checkDoInResult emits pure_unit_return" {
     var errors = try error_mod.ErrorList.init(std.testing.allocator);
+    var env = try env_mod.TypeEnv.init(std.testing.allocator); defer env.deinit(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
     const body = try std.testing.allocator.create(ast.Expr);
     defer std.testing.allocator.destroy(body);
@@ -1591,7 +1595,7 @@ test "Phase4 checkDoInResult emits pure_unit_return" {
     const typed_result = try std.testing.allocator.create(typed.TypedExpr);
     defer std.testing.allocator.destroy(typed_result);
     typed_result.* = .{ .int_literal = .{ .value = 0, .type_ = env_mod.unit_type, .span = undefined } };
-    try effect_mod.checkDoInResult(std.testing.allocator, body, typed_result, &errors);
+    try effect_mod.checkDoInResult(std.testing.allocator, body, typed_result, &env, &errors);
     try std.testing.expect(errors.hasErrors());
     try std.testing.expect(errors.items.items[0] == .pure_unit_return);
 }

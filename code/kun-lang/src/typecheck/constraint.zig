@@ -350,7 +350,7 @@ pub fn inferExpr(
             }
             const typed_result = if (v.result) |r| try inferExpr(allocator, r, env, errors, in_do) else null;
             const result_type = if (typed_result) |r| exprType(r) else unit_type;
-            try effect_mod.checkDoInResult(allocator, expr, typed_result, errors);
+            try effect_mod.checkDoInResult(allocator, expr, typed_result, env, errors);
             try effect_mod.checkImplicitDo(allocator, expr, errors);
             try effect_mod.checkStreamConsumption(allocator, expr, errors);
             try effect_mod.checkCommandConsumption(allocator, expr, errors);

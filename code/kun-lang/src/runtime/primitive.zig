@@ -101,8 +101,8 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "Cmd", .name = "which", .fn_ptr = io.whichImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
         .{ .module = "Cmd", .name = "exec", .fn_ptr = stream.cmdExecImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
         .{ .module = "Cmd", .name = "execSafe", .fn_ptr = stream.cmdExecSafeImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
-        .{ .module = "Cmd", .name = "pipe?", .fn_ptr = stream.cmdPipeImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
-        .{ .module = "Cmd", .name = "pipe!", .fn_ptr = stream.cmdPipeBangImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Cmd", .name = "pipe?", .fn_ptr = stream.cmdPipeImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Cmd", .name = "pipe!", .fn_ptr = stream.cmdPipeBangImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
 
         .{ .module = "Stream", .name = "lines", .fn_ptr = stream.streamLinesImpl, .arg_count = 1, .return_type = stream_string_t, .is_polymorphic = false, .is_effect = false },
         .{ .module = "Stream", .name = "iter", .fn_ptr = stream.streamIterImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = true },

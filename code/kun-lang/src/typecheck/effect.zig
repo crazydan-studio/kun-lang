@@ -271,12 +271,13 @@ pub fn checkEmptyBody(allocator: std.mem.Allocator, body: *const ast.Expr, conte
     }
 }
 
-pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, typed_result: ?*const typed.TypedExpr, errors: *ErrorList) !void {
+pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, typed_result: ?*const typed.TypedExpr, env: *env_mod.TypeEnv, errors: *ErrorList) !void {
     if (typed_result) |tr| {
         const result_type = switch (tr.*) {
             inline else => |v| v.type_,
         };
-        if (result_type == env_mod.unit_type) {
+        const resolved = env.applySubst(result_type);
+        if (resolved < env.types.items.len and env.types.items[resolved] == .unit) {
             try errors.add(allocator, .{ .pure_unit_return = .{ .func_name = "do in result", .span = exprSpan(body) } });
         }
     }
@@ -498,10 +499,11 @@ fn markCmdConsumed(expr: *const ast.Expr, vars: *std.StringHashMapUnmanaged(void
             if (isCmdExecCall(c.func)) {
                 if (c.arg.* == .ident) {
                     _ = vars.remove(c.arg.ident.name);
+                } else if (c.arg.* == .call) {
+                    if (c.arg.call.func.* == .ident) {
+                        _ = vars.remove(c.arg.call.func.ident.name);
+                    }
                 }
-            }
-            if (isCmdSource(c.arg)) {
-                // Direct consumption: Cmd.exec (Cmd.echo "hi")
             }
         },
         .let_in => |l| {
