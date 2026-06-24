@@ -142,5 +142,15 @@ pub fn cmdExecSafeImpl(env: *RuntimeEnv, args: []const Value) Value {
     return value_mod.makeOk(Value{ .stream = cmd_mod.execCommand(&args[0].command, env.allocator) catch return value_mod.makeErr(2, Value{ .string = "exec error" }, env.allocator) catch return Value{ .nil = {} } }, env.allocator) catch return Value{ .nil = {} };
 }
 
-pub fn cmdPipeImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn cmdPipeBangImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .unit = {} }; }
+pub fn cmdPipeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .command or args[1] != .command) return Value{ .nil = {} };
+    const node = cmd_mod.execPipeCommand(&args[0].command, &args[1].command, env.allocator) catch return value_mod.makeErr(2, Value{ .string = "pipe error" }, env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .stream = node }, env.allocator) catch return Value{ .nil = {} };
+}
+
+pub fn cmdPipeBangImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .command or args[1] != .command) return Value{ .unit = {} };
+    const node = cmd_mod.execPipeCommand(&args[0].command, &args[1].command, env.allocator) catch return Value{ .unit = {} };
+    while (stream_consumer.consumeNext(node, env.allocator, null) catch null) |_| {}
+    return Value{ .unit = {} };
+}

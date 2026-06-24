@@ -43,6 +43,58 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
     return node;
 }
 
+pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload, allocator: std.mem.Allocator) !*StreamNode {
+    const argv1 = try buildArgv(cmd1, allocator);
+    defer allocator.free(argv1);
+    const argv2 = try buildArgv(cmd2, allocator);
+    defer allocator.free(argv2);
+
+    var pipe_fds: [2]std.os.linux.fd_t = undefined;
+    if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
+        return error.PipeFailed;
+    }
+
+    const pid1 = std.os.linux.fork();
+    if (pid1 == 0) {
+        _ = std.os.linux.close(pipe_fds[0]);
+        _ = std.os.linux.dup2(pipe_fds[1], std.os.linux.STDOUT_FILENO);
+        _ = std.os.linux.close(pipe_fds[1]);
+        const resolved = resolvePath(cmd1.bin, allocator) catch std.process.exit(127);
+        defer allocator.free(resolved);
+        const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv1.len, null);
+        defer allocator.free(argv_z);
+        argv_z[0] = @ptrCast(resolved.ptr);
+        for (argv1[1..], 1..) |a, i| argv_z[i] = @ptrCast(a.ptr);
+        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(&argv_z), @ptrCast(&[_:null]?[*:0]const u8{null}));
+        std.process.exit(126);
+    }
+
+    const pid2 = std.os.linux.fork();
+    if (pid2 == 0) {
+        _ = std.os.linux.close(pipe_fds[1]);
+        _ = std.os.linux.dup2(pipe_fds[0], std.os.linux.STDIN_FILENO);
+        _ = std.os.linux.close(pipe_fds[0]);
+        const resolved = resolvePath(cmd2.bin, allocator) catch std.process.exit(127);
+        defer allocator.free(resolved);
+        const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv2.len, null);
+        defer allocator.free(argv_z);
+        argv_z[0] = @ptrCast(resolved.ptr);
+        for (argv2[1..], 1..) |a, i| argv_z[i] = @ptrCast(a.ptr);
+        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(&argv_z), @ptrCast(&[_:null]?[*:0]const u8{null}));
+        std.process.exit(126);
+    }
+
+    _ = std.os.linux.close(pipe_fds[0]);
+    _ = std.os.linux.close(pipe_fds[1]);
+
+    if (pid1 < 0 or pid2 < 0) return error.ForkFailed;
+
+    const node = try allocator.create(StreamNode);
+    const buf = try allocator.alloc(u8, 4096);
+    node.* = .{ .cmd = .{ .fd = -1, .pid = @intCast(pid2), .buf = buf } };
+    return node;
+}
+
 fn buildArgv(cmd: *const CommandPayload, allocator: std.mem.Allocator) ![]const []const u8 {
     var list: std.ArrayListUnmanaged([]const u8) = .empty;
     try list.append(allocator, cmd.bin);

@@ -118,7 +118,7 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
             _ = state.advance();
             const module_tok = state.advance();
             var module_name = module_tok.slice;
-            while (state.peek() == .dot) {
+            while (state.peek() == .dot or state.peek() == .opt_chain) {
                 _ = state.advance();
                 const next = state.advance();
                 const combined = try std.fmt.allocPrint(state.allocator, "{s}.{s}", .{ module_name, next.slice });
@@ -597,7 +597,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             }
 
             // Handle chained record access after call: f a .field
-            while (state.peek() == .dot) {
+            while (state.peek() == .dot or state.peek() == .opt_chain) {
                 _ = state.advance();
                 const field = state.advance();
                 const span = Span{ .start = spanOf(&left).start, .end = field.span.end };
@@ -615,6 +615,31 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         .backslash => {
             _ = state.advance();
             var params = std.ArrayListUnmanaged(ast.Param).empty;
+            if (state.peek() == .lparen) {
+                _ = state.advance();
+                while (state.peek() == .ident) {
+                    const p = state.advance();
+                    try params.append(state.allocator, .{ .name = p.slice, .span = p.span });
+                    if (state.peek() == .comma) _ = state.advance();
+                }
+                try state.expect(.rparen);
+                try state.expect(.arrow);
+                var body = try parseExpr(state);
+                var i: usize = params.items.len;
+                while (i > 0) : (i -= 1) {
+                    const span = Span{ .start = params.items[i - 1].span.start, .end = spanOf(&body).end };
+                    body = Expr{ .lambda = .{
+                        .params = &.{params.items[i - 1]},
+                        .body = try heapExpr(state, &body),
+                        .span = span,
+                    } };
+                }
+                const span = Span{ .start = start, .end = spanOf(&body).end };
+                if (params.items.len == 0) {
+                    return Expr{ .lambda = .{ .params = &.{}, .body = try heapExpr(state, &body), .span = span } };
+                }
+                return body;
+            }
             while (state.peek() == .ident) {
                 const p = state.advance();
                 try params.append(state.allocator, .{ .name = p.slice, .span = p.span });
