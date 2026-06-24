@@ -6,6 +6,7 @@ const env_mod = @import("env.zig");
 const defer_mod = @import("defer.zig");
 const primitive_mod = @import("primitive.zig");
 const cmd_mod = @import("cmd.zig");
+const hash_map = @import("hash_map.zig");
 
 const Value = value_mod.Value;
 const Closure = value_mod.Closure;
@@ -595,19 +596,24 @@ fn recordFieldsEqual(a_fields: []const RecordFieldValue, b_fields: []const Recor
 }
 
 fn evalMapLiteral(entries: []const MapEntry, frame: *Frame, allocator: std.mem.Allocator) !Value {
-    _ = frame;
-    _ = allocator;
-    _ = entries;
-    const static_zero: [0]u8 = .{};
-    return Value{ .map = .{ .entries = @constCast(&static_zero), .len = 0, .cap = 0 } };
+    var result = Value{ .map = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
+    for (entries) |e| {
+        const k = try eval(e.key, frame, allocator);
+        const v = try eval(e.value, frame, allocator);
+        const new_rep = try hash_map.mapInsert(allocator, result.map.entries, result.map.len, result.map.cap, k, v);
+        result.map = new_rep;
+    }
+    return result;
 }
 
 fn evalSetLiteral(items: []const TypedExpr, frame: *Frame, allocator: std.mem.Allocator) !Value {
-    _ = frame;
-    _ = allocator;
-    _ = items;
-    const static_zero: [0]u8 = .{};
-    return Value{ .set = .{ .entries = @constCast(&static_zero), .len = 0, .cap = 0 } };
+    var result = Value{ .set = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
+    for (items) |*item| {
+        const v = try eval(item, frame, allocator);
+        const new_rep = try hash_map.setInsert(allocator, result.set.entries, result.set.len, result.set.cap, v);
+        result.set = new_rep;
+    }
+    return result;
 }
 
 pub fn evalModule(decls: []const TypedDecl, allocator: std.mem.Allocator, primitives: PrimitiveTable) !void {

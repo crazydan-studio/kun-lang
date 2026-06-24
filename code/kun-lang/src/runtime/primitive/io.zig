@@ -1,6 +1,7 @@
 const std = @import("std");
 const value_mod = @import("../value.zig");
 const RuntimeEnv = @import("../primitive.zig").RuntimeEnv;
+const hash_map = @import("../hash_map.zig");
 
 const Value = value_mod.Value;
 
@@ -124,9 +125,38 @@ pub fn containsEnvImpl(env: *RuntimeEnv, args: []const Value) Value {
 }
 
 pub fn envListImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
     _ = args;
-    return Value{ .map = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
+    var result = Value{ .map = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
+    const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
+    if (fd < 0) return result;
+    defer _ = std.os.linux.close(@intCast(fd));
+
+    var buf: [8192]u8 = undefined;
+    const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
+    if (n <= 0) return result;
+
+    var start: usize = 0;
+    var pos: usize = 0;
+    while (pos < @as(usize, @intCast(n))) : (pos += 1) {
+        if (buf[pos] == 0) {
+            if (pos > start) {
+                const entry_str = buf[start..pos];
+                if (std.mem.indexOfScalar(u8, entry_str, '=')) |eq_pos| {
+                    const key = env.allocator.dupe(u8, entry_str[0..eq_pos]) catch {
+                        start = pos + 1;
+                        continue;
+                    };
+                    const val_str = env.allocator.dupe(u8, entry_str[eq_pos + 1 ..]) catch {
+                        start = pos + 1;
+                        continue;
+                    };
+                    result = Value{ .map = hash_map.mapInsert(env.allocator, result.map.entries, result.map.len, result.map.cap, Value{ .string = key }, Value{ .string = val_str }) catch continue };
+                }
+            }
+            start = pos + 1;
+        }
+    }
+    return result;
 }
 
 pub fn exitImpl(env: *RuntimeEnv, args: []const Value) Value {

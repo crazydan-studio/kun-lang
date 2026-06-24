@@ -1,6 +1,7 @@
 const std = @import("std");
 const value_mod = @import("../value.zig");
 const RuntimeEnv = @import("../primitive.zig").RuntimeEnv;
+const hash_map = @import("../hash_map.zig");
 
 const Value = value_mod.Value;
 
@@ -116,11 +117,44 @@ pub fn mapIsEmptyImpl(env: *RuntimeEnv, args: []const Value) Value {
     return Value{ .bool = args[0].map.len == 0 };
 }
 
-pub fn mapInsertImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn mapGetImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn mapRemoveImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn mapKeysImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .list = .{ .items = &.{}, .cap = 0 } }; }
-pub fn mapValuesImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .list = .{ .items = &.{}, .cap = 0 } }; }
+pub fn mapInsertImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 3 or args[0] != .map) return Value{ .nil = {} };
+    const k = args[1];
+    const v = args[2];
+    const m = args[0].map;
+    const result = hash_map.mapInsert(env.allocator, m.entries, m.len, m.cap, k, v) catch return Value{ .nil = {} };
+    return Value{ .map = result };
+}
+
+pub fn mapGetImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 2 or args[1] != .map) return Value{ .nil = {} };
+    const k = args[0];
+    const m = args[1].map;
+    return hash_map.mapGet(m.entries, m.len, m.cap, k) orelse Value{ .nil = {} };
+}
+
+pub fn mapRemoveImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[1] != .map) return Value{ .nil = {} };
+    const k = args[0];
+    const m = args[1].map;
+    const result = hash_map.mapRemove(env.allocator, m.entries, m.len, m.cap, k) catch return Value{ .nil = {} };
+    return Value{ .map = result };
+}
+
+pub fn mapKeysImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .map) return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+    const m = args[0].map;
+    const keys = hash_map.mapKeys(env.allocator, m.entries, m.len, m.cap) catch return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+    return Value{ .list = .{ .items = keys, .cap = keys.len } };
+}
+
+pub fn mapValuesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .map) return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+    const m = args[0].map;
+    const vals = hash_map.mapValues(env.allocator, m.entries, m.len, m.cap) catch return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+    return Value{ .list = .{ .items = vals, .cap = vals.len } };
+}
 
 pub fn setSizeImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
@@ -132,9 +166,29 @@ pub fn setIsEmptyImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .set) return Value{ .bool = true };
     return Value{ .bool = args[0].set.len == 0 };
 }
-pub fn setContainsImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .bool = false }; }
-pub fn setInsertImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn setRemoveImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
+pub fn setContainsImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 2 or args[1] != .set) return Value{ .bool = false };
+    const k = args[0];
+    const s = args[1].set;
+    return Value{ .bool = hash_map.setContains(s.entries, s.len, s.cap, k) };
+}
+
+pub fn setInsertImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[1] != .set) return Value{ .nil = {} };
+    const k = args[0];
+    const s = args[1].set;
+    const result = hash_map.setInsert(env.allocator, s.entries, s.len, s.cap, k) catch return Value{ .nil = {} };
+    return Value{ .set = result };
+}
+
+pub fn setRemoveImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[1] != .set) return Value{ .nil = {} };
+    const k = args[0];
+    const s = args[1].set;
+    const result = hash_map.setRemove(env.allocator, s.entries, s.len, s.cap, k) catch return Value{ .nil = {} };
+    return Value{ .set = result };
+}
 
 pub fn bytesLengthImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
