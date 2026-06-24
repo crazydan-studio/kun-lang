@@ -8,6 +8,7 @@ const TypeId = typed.TypeId;
 const Frame = @import("env.zig").Frame;
 const StreamNode = value_mod.StreamNode;
 const StreamFn = value_mod.StreamFn;
+const cmd_mod = @import("cmd.zig");
 
 pub const RuntimeEnv = struct {
     frame: *Frame,
@@ -597,6 +598,266 @@ fn envListImpl(env: *RuntimeEnv, args: []const Value) Value {
     return Value{ .map = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
 }
 
+fn streamFromListImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .list) return Value{ .stream = value_mod.streamFromList(env.allocator, &.{}) catch return Value{ .nil = {} } };
+    const node = value_mod.streamFromList(env.allocator, args[0].list.items) catch return Value{ .nil = {} };
+    return Value{ .stream = node };
+}
+
+fn streamRangeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn streamIterateImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn streamLinesMaxImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .int or args[1] != .stream) return Value{ .nil = {} };
+    const node = value_mod.streamLines(env.allocator, args[1].stream, @intCast(@max(args[0].int, 0))) catch return Value{ .nil = {} };
+    return Value{ .stream = node };
+}
+
+fn cmdExecImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .command) return Value{ .unit = {} };
+    const stream_node = cmd_mod.execCommand(&args[0].command, env.allocator) catch return Value{ .unit = {} };
+    while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |_| {}
+    return Value{ .unit = {} };
+}
+
+fn cmdExecSafeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .command) return value_mod.makeErr(2, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .stream = cmd_mod.execCommand(&args[0].command, env.allocator) catch return value_mod.makeErr(2, Value{ .string = "exec error" }, env.allocator) catch return Value{ .nil = {} } }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn cmdPipeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn cmdPipeBangImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .unit = {} };
+}
+
+fn fileReadBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(0, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{}, 0);
+    if (fd < 0) return value_mod.makeErr(0, Value{ .string = "not found" }, env.allocator) catch return Value{ .nil = {} };
+    const buf = env.allocator.alloc(u8, 4096) catch { _ = std.os.linux.close(@intCast(fd)); return Value{ .nil = {} }; };
+    const node = env.allocator.create(StreamNode) catch return Value{ .nil = {} };
+    node.* = .{ .cmd = .{ .fd = @intCast(fd), .pid = -1, .buf = buf } };
+    return value_mod.makeOk(Value{ .stream = node }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn fileWriteBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileAppendStringImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .path or args[1] != .string)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{ .CREAT = true, .TRUNC = false }, 0o644);
+    if (fd < 0) {
+        return value_mod.makeErr(0, Value{ .string = "open" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    defer _ = std.os.linux.close(@intCast(fd));
+    _ = std.os.linux.lseek(@intCast(fd), 0, std.os.linux.SEEK.END);
+    _ = std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len);
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn fileAppendBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileReadLinesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileWalkDirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileGlobImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileCreateTempFileImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_XXXXXX", .{}) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .path = name }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn fileCreateTempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_XXXXXX", .{}) catch return Value{ .nil = {} };
+    _ = std.os.linux.mkdir(@ptrCast(name.ptr), 0o700);
+    return value_mod.makeOk(Value{ .path = name }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn fileCopyImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileRenameImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileRemoveAllImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn fileAtomicWriteImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn sha256Impl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .bytes) return Value{ .bytes = &.{} };
+    var out: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(args[0].bytes, &out, .{});
+    const result = env.allocator.dupe(u8, &out) catch return Value{ .nil = {} };
+    return Value{ .bytes = result };
+}
+
+fn sha256HexImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .bytes) return Value{ .string = "" };
+    var out: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(args[0].bytes, &out, .{});
+    const hex_chars = "0123456789abcdef";
+    const result = env.allocator.alloc(u8, 64) catch return Value{ .string = "" };
+    for (&out, 0..) |byte, i| {
+        result[i * 2] = hex_chars[byte >> 4];
+        result[i * 2 + 1] = hex_chars[byte & 0xF];
+    }
+    return Value{ .string = result };
+}
+
+fn sha256StreamImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .bytes = &.{} };
+}
+
+fn base64EncodeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .bytes) return Value{ .string = "" };
+    const encoder = std.base64.standard.Encoder;
+    const out_len = encoder.calcSize(args[0].bytes.len);
+    const buf = env.allocator.alloc(u8, out_len) catch return Value{ .string = "" };
+    const encoded = encoder.encode(buf, args[0].bytes);
+    return Value{ .string = encoded };
+}
+
+fn base64DecodeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .string) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const decoder = std.base64.standard.Decoder;
+    const out_len = decoder.calcSizeForSlice(args[0].string) catch return value_mod.makeErr(1, Value{ .string = "invalid" }, env.allocator) catch return Value{ .nil = {} };
+    const buf = env.allocator.alloc(u8, out_len) catch return Value{ .nil = {} };
+    decoder.decode(buf, args[0].string) catch return value_mod.makeErr(1, Value{ .string = "decode error" }, env.allocator) catch return Value{ .nil = {} };
+    return Value{ .bytes = buf };
+}
+
+fn dateTimeNowImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .int = 0 };
+}
+
+fn dateTimeFormatImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn dateTimeParseImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn jsonFromStringImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn jsonToStringImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn regexIsMatchImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .bool = false };
+}
+
+fn regexFromStringImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn validatorRegexImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn regexAllMatchesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env; _ = args;
+    return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+}
+
+fn regexFirstMatchImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env; _ = args;
+    return Value{ .nil = {} };
+}
+
+fn regexReplaceImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env; _ = args;
+    return Value{ .string = "" };
+}
+
+fn regexReplaceAllImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env; _ = args;
+    return Value{ .string = "" };
+}
+
+fn regexSplitImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env; _ = args;
+    return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+}
+
 fn mapFileError(err: anyerror) u8 {
     return switch (err) {
         error.FileNotFound => 0,
@@ -754,6 +1015,45 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "String", .name = "slice", .fn_ptr = stringSliceImpl, .arg_count = 3, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
         .{ .module = "String", .name = "toString", .fn_ptr = stringToStringImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
         .{ .module = "Env", .name = "list", .fn_ptr = envListImpl, .arg_count = 0, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Stream", .name = "fromList", .fn_ptr = streamFromListImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Stream", .name = "range", .fn_ptr = streamRangeImpl, .arg_count = 3, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Stream", .name = "iterate", .fn_ptr = streamIterateImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Stream", .name = "linesMax", .fn_ptr = streamLinesMaxImpl, .arg_count = 2, .return_type = stream_string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Cmd", .name = "exec", .fn_ptr = cmdExecImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Cmd", .name = "execSafe", .fn_ptr = cmdExecSafeImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Cmd", .name = "pipe?", .fn_ptr = cmdPipeImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Cmd", .name = "pipe!", .fn_ptr = cmdPipeBangImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "readBytes", .fn_ptr = fileReadBytesImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "writeBytes", .fn_ptr = fileWriteBytesImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "appendString", .fn_ptr = fileAppendStringImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "appendBytes", .fn_ptr = fileAppendBytesImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "readLines", .fn_ptr = fileReadLinesImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "walkDir", .fn_ptr = fileWalkDirImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "glob", .fn_ptr = fileGlobImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "createTempFile", .fn_ptr = fileCreateTempFileImpl, .arg_count = 0, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "createTempDir", .fn_ptr = fileCreateTempDirImpl, .arg_count = 0, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "copy", .fn_ptr = fileCopyImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "rename", .fn_ptr = fileRenameImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "removeAll", .fn_ptr = fileRemoveAllImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "atomicWriteString", .fn_ptr = fileAtomicWriteImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Hash", .name = "sha256", .fn_ptr = sha256Impl, .arg_count = 1, .return_type = bytes_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Hash", .name = "sha256Hex", .fn_ptr = sha256HexImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Hash", .name = "sha256Stream", .fn_ptr = sha256StreamImpl, .arg_count = 1, .return_type = bytes_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Base64", .name = "encode", .fn_ptr = base64EncodeImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Base64", .name = "decode", .fn_ptr = base64DecodeImpl, .arg_count = 1, .return_type = bytes_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "DateTime", .name = "now", .fn_ptr = dateTimeNowImpl, .arg_count = 0, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "DateTime", .name = "format", .fn_ptr = dateTimeFormatImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "DateTime", .name = "parse", .fn_ptr = dateTimeParseImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Parser.JSON", .name = "fromString", .fn_ptr = jsonFromStringImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Parser.JSON", .name = "toString", .fn_ptr = jsonToStringImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Regex", .name = "isMatch", .fn_ptr = regexIsMatchImpl, .arg_count = 2, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Regex", .name = "fromString", .fn_ptr = regexFromStringImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Regex", .name = "firstMatch", .fn_ptr = regexFirstMatchImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Regex", .name = "allMatches", .fn_ptr = regexAllMatchesImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Regex", .name = "replace", .fn_ptr = regexReplaceImpl, .arg_count = 3, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Regex", .name = "replaceAll", .fn_ptr = regexReplaceAllImpl, .arg_count = 3, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Regex", .name = "split", .fn_ptr = regexSplitImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Validator", .name = "regex", .fn_ptr = validatorRegexImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
     };
     _ = .{ int_t, string_t, unit_t, stream_string_t, bool_t, bytes_t };
     return .{ .bindings = &bindings };
