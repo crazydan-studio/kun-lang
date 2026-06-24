@@ -106,22 +106,34 @@ pub fn flushImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn getenvImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .string) return Value{ .nil = {} };
     const key = args[0].string;
-    const result = if (std.mem.eql(u8, key, "HOME"))
-        env.allocator.dupe(u8, "/root") catch return Value{ .nil = {} }
-    else if (std.mem.eql(u8, key, "PATH"))
-        env.allocator.dupe(u8, "/usr/bin:/bin") catch return Value{ .nil = {} }
-    else if (std.mem.eql(u8, key, "USER"))
-        env.allocator.dupe(u8, "root") catch return Value{ .nil = {} }
-    else
-        return Value{ .nil = {} };
-    return Value{ .string = result };
+    const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
+    if (fd < 0) return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [8192]u8 = undefined;
+    const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
+    if (n <= 0) return Value{ .nil = {} };
+    var start: usize = 0;
+    var i: usize = 0;
+    const data = buf[0..@intCast(n)];
+    while (i < data.len) : (i += 1) {
+        if (data[i] == 0) {
+            if (i > start) {
+                const entry = data[start..i];
+                if (std.mem.indexOfScalar(u8, entry, '=')) |eq_pos| {
+                    if (std.mem.eql(u8, entry[0..eq_pos], key)) {
+                        return Value{ .string = env.allocator.dupe(u8, entry[eq_pos + 1 ..]) catch return Value{ .nil = {} } };
+                    }
+                }
+            }
+            start = i + 1;
+        }
+    }
+    return Value{ .nil = {} };
 }
 
 pub fn containsEnvImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    if (args.len < 1 or args[0] != .string) return Value{ .bool = false };
-    const key = args[0].string;
-    return Value{ .bool = std.mem.eql(u8, key, "HOME") or std.mem.eql(u8, key, "PATH") or std.mem.eql(u8, key, "USER") };
+    const result = getenvImpl(env, args);
+    return Value{ .bool = result != .nil };
 }
 
 pub fn envListImpl(env: *RuntimeEnv, args: []const Value) Value {

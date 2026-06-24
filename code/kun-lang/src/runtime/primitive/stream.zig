@@ -65,8 +65,33 @@ pub fn streamFromListImpl(env: *RuntimeEnv, args: []const Value) Value {
     return Value{ .stream = node };
 }
 
-pub fn streamRangeImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn streamIterateImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
+pub fn streamRangeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 3) return Value{ .nil = {} };
+    const start = args[0];
+    const end = args[1];
+    const step = args[2];
+    if (start != .int or end != .int or step != .int) return Value{ .nil = {} };
+    const count: usize = if (step.int > 0)
+        @intCast(@max(0, @divTrunc(end.int - start.int + step.int - 1, step.int)))
+    else
+        0;
+    if (count == 0) return Value{ .nil = {} };
+    const gen = value_mod.streamGenerate(env.allocator, start, .{ .primitive = rangeStepFn }) catch return Value{ .nil = {} };
+    const node = value_mod.streamTake(env.allocator, gen, count) catch return Value{ .nil = {} };
+    return Value{ .stream = node };
+}
+
+fn rangeStepFn(renv: *RuntimeEnv, args: []const Value) Value {
+    _ = renv;
+    if (args.len < 1 or args[0] != .int) return Value{ .int = 0 };
+    return Value{ .int = args[0].int + 1 };
+}
+
+pub fn streamIterateImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
 
 pub fn streamLinesMaxImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .int or args[1] != .stream) return Value{ .nil = {} };

@@ -144,7 +144,11 @@ pub fn removeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn currentDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
-    return Value{ .path = env.allocator.dupe(u8, "/") catch return Value{ .nil = {} } };
+    var buf: [4096]u8 = undefined;
+    const result = std.os.linux.getcwd(&buf, buf.len);
+    if (result != 0) return Value{ .path = env.allocator.dupe(u8, "/") catch return Value{ .nil = {} } };
+    const len = std.mem.indexOfScalar(u8, buf[0..], 0) orelse buf.len;
+    return Value{ .path = env.allocator.dupe(u8, buf[0..len]) catch return Value{ .nil = {} } };
 }
 
 pub fn homeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
