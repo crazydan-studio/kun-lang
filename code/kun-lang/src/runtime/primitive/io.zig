@@ -103,6 +103,7 @@ pub fn isTerminalImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn flushImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     _ = args;
+    _ = std.os.linux.fsync(1);
     return Value{ .unit = {} };
 }
 

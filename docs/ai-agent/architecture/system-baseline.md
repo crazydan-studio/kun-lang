@@ -319,6 +319,8 @@ let f = \x -> x
 
 ### Typed AST
 
+> **注 (2026.06.24)**：本节描述的 Typed AST 结构（`TypedExpr` wrapper + `Expr` 联合体）与实际实现已不一致。实际实现见 `code/kun-lang/src/ast/typed.zig` 和 `code/kun-lang/src/ast/ast.zig`。当前实现采用独立平行联合体方案——TypedExpr 每种变体直接包含 typed 字段，而非 wrapper 模式。此文档将在后续版本中更新同步。
+
 类型检查的输出是 Typed AST——在原始 AST 节点上附加完整类型标注的中间表示（IR）。Typed AST 是 HM 推断器与求值器之间的契约，定义了求值器的输入格式。
 
 #### 结构设计

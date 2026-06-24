@@ -704,7 +704,6 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                     _ = state.advance(); // .
                     const rest = try parseExpr(state);
                     try items.append(state.allocator, .{ .spread = try heapExpr(state, &rest) });
-                    break;
                 }
                 const item = try parseExpr(state);
                 try items.append(state.allocator, .{ .expr = try heapExpr(state, &item) });
@@ -793,6 +792,15 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         .bytes_literal => {
             const tok = state.advance();
             return Expr{ .bytes_literal = .{ .value = tok.slice, .span = tok.span } };
+        },
+        .dot => {
+            _ = state.advance();
+            const field = state.advance();
+            const x_param = ast.Param{ .name = "x", .span = state.span(start) };
+            const x_ref = try heapExpr(state, &Expr{ .ident = .{ .name = "x", .span = state.span(start) } });
+            const access = Expr{ .record_access = .{ .record = x_ref, .field = field.slice, .span = state.span(start) } };
+            const body = try heapExpr(state, &access);
+            return Expr{ .lambda = .{ .params = &.{x_param}, .body = body, .span = state.span(start) } };
         },
         else => {
             return Expr{ .int_literal = .{ .value = 0, .span = state.current().span } };

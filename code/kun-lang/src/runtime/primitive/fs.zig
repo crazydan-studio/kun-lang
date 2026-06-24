@@ -56,18 +56,18 @@ pub fn statImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
     defer env.allocator.free(path_z);
-    if (std.os.linux.access(path_z, std.os.linux.F_OK) != 0) {
-        return value_mod.makeErr(0, Value{ .string = "stat error" }, env.allocator) catch return Value{ .nil = {} };
-    }
+    var stx: std.os.linux.Statx = undefined;
+    const rc = std.os.linux.statx(0, path_z, 0, std.os.linux.STATX.BASIC_STATS, &stx);
+    if (rc != 0) return value_mod.makeErr(0, Value{ .string = "stat error" }, env.allocator) catch return Value{ .nil = {} };
     const fields = env.allocator.alloc(value_mod.RecordFieldValue, 8) catch return Value{ .nil = {} };
-    fields[0] = .{ .name = "size", .value = Value{ .int = 0 } };
-    fields[1] = .{ .name = "mode", .value = Value{ .int = 0 } };
+    fields[0] = .{ .name = "size", .value = Value{ .int = @intCast(stx.size) } };
+    fields[1] = .{ .name = "mode", .value = Value{ .int = stx.mode } };
     fields[2] = .{ .name = "type_", .value = Value{ .int = 0 } };
-    fields[3] = .{ .name = "atime", .value = Value{ .int = 0 } };
-    fields[4] = .{ .name = "mtime", .value = Value{ .int = 0 } };
-    fields[5] = .{ .name = "ctime", .value = Value{ .int = 0 } };
-    fields[6] = .{ .name = "uid", .value = Value{ .int = 0 } };
-    fields[7] = .{ .name = "gid", .value = Value{ .int = 0 } };
+    fields[3] = .{ .name = "atime", .value = Value{ .int = stx.atime.sec } };
+    fields[4] = .{ .name = "mtime", .value = Value{ .int = stx.mtime.sec } };
+    fields[5] = .{ .name = "ctime", .value = Value{ .int = stx.ctime.sec } };
+    fields[6] = .{ .name = "uid", .value = Value{ .int = stx.uid } };
+    fields[7] = .{ .name = "gid", .value = Value{ .int = stx.gid } };
     return value_mod.makeOk(Value{ .record = .{ .fields = fields } }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -153,12 +153,40 @@ pub fn currentDirImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn homeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
-    return Value{ .path = env.allocator.dupe(u8, "/root") catch return Value{ .nil = {} } };
+    const val = getEnvValue(env.allocator, "HOME");
+    return Value{ .path = val orelse env.allocator.dupe(u8, "/root") catch return Value{ .nil = {} } };
 }
 
 pub fn tempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
-    return Value{ .path = env.allocator.dupe(u8, "/tmp") catch return Value{ .nil = {} } };
+    const val = getEnvValue(env.allocator, "TMPDIR") orelse getEnvValue(env.allocator, "TMP");
+    return Value{ .path = val orelse env.allocator.dupe(u8, "/tmp") catch return Value{ .nil = {} } };
+}
+
+fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
+    const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
+    if (fd < 0) return null;
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [8192]u8 = undefined;
+    const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
+    if (n <= 0) return null;
+    var start: usize = 0;
+    var i: usize = 0;
+    const data = buf[0..@intCast(n)];
+    while (i < data.len) : (i += 1) {
+        if (data[i] == 0) {
+            if (i > start) {
+                const entry = data[start..i];
+                if (std.mem.indexOfScalar(u8, entry, '=')) |eq_pos| {
+                    if (std.mem.eql(u8, entry[0..eq_pos], key)) {
+                        return allocator.dupe(u8, entry[eq_pos + 1 ..]) catch return null;
+                    }
+                }
+            }
+            start = i + 1;
+        }
+    }
+    return null;
 }
 
 pub fn readBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
