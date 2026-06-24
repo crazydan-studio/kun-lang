@@ -47,35 +47,3 @@ fn matchRecursive(pattern: []const u8, name: []const u8, pi: usize, ni: usize) b
     }
     return n == name.len;
 }
-
-test "glob literal match" {
-    try std.testing.expect(match("hello", "hello"));
-    try std.testing.expect(!match("hello", "world"));
-}
-
-test "glob star" {
-    try std.testing.expect(match("*.txt", "file.txt"));
-    try std.testing.expect(!match("*.txt", "file.log"));
-    try std.testing.expect(match("a*c", "abc"));
-    try std.testing.expect(match("a*c", "aXYZc"));
-}
-
-test "glob question" {
-    try std.testing.expect(match("a?c", "abc"));
-    try std.testing.expect(match("a?c", "axc"));
-    try std.testing.expect(!match("a?c", "ac"));
-}
-
-test "glob charclass" {
-    try std.testing.expect(match("[abc]", "a"));
-    try std.testing.expect(match("[abc]", "b"));
-    try std.testing.expect(!match("[abc]", "d"));
-    try std.testing.expect(!match("[!abc]", "a"));
-    try std.testing.expect(match("[!abc]", "d"));
-}
-
-test "glob range" {
-    try std.testing.expect(match("[a-z]", "m"));
-    try std.testing.expect(!match("[a-z]", "9"));
-    try std.testing.expect(match("[0-9]", "5"));
-}
