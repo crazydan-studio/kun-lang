@@ -816,7 +816,7 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 3. 效应检查器验证：纯函数内包含效应调用时精确报告 `Effect In Pure Function`；`do` 块内未消费的 Stream 精确报告 `Stream Not Consumed`；`do` 块外 `|>` 收到 Command 时精确报告类型错误
 4. 错误恢复：单文件内多个独立类型错误全部报告（非遇第一个停止）
 
-测试基础架构见 `standard-library.md` 的 `Test` 模块（推迟 v1.0）。
+测试基础架构见 `standard-library.md` 的 `Test` 模块（推迟 v1.2）。
 
 #### 错误级别
 

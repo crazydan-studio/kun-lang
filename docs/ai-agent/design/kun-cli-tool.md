@@ -18,9 +18,9 @@ kun [全局选项] <子命令> [子命令参数] <脚本.kun> [脚本参数...]
 | `fmt` | 格式化 `.kun` 文件 | `kun fmt script.kun` |
 | `lint` | lint 检查 `.kun` 文件 | `kun lint script.kun` |
 | `check` | 仅类型检查，不执行 | `kun check script.kun` |
-| `doc` | 为模块及函数生成 Markdown 文档 | `kun doc lib/` |
+| `doc` | 为模块及函数生成 Markdown 文档（推迟 v0.5） | `kun doc lib/` |
 | `cmd init` | 从 man/--help 生成类型化命令模块骨架 | `kun cmd init ls` |
-| `test` | `<directory>`、`--filter=<pattern>`、`--verbose` | 发现并运行测试文件（推迟 v1.0） |
+| `test` | `<directory>`、`--filter=<pattern>`、`--verbose` | 发现并运行测试文件（推迟 v1.2） |
 
 ## 执行模式
 
@@ -183,7 +183,7 @@ main = \raw ->
       Err err -> IO.println (Cli.show err)
 ```
 
-## 安全控制
+## 安全控制 [实现推迟 v0.2]
 
 安全策略通过 CLI 参数声明，与脚本代码分离。默认策略：仅当前工作目录可读写，无网络访问。
 

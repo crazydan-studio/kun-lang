@@ -52,7 +52,7 @@
 | Process | ✅ 设计定型 | `exit`/`pid`/`kill`/`wait`/`sleep` |
 | Duration | ✅ 设计定型 | 时间段算术/比较/单位转换（编译器内置类型，模块函数需显式导入） |
 | Task | ✅ 设计定型 | `spawn`/`all` 并发命令执行 |
-| Hash | ✅ 设计定型 | SHA-256 哈希（`sha256`/`sha256Hex`；`md5` 推迟 v0.5） |
+| Hash | ✅ 设计定型 | SHA-256 哈希（`sha256`/`sha256Hex`；`md5` 推迟 v0.3） |
 | Base64 | ✅ 设计定型 | Base64 编解码（`encode`/`decode`） |
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
 | Validator | ✅ 设计定型 | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用 |
@@ -63,9 +63,9 @@
 | Float | ✅ 设计定型 | 浮点绝对值/取整/三角/指数对数/幂/常量/类型互转，Math 已并入 Float |
 | Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
 
-> **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型，但不在 MVP（v0.1.0）范围。Cli 和 Parser.Record 均推迟到 v0.5 实施，届时编译期内省基础设施（基于 Zig comptime + @typeInfo）与二者同时实现。
+> **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型，但不在 MVP（v0.1.0）范围。Cli 和 Parser.Record 均推迟到 v0.3 实施，届时编译期内省基础设施（基于 Zig comptime + @typeInfo）与二者同时实现。
 
-| Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令（实现推迟 v1.0） |
+| Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令（实现推迟 v1.2） |
 
 ### 命令系统
 
@@ -111,24 +111,24 @@
 | 严格求值 | ✅ 设计定型 | 严格求值为默认，let 绑定延迟求值，Stream 惰性 |
 | 高阶函数 | ✅ 设计定型 | map、filter、fold、reduce 等标准库函数已定义 |
 
-### 安全
+### 安全 [实现推迟 v0.2]
 
-> CLI 参数与安全控制见 [`kun` CLI 工具](kun-cli-tool.md)。
+> CLI 参数与安全控制见 [`kun` CLI 工具](kun-cli-tool.md)。安全沙箱设计已定型，实现推迟至 v0.2。
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| CLI `--allow-path` | ✅ 设计定型 | 路径级文件系统访问控制 |
-| CLI `--allow-net` | ✅ 设计定型 | 网络出站/入站控制 |
-| CLI `--no-sandbox` | ✅ 设计定型 | 完全关闭沙箱 |
-| CLI `--force` | ✅ 设计定型 | 强制运行（跳过安全确认） |
-| CLI `--env=` | ✅ 设计定型 | 环境变量继承策略 |
-| CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 | rlimit 资源限制 |
-| Landlock | ✅ 设计定型 | 内核 5.13+：文件控制；6.7+：文件 + 网络控制（首选） |
-| Network namespace 网络隔离 | ✅ 设计定型 | `CLONE_NEWNET`（内核 3.0+），覆盖 Landlock 网络控制不可用场景 |
-| Mount namespace 兜底 | ✅ 设计定型 | 内核 3.8+：目录级隔离（`pivot_root`） |
-| seccomp-BPF | ✅ 设计定型 | 系统调用类型过滤（含 `bpf`/`perf_event_open`/`userfaultfd`/`memfd_create`/`io_uring_*`） |
-| `PR_SET_NO_NEW_PRIVS` | ✅ 设计定型 | 阻止 setuid/setgid 特权提升，Landlock 前置条件 |
-| 环境变量安全过滤 | ✅ 设计定型 | 干净白名单 + 始终剔除列表（含 `BASH_FUNC_*`/`LD_*`/解释器注入向量） |
+| CLI `--allow-path` | ✅ 设计定型 [v0.2] | 路径级文件系统访问控制 |
+| CLI `--allow-net` | ✅ 设计定型 [v0.2] | 网络出站/入站控制 |
+| CLI `--no-sandbox` | ✅ 设计定型 [v0.2] | 完全关闭沙箱 |
+| CLI `--force` | ✅ 设计定型 [v0.2] | 强制运行（跳过安全确认） |
+| CLI `--env=` | ✅ 设计定型 [v0.2] | 环境变量继承策略 |
+| CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 [v0.2] | rlimit 资源限制 |
+| Landlock | ✅ 设计定型 [v0.2] | 内核 5.13+：文件控制；6.7+：文件 + 网络控制（首选） |
+| Network namespace 网络隔离 | ✅ 设计定型 [v0.2] | `CLONE_NEWNET`（内核 3.0+），覆盖 Landlock 网络控制不可用场景 |
+| Mount namespace 兜底 | ✅ 设计定型 [v0.2] | 内核 3.8+：目录级隔离（`pivot_root`） |
+| seccomp-BPF | ✅ 设计定型 [v0.2] | 系统调用类型过滤（含 `bpf`/`perf_event_open`/`userfaultfd`/`memfd_create`/`io_uring_*`） |
+| `PR_SET_NO_NEW_PRIVS` | ✅ 设计定型 [v0.2] | 阻止 setuid/setgid 特权提升，Landlock 前置条件 |
+| 环境变量安全过滤 | ✅ 设计定型 [v0.2] | 干净白名单 + 始终剔除列表（含 `BASH_FUNC_*`/`LD_*`/解释器注入向量） |
 
 ### IO 与数据
 
@@ -157,9 +157,9 @@
 | 模式匹配 | ✅ 设计定型 | 穷举、守卫、嵌套、解构 |
 | 解构赋值 | ✅ 设计定型 | 元组/Record/List |
 | 扩展积类型 | ❌ 已移除 | 移除 `{ Base \| field : T }` 语法，Record 类型需精确静态匹配 |
-| 模块系统 | ✅ 设计定型 | 目录即命名空间，`export (...)`，`import X (...)` |
+| 模块系统 | ✅ 设计定型 | 目录即命名空间，`export (...)`，`import X (...)`；搜索路径解析在 v0.1 实现 |
 | 可执行脚本 | ✅ 设计定型 | `main : List String -> Unit`（类型标注可选） |
-| `kun doc` | ✅ 设计定型 | 为模块及函数生成 Markdown 文档（类型签名、变体、示例、交叉引用） |
+| `kun doc` | ✅ 设计定型 | 为模块及函数生成 Markdown 文档（类型签名、变体、示例、交叉引用），实现推迟 v0.5 |
 | `--trace` | ✅ 设计定型 | 可选函数调用追踪（文件名:行号:列号 + 参数 + 调用深度），缺省关闭 |
 
 ### 已废弃/移除

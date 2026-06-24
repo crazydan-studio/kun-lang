@@ -17,9 +17,9 @@
 
 | 维度 | 当前值 |
 |---|---|---|
-| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型） |
+| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型 — 实现推迟 v0.2）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型）、模块系统搜索路径设计（定型 — Phase 5 实施） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 4 计划已完成实施（审计 18 轮，52 项修复） |
+| 活跃计划 | Phase 5 待启动：标准库 Primitives 补全 + 模块系统搜索路径 + Stream 函数体；CLI 沙箱推迟至 v0.2 |
 | 最近完成 | Phase 4 实现：PrimitiveTable 管道 + 12 Primitive 实现 + 效应检查接线（8/11 函数）+ i18n.zig（24 msgid 中英双语）+ cmd.zig（isKnownCmdApi 去重）+ TypedExpr 补全（record_update/range_literal/ternary）+ Phase 1-3 深度审计修复（44 项缺陷）+ 双代理测试审计（314→545 测试，7 轮收敛） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
@@ -88,7 +88,8 @@
 
 | 版本 | 变更 |
 |------|------|
-| 2026-06-23 | Phase 4 实现完成：PrimitiveTable 管道 + 12 Primitive + 效应接线（8/11）+ i18n.zig（24 msgid）+ cmd.zig + TypedExpr 补全 + Phase 1-3 深度审计（44 项修复）+ 双代理测试审计（545 测试收敛） |
+| 2026.06.23 | 版本路线图重构：模块系统搜索路径提升至 v0.1；CLI 沙箱推迟至 v0.2；Cli.parse/show + Parser.Record + Random.* + 类型化命令模块 + Hash.md5 提升至 v0.3；Task.spawn/all 提升至 v0.4；kun doc 推迟至 v0.5；Test 推迟至 v1.2；移除 PlantUML 图表任务 |
+| 2026.06.23 | Phase 4 实现完成：PrimitiveTable 管道 + 12 Primitive + 效应接线（8/11）+ i18n.zig（24 msgid）+ cmd.zig + TypedExpr 补全 + Phase 1-3 深度审计（44 项修复）+ 双代理测试审计（545 测试收敛） |
 | 2026.06.22 | Phase 3 实现完成：Primitive 表 + 效应迁移 + 14 ErrorType + typeName/generalize + 效应检查 + Value 9 变体 + StreamNode + map/set eval + Cmd ident + 模式穷举；计划 23 轮审计（77 项修复）；双代理测试审计（306 全通过）；3 轮实现审计（20 项修复） |
 | 2026.06.21 | Phase 2 实现完成（typecheck + runtime + 229 测试）+ 效应识别方案 C + Phase 1 审计修复 + 构建打包脚本 |
 | 2026.06.20 | Phase 1 全部 8 轮审计完成：skipTypeAnn 修复；75 测试全通过零泄漏 |

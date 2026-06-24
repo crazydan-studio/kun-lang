@@ -1665,10 +1665,10 @@ withValidator : (a -> Result a String) -> CliArg -> CliArg
 // [PureKun] 互斥组（at most one：成员中最多允许一个出现）
 oneOf : String -> List CliArg -> CliArgGroup
 
-// [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断） [推迟 v0.5]
+// [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断） [推迟 v0.3]
 parse : CliSpec -> List String -> Result a CliError
 
-// [Primitive] 将解析错误转为人类可读字符串 [推迟 v0.5]
+// [Primitive] 将解析错误转为人类可读字符串 [推迟 v0.3]
 show : CliError -> String
 ```
 
@@ -1724,16 +1724,16 @@ import Random
 ### API
 
 ```kun
-// [Primitive] 生成随机整数  // [推迟 v0.5]
+// [Primitive] 生成随机整数  // [推迟 v0.3]
 int : Int -> Int -> Int
 
-// [Primitive] 生成随机字节  // [推迟 v0.5]
+// [Primitive] 生成随机字节  // [推迟 v0.3]
 bytes : Int -> Bytes
 
-// [Primitive] 生成随机浮点数  // [推迟 v0.5]
+// [Primitive] 生成随机浮点数  // [推迟 v0.3]
 float : Float -> Float -> Float
 
-// [Primitive] 随机打乱列表  // [推迟 v0.5]
+// [Primitive] 随机打乱列表  // [推迟 v0.3]
 shuffle : List a -> List a
 ```
 
@@ -2515,9 +2515,9 @@ sha256Hex : Bytes -> String
 // [Primitive] SHA-256 流式哈希——逐块处理 Stream，避免大文件全部加载到内存
 sha256Stream : Stream Bytes -> Bytes
 
-// [Primitive] MD5 哈希 [推迟 v0.5]
+// [Primitive] MD5 哈希 [推迟 v0.3]
 md5 : Bytes -> Bytes
-// [Primitive] MD5 哈希，返回十六进制字符串 [推迟 v0.5]
+// [Primitive] MD5 哈希，返回十六进制字符串 [推迟 v0.3]
 md5Hex : Bytes -> String
 ```
 
@@ -2593,10 +2593,10 @@ import Task
 ### API
 
 ```kun
-// [Primitive] 并发执行命令列表，最大并行数为 n  [推迟 v0.5]
+// [Primitive] 并发执行命令列表，最大并行数为 n  [推迟 v0.4]
 spawn : Int -> List Command -> Stream (Result (Stream String) CommandError)
 
-// [Primitive] 等待所有 Task 完成，收集结果  [推迟 v0.5]
+// [Primitive] 等待所有 Task 完成，收集结果  [推迟 v0.4]
 all : Stream (Result a e) -> List (Result a e)
 ```
 
@@ -2703,9 +2703,9 @@ export
   , toJson
   )
 
-// [Primitive] 从 JSON 字符串反序列化（编译期代码生成） [推迟 v0.5]
+// [Primitive] 从 JSON 字符串反序列化（编译期代码生成） [推迟 v0.3]
 fromJson : String -> Result a String
-// [Primitive] 序列化为 JSON 字符串（编译期代码生成） [推迟 v0.5]
+// [Primitive] 序列化为 JSON 字符串（编译期代码生成） [推迟 v0.3]
 toJson   : a -> Result String String
 ```
 
@@ -2740,7 +2740,7 @@ main = \_ ->
 
 `Test` 模块提供基础测试断言函数，用于编写自测试 Kun 脚本。`kun test` 子命令发现并执行测试文件，收集断言失败报告。所有断言函数在失败时通过 panic 报告错误（含文件名、行号、期望值、实际值），由测试运行器捕获。
 
-> **推迟至 v1.0**：Test 模块在 MVP（v0.1）中仅提供类型签名作为设计参考，不实现。`kun test` 子命令同样推迟 v1.0。在 v1.0 前，Kun 脚本的验证通过直接运行脚本并检查退出码（`Cmd.<bin>?` 返回 `Result`）完成。
+> **推迟至 v1.2**：Test 模块在 MVP（v0.1）中仅提供类型签名作为设计参考，不实现。`kun test` 子命令同样推迟 v1.2。在 v1.2 前，Kun 脚本的验证通过直接运行脚本并检查退出码（`Cmd.<bin>?` 返回 `Result`）完成。
 
 需显式导入：
 
@@ -2859,12 +2859,12 @@ main = \_ ->
 | `Cmd.timeout` | v1.0 | Cmd |
 | `Cmd.retry` | v1.0 | Cmd |
 | `Cmd.withRunAs` | v1.0 | Cmd |
-| `Random.*`（全部） | v0.5 | Random |
-| `Hash.md5` / `Hash.md5Hex` | v0.5 | Hash |
-| `Test` 模块全部 | v1.0 | Test |
-| `Cli.parse` / `Cli.show` | v0.5 | Cli |
-| `Parser.Record.fromJson` / `toJson` | v0.5 | Parser.Record |
-| `Task.spawn` / `Task.all` | v0.5 | Task |
+| `Random.*`（全部） | v0.3 | Random |
+| `Hash.md5` / `Hash.md5Hex` | v0.3 | Hash |
+| `Test` 模块全部 | v1.2 | Test |
+| `Cli.parse` / `Cli.show` | v0.3 | Cli |
+| `Parser.Record.fromJson` / `toJson` | v0.3 | Parser.Record |
+| `Task.spawn` / `Task.all` | v0.4 | Task |
 
 ## 版本历史
 

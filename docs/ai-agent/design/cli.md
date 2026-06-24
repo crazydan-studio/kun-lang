@@ -572,7 +572,7 @@ handleSubCmd = \cfg ->
 
 ## 示例
 
-> **注意**：`Cli.parse` 和 `Cli.show` 标注为 [推迟 v0.5]，以下示例展示 v0.5 版本的功能设计。在 MVP v0.1 中，`Cli` 模块仅提供声明器（`flag`/`option`/`count`/`arg`）和修饰器（`withDefault`/`withRequires`/`withNegation`/`withEnvVar`/`withValidator`），`parse`/`show` 函数因依赖编译期代码展开设施而暂不可用。
+> **注意**：`Cli.parse` 和 `Cli.show` 标注为 [推迟 v0.3]，以下示例展示 v0.3 版本的功能设计。在 MVP v0.1 中，`Cli` 模块仅提供声明器（`flag`/`option`/`count`/`arg`）和修饰器（`withDefault`/`withRequires`/`withNegation`/`withEnvVar`/`withValidator`），`parse`/`show` 函数因依赖编译期代码展开设施而暂不可用。
 
 ### 1. 基本用法
 
