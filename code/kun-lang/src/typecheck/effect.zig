@@ -308,9 +308,25 @@ pub fn checkPipeCommand(allocator: std.mem.Allocator, is_command: bool, in_do: b
 }
 
 pub fn checkImplicitDo(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {
-    _ = allocator;
-    _ = errors;
-    _ = body;
+    if (body.* != .do_block) return;
+    for (body.do_block.body) |stmt| {
+        if (stmt.kind != .expr) continue;
+        switch (stmt.kind.expr.*) {
+            .case_expr => |c| {
+                for (c.branches) |b| {
+                    if (!hasEffectInExpr(b.body)) {
+                        try errors.add(allocator, .{ .unused_result = stmt.span });
+                    }
+                }
+            },
+            .if_expr => |i| {
+                if (!hasEffectInExpr(i.then) and !hasEffectInExpr(i.else_)) {
+                    try errors.add(allocator, .{ .unused_result = stmt.span });
+                }
+            },
+            else => {},
+        }
+    }
 }
 
 pub fn checkStreamConsumption(allocator: std.mem.Allocator, body: *const ast.Expr, errors: *ErrorList) !void {

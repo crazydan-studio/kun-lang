@@ -21,7 +21,7 @@
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | Phase 6 进行中：Step 1-3 完成（Map/Set 哈希表、Parser 4/10 语法、效应检查器接线+消费体）；待执行：Stream.iter/fold（eval_fn 注入）、File 流操作、JSON（std.json）、Parser 剩余 6 语法、质量加固；Regex/DateTime 推迟 v1.1；CLI 沙箱推迟 v0.2 |
 | 最近完成 | Phase 6 Steps 1-3：hash_map.zig（~280 行）→ Map/Set 8 存根替换 + 字面量求值 + Env.list 真实化；Parser 三元/范围/Record更新/import 路径；效应检查 checkCmdInDo 接线 + Stream/Command 消费检查体；519 测试全通过 |
-| 推迟项 | Regex 引擎 + Validator → v1.1；DateTime 格式化 → v1.1；沙箱（Landlock/seccomp/rlimit）→ v0.2；Kun Shell → v2.0；checkImplicitDo → v0.3；等递归类型 → v0.3 |
+| 推迟项 | Regex 引擎 + Validator → v1.1；DateTime 格式化 → v1.1；沙箱（Landlock/seccomp/rlimit）→ v0.2；Kun Shell → v2.0；等递归类型 → v0.3 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
