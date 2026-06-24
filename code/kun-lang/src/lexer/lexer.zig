@@ -428,6 +428,10 @@ fn readNumber(state: *LexerState, start: ast.SourceLoc) !void {
                         }
                     }
                     const text = state.source[start.offset..state.pos];
+                    if (text[text.len - 1] == '_') {
+                        try state.pushToken(.invalid, text, state.span(start));
+                        return;
+                    }
                     try state.pushToken(.float_literal, text, state.span(start));
                     return;
                 }
@@ -440,6 +444,10 @@ fn readNumber(state: *LexerState, start: ast.SourceLoc) !void {
 
     // Check for duration suffix
     const text = state.source[start.offset..state.pos];
+    if (text.len > 0 and text[text.len - 1] == '_') {
+        try state.pushToken(.invalid, text, state.span(start));
+        return;
+    }
     if (state.peek()) |ch| {
         switch (ch) {
             's' => {
@@ -620,6 +628,11 @@ fn utf8ByteLen(lead: u8) usize {
 
 fn readChar(state: *LexerState, start: ast.SourceLoc) !void {
     if (state.peek()) |ch| {
+        if (ch == '\'') {
+            _ = state.advance();
+            try state.pushToken(.invalid, state.source[start.offset..state.pos], state.span(start));
+            return;
+        }
         if (ch == '\\') {
             _ = state.advance(); // backslash
             if (state.peek()) |_| _ = state.advance(); // escaped char

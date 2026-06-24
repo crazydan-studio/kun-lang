@@ -11,3 +11,5 @@ pub const Ast = ast;
 pub const Typed = typed;
 pub const TypeCheck = typecheck;
 pub const Runtime = runtime;
+pub const tokenize = lexer.tokenize;
+pub const parseModule = parser.parseModule;

@@ -11,6 +11,20 @@ pub fn main(init: std.process.Init) !void {
 
     const args = try init.minimal.args.toSlice(allocator);
 
+    if (args.len < 2) {
+        try usage();
+        return;
+    }
+
+    if (std.mem.eql(u8, args[1], "--help")) {
+        try usage();
+        return;
+    }
+    if (std.mem.eql(u8, args[1], "--version")) {
+        std.log.info("kun 0.1.0-dev", .{});
+        return;
+    }
+
     if (args.len < 3) {
         try usage();
         return;
@@ -59,8 +73,9 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn usage() !void {
-    std.log.err("Usage: kun --dump-ast <file.kun>", .{});
-    std.log.err("       kun --run <file.kun>", .{});
+    std.log.info("Usage: kun [--help] [--version]", .{});
+    std.log.info("       kun --dump-ast <file.kun>", .{});
+    std.log.info("       kun --run <file.kun>", .{});
 }
 
 fn dumpAST(decls: []const parser.Decl, source: []const u8) void {
