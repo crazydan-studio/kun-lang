@@ -15,6 +15,8 @@ const test_runtime_eval = @import("runtime/test_eval.zig");
 const test_runtime_defer = @import("runtime/test_defer.zig");
 const test_primitive = @import("runtime/test_primitive.zig");
 const test_cmd = @import("runtime/test_cmd.zig");
+const test_stream = @import("runtime/test_stream.zig");
+const test_crypto = @import("runtime/test_crypto.zig");
 const test_integration = @import("tests/test_integration.zig");
 
 comptime {
@@ -33,5 +35,7 @@ comptime {
     _ = test_runtime_defer;
     _ = test_primitive;
     _ = test_cmd;
+    _ = test_stream;
+    _ = test_crypto;
     _ = test_integration;
 }
