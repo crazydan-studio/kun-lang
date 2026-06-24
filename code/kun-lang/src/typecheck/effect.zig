@@ -282,6 +282,13 @@ pub fn checkDoInResult(allocator: std.mem.Allocator, body: *const ast.Expr, type
     }
 }
 
+pub fn checkPureUnitReturn(allocator: std.mem.Allocator, func_name: []const u8, body_type: typed.TypeId, env: *env_mod.TypeEnv, span: ast.Span, errors: *ErrorList) !void {
+    const resolved = env.applySubst(body_type);
+    if (resolved < env.types.items.len and env.types.items[resolved] == .unit) {
+        try errors.add(allocator, .{ .pure_unit_return = .{ .func_name = func_name, .span = span } });
+    }
+}
+
 pub fn checkEffectCallback(allocator: std.mem.Allocator, has_effect: bool, has_bang: bool, span: ast.Span, errors: *ErrorList) !void {
     if (has_bang and !has_effect) {
         try errors.add(allocator, .{ .effect_callback_mismatch = .{ .func_name = "bang callback", .param = 0, .result = 0, .span = span } });

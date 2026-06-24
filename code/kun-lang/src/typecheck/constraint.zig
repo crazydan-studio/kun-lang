@@ -137,6 +137,7 @@ fn inferFunction(
     const has_effect = effect_mod.hasEffectInExpr(body);
     if (!has_effect) {
         try effect_mod.checkPureFunctionBody(allocator, body, errors);
+        try effect_mod.checkPureUnitReturn(allocator, name, exprType(typed_body), env, span, errors);
     }
 
     return TypedDecl{
@@ -232,10 +233,11 @@ pub fn inferExpr(
                 param_type_ids[i] = pty;
             }
             const has_effect = effect_mod.hasEffectInExpr(v.body);
+            const body_type = exprType(typed_body);
             if (!has_effect) {
                 try effect_mod.checkPureFunctionBody(allocator, v.body, errors);
+                try effect_mod.checkPureUnitReturn(allocator, "lambda", body_type, env, v.span, errors);
             }
-            const body_type = exprType(typed_body);
             var fn_ty_id = body_type;
             var i: usize = param_type_ids.len;
             while (i > 0) : (i -= 1) {
