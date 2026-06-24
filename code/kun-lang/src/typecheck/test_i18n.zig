@@ -48,7 +48,7 @@ test "i18n formatError effect_in_pure zh_CN" {
 test "i18n formatError unbound_variable en" {
     var env = try createTypeEnv();
     defer env.deinit(std.testing.allocator);
-    const err = error_mod.TypeError{ .unbound_variable = "x" };
+    const err = error_mod.TypeError{ .unbound_variable = .{ .name = "x", .span = .{ .start = .{ .line = 1, .col = 1, .offset = 0 }, .end = .{ .line = 1, .col = 2, .offset = 1 } } } };
     const msg = try i18n.formatError(std.testing.allocator, err, .en, &env);
     defer std.testing.allocator.free(msg);
     try std.testing.expect(std.mem.startsWith(u8, msg, "Unbound Variable"));
@@ -57,7 +57,7 @@ test "i18n formatError unbound_variable en" {
 test "i18n formatError unbound_variable zh_CN" {
     var env = try createTypeEnv();
     defer env.deinit(std.testing.allocator);
-    const err = error_mod.TypeError{ .unbound_variable = "x" };
+    const err = error_mod.TypeError{ .unbound_variable = .{ .name = "x", .span = .{ .start = .{ .line = 1, .col = 1, .offset = 0 }, .end = .{ .line = 1, .col = 2, .offset = 1 } } } };
     const msg = try i18n.formatError(std.testing.allocator, err, .zh_CN, &env);
     defer std.testing.allocator.free(msg);
     try std.testing.expect(std.mem.startsWith(u8, msg, "未定义变量"));
@@ -66,7 +66,7 @@ test "i18n formatError unbound_variable zh_CN" {
 test "i18n formatError unbound_type en" {
     var env = try createTypeEnv();
     defer env.deinit(std.testing.allocator);
-    const err = error_mod.TypeError{ .unbound_type = "Foo" };
+    const err = error_mod.TypeError{ .unbound_type = .{ .name = "Foo", .span = .{ .start = .{ .line = 1, .col = 1, .offset = 0 }, .end = .{ .line = 1, .col = 4, .offset = 3 } } } };
     const msg = try i18n.formatError(std.testing.allocator, err, .en, &env);
     defer std.testing.allocator.free(msg);
     try std.testing.expect(std.mem.startsWith(u8, msg, "Unbound Type"));
@@ -75,7 +75,7 @@ test "i18n formatError unbound_type en" {
 test "i18n formatError unbound_type zh_CN" {
     var env = try createTypeEnv();
     defer env.deinit(std.testing.allocator);
-    const err = error_mod.TypeError{ .unbound_type = "Foo" };
+    const err = error_mod.TypeError{ .unbound_type = .{ .name = "Foo", .span = .{ .start = .{ .line = 1, .col = 1, .offset = 0 }, .end = .{ .line = 1, .col = 4, .offset = 3 } } } };
     const msg = try i18n.formatError(std.testing.allocator, err, .zh_CN, &env);
     defer std.testing.allocator.free(msg);
     try std.testing.expect(std.mem.startsWith(u8, msg, "未定义类型"));

@@ -28,8 +28,8 @@ pub fn formatError(allocator: std.mem.Allocator, err: TypeError, locale: Locale,
         .unknown_field => |uf| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ uf.span.start.line, uf.span.start.col }),
         .missing_field => |mf| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ mf.span.start.line, mf.span.start.col }),
         .nil_to_non_nilable => |nn| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ nn.start.line, nn.start.col }),
-        .unbound_variable => try std.fmt.allocPrint(allocator, "{d}:{d}", .{ @as(u32, 0), @as(u32, 0) }),
-        .unbound_type => try std.fmt.allocPrint(allocator, "{d}:{d}", .{ @as(u32, 0), @as(u32, 0) }),
+        .unbound_variable => |uv| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ uv.span.start.line, uv.span.start.col }),
+        .unbound_type => |ut| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ut.span.start.line, ut.span.start.col }),
         .infinite_type => |it| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ it.start.line, it.start.col }),
         .function_apply_arg => |fa| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ fa.span.start.line, fa.span.start.col }),
         .if_branch_mismatch => |ib| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ib.span.start.line, ib.span.start.col }),
@@ -98,15 +98,15 @@ pub fn formatError(allocator: std.mem.Allocator, err: TypeError, locale: Locale,
             locale, .{span_str}),
         .unbound_variable => |uv| {
             return formatLoc(allocator,
-                "Unbound Variable: {s}",
-                "未定义变量：{s}",
-                locale, .{uv});
+                "Unbound Variable: {s}\n  at {s}",
+                "未定义变量：{s}\n  位于 {s}",
+                locale, .{ uv.name, span_str });
         },
         .unbound_type => |ut| {
             return formatLoc(allocator,
-                "Unbound Type: {s}",
-                "未定义类型：{s}",
-                locale, .{ut});
+                "Unbound Type: {s}\n  at {s}",
+                "未定义类型：{s}\n  位于 {s}",
+                locale, .{ ut.name, span_str });
         },
         .infinite_type => return formatLoc(allocator,
             "Infinite Type\n  at {s}",

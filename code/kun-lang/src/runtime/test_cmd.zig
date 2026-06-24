@@ -39,21 +39,23 @@ test "execCommand returns StreamNode with valid fields" {
         .{ .bin = "nonexistent_bin_xyz", .expect_failure = true },
     };
     for (commands) |cmd| {
-        const node = try cmd_mod.execCommand(&.{ .bin = cmd.bin, .options = &.{}, .positional = &.{} }, std.testing.allocator);
-        defer std.testing.allocator.destroy(node);
-        defer std.testing.allocator.free(node.cmd.buf);
-        defer if (node.cmd.pid > 0) {
-            var status: i32 = 0;
-            _ = std.os.linux.waitpid(node.cmd.pid, &status, 0);
-        };
-        defer if (node.cmd.fd > 0) {
-            _ = std.os.linux.close(node.cmd.fd);
-        };
+        {
+            const node = try cmd_mod.execCommand(&.{ .bin = cmd.bin, .options = &.{}, .positional = &.{} }, std.testing.allocator);
+            defer std.testing.allocator.destroy(node);
+            defer std.testing.allocator.free(node.cmd.buf);
+            defer if (node.cmd.pid > 0) {
+                var status: i32 = 0;
+                _ = std.os.linux.waitpid(node.cmd.pid, &status, 0);
+            };
+            defer if (node.cmd.fd > 0) {
+                _ = std.os.linux.close(node.cmd.fd);
+            };
 
-        try std.testing.expect(node.* == .cmd);
-        if (!cmd.expect_failure) {
-            try std.testing.expect(node.cmd.fd > 0);
-            try std.testing.expect(node.cmd.pid > 0);
+            try std.testing.expect(node.* == .cmd);
+            if (!cmd.expect_failure) {
+                try std.testing.expect(node.cmd.fd > 0);
+                try std.testing.expect(node.cmd.pid > 0);
+            }
         }
     }
 }
