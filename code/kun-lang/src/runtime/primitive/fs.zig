@@ -62,7 +62,7 @@ pub fn statImpl(env: *RuntimeEnv, args: []const Value) Value {
     const fields = env.allocator.alloc(value_mod.RecordFieldValue, 8) catch return Value{ .nil = {} };
     fields[0] = .{ .name = "size", .value = Value{ .int = @intCast(stx.size) } };
     fields[1] = .{ .name = "mode", .value = Value{ .int = stx.mode } };
-    fields[2] = .{ .name = "type_", .value = Value{ .int = 0 } };
+    fields[2] = .{ .name = "type_", .value = Value{ .int = @intCast(stx.mode & 0o170000) } };
     fields[3] = .{ .name = "atime", .value = Value{ .int = stx.atime.sec } };
     fields[4] = .{ .name = "mtime", .value = Value{ .int = stx.mtime.sec } };
     fields[5] = .{ .name = "ctime", .value = Value{ .int = stx.ctime.sec } };

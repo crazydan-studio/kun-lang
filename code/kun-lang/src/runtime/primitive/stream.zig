@@ -117,9 +117,11 @@ pub fn streamRangeImpl(env: *RuntimeEnv, args: []const Value) Value {
 }
 
 pub fn streamIterateImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    _ = args;
-    return Value{ .nil = {} };
+    if (args.len < 2 or args[1] != .closure) return Value{ .nil = {} };
+    const seed = args[0];
+    const f = args[1].closure;
+    const node = value_mod.streamGenerate(env.allocator, seed, .{ .closure = &f }) catch return Value{ .nil = {} };
+    return Value{ .stream = node };
 }
 
 pub fn streamLinesMaxImpl(env: *RuntimeEnv, args: []const Value) Value {
