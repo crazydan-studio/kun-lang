@@ -175,7 +175,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
                 if (cond.bool) return eval(v.then, frame, allocator);
                 return eval(v.else_, frame, allocator);
             }
-            return eval(v.else_, frame, allocator);
+            return error.TypeMismatch;
         },
         .case_expr => |v| evalCase(v.subject, v.branches, frame, allocator),
     };
@@ -200,7 +200,7 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
             return eval(c.body, frame, allocator);
         },
         .primitive => |p| {
-            var renv = RuntimeEnv{ .frame = undefined, .primitives = undefined, .allocator = allocator };
+            var renv = RuntimeEnv{ .frame = undefined, .primitives = .{ .bindings = &.{} }, .allocator = allocator };
             const args = try allocator.alloc(Value, 1);
             args[0] = arg;
             return p(&renv, args);
@@ -213,7 +213,7 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator) EvalError!Value 
             if (p.remaining > 1) {
                 return Value{ .partial = .{ .fn_ptr = p.fn_ptr, .args = new_args, .remaining = p.remaining - 1 } };
             }
-            var renv = RuntimeEnv{ .frame = undefined, .primitives = undefined, .allocator = allocator };
+            var renv = RuntimeEnv{ .frame = undefined, .primitives = .{ .bindings = &.{} }, .allocator = allocator };
             return p.fn_ptr(&renv, new_args);
         },
         .command => |c| {
@@ -435,6 +435,17 @@ fn evalCase(subject_expr: *const TypedExpr, branches: []const typed.Branch, fram
     const subject = try eval(subject_expr, frame, allocator);
     for (branches) |branch| {
         if (try matchPattern(branch.pattern, subject, frame, allocator)) |local| {
+            if (branch.guard_cond) |guard| {
+                const guard_frame = try allocator.create(Frame);
+                guard_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = null };
+                const cond = try eval(guard, guard_frame, allocator);
+                if (cond == .bool and cond.bool) {
+                    const local_frame = try allocator.create(Frame);
+                    local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = null };
+                    return eval(branch.body, local_frame, allocator);
+                }
+                continue;
+            }
             const local_frame = try allocator.create(Frame);
             local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = null };
             return eval(branch.body, local_frame, allocator);
@@ -553,8 +564,34 @@ fn valueEqual(a: Value, b: Value) bool {
         .datetime => |ad| b.datetime == ad,
         .decimal => |ad| ad.mantissa == b.decimal.mantissa and ad.exponent == b.decimal.exponent,
         .stream => |as| @intFromPtr(as) == @intFromPtr(b.stream),
-        .map, .set, .command, .regex, .adt, .list, .tuple, .record, .closure, .primitive, .partial => false,
+        .list => |al| listEqual(al.items, al.cap, b.list.items, b.list.cap),
+        .tuple => |at| listEqual(at.items, 0, b.tuple.items, 0),
+        .record => |ar| recordFieldsEqual(ar.fields, b.record.fields),
+        .adt => |aa| aa.tag == b.adt.tag and valueEqual(aa.payload.*, b.adt.payload.*),
+        .closure => |ac| @intFromPtr(ac.body) == @intFromPtr(b.closure.body),
+        .map, .set, .command, .regex, .primitive, .partial => false,
     };
+}
+
+fn listEqual(a_items: []const Value, a_cap: usize, b_items: []const Value, b_cap: usize) bool {
+    _ = a_cap;
+    _ = b_cap;
+    if (a_items.len != b_items.len) return false;
+    for (a_items, b_items) |ai, bi| {
+        if (!valueEqual(ai, bi)) return false;
+    }
+    return true;
+}
+
+fn recordFieldsEqual(a_fields: []const RecordFieldValue, b_fields: []const RecordFieldValue) bool {
+    if (a_fields.len != b_fields.len) return false;
+    for (a_fields) |af| {
+        const bf = for (b_fields) |bf_| {
+            if (std.mem.eql(u8, af.name, bf_.name)) break bf_;
+        } else return false;
+        if (!valueEqual(af.value, bf.value)) return false;
+    }
+    return true;
 }
 
 fn evalMapLiteral(entries: []const MapEntry, frame: *Frame, allocator: std.mem.Allocator) !Value {

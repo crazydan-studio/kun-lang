@@ -114,7 +114,7 @@ pub fn consumeNext(node: *StreamNode, allocator: std.mem.Allocator, eval_fn: ?Ev
 fn applyStreamFn(allocator: std.mem.Allocator, eval_fn: ?EvalFn, f: StreamFn, arg: Value) !Value {
     return switch (f) {
         .primitive => |p| {
-            var env: @import("primitive.zig").RuntimeEnv = .{ .frame = undefined, .primitives = undefined, .allocator = allocator };
+            var env: @import("primitive.zig").RuntimeEnv = .{ .frame = undefined, .primitives = .{ .bindings = &.{} }, .allocator = allocator };
             const args = [_]Value{arg};
             return p(&env, &args);
         },

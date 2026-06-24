@@ -10,7 +10,7 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
     defer allocator.free(argv);
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
-    if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
+    if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = true }) != 0) {
         return error.PipeFailed;
     }
 
@@ -104,7 +104,22 @@ fn formatValue(allocator: std.mem.Allocator, value: Value) ![]const u8 {
 }
 
 fn resolvePath(bin: []const u8, allocator: std.mem.Allocator) ![]const u8 {
-    return allocator.dupe(u8, bin);
+    if (std.mem.indexOfScalar(u8, bin, '/') != null) {
+        return allocator.dupe(u8, bin);
+    }
+    const path_env = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    var it = std.mem.splitSequence(u8, path_env, ":");
+    while (it.next()) |dir| {
+        if (dir.len == 0) continue;
+        const full = std.fs.path.join(allocator, &.{ dir, bin }) catch continue;
+        defer allocator.free(full);
+        const full_z = try allocator.allocSentinel(u8, full.len, 0);
+        @memcpy(full_z[0..full.len], full);
+        if (std.os.linux.access(full_z, std.os.linux.X_OK) == 0) {
+            return allocator.dupe(u8, full);
+        }
+    }
+    return error.CommandNotFound;
 }
 
 pub const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };

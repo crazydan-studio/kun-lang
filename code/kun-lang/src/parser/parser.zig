@@ -523,7 +523,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             const suffix = slice[i..];
             const unit: ast.DurationUnit = if (std.mem.eql(u8, suffix, "s")) .s
             else if (std.mem.eql(u8, suffix, "ms")) .ms
-            else if (std.mem.eql(u8, suffix, "min")) .min
+            else if (std.mem.eql(u8, suffix, "m")) .min
             else if (std.mem.eql(u8, suffix, "h")) .h
             else if (std.mem.eql(u8, suffix, "d")) .d
             else if (std.mem.eql(u8, suffix, "us")) .us

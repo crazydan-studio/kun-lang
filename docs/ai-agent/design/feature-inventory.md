@@ -62,10 +62,9 @@
 | Int | ✅ 设计定型 | 整数绝对值/最值/幂/钳制/类型互转，需显式导入 |
 | Float | ✅ 设计定型 | 浮点绝对值/取整/三角/指数对数/幂/常量/类型互转，Math 已并入 Float |
 | Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
+| Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令（实现推迟 v1.2） |
 
 > **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型，但不在 MVP（v0.1.0）范围。Cli 和 Parser.Record 均推迟到 v0.3 实施，届时编译期内省基础设施（基于 Zig comptime + @typeInfo）与二者同时实现。
-
-| Test | ✅ 设计定型 | 测试断言（`equal`/`ok`/`panics`），`kun test` 子命令（实现推迟 v1.2） |
 
 ### 命令系统
 

@@ -1175,7 +1175,7 @@ test "eval ternary false branch" {
     try std.testing.expectEqual(@as(i64, 0), result.int);
 }
 
-test "eval ternary non-bool cond falls through to else" {
+test "eval ternary non-bool cond returns error" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
@@ -1189,8 +1189,7 @@ test "eval ternary non-bool cond falls through to else" {
     const else_val = try allocator.create(typed.TypedExpr);
     else_val.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
     const expr = typed.TypedExpr{ .ternary = .{ .cond = cond, .then = then_val, .else_ = else_val, .type_ = 0, .span = undefined } };
-    const result = try eval_mod.eval(&expr, global, allocator);
-    try std.testing.expectEqual(@as(i64, 0), result.int);
+    try std.testing.expectError(error.TypeMismatch, eval_mod.eval(&expr, global, allocator));
 }
 
 test "eval ident lookup via PrimitiveTable" {

@@ -16,7 +16,7 @@
 ## 活跃工作
 
 | 维度 | 当前值 |
-|---|---|---|
+|---|---|
 | 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型 — 实现推迟 v0.2）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型）、模块系统搜索路径设计（定型 — Phase 6 实施） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | Phase 5 已完成（106 Primitive 绑定，5 子模块文件拆分）；Phase 6 待启动：模块系统搜索路径；CLI 沙箱推迟至 v0.2 |

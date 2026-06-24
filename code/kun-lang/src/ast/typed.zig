@@ -51,7 +51,7 @@ pub const Stmt = struct {
     type_: TypeId,
 };
 
-pub const Branch = struct { pattern: ast.Pattern, body: *const TypedExpr, type_: TypeId };
+pub const Branch = struct { pattern: ast.Pattern, body: *const TypedExpr, type_: TypeId, guard_cond: ?*const TypedExpr = null };
 
 pub const TypedExpr = union(enum) {
     int_literal: struct { value: i64, type_: TypeId, span: ast.Span },

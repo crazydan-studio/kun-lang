@@ -368,14 +368,30 @@ pub fn inferExpr(
             defer typed_branches.deinit(ea);
             for (v.branches) |b| {
                 const typed_body = try inferExpr(allocator, b.body, env, errors);
-                try typed_branches.append(ea, Branch{ .pattern = b.pattern, .body = typed_body, .type_ = exprType(typed_body) });
+                const typed_guard = if (b.guard) |g| try inferExpr(allocator, g, env, errors) else null;
+                try typed_branches.append(ea, Branch{ .pattern = b.pattern, .body = typed_body, .type_ = exprType(typed_body), .guard_cond = typed_guard });
             }
             const branches = try typed_branches.toOwnedSlice(ea);
             if (pattern_mod.checkExhaustive(allocator, env, exprType(typed_subject), branches) catch null) |missing| {
                 try errors.add(allocator, .{ .non_exhaustive = .{ .missing = missing, .span = v.span } });
             }
+            const result_type = if (branches.len > 0) branches[0].type_ else unit_type;
+            for (branches[1..]) |b| {
+                unify_mod.unify(env, allocator, result_type, b.type_) catch |err| {
+                    switch (err) {
+                        error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .if_branch_mismatch = .{
+                            .then_type = result_type, .else_type = b.type_, .span = v.span,
+                        } }),
+                        error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
+                        else => try errors.add(allocator, .{ .mismatch = .{
+                            .expected = result_type, .found = b.type_, .span = v.span,
+                        } }),
+                    }
+                };
+            }
             const node = try ea.create(TypedExpr);
-            node.* = TypedExpr{ .case_expr = .{ .subject = typed_subject, .branches = branches, .type_ = if (branches.len > 0) branches[0].type_ else unit_type, .span = v.span } };
+            node.* = TypedExpr{ .case_expr = .{ .subject = typed_subject, .branches = branches, .type_ = result_type, .span = v.span } };
             return node;
         },
         .binary_op => |v| {

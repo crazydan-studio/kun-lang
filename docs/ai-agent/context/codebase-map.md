@@ -12,7 +12,7 @@
 ## 关键目录
 
 | 目录 | 用途 |
-|---|---|---|
+|---|---|
 | `docs/ai-agent/context/` | 项目上下文与 AI 协作规范（最高优先级） |
 | `docs/ai-agent/architecture/` | 技术架构与系统设计 |
 | `docs/ai-agent/design/` | 应用层行为与功能设计（type-system / standard-library / syntax / kun-shell；roles-and-permissions / supply-chain-security / command-function-system / capability-mapping-guide 已废弃） |
