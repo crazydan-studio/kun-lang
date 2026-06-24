@@ -188,6 +188,186 @@ fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
     return Value{ .nil = {} };
 }
 
+fn printImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len > 0 and args[0] == .string) {
+        _ = std.os.linux.write(1, args[0].string.ptr, args[0].string.len);
+    }
+    return Value{ .unit = {} };
+}
+
+fn eprintImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len > 0 and args[0] == .string) {
+        _ = std.os.linux.write(2, args[0].string.ptr, args[0].string.len);
+    }
+    return Value{ .unit = {} };
+}
+
+fn eprintlnImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len > 0 and args[0] == .string) {
+        const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
+        defer env.allocator.free(msg);
+        _ = std.os.linux.write(2, msg.ptr, msg.len);
+    }
+    return Value{ .unit = {} };
+}
+
+fn readBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    const max: usize = if (args.len > 0 and args[0] == .int) @intCast(@max(args[0].int, 0)) else 4096;
+    const buf = env.allocator.alloc(u8, max) catch return value_mod.makeErr(4, Value{ .string = "oom" }, env.allocator) catch return Value{ .nil = {} };
+    const n = std.os.linux.read(0, buf.ptr, buf.len);
+    if (n <= 0) return value_mod.makeErr(4, Value{ .string = "read error" }, env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .bytes = buf[0..n] }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn readAllImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    var buf: std.ArrayListUnmanaged(u8) = .empty;
+    var tmp: [4096]u8 = undefined;
+    while (true) {
+        const n = std.os.linux.read(0, &tmp, tmp.len);
+        if (n <= 0) break;
+        buf.appendSlice(env.allocator, tmp[0..n]) catch break;
+    }
+    const s = buf.toOwnedSlice(env.allocator) catch return Value{ .string = "" };
+    return Value{ .string = s };
+}
+
+fn readAllBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    var buf: std.ArrayListUnmanaged(u8) = .empty;
+    var tmp: [4096]u8 = undefined;
+    while (true) {
+        const n = std.os.linux.read(0, &tmp, tmp.len);
+        if (n <= 0) break;
+        buf.appendSlice(env.allocator, tmp[0..n]) catch break;
+    }
+    const b = buf.toOwnedSlice(env.allocator) catch return Value{ .bytes = &.{} };
+    return Value{ .bytes = b };
+}
+
+fn isTerminalImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .bool = true };
+}
+
+fn flushImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .unit = {} };
+}
+
+fn killImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    if (args[0] != .int or args[1] != .int) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    _ = std.os.linux.kill(@intCast(args[0].int), @enumFromInt(@as(u32, @intCast(args[1].int))));
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn waitImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    var status: i32 = 0;
+    const pid = std.os.linux.waitpid(-1, &status, 0);
+    return if (pid > 0) Value{ .int = status } else Value{ .nil = {} };
+}
+
+fn sleepImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    const s: u64 = if (args.len > 0 and args[0] == .int) @intCast(@max(args[0].int, 0)) else 0;
+    var ts: std.os.linux.timespec = .{ .sec = @intCast(s), .nsec = 0 };
+    _ = std.os.linux.nanosleep(&ts, null);
+    return Value{ .unit = {} };
+}
+
+fn mkdirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    if (std.os.linux.mkdir(path_z, 0o755) != 0) {
+        return value_mod.makeErr(1, Value{ .string = "mkdir error" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn mkdirAllImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    var tmp: [4096]u8 = undefined;
+    @memcpy(tmp[0..path_z.len], path_z);
+    tmp[path_z.len] = 0;
+    for (1..path_z.len) |i| {
+        if (tmp[i] == '/') {
+            tmp[i] = 0;
+            _ = std.os.linux.mkdir(@ptrCast(&tmp), 0o755);
+            tmp[i] = '/';
+        }
+    }
+    if (std.os.linux.mkdir(path_z, 0o755) != 0 and std.os.linux.access(path_z, std.os.linux.F_OK) != 0) {
+        return value_mod.makeErr(1, Value{ .string = "mkdirAll error" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn writeStringImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .path or args[1] != .string)
+        return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{ .CREAT = true, .TRUNC = true }, 0o644);
+    if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    _ = std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len);
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn touchImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{ .CREAT = true }, 0o644);
+    if (fd >= 0) _ = std.os.linux.close(@intCast(fd));
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn removeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    if (std.os.linux.unlink(path_z) != 0) {
+        return value_mod.makeErr(1, Value{ .string = "remove error" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn removeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    if (std.os.linux.rmdir(path_z) != 0) {
+        return value_mod.makeErr(1, Value{ .string = "rmdir error" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn currentDirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    return Value{ .path = env.allocator.dupe(u8, "/") catch return Value{ .nil = {} } };
+}
+
+fn homeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    return Value{ .path = env.allocator.dupe(u8, "/root") catch return Value{ .nil = {} } };
+}
+
+fn tempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = args;
+    return Value{ .path = env.allocator.dupe(u8, "/tmp") catch return Value{ .nil = {} } };
+}
+
 fn mapFileError(err: anyerror) u8 {
     return switch (err) {
         error.FileNotFound => 0,
@@ -296,6 +476,26 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "Stream", .name = "toList", .fn_ptr = streamToListImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
         .{ .module = "Stream", .name = "string", .fn_ptr = streamStringImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
         .{ .module = "Stream", .name = "bytes", .fn_ptr = streamBytesImpl, .arg_count = 1, .return_type = bytes_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "IO", .name = "print", .fn_ptr = printImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "IO", .name = "eprint", .fn_ptr = eprintImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "IO", .name = "eprintln", .fn_ptr = eprintlnImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "IO", .name = "readBytes", .fn_ptr = readBytesImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "IO", .name = "readAll", .fn_ptr = readAllImpl, .arg_count = 0, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "IO", .name = "readAllBytes", .fn_ptr = readAllBytesImpl, .arg_count = 0, .return_type = bytes_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "IO", .name = "isTerminal", .fn_ptr = isTerminalImpl, .arg_count = 0, .return_type = bool_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "IO", .name = "flush", .fn_ptr = flushImpl, .arg_count = 0, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Process", .name = "kill", .fn_ptr = killImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Process", .name = "wait", .fn_ptr = waitImpl, .arg_count = 0, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "Process", .name = "sleep", .fn_ptr = sleepImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "mkdir", .fn_ptr = mkdirImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "mkdirAll", .fn_ptr = mkdirAllImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "writeString", .fn_ptr = writeStringImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "touch", .fn_ptr = touchImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "remove", .fn_ptr = removeImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "removeDir", .fn_ptr = removeDirImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "currentDir", .fn_ptr = currentDirImpl, .arg_count = 0, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "homeDir", .fn_ptr = homeDirImpl, .arg_count = 0, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "File", .name = "tempDir", .fn_ptr = tempDirImpl, .arg_count = 0, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
     };
     _ = .{ int_t, string_t, unit_t, stream_string_t, bool_t, bytes_t };
     return .{ .bindings = &bindings };
