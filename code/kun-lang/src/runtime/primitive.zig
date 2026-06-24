@@ -368,6 +368,235 @@ fn tempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     return Value{ .path = env.allocator.dupe(u8, "/tmp") catch return Value{ .nil = {} } };
 }
 
+fn listLengthImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .list) return Value{ .int = 0 };
+    return Value{ .int = @intCast(args[0].list.items.len) };
+}
+
+fn listIsEmptyImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .list) return Value{ .bool = true };
+    return Value{ .bool = args[0].list.items.len == 0 };
+}
+
+fn listHeadImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .list or args[0].list.items.len == 0) return Value{ .nil = {} };
+    return args[0].list.items[0];
+}
+
+fn listLastImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .list or args[0].list.items.len == 0) return Value{ .nil = {} };
+    return args[0].list.items[args[0].list.items.len - 1];
+}
+
+fn listGetImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 2 or args[0] != .int or args[1] != .list) return Value{ .nil = {} };
+    const idx: usize = @intCast(@max(args[0].int, 0));
+    if (idx >= args[1].list.items.len) return Value{ .nil = {} };
+    return args[1].list.items[idx];
+}
+
+fn listAppendImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .list or args[1] != .list) return Value{ .nil = {} };
+    const a = args[0].list;
+    const b = args[1].list;
+    const items = env.allocator.alloc(Value, a.items.len + b.items.len) catch return Value{ .nil = {} };
+    @memcpy(items[0..a.items.len], a.items);
+    @memcpy(items[a.items.len..], b.items);
+    return Value{ .list = .{ .items = items, .cap = items.len } };
+}
+
+fn listReverseImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1 or args[0] != .list) return Value{ .nil = {} };
+    const src = args[0].list.items;
+    const items = env.allocator.alloc(Value, src.len) catch return Value{ .nil = {} };
+    for (src, 0..) |v, i| {
+        items[src.len - 1 - i] = v;
+    }
+    return Value{ .list = .{ .items = items, .cap = items.len } };
+}
+
+fn listSortImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[1] != .list) return Value{ .nil = {} };
+    const src = args[1].list.items;
+    if (src.len == 0) return args[1];
+    const items = env.allocator.alloc(Value, src.len) catch return Value{ .nil = {} };
+    @memcpy(items, src);
+    std.mem.sort(Value, items, {}, cmpValue);
+    return Value{ .list = .{ .items = items, .cap = items.len } };
+}
+
+fn cmpValue(_: void, a: Value, b: Value) bool {
+    if (a == .int and b == .int) return a.int < b.int;
+    if (a == .string and b == .string) return std.mem.lessThan(u8, a.string, b.string);
+    return @intFromEnum(a) < @intFromEnum(b);
+}
+
+fn listSliceImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 3 or args[0] != .int or args[1] != .int or args[2] != .list) return Value{ .nil = {} };
+    const start: usize = @intCast(@max(args[0].int, 0));
+    const len: usize = @intCast(@max(args[1].int, 0));
+    const src = args[2].list.items;
+    const actual_start = @min(start, src.len);
+    const actual_end = @min(actual_start + len, src.len);
+    const items = env.allocator.alloc(Value, actual_end - actual_start) catch return Value{ .nil = {} };
+    @memcpy(items, src[actual_start..actual_end]);
+    return Value{ .list = .{ .items = items, .cap = items.len } };
+}
+
+fn listTakeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .int or args[1] != .list) return Value{ .nil = {} };
+    const n: usize = @intCast(@max(args[0].int, 0));
+    const src = args[1].list.items;
+    const count = @min(n, src.len);
+    const items = env.allocator.alloc(Value, count) catch return Value{ .nil = {} };
+    @memcpy(items, src[0..count]);
+    return Value{ .list = .{ .items = items, .cap = items.len } };
+}
+
+fn listDropImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2 or args[0] != .int or args[1] != .list) return Value{ .nil = {} };
+    const n: usize = @intCast(@max(args[0].int, 0));
+    const src = args[1].list.items;
+    if (n >= src.len) return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+    const items = env.allocator.alloc(Value, src.len - n) catch return Value{ .nil = {} };
+    @memcpy(items, src[n..]);
+    return Value{ .list = .{ .items = items, .cap = items.len } };
+}
+
+fn bytesLengthImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .bytes) return Value{ .int = 0 };
+    return Value{ .int = @intCast(args[0].bytes.len) };
+}
+
+fn bytesSliceImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 3 or args[0] != .int or args[1] != .int or args[2] != .bytes) return Value{ .bytes = &.{} };
+    const start: usize = @intCast(@max(args[0].int, 0));
+    const len: usize = @intCast(@max(args[1].int, 0));
+    const src = args[2].bytes;
+    if (start >= src.len) return Value{ .bytes = &.{} };
+    const end = @min(start + len, src.len);
+    return Value{ .bytes = src[start..end] };
+}
+
+fn stringLengthImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .string) return Value{ .int = 0 };
+    return Value{ .int = @intCast(args[0].string.len) };
+}
+
+fn stringSliceImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 3 or args[0] != .int or args[1] != .int or args[2] != .string) return Value{ .string = "" };
+    const start: usize = @intCast(@max(args[0].int, 0));
+    const len: usize = @intCast(@max(args[1].int, 0));
+    const src = args[2].string;
+    if (start >= src.len) return Value{ .string = "" };
+    const end = @min(start + len, src.len);
+    const result = env.allocator.dupe(u8, src[start..end]) catch return Value{ .string = "" };
+    return Value{ .string = result };
+}
+
+fn stringToStringImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 1) return Value{ .string = "" };
+    return switch (args[0]) {
+        .int => |i| {
+            const s = std.fmt.allocPrint(env.allocator, "{d}", .{i}) catch return Value{ .string = "" };
+            return Value{ .string = s };
+        },
+        .float => |f| {
+            const s = std.fmt.allocPrint(env.allocator, "{d}", .{f}) catch return Value{ .string = "" };
+            return Value{ .string = s };
+        },
+        .bool => |b| Value{ .string = if (b) "true" else "false" },
+        .string => |s| Value{ .string = s },
+        else => Value{ .string = "" },
+    };
+}
+
+fn mapSizeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .map) return Value{ .int = 0 };
+    return Value{ .int = @intCast(args[0].map.len) };
+}
+
+fn mapIsEmptyImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .map) return Value{ .bool = true };
+    return Value{ .bool = args[0].map.len == 0 };
+}
+
+fn mapInsertImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn mapGetImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn mapRemoveImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn mapKeysImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+}
+
+fn mapValuesImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .list = .{ .items = &.{}, .cap = 0 } };
+}
+
+fn setSizeImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .set) return Value{ .int = 0 };
+    return Value{ .int = @intCast(args[0].set.len) };
+}
+
+fn setIsEmptyImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    if (args.len < 1 or args[0] != .set) return Value{ .bool = true };
+    return Value{ .bool = args[0].set.len == 0 };
+}
+
+fn setContainsImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .bool = false };
+}
+
+fn setInsertImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn setRemoveImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+
+fn envListImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .map = .{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 } };
+}
+
 fn mapFileError(err: anyerror) u8 {
     return switch (err) {
         error.FileNotFound => 0,
@@ -496,6 +725,35 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "File", .name = "currentDir", .fn_ptr = currentDirImpl, .arg_count = 0, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
         .{ .module = "File", .name = "homeDir", .fn_ptr = homeDirImpl, .arg_count = 0, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
         .{ .module = "File", .name = "tempDir", .fn_ptr = tempDirImpl, .arg_count = 0, .return_type = string_t, .is_polymorphic = false, .is_effect = true },
+        .{ .module = "List", .name = "length", .fn_ptr = listLengthImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "isEmpty", .fn_ptr = listIsEmptyImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "head", .fn_ptr = listHeadImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "last", .fn_ptr = listLastImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "get", .fn_ptr = listGetImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "append", .fn_ptr = listAppendImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "reverse", .fn_ptr = listReverseImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "sort", .fn_ptr = listSortImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "slice", .fn_ptr = listSliceImpl, .arg_count = 3, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "take", .fn_ptr = listTakeImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "List", .name = "drop", .fn_ptr = listDropImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Map", .name = "get", .fn_ptr = mapGetImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Map", .name = "keys", .fn_ptr = mapKeysImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Map", .name = "values", .fn_ptr = mapValuesImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Map", .name = "size", .fn_ptr = mapSizeImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Map", .name = "isEmpty", .fn_ptr = mapIsEmptyImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Map", .name = "insert", .fn_ptr = mapInsertImpl, .arg_count = 3, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Map", .name = "remove", .fn_ptr = mapRemoveImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Set", .name = "size", .fn_ptr = setSizeImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Set", .name = "isEmpty", .fn_ptr = setIsEmptyImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Set", .name = "contains", .fn_ptr = setContainsImpl, .arg_count = 2, .return_type = bool_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Set", .name = "insert", .fn_ptr = setInsertImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Set", .name = "remove", .fn_ptr = setRemoveImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Bytes", .name = "length", .fn_ptr = bytesLengthImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Bytes", .name = "slice", .fn_ptr = bytesSliceImpl, .arg_count = 3, .return_type = bytes_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "String", .name = "length", .fn_ptr = stringLengthImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "String", .name = "slice", .fn_ptr = stringSliceImpl, .arg_count = 3, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "String", .name = "toString", .fn_ptr = stringToStringImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Env", .name = "list", .fn_ptr = envListImpl, .arg_count = 0, .return_type = unit_t, .is_polymorphic = false, .is_effect = true },
     };
     _ = .{ int_t, string_t, unit_t, stream_string_t, bool_t, bytes_t };
     return .{ .bindings = &bindings };
