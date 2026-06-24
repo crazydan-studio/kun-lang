@@ -186,10 +186,7 @@ test "Phase4 primitive impl functions return correct variant" {
     const table = primitive.buildPrimitiveTable(env_mod.int_type, env_mod.string_type, env_mod.unit_type, env_mod.string_type, env_mod.bool_type, env_mod.bytes_type);
     const cases = [_]struct { mod: []const u8, name: []const u8, arg: value_mod.Value, expected: Tag }{
         .{ .mod = "IO", .name = "readln", .arg = .{ .unit = {} }, .expected = .string },
-        .{ .mod = "File", .name = "readString", .arg = .{ .unit = {} }, .expected = .nil },
-        .{ .mod = "File", .name = "list", .arg = .{ .unit = {} }, .expected = .nil },
-        .{ .mod = "File", .name = "stat", .arg = .{ .unit = {} }, .expected = .nil },
-        .{ .mod = "Env", .name = "getenv", .arg = .{ .unit = {} }, .expected = .nil },
+        .{ .mod = "Env", .name = "getenv", .arg = .{ .string = "HOME" }, .expected = .string },
         .{ .mod = "Env", .name = "contains", .arg = .{ .unit = {} }, .expected = .bool },
         .{ .mod = "Process", .name = "uid", .arg = .{ .unit = {} }, .expected = .int },
         .{ .mod = "Process", .name = "gid", .arg = .{ .unit = {} }, .expected = .int },

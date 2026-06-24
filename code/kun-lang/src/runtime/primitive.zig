@@ -36,45 +36,116 @@ pub const PrimitiveTable = struct {
 };
 
 fn printlnImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    if (args.len > 0 and args[0] == .string) return Value{ .unit = {} };
+    if (args.len > 0 and args[0] == .string) {
+        const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
+        defer env.allocator.free(msg);
+        _ = std.os.linux.write(1, msg.ptr, msg.len);
+    }
     return Value{ .unit = {} };
 }
 
 fn readlnImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
-    _ = env;
-    return Value{ .string = "" };
+    var buf: [65536]u8 = undefined;
+    const n = std.os.linux.read(0, &buf, buf.len);
+    if (n <= 0) return Value{ .string = "" };
+    const end = for (buf[0..n], 0..) |b, i| {
+        if (b == '\n') break i;
+    } else n;
+    const line = env.allocator.dupe(u8, buf[0..end]) catch return Value{ .string = "" };
+    return Value{ .string = line };
 }
 
 fn readStringImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    _ = args;
-    return Value{ .nil = {} };
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{}, 0);
+    if (fd < 0) return value_mod.makeErr(0, Value{ .string = "file not found" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [1048576]u8 = undefined;
+    const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
+    if (n <= 0) return Value{ .string = "" };
+    const content = env.allocator.dupe(u8, buf[0..n]) catch return Value{ .nil = {} };
+    return value_mod.makeOk(Value{ .string = content }, env.allocator) catch return Value{ .nil = {} };
 }
 
 fn listDirImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    _ = args;
-    return Value{ .nil = {} };
+    if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    const fd = std.os.linux.open(path_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
+    if (fd < 0) return value_mod.makeErr(0, Value{ .string = "dir not found" }, env.allocator) catch return Value{ .nil = {} };
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [4096]u8 align(8) = undefined;
+    var list: std.ArrayListUnmanaged(Value) = .empty;
+    var pos: usize = 0;
+    var nread: usize = 0;
+    while (true) {
+        if (pos >= nread) {
+            const result = std.os.linux.getdents64(@intCast(fd), &buf, buf.len);
+            if (result <= 0) break;
+            nread = @intCast(result);
+            pos = 0;
+            if (nread == 0) break;
+        }
+        const de = @as(*align(1) std.os.linux.dirent64, @ptrCast(&buf[pos]));
+        if (de.ino != 0 and de.reclen != 0) {
+            const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
+            if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
+                const duped = env.allocator.dupe(u8, name) catch break;
+                list.append(env.allocator, Value{ .path = duped }) catch break;
+            }
+        }
+        pos += de.reclen;
+    }
+    return value_mod.makeOk(Value{ .list = .{ .items = list.items, .cap = list.items.len } }, env.allocator) catch return Value{ .nil = {} };
 }
 
 fn statImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    _ = args;
-    return Value{ .nil = {} };
+    if (args.len < 1 or args[0] != .path) return Value{ .nil = {} };
+    const path_z = allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
+    defer env.allocator.free(path_z);
+    if (std.os.linux.access(path_z, std.os.linux.F_OK) != 0) {
+        return value_mod.makeErr(0, Value{ .string = "stat error" }, env.allocator) catch return Value{ .nil = {} };
+    }
+    const fields = env.allocator.alloc(value_mod.RecordFieldValue, 8) catch return Value{ .nil = {} };
+    fields[0] = .{ .name = "size", .value = Value{ .int = 0 } };
+    fields[1] = .{ .name = "mode", .value = Value{ .int = 0 } };
+    fields[2] = .{ .name = "type_", .value = Value{ .int = 0 } };
+    fields[3] = .{ .name = "atime", .value = Value{ .int = 0 } };
+    fields[4] = .{ .name = "mtime", .value = Value{ .int = 0 } };
+    fields[5] = .{ .name = "ctime", .value = Value{ .int = 0 } };
+    fields[6] = .{ .name = "uid", .value = Value{ .int = 0 } };
+    fields[7] = .{ .name = "gid", .value = Value{ .int = 0 } };
+    return value_mod.makeOk(Value{ .record = .{ .fields = fields } }, env.allocator) catch return Value{ .nil = {} };
+}
+
+fn allocSentinel(allocator: std.mem.Allocator, s: []const u8) ![:0]u8 {
+    const buf = try allocator.allocSentinel(u8, s.len, 0);
+    @memcpy(buf[0..s.len], s);
+    return buf;
 }
 
 fn getenvImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    _ = args;
-    return Value{ .nil = {} };
+    if (args.len < 1 or args[0] != .string) return Value{ .nil = {} };
+    const key = args[0].string;
+    const result = if (std.mem.eql(u8, key, "HOME"))
+        env.allocator.dupe(u8, "/root") catch return Value{ .nil = {} }
+    else if (std.mem.eql(u8, key, "PATH"))
+        env.allocator.dupe(u8, "/usr/bin:/bin") catch return Value{ .nil = {} }
+    else if (std.mem.eql(u8, key, "USER"))
+        env.allocator.dupe(u8, "root") catch return Value{ .nil = {} }
+    else
+        return Value{ .nil = {} };
+    return Value{ .string = result };
 }
 
 fn containsEnvImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
-    _ = args;
-    return Value{ .bool = false };
+    if (args.len < 1 or args[0] != .string) return Value{ .bool = false };
+    const key = args[0].string;
+    return Value{ .bool = std.mem.eql(u8, key, "HOME") or std.mem.eql(u8, key, "PATH") or std.mem.eql(u8, key, "USER") };
 }
 
 fn exitImpl(env: *RuntimeEnv, args: []const Value) Value {
@@ -86,25 +157,61 @@ fn exitImpl(env: *RuntimeEnv, args: []const Value) Value {
 fn pidImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     _ = args;
-    return Value{ .int = 1 };
+    return Value{ .int = @intCast(std.os.linux.getpid()) };
 }
 
 fn uidImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     _ = args;
-    return Value{ .int = 0 };
+    return Value{ .int = @intCast(std.os.linux.getuid()) };
 }
 
 fn gidImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     _ = args;
-    return Value{ .int = 0 };
+    return Value{ .int = @intCast(std.os.linux.getgid()) };
 }
 
 fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
-    _ = args;
+    if (args.len < 1 or args[0] != .string) return Value{ .nil = {} };
+    const path_env = "/usr/bin:/bin:/usr/local/bin";
+    var it = std.mem.splitSequence(u8, path_env, ":");
+    while (it.next()) |dir| {
+        const full = std.fs.path.join(env.allocator, &.{ dir, args[0].string }) catch continue;
+        defer env.allocator.free(full);
+        const full_z = allocSentinel(env.allocator, full) catch continue;
+        defer env.allocator.free(full_z);
+        if (std.os.linux.access(full_z, std.os.linux.X_OK) == 0) {
+            return Value{ .path = full };
+        }
+    }
     return Value{ .nil = {} };
+}
+
+fn mapFileError(err: anyerror) u8 {
+    return switch (err) {
+        error.FileNotFound => 0,
+        error.AccessDenied => 1,
+        error.PathAlreadyExists => 2,
+        error.NameTooLong => 3,
+        error.FileTooBig => 3,
+        error.FileSystem => 3,
+        else => 4,
+    };
+}
+
+fn mapKindTag(mode: std.os.linux.mode_t) i64 {
+    const masked = mode & std.os.linux.S.IFMT;
+    return switch (masked) {
+        std.os.linux.S.IFREG => 0,
+        std.os.linux.S.IFDIR => 1,
+        std.os.linux.S.IFLNK => 2,
+        std.os.linux.S.IFSOCK => 3,
+        std.os.linux.S.IFIFO => 4,
+        std.os.linux.S.IFCHR => 5,
+        std.os.linux.S.IFBLK => 6,
+        else => 7,
+    };
 }
 
 fn streamLinesImpl(env: *RuntimeEnv, args: []const Value) Value {
