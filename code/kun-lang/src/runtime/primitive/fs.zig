@@ -383,7 +383,8 @@ pub fn copyImpl(env: *RuntimeEnv, args: []const Value) Value {
     while (true) {
         const n = std.os.linux.read(@intCast(src_fd), &buf, buf.len);
         if (n <= 0) break;
-        _ = std.os.linux.write(@intCast(dst_fd), buf[0..@intCast(n)].ptr, @intCast(n));
+        if (std.os.linux.write(@intCast(dst_fd), buf[0..@intCast(n)].ptr, @intCast(n)) < 0)
+            return value_mod.makeErr(1, Value{ .string = "write error" }, env.allocator) catch return Value{ .nil = {} };
     }
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }

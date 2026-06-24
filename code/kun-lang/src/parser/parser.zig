@@ -282,8 +282,8 @@ fn parseBinaryOp(state: *ParserState, min_prec: u8) ParserError!Expr {
         // Stop at expression terminators
         if (kind == .rbrace or kind == .rbrack or kind == .rparen or kind == .comma or kind == .eof) break;
 
-        // Handle ternary ?:
-        if (kind == .question) {
+        // Handle ternary ?: (only at top precedence level)
+        if (kind == .question and min_prec == 0) {
             _ = state.advance();
             const then_expr = try parseExpr(state);
             try state.expect(.colon);
