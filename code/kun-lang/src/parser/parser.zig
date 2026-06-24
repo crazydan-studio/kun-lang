@@ -884,6 +884,18 @@ fn parseCaseExpr(state: *ParserState, start: SourceLoc) ParserError!Expr {
             .is_unbound = false,
             .span = state.span(start),
         });
+        // Handle or-pattern: pat1 -> body is followed by | pat2
+        while (state.peek() == .pipe_pat) {
+            _ = state.advance();
+            const alt_pat = try parsePattern(state);
+            try branches.append(state.allocator, .{
+                .pattern = alt_pat,
+                .guard = guard,
+                .body = try heapExpr(state, &body),
+                .is_unbound = false,
+                .span = state.span(start),
+            });
+        }
     }
     const span = Span{ .start = start, .end = state.current().span.end };
     return Expr{ .case_expr = .{ .subject = try heapExpr(state, &subject), .branches = branches.items, .span = span } };
@@ -951,6 +963,19 @@ fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
             }
             try state.expect(.rparen);
             return ast.Pattern{ .tuple = .{ .items = items.items, .span = state.span(start) } };
+        },
+        .lbrace => {
+            _ = state.advance();
+            var fields = std.ArrayListUnmanaged(ast.RecordPatternField).empty;
+            while (state.peek() != .rbrace and state.peek() != .eof) {
+                const name_tok = state.advance();
+                try state.expect(.assign);
+                const p = try parsePattern(state);
+                try fields.append(state.allocator, .{ .name = name_tok.slice, .pattern = try heapPattern(state, p) });
+                if (state.peek() == .comma) _ = state.advance();
+            }
+            try state.expect(.rbrace);
+            return ast.Pattern{ .record = .{ .fields = fields.items, .span = state.span(start) } };
         },
         else => return ast.Pattern{ .wildcard = state.advance().span },
     }
