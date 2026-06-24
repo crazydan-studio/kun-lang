@@ -43,15 +43,19 @@ test "infer: function effect detection" {
             .expect_type = env_mod.unit_type,
         },
         .{
-            .name = "IO.println call",
+            .name = "IO.println call in do",
             .buildBody = struct {
                 fn f(alloc: std.mem.Allocator) error{OutOfMemory}!*ast.Expr {
                     const ident = try alloc.create(ast.Expr);
                     ident.* = .{ .ident = .{ .name = "IO.println", .span = undefined } };
                     const arg = try alloc.create(ast.Expr);
                     arg.* = .{ .string_literal = .{ .value = "hi", .span = undefined } };
+                    const call = try alloc.create(ast.Expr);
+                    call.* = .{ .call = .{ .func = ident, .arg = arg, .span = undefined } };
+                    const stmts = try alloc.alloc(ast.Stmt, 1);
+                    stmts[0] = .{ .kind = .{ .expr = call }, .span = undefined };
                     const b = try alloc.create(ast.Expr);
-                    b.* = .{ .call = .{ .func = ident, .arg = arg, .span = undefined } };
+                    b.* = .{ .do_block = .{ .body = stmts, .result = null, .span = undefined } };
                     return b;
                 }
             }.f,

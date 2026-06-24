@@ -125,7 +125,7 @@ fn inferFunction(
     errors: *ErrorList,
 ) InferenceError!TypedDecl {
     const ea = env.exprAllocator();
-    const typed_body = try inferExpr(allocator, body, env, errors);
+    const typed_body = try inferExpr(allocator, body, env, errors, false);
 
     var param_types: std.ArrayListUnmanaged(Param) = .empty;
     defer param_types.deinit(ea);
@@ -157,6 +157,7 @@ pub fn inferExpr(
     expr: *const ast.Expr,
     env: *TypeEnv,
     errors: *ErrorList,
+    in_do: bool,
 ) InferenceError!*const TypedExpr {
     const ea = env.exprAllocator();
     return switch (expr.*) {
@@ -224,7 +225,7 @@ pub fn inferExpr(
             return node;
         },
         .lambda => |v| {
-            const typed_body = try inferExpr(allocator, v.body, env, errors);
+            const typed_body = try inferExpr(allocator, v.body, env, errors, in_do);
             const typed_params = try ea.alloc(Param, v.params.len);
             var param_type_ids = try ea.alloc(TypeId, v.params.len);
             for (v.params, 0..) |p, i| {
@@ -254,8 +255,13 @@ pub fn inferExpr(
             return node;
         },
         .call => |v| {
-            const typed_func = try inferExpr(allocator, v.func, env, errors);
-            const typed_arg = try inferExpr(allocator, v.arg, env, errors);
+            const typed_func = try inferExpr(allocator, v.func, env, errors, in_do);
+            const typed_arg = try inferExpr(allocator, v.arg, env, errors, in_do);
+
+            // Effect check: Cmd.*?/Cmd.*!/Cmd.exec etc. must be in do block
+            if (typed_func.* == .ident) {
+                try effect_mod.checkCmdInDo(allocator, typed_func.ident.name, in_do, v.span, errors);
+            }
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const func_type = exprType(typed_func);
             const arg_type = exprType(typed_arg);
@@ -302,7 +308,7 @@ pub fn inferExpr(
             env.let_types = .empty;
 
             for (v.bindings) |b| {
-                const typed_val = try inferExpr(allocator, b.value, env, errors);
+                const typed_val = try inferExpr(allocator, b.value, env, errors, in_do);
                 const generalized = try env.generalize(allocator, exprType(typed_val), 1);
                 const gen_val = try ea.create(TypedExpr);
                 gen_val.* = typed_val.*;
@@ -310,7 +316,7 @@ pub fn inferExpr(
                 try env.let_types.put(ea, b.name, generalized);
                 try typed_bindings.append(ea, Binding{ .name = b.name, .value = gen_val });
             }
-            const typed_body = try inferExpr(allocator, v.body, env, errors);
+            const typed_body = try inferExpr(allocator, v.body, env, errors, in_do);
             const body_type = exprType(typed_body);
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .let_in = .{ .bindings = try typed_bindings.toOwnedSlice(ea), .body = typed_body, .type_ = body_type, .span = v.span } };
@@ -339,20 +345,22 @@ pub fn inferExpr(
             }
 
             for (v.body) |stmt| {
-                const typed_stmt = try inferStmt(allocator, stmt, env, errors);
+                const typed_stmt = try inferStmt(allocator, stmt, env, errors, true);
                 try typed_stmts.append(ea, typed_stmt);
             }
-            const typed_result = if (v.result) |r| try inferExpr(allocator, r, env, errors) else null;
+            const typed_result = if (v.result) |r| try inferExpr(allocator, r, env, errors, in_do) else null;
             const result_type = if (typed_result) |r| exprType(r) else unit_type;
             try effect_mod.checkDoInResult(allocator, expr, typed_result, errors);
+            try effect_mod.checkStreamConsumption(allocator, expr, errors);
+            try effect_mod.checkCommandConsumption(allocator, expr, errors);
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .do_block = .{ .body = try typed_stmts.toOwnedSlice(ea), .result = typed_result, .type_ = result_type, .span = v.span } };
             return node;
         },
         .if_expr => |v| {
-            const typed_cond = try inferExpr(allocator, v.cond, env, errors);
-            const typed_then = try inferExpr(allocator, v.then, env, errors);
-            const typed_else = try inferExpr(allocator, v.else_, env, errors);
+            const typed_cond = try inferExpr(allocator, v.cond, env, errors, in_do);
+            const typed_then = try inferExpr(allocator, v.then, env, errors, in_do);
+            const typed_else = try inferExpr(allocator, v.else_, env, errors, in_do);
             const node = try ea.create(TypedExpr);
             const result_type = exprType(typed_then);
             unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch {
@@ -365,12 +373,12 @@ pub fn inferExpr(
             return node;
         },
         .case_expr => |v| {
-            const typed_subject = try inferExpr(allocator, v.subject, env, errors);
+            const typed_subject = try inferExpr(allocator, v.subject, env, errors, in_do);
             var typed_branches: std.ArrayListUnmanaged(Branch) = .empty;
             defer typed_branches.deinit(ea);
             for (v.branches) |b| {
-                const typed_body = try inferExpr(allocator, b.body, env, errors);
-                const typed_guard = if (b.guard) |g| try inferExpr(allocator, g, env, errors) else null;
+                const typed_body = try inferExpr(allocator, b.body, env, errors, in_do);
+                const typed_guard = if (b.guard) |g| try inferExpr(allocator, g, env, errors, in_do) else null;
                 try typed_branches.append(ea, Branch{ .pattern = b.pattern, .body = typed_body, .type_ = exprType(typed_body), .guard_cond = typed_guard });
             }
             const branches = try typed_branches.toOwnedSlice(ea);
@@ -397,8 +405,8 @@ pub fn inferExpr(
             return node;
         },
         .binary_op => |v| {
-            const typed_left = try inferExpr(allocator, v.left, env, errors);
-            const typed_right = try inferExpr(allocator, v.right, env, errors);
+            const typed_left = try inferExpr(allocator, v.left, env, errors, in_do);
+            const typed_right = try inferExpr(allocator, v.right, env, errors, in_do);
             const left_type = exprType(typed_left);
             const right_type = exprType(typed_right);
 
@@ -466,7 +474,7 @@ pub fn inferExpr(
             return node;
         },
         .unary_op => |v| {
-            const typed_operand = try inferExpr(allocator, v.operand, env, errors);
+            const typed_operand = try inferExpr(allocator, v.operand, env, errors, in_do);
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .unary_op = .{ .op = v.op, .operand = typed_operand, .type_ = exprType(typed_operand), .span = v.span } };
             return node;
@@ -476,7 +484,7 @@ pub fn inferExpr(
             defer typed_items.deinit(ea);
             const elem_ty = try env.newVar(allocator, std.math.maxInt(u32));
             for (v.items) |item| {
-                const typed_item = try inferExprItem(allocator, item, env, errors);
+                const typed_item = try inferExprItem(allocator, item, env, errors, in_do);
                 const item_type = switch (typed_item) {
                     .expr => |e| exprType(e),
                     .spread => |s| exprType(s),
@@ -495,7 +503,7 @@ pub fn inferExpr(
             var elem_types: std.ArrayListUnmanaged(TypeId) = .empty;
             defer elem_types.deinit(ea);
             for (v.items) |item| {
-                const typed_item = try inferExpr(allocator, item, env, errors);
+                const typed_item = try inferExpr(allocator, item, env, errors, in_do);
                 try typed_elems.append(ea, typed_item.*);
                 try elem_types.append(ea, exprType(typed_item));
             }
@@ -510,7 +518,7 @@ pub fn inferExpr(
             var field_types: std.ArrayListUnmanaged(typed.RecordFieldType) = .empty;
             defer field_types.deinit(ea);
             for (v.fields) |f| {
-                const typed_val = try inferExpr(allocator, f.value, env, errors);
+                const typed_val = try inferExpr(allocator, f.value, env, errors, in_do);
                 try typed_fields.append(ea, RecordField{ .name = f.name, .value = typed_val });
                 try field_types.append(ea, typed.RecordFieldType{ .name = f.name, .type_ = exprType(typed_val) });
             }
@@ -520,7 +528,7 @@ pub fn inferExpr(
             return node;
         },
         .record_access => |v| {
-            const typed_rec = try inferExpr(allocator, v.record, env, errors);
+            const typed_rec = try inferExpr(allocator, v.record, env, errors, in_do);
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const rec_type = exprType(typed_rec);
             const field_types = try ea.alloc(typed.RecordFieldType, 1);
@@ -532,11 +540,12 @@ pub fn inferExpr(
             return node;
         },
         .pipe => |v| {
-            const typed_left = try inferExpr(allocator, v.left, env, errors);
-            const typed_right = try inferExpr(allocator, v.right, env, errors);
+            const typed_left = try inferExpr(allocator, v.left, env, errors, in_do);
+            const typed_right = try inferExpr(allocator, v.right, env, errors, in_do);
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const node = try ea.create(TypedExpr);
             if (isCommandIdent(v.left)) {
+                try effect_mod.checkPipeCommand(allocator, true, in_do, v.span, errors);
                 node.* = TypedExpr{ .pipe = .{ .left = typed_left, .right = typed_right, .type_ = result_id, .span = v.span } };
             } else {
                 node.* = TypedExpr{ .call = .{ .func = typed_right, .arg = typed_left, .type_ = result_id, .span = v.span } };
@@ -544,16 +553,16 @@ pub fn inferExpr(
             return node;
         },
         .pipe_reverse => |v| {
-            const typed_left = try inferExpr(allocator, v.left, env, errors);
-            const typed_right = try inferExpr(allocator, v.right, env, errors);
+            const typed_left = try inferExpr(allocator, v.left, env, errors, in_do);
+            const typed_right = try inferExpr(allocator, v.right, env, errors, in_do);
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .call = .{ .func = typed_left, .arg = typed_right, .type_ = result_id, .span = v.span } };
             return node;
         },
         .compose => |v| {
-            const typed_left = try inferExpr(allocator, v.left, env, errors);
-            const typed_right = try inferExpr(allocator, v.right, env, errors);
+            const typed_left = try inferExpr(allocator, v.left, env, errors, in_do);
+            const typed_right = try inferExpr(allocator, v.right, env, errors, in_do);
             const intermediate_id = try env.newVar(allocator, std.math.maxInt(u32));
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const param_name = try ea.alloc(Param, 1);
@@ -587,8 +596,8 @@ pub fn inferExpr(
             return node;
         },
         .compose_reverse => |v| {
-            const typed_left = try inferExpr(allocator, v.left, env, errors);
-            const typed_right = try inferExpr(allocator, v.right, env, errors);
+            const typed_left = try inferExpr(allocator, v.left, env, errors, in_do);
+            const typed_right = try inferExpr(allocator, v.right, env, errors, in_do);
             const intermediate_id = try env.newVar(allocator, std.math.maxInt(u32));
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const param_name = try ea.alloc(Param, 1);
@@ -627,8 +636,8 @@ pub fn inferExpr(
             const key_ty = try env.newVar(allocator, std.math.maxInt(u32));
             const val_ty = try env.newVar(allocator, std.math.maxInt(u32));
             for (v.entries) |e| {
-                const typed_key = try inferExpr(allocator, e.key, env, errors);
-                const typed_val = try inferExpr(allocator, e.value, env, errors);
+                const typed_key = try inferExpr(allocator, e.key, env, errors, in_do);
+                const typed_val = try inferExpr(allocator, e.value, env, errors, in_do);
                 unify_mod.unify(env, allocator, exprType(typed_key), key_ty) catch {};
                 unify_mod.unify(env, allocator, exprType(typed_val), val_ty) catch {};
                 try typed_entries.append(ea, MapEntry{ .key = typed_key, .value = typed_val });
@@ -643,7 +652,7 @@ pub fn inferExpr(
             defer typed_items.deinit(ea);
             const elem_ty = try env.newVar(allocator, std.math.maxInt(u32));
             for (v.items) |item| {
-                const typed_item = try inferExpr(allocator, item, env, errors);
+                const typed_item = try inferExpr(allocator, item, env, errors, in_do);
                 unify_mod.unify(env, allocator, exprType(typed_item), elem_ty) catch {};
                 try typed_items.append(ea, typed_item.*);
             }
@@ -653,14 +662,14 @@ pub fn inferExpr(
             return node;
         },
         .record_update => |v| {
-            const typed_rec = try inferExpr(allocator, v.record, env, errors);
+            const typed_rec = try inferExpr(allocator, v.record, env, errors, in_do);
             const rec_type = env.applySubst(exprType(typed_rec));
             var typed_fields: std.ArrayListUnmanaged(RecordField) = .empty;
             defer typed_fields.deinit(ea);
             if (rec_type < env.types.items.len and env.types.items[rec_type] == .record) {
                 const rec = env.types.items[rec_type].record;
                 for (v.fields) |f| {
-                    const typed_val = try inferExpr(allocator, f.value, env, errors);
+                    const typed_val = try inferExpr(allocator, f.value, env, errors, in_do);
                     for (rec) |rf| {
                         if (std.mem.eql(u8, f.name, rf.name)) {
                             unify_mod.unify(env, allocator, exprType(typed_val), rf.type_) catch |err| {
@@ -680,7 +689,7 @@ pub fn inferExpr(
                 }
             } else {
                 for (v.fields) |f| {
-                    const typed_val = try inferExpr(allocator, f.value, env, errors);
+                    const typed_val = try inferExpr(allocator, f.value, env, errors, in_do);
                     try typed_fields.append(ea, RecordField{ .name = f.name, .value = typed_val });
                 }
             }
@@ -690,8 +699,8 @@ pub fn inferExpr(
             return node;
         },
         .range_literal => |v| {
-            const typed_from = try inferExpr(allocator, v.from, env, errors);
-            const typed_to = try inferExpr(allocator, v.to, env, errors);
+            const typed_from = try inferExpr(allocator, v.from, env, errors, in_do);
+            const typed_to = try inferExpr(allocator, v.to, env, errors, in_do);
             unify_mod.unify(env, allocator, exprType(typed_from), int_type) catch |err| {
                 switch (err) {
                     error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = int_type, .found = exprType(typed_from), .span = v.span } }),
@@ -705,7 +714,7 @@ pub fn inferExpr(
                 }
             };
             const typed_step = if (v.step) |s| blk: {
-                const ts = try inferExpr(allocator, s, env, errors);
+                const ts = try inferExpr(allocator, s, env, errors, in_do);
                 unify_mod.unify(env, allocator, exprType(ts), int_type) catch {};
                 break :blk ts;
             } else null;
@@ -715,9 +724,9 @@ pub fn inferExpr(
             return node;
         },
         .ternary => |v| {
-            const typed_cond = try inferExpr(allocator, v.cond, env, errors);
-            const typed_then = try inferExpr(allocator, v.then, env, errors);
-            const typed_else = try inferExpr(allocator, v.else_, env, errors);
+            const typed_cond = try inferExpr(allocator, v.cond, env, errors, in_do);
+            const typed_then = try inferExpr(allocator, v.then, env, errors, in_do);
+            const typed_else = try inferExpr(allocator, v.else_, env, errors, in_do);
             const result_type = exprType(typed_then);
             unify_mod.unify(env, allocator, result_type, exprType(typed_else)) catch {
                 try errors.add(allocator, .{ .if_branch_mismatch = .{ .then_type = result_type, .else_type = exprType(typed_else), .span = v.span } });
@@ -734,18 +743,19 @@ fn inferStmt(
     stmt: ast.Stmt,
     env: *TypeEnv,
     errors: *ErrorList,
+    in_do: bool,
 ) InferenceError!Stmt {
     return switch (stmt.kind) {
         .binding => |b| {
-            const typed_val = try inferExpr(allocator, b.value, env, errors);
+            const typed_val = try inferExpr(allocator, b.value, env, errors, in_do);
             return Stmt{ .kind = .{ .binding = Binding{ .name = b.name, .value = typed_val } }, .type_ = exprType(typed_val) };
         },
         .defer_ => |d| {
-            const typed_expr = try inferExpr(allocator, d.expr, env, errors);
+            const typed_expr = try inferExpr(allocator, d.expr, env, errors, in_do);
             return Stmt{ .kind = .{ .defer_ = .{ .expr = typed_expr } }, .type_ = unit_type };
         },
         .expr => |e| {
-            const typed_expr = try inferExpr(allocator, e, env, errors);
+            const typed_expr = try inferExpr(allocator, e, env, errors, in_do);
             return Stmt{ .kind = .{ .expr = typed_expr }, .type_ = exprType(typed_expr) };
         },
     };
@@ -756,10 +766,11 @@ fn inferExprItem(
     item: ast.ExprItem,
     env: *TypeEnv,
     errors: *ErrorList,
+    in_do: bool,
 ) InferenceError!ExprItem {
     return switch (item) {
-        .expr => |e| ExprItem{ .expr = try inferExpr(allocator, e, env, errors) },
-        .spread => |s| ExprItem{ .spread = try inferExpr(allocator, s, env, errors) },
+        .expr => |e| ExprItem{ .expr = try inferExpr(allocator, e, env, errors, in_do) },
+        .spread => |s| ExprItem{ .spread = try inferExpr(allocator, s, env, errors, in_do) },
     };
 }
 

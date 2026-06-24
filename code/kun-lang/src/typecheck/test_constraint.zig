@@ -25,7 +25,7 @@ test "constraint infers int literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &int_expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &int_expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .int_literal);
     try std.testing.expect(result.int_literal.type_ == env_mod.int_type);
     try std.testing.expectEqual(@as(i64, 42), result.int_literal.value);
@@ -40,7 +40,7 @@ test "constraint infers bool literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.bool_literal.type_ == env_mod.bool_type);
 }
 
@@ -53,7 +53,7 @@ test "constraint infers string literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.string_literal.type_ == env_mod.string_type);
 }
 
@@ -66,7 +66,7 @@ test "constraint nil literal is nilable" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .nil_literal);
     const nil_ty = s.env.resolveType(result.nil_literal.type_);
     try std.testing.expect(nil_ty == .nilable);
@@ -81,7 +81,7 @@ test "constraint infers float literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.float_literal.type_ == env_mod.float_type);
 }
 
@@ -94,7 +94,7 @@ test "constraint infers char literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.char_literal.type_ == env_mod.char_type);
 }
 
@@ -107,7 +107,7 @@ test "constraint infers duration literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.duration_literal.type_ == env_mod.duration_type);
 }
 
@@ -120,7 +120,7 @@ test "constraint infers path literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.path_literal.type_ == env_mod.path_type);
 }
 
@@ -133,7 +133,7 @@ test "constraint infers regex literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.regex_literal.type_ == env_mod.regex_type);
 }
 
@@ -146,7 +146,7 @@ test "constraint infers bytes literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
     try std.testing.expect(result.bytes_literal.type_ == env_mod.bytes_type);
 }
 
@@ -165,7 +165,7 @@ test "constraint infers binary op types" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.binary_op.type_ == env_mod.int_type);
 }
 
@@ -215,7 +215,7 @@ test "constraint infers if_expr subtypes" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.if_expr.type_ == env_mod.int_type);
 }
 
@@ -253,7 +253,7 @@ test "constraint infers call expression" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .call);
     try std.testing.expect(result.call.func.* == .ident);
     try std.testing.expectEqualStrings("f", result.call.func.ident.name);
@@ -273,7 +273,7 @@ test "constraint infers lambda expression" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .lambda);
     try std.testing.expect(result.lambda.type_ != 0);
     try std.testing.expectEqual(@as(usize, 1), result.lambda.params.len);
@@ -296,7 +296,7 @@ test "constraint infers let_in expression" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .let_in);
     try std.testing.expectEqual(@as(usize, 1), result.let_in.bindings.len);
     try std.testing.expectEqualStrings("x", result.let_in.bindings[0].name);
@@ -316,7 +316,7 @@ test "constraint infers record literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .record_literal);
     try std.testing.expectEqual(@as(usize, 1), result.record_literal.fields.len);
     try std.testing.expectEqualStrings("x", result.record_literal.fields[0].name);
@@ -336,7 +336,7 @@ test "constraint int + bool accumulates type mismatch" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    _ = constraint_mod.inferExpr(allocator, &expr, &s.env, &errors) catch {};
+    _ = constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false) catch {};
     try std.testing.expect(errors.hasErrors());
 }
 
@@ -356,7 +356,7 @@ test "constraint infers case_expr" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .case_expr);
     try std.testing.expectEqual(@as(usize, 1), result.case_expr.branches.len);
 }
@@ -371,7 +371,7 @@ test "constraint infers do_block" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .do_block);
     try std.testing.expectEqual(env_mod.unit_type, result.do_block.type_);
 }
@@ -388,7 +388,7 @@ test "constraint infers do_block with in result" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .do_block);
     try std.testing.expectEqual(env_mod.int_type, result.do_block.type_);
 }
@@ -403,7 +403,7 @@ test "constraint Cmd.echo ident is command_t" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .ident);
     try std.testing.expectEqual(env_mod.command_type, result.ident.type_);
 }
@@ -418,7 +418,7 @@ test "constraint Cmd.withEnv ident is not command_t" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.ident.type_ != env_mod.command_type);
 }
 
@@ -432,7 +432,7 @@ test "constraint Cmd.exec ident is not command_t" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.ident.type_ != env_mod.command_type);
 }
 
@@ -447,7 +447,7 @@ test "constraint Cmd.ls? ident is not command_t" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.ident.type_ != env_mod.command_type);
 }
 
@@ -467,7 +467,7 @@ test "constraint infers record_update" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .record_update);
     try std.testing.expectEqual(@as(usize, 1), result.record_update.fields.len);
     try std.testing.expectEqualStrings("x", result.record_update.fields[0].name);
@@ -487,7 +487,7 @@ test "constraint infers range_literal" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .range_literal);
 }
 
@@ -507,6 +507,6 @@ test "constraint infers ternary" {
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
-    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors);
+    const result = try constraint_mod.inferExpr(allocator, &expr, &s.env, &errors, false);
     try std.testing.expect(result.* == .ternary);
 }
