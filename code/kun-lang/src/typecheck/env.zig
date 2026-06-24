@@ -25,6 +25,7 @@ pub const TypeEnv = struct {
     _allocator: std.mem.Allocator,
     expr_arena: std.heap.ArenaAllocator,
     let_types: std.StringHashMapUnmanaged(TypeId) = .empty,
+    scope_names: std.StringHashMapUnmanaged(void) = .empty,
 
     pub fn init(allocator: std.mem.Allocator) !TypeEnv {
         var types: std.ArrayListUnmanaged(Type) = .empty;
@@ -360,5 +361,13 @@ pub const TypeEnv = struct {
         const resolved = self.applySubst(ty);
         if (resolved >= self.types.items.len) return false;
         return self.types.items[resolved] == .effect_fn;
+    }
+
+    pub fn addScopeName(self: *TypeEnv, allocator: std.mem.Allocator, name: []const u8) !void {
+        try self.scope_names.put(allocator, name, {});
+    }
+
+    pub fn isInScope(self: *TypeEnv, name: []const u8) bool {
+        return self.scope_names.contains(name);
     }
 };

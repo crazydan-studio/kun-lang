@@ -558,6 +558,24 @@ pub fn inferExpr(
             param_name[0] = .{ .name = "x", .type_ = try env.newVar(allocator, 1) };
             const x_ref = try ea.create(TypedExpr);
             x_ref.* = .{ .ident = .{ .name = "x", .type_ = param_name[0].type_, .span = v.span } };
+
+            const left_fn = try env.registerFunctionType(allocator, false, param_name[0].type_, intermediate_id);
+            unify_mod.unify(env, allocator, exprType(typed_left), left_fn) catch |err| {
+                switch (err) {
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-left", .expected = param_name[0].type_, .found = param_name[0].type_, .span = v.span } }),
+                    error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                    else => {},
+                }
+            };
+            const right_fn = try env.registerFunctionType(allocator, false, intermediate_id, result_id);
+            unify_mod.unify(env, allocator, exprType(typed_right), right_fn) catch |err| {
+                switch (err) {
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-right", .expected = intermediate_id, .found = intermediate_id, .span = v.span } }),
+                    error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                    else => {},
+                }
+            };
+
             const f_call = try ea.create(TypedExpr);
             f_call.* = .{ .call = .{ .func = typed_left, .arg = x_ref, .type_ = intermediate_id, .span = v.span } };
             const g_call = try ea.create(TypedExpr);
@@ -575,6 +593,24 @@ pub fn inferExpr(
             param_name[0] = .{ .name = "x", .type_ = try env.newVar(allocator, 1) };
             const x_ref = try ea.create(TypedExpr);
             x_ref.* = .{ .ident = .{ .name = "x", .type_ = param_name[0].type_, .span = v.span } };
+
+            const right_fn = try env.registerFunctionType(allocator, false, param_name[0].type_, intermediate_id);
+            unify_mod.unify(env, allocator, exprType(typed_right), right_fn) catch |err| {
+                switch (err) {
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-left", .expected = param_name[0].type_, .found = param_name[0].type_, .span = v.span } }),
+                    error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                    else => {},
+                }
+            };
+            const left_fn = try env.registerFunctionType(allocator, false, intermediate_id, result_id);
+            unify_mod.unify(env, allocator, exprType(typed_left), left_fn) catch |err| {
+                switch (err) {
+                    error.Mismatch, error.EffectFnPureMismatch => try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = "compose-right", .expected = intermediate_id, .found = intermediate_id, .span = v.span } }),
+                    error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                    else => {},
+                }
+            };
+
             const g_call = try ea.create(TypedExpr);
             g_call.* = .{ .call = .{ .func = typed_right, .arg = x_ref, .type_ = intermediate_id, .span = v.span } };
             const f_call = try ea.create(TypedExpr);
@@ -616,11 +652,35 @@ pub fn inferExpr(
         },
         .record_update => |v| {
             const typed_rec = try inferExpr(allocator, v.record, env, errors);
+            const rec_type = env.applySubst(exprType(typed_rec));
             var typed_fields: std.ArrayListUnmanaged(RecordField) = .empty;
             defer typed_fields.deinit(ea);
-            for (v.fields) |f| {
-                const typed_val = try inferExpr(allocator, f.value, env, errors);
-                try typed_fields.append(ea, RecordField{ .name = f.name, .value = typed_val });
+            if (rec_type < env.types.items.len and env.types.items[rec_type] == .record) {
+                const rec = env.types.items[rec_type].record;
+                for (v.fields) |f| {
+                    const typed_val = try inferExpr(allocator, f.value, env, errors);
+                    for (rec) |rf| {
+                        if (std.mem.eql(u8, f.name, rf.name)) {
+                            unify_mod.unify(env, allocator, exprType(typed_val), rf.type_) catch |err| {
+                                switch (err) {
+                                    error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = rf.type_, .found = exprType(typed_val), .span = v.span } }),
+                                    error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
+                                    error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
+                                    else => {},
+                                }
+                            };
+                            break;
+                        }
+                    } else {
+                        try errors.add(allocator, .{ .unknown_field = .{ .name = f.name, .span = v.span } });
+                    }
+                    try typed_fields.append(ea, RecordField{ .name = f.name, .value = typed_val });
+                }
+            } else {
+                for (v.fields) |f| {
+                    const typed_val = try inferExpr(allocator, f.value, env, errors);
+                    try typed_fields.append(ea, RecordField{ .name = f.name, .value = typed_val });
+                }
             }
             const result_id = try env.newVar(allocator, std.math.maxInt(u32));
             const node = try ea.create(TypedExpr);
@@ -630,10 +690,26 @@ pub fn inferExpr(
         .range_literal => |v| {
             const typed_from = try inferExpr(allocator, v.from, env, errors);
             const typed_to = try inferExpr(allocator, v.to, env, errors);
-            const typed_step = if (v.step) |s| try inferExpr(allocator, s, env, errors) else null;
-            const result_id = try env.newVar(allocator, std.math.maxInt(u32));
+            unify_mod.unify(env, allocator, exprType(typed_from), int_type) catch |err| {
+                switch (err) {
+                    error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = int_type, .found = exprType(typed_from), .span = v.span } }),
+                    else => {},
+                }
+            };
+            unify_mod.unify(env, allocator, exprType(typed_to), int_type) catch |err| {
+                switch (err) {
+                    error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = int_type, .found = exprType(typed_to), .span = v.span } }),
+                    else => {},
+                }
+            };
+            const typed_step = if (v.step) |s| blk: {
+                const ts = try inferExpr(allocator, s, env, errors);
+                unify_mod.unify(env, allocator, exprType(ts), int_type) catch {};
+                break :blk ts;
+            } else null;
+            const stream_id = try env.registerType(allocator, Type{ .stream = int_type });
             const node = try ea.create(TypedExpr);
-            node.* = TypedExpr{ .range_literal = .{ .from = typed_from, .to = typed_to, .step = typed_step, .type_ = result_id, .span = v.span } };
+            node.* = TypedExpr{ .range_literal = .{ .from = typed_from, .to = typed_to, .step = typed_step, .type_ = stream_id, .span = v.span } };
             return node;
         },
         .ternary => |v| {
