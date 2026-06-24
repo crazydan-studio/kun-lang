@@ -800,6 +800,95 @@ test "Phase4 checkImplicitDo callable" {
     try std.testing.expect(!errors.hasErrors());
 }
 
+test "Phase4 checkImplicitDo pure branches emit warning" {
+    const allocator = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    const ea = arena.allocator();
+
+    const pure_expr = try ea.create(ast.Expr);
+    pure_expr.* = .{ .int_literal = .{ .value = 1, .span = undefined } };
+    const branch1 = ast.Branch{ .pattern = (try heapPattern(ea, ast.Pattern{ .ident = .{ .name = "True", .span = undefined } })).*, .guard = null, .body = pure_expr, .is_unbound = false, .span = undefined };
+    const branch2 = ast.Branch{ .pattern = (try heapPattern(ea, ast.Pattern{ .ident = .{ .name = "False", .span = undefined } })).*, .guard = null, .body = pure_expr, .is_unbound = false, .span = undefined };
+    const branches = try ea.alloc(ast.Branch, 2);
+    branches[0] = branch1;
+    branches[1] = branch2;
+
+    const subject = try ea.create(ast.Expr);
+    subject.* = .{ .bool_literal = .{ .value = true, .span = undefined } };
+    const case_expr = try ea.create(ast.Expr);
+    case_expr.* = .{ .case_expr = .{ .subject = subject, .branches = branches, .span = undefined } };
+    const stmts = try ea.alloc(ast.Stmt, 1);
+    stmts[0] = .{ .kind = .{ .expr = case_expr }, .span = undefined };
+    const body = try ea.create(ast.Expr);
+    body.* = .{ .do_block = .{ .body = stmts, .result = null, .span = undefined } };
+
+    var errors = try error_mod.ErrorList.init(allocator);
+    defer errors.deinit(allocator);
+    try effect_mod.checkImplicitDo(allocator, body, &errors);
+    try std.testing.expect(errors.hasErrors());
+}
+
+test "Phase4 checkImplicitDo if with effect no error" {
+    const allocator = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    const ea = arena.allocator();
+
+    const cond = try ea.create(ast.Expr);
+    cond.* = .{ .bool_literal = .{ .value = true, .span = undefined } };
+    const io_ident = try ea.create(ast.Expr);
+    io_ident.* = .{ .ident = .{ .name = "IO.println", .span = undefined } };
+    const arg = try ea.create(ast.Expr);
+    arg.* = .{ .string_literal = .{ .value = "x", .span = undefined } };
+    const effect_call = try ea.create(ast.Expr);
+    effect_call.* = .{ .call = .{ .func = io_ident, .arg = arg, .span = undefined } };
+    const pure_expr = try ea.create(ast.Expr);
+    pure_expr.* = .{ .int_literal = .{ .value = 0, .span = undefined } };
+    const if_expr = try ea.create(ast.Expr);
+    if_expr.* = .{ .if_expr = .{ .cond = cond, .then = effect_call, .else_ = pure_expr, .span = undefined } };
+    const stmts = try ea.alloc(ast.Stmt, 1);
+    stmts[0] = .{ .kind = .{ .expr = if_expr }, .span = undefined };
+    const body = try ea.create(ast.Expr);
+    body.* = .{ .do_block = .{ .body = stmts, .result = null, .span = undefined } };
+
+    var errors = try error_mod.ErrorList.init(allocator);
+    defer errors.deinit(allocator);
+    try effect_mod.checkImplicitDo(allocator, body, &errors);
+    try std.testing.expect(!errors.hasErrors());
+}
+
+test "Phase4 checkImplicitDo if pure both branches emit warning" {
+    const allocator = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    const ea = arena.allocator();
+
+    const cond = try ea.create(ast.Expr);
+    cond.* = .{ .bool_literal = .{ .value = true, .span = undefined } };
+    const pure1 = try ea.create(ast.Expr);
+    pure1.* = .{ .int_literal = .{ .value = 1, .span = undefined } };
+    const pure2 = try ea.create(ast.Expr);
+    pure2.* = .{ .int_literal = .{ .value = 0, .span = undefined } };
+    const if_expr = try ea.create(ast.Expr);
+    if_expr.* = .{ .if_expr = .{ .cond = cond, .then = pure1, .else_ = pure2, .span = undefined } };
+    const stmts = try ea.alloc(ast.Stmt, 1);
+    stmts[0] = .{ .kind = .{ .expr = if_expr }, .span = undefined };
+    const body = try ea.create(ast.Expr);
+    body.* = .{ .do_block = .{ .body = stmts, .result = null, .span = undefined } };
+
+    var errors = try error_mod.ErrorList.init(allocator);
+    defer errors.deinit(allocator);
+    try effect_mod.checkImplicitDo(allocator, body, &errors);
+    try std.testing.expect(errors.hasErrors());
+}
+
+fn heapPattern(allocator: std.mem.Allocator, p: ast.Pattern) !*const ast.Pattern {
+    const ptr = try allocator.create(ast.Pattern);
+    ptr.* = p;
+    return ptr;
+}
+
 test "Phase4 checkStreamConsumption callable" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
