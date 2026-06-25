@@ -819,5 +819,5 @@ fn isCommandIdent(expr: *const ast.Expr) bool {
 }
 
 fn isKnownCmdApi(name: []const u8) bool {
-    return @import("../runtime/cmd.zig").isKnownCmdApi(name);
+    return @import("../command/cmd.zig").isKnownCmdApi(name);
 }

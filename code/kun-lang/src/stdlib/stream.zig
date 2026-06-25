@@ -1,10 +1,10 @@
 const std = @import("std");
-const value_mod = @import("../value.zig");
-const env_mod = @import("../env.zig");
-const primitive_mod = @import("../primitive.zig");
+const value_mod = @import("../runtime/value.zig");
+const env_mod = @import("../runtime/env.zig");
+const primitive_mod = @import("../runtime/primitive.zig");
 const RuntimeEnv = primitive_mod.RuntimeEnv;
-const stream_consumer = @import("../stream_consumer.zig");
-const cmd_mod = @import("../cmd.zig");
+const stream_consumer = @import("../runtime/stream_consumer.zig");
+const cmd_mod = @import("../command/cmd.zig");
 
 const Value = value_mod.Value;
 const StreamNode = value_mod.StreamNode;

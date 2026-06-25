@@ -9,17 +9,17 @@ const test_typecheck_effect = @import("typecheck/test_effect.zig");
 const test_typecheck_pattern = @import("typecheck/test_pattern.zig");
 const test_typecheck_infer = @import("typecheck/test_infer.zig");
 const test_typecheck_error = @import("typecheck/test_error.zig");
-const test_typecheck_i18n = @import("typecheck/test_i18n.zig");
+const test_typecheck_i18n = @import("i18n/test_i18n.zig");
 const test_runtime_env = @import("runtime/test_env.zig");
 const test_runtime_eval = @import("runtime/test_eval.zig");
 const test_runtime_defer = @import("runtime/test_defer.zig");
 const test_primitive = @import("runtime/test_primitive.zig");
-const test_cmd = @import("runtime/test_cmd.zig");
-const test_stream = @import("runtime/primitive/test_stream.zig");
-const test_crypto = @import("runtime/primitive/test_crypto.zig");
+const test_cmd = @import("command/test_cmd.zig");
+const test_stream = @import("stdlib/test_stream.zig");
+const test_crypto = @import("stdlib/test_crypto.zig");
 const test_hash_map = @import("runtime/test_hash_map.zig");
 const test_glob = @import("runtime/test_glob_engine.zig");
-const test_file = @import("runtime/primitive/test_fs.zig");
+const test_file = @import("stdlib/test_fs.zig");
 const test_integration = @import("tests/test_integration.zig");
 
 comptime {

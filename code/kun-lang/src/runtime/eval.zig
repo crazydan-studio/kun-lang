@@ -5,7 +5,7 @@ const value_mod = @import("value.zig");
 const env_mod = @import("env.zig");
 const defer_mod = @import("defer.zig");
 const primitive_mod = @import("primitive.zig");
-const cmd_mod = @import("cmd.zig");
+const cmd_mod = @import("../command/cmd.zig");
 const hash_map = @import("hash_map.zig");
 
 const Value = value_mod.Value;

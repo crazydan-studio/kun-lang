@@ -1,5 +1,5 @@
 const std = @import("std");
-const value_mod = @import("value.zig");
+const value_mod = @import("../runtime/value.zig");
 
 const Value = value_mod.Value;
 const StreamNode = value_mod.StreamNode;

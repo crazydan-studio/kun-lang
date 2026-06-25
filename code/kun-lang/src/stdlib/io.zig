@@ -1,7 +1,7 @@
 const std = @import("std");
-const value_mod = @import("../value.zig");
-const RuntimeEnv = @import("../primitive.zig").RuntimeEnv;
-const hash_map = @import("../hash_map.zig");
+const value_mod = @import("../runtime/value.zig");
+const RuntimeEnv = @import("../runtime/primitive.zig").RuntimeEnv;
+const hash_map = @import("../runtime/hash_map.zig");
 
 const Value = value_mod.Value;
 

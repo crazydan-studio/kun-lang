@@ -1,8 +1,8 @@
 const std = @import("std");
 const fs_mod = @import("fs.zig");
 const io_mod = @import("io.zig");
-const value_mod = @import("../value.zig");
-const RuntimeEnv = @import("../primitive.zig").RuntimeEnv;
+const value_mod = @import("../runtime/value.zig");
+const RuntimeEnv = @import("../runtime/primitive.zig").RuntimeEnv;
 
 const Value = value_mod.Value;
 

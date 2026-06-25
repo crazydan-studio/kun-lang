@@ -1,8 +1,8 @@
 const std = @import("std");
-const error_mod = @import("error.zig");
+const error_mod = @import("../typecheck/error.zig");
 
 const TypeError = error_mod.TypeError;
-const TypeEnv = @import("env.zig").TypeEnv;
+const TypeEnv = @import("../typecheck/env.zig").TypeEnv;
 
 pub const Locale = enum { en, zh_CN };
 
