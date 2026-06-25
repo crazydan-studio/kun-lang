@@ -167,7 +167,7 @@ zig build dump-ast -- code/examples/monorepo-ci/build.kun
 | 1 | `module/module_resolver.zig` | — | ~220 | 0 |
 | 2 | — | `main.zig` | ~100 | ~15（`module/test_module_resolver.zig`） |
 | 3 | — | — | 0 | 0 |
-| 4 | — | `eval.zig`, `constraint.zig` | ~100 | ~10 |
+| 4 | — | `eval.zig` | ~100 | ~10 |
 | **合计** | **1** | **3** | **~420** | **~25** |
 
 目标：**665 → ~690 测试**，`--run` 端到端可执行示例脚本。
