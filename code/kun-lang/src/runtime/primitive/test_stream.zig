@@ -1,8 +1,8 @@
 const std = @import("std");
-const stream_mod = @import("primitive/stream.zig");
-const value_mod = @import("value.zig");
-const typed = @import("../ast/typed.zig");
-const RuntimeEnv = @import("primitive.zig").RuntimeEnv;
+const stream_mod = @import("stream.zig");
+const value_mod = @import("../value.zig");
+const typed = @import("../../ast/typed.zig");
+const RuntimeEnv = @import("../primitive.zig").RuntimeEnv;
 
 const Value = value_mod.Value;
 

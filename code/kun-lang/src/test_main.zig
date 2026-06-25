@@ -15,11 +15,11 @@ const test_runtime_eval = @import("runtime/test_eval.zig");
 const test_runtime_defer = @import("runtime/test_defer.zig");
 const test_primitive = @import("runtime/test_primitive.zig");
 const test_cmd = @import("runtime/test_cmd.zig");
-const test_stream = @import("runtime/test_stream.zig");
-const test_crypto = @import("runtime/test_crypto.zig");
+const test_stream = @import("runtime/primitive/test_stream.zig");
+const test_crypto = @import("runtime/primitive/test_crypto.zig");
 const test_hash_map = @import("runtime/test_hash_map.zig");
 const test_glob = @import("runtime/test_glob_engine.zig");
-const test_file = @import("runtime/test_file.zig");
+const test_file = @import("runtime/primitive/test_fs.zig");
 const test_integration = @import("tests/test_integration.zig");
 
 comptime {

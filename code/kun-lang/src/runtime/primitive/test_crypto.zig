@@ -1,8 +1,8 @@
 const std = @import("std");
-const crypto_mod = @import("primitive/crypto.zig");
-const stream_mod = @import("primitive/stream.zig");
-const RuntimeEnv = @import("primitive.zig").RuntimeEnv;
-const value_mod = @import("value.zig");
+const crypto_mod = @import("crypto.zig");
+const stream_mod = @import("stream.zig");
+const RuntimeEnv = @import("../primitive.zig").RuntimeEnv;
+const value_mod = @import("../value.zig");
 
 const Value = value_mod.Value;
 
