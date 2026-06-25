@@ -109,7 +109,7 @@ pub const LoadedModule = struct {
 
 ### 2.2 main.zig 修改
 
-- **脚本路径解析**：`--run <path>` 中的 `<path>` 先用 `std.fs.realpathAlloc` 解析为绝对路径
+- **脚本路径解析**：`--run <path>` 中的 `<path>` 先解析为绝对路径（通过 `std.c.realpath` 或等价的 Zig 文件系统 API）
 - **ModuleResolver 初始化**：从脚本目录提取项目 `lib/`、读取 `KUN_PATH` 环境变量（冒号分隔）、定位运行时 `lib/kun/`（编译期 `@embedFile` 或固定路径）
 - **递归 import 加载**：遍历入口脚本的 import 声明，逐条 `ModuleResolver.load()`
 - **标准库回退**：import 未找到 `.kun` 文件时，检查 `primitive.zig` 表是否有该模块绑定——有则注入 Primitive，无则检查是否为内置类型（`CommandError`/`Result`/`Duration`/`Path` 等已在 `typecheck/env.zig` 中定义的类型，无需 `.kun` 文件），两者均无则报错 `ModuleNotFound`
@@ -181,14 +181,12 @@ zig build
 ## 依赖关系
 
 ```
-ModuleResolver ──→ --run 端到端 ──→ 示例验证
-      ↓                                 ↓
- eval.zig import 处理（运行时绑定）   eval.zig 收尾修复
-      ↓
- 收尾修复（range_literal / compose / pipe_reverse）
+Step 1 (ModuleResolver) → Step 2 (--run + main.zig) → Step 3 (示例验证)
+                              ↓
+                        Step 4 (eval.zig 收尾)
 ```
 
-Step 1-2 严格串行；Step 4 与 Step 2 可并行（修改 eval.zig 不同区域）。
+Step 1→2 严格串行。Step 4 与 Step 2-3 无代码冲突（修改 eval.zig 的不同区域），可并行。
 
 ## 推迟项（不在本计划范围）
 
