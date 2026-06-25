@@ -5,7 +5,7 @@ pub const SourceLoc = struct {
     col: u32,
     offset: usize,
 
-    pub fn format(self: SourceLoc, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(self: SourceLoc, writer: anytype) !void {
         try writer.print("{d}:{d}", .{ self.line, self.col });
     }
 };
@@ -20,8 +20,12 @@ pub const Span = struct {
     line_end: u32 = 0,
     col_end: u32 = 0,
 
-    pub fn format(self: Span, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        try writer.print("{d}:{d}", .{ self.start.line, self.start.col });
+    pub fn format(self: Span, writer: anytype) !void {
+        if (self.file.len > 0 and self.file.len < 65536) {
+            try writer.print("{s}:{d}:{d}", .{ self.file, self.start.line, self.start.col });
+        } else {
+            try writer.print("{d}:{d}", .{ self.start.line, self.start.col });
+        }
     }
 };
 
