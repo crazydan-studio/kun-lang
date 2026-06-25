@@ -148,12 +148,14 @@ zig build dump-ast -- code/examples/monorepo-ci/build.kun
 
 ### 4.1 已知问题
 
-| 项目 | 说明 |
-|------|------|
-| `eval.zig` range_literal | 当前为 stub（创建空 StreamNode），需真实实现 `Stream.range` 求值 |
-| `eval.zig` pipe_reverse / compose / compose_reverse | `@panic("unimplemented")`，需按 `syntax.md` 语义实现求值 |
-| 内存泄漏 | 确认 0 泄漏（当前已 0） |
-| 文档同步 | 更新 project-context、feature-inventory、codebase-map |
+| 项目 | 说明 | 处理 |
+|------|------|------|
+| `eval.zig` range_literal | 创建空 StreamNode，忽略 from/to 值 | **Phase 7 修复** |
+| `eval.zig` pipe_reverse / compose / compose_reverse | `@panic("unimplemented")` | **Phase 7 修复** |
+| `eval.zig` regex_literal | `@panic("regex engine not yet implemented")` | 推迟 v1.1 |
+| `eval.zig` range 模式匹配 | `@panic("unimplemented: range")` | 推迟 v0.2 |
+| 内存泄漏 | 确认 0 泄漏（当前已 0） | — |
+| 文档同步 | 更新 project-context、feature-inventory、codebase-map | — |
 
 ### 4.2 测试补充
 
