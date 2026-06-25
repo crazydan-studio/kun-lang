@@ -20,6 +20,7 @@ const test_crypto = @import("stdlib/test_crypto.zig");
 const test_hash_map = @import("runtime/test_hash_map.zig");
 const test_glob = @import("runtime/test_glob_engine.zig");
 const test_file = @import("stdlib/test_fs.zig");
+const test_module = @import("module/test_module_resolver.zig");
 const test_integration = @import("tests/test_integration.zig");
 
 comptime {
@@ -43,5 +44,6 @@ comptime {
     _ = test_hash_map;
     _ = test_glob;
     _ = test_file;
+    _ = test_module;
     _ = test_integration;
 }

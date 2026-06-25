@@ -5,6 +5,7 @@ const typecheck = @import("typecheck/infer.zig");
 const typecheck_env = @import("typecheck/env.zig");
 const runtime = @import("runtime/eval.zig");
 const primitive_mod = @import("runtime/primitive.zig");
+const module_resolver = @import("module/module_resolver.zig");
 
 pub fn main(init: std.process.Init) !void {
     const allocator = init.arena.allocator();
@@ -61,7 +62,38 @@ pub fn main(init: std.process.Init) !void {
         typecheck_env.bool_type,
         typecheck_env.bytes_type,
     );
-    const typed_decls = typecheck.infer(allocator, decls, &type_env, primitives) catch |err| {
+
+    const script_dir = std.fs.path.dirname(file_path);
+
+    var resolver = try module_resolver.ModuleResolver.init(allocator, script_dir);
+
+    var all_decls: std.ArrayListUnmanaged(parser.Decl) = .empty;
+    for (decls) |decl| {
+        if (decl == .import) {
+            const imp = decl.import;
+            if (module_resolver.hasPrimitiveBinding(imp.module) or module_resolver.isBuiltinType(imp.module)) {
+                try all_decls.append(allocator, decl);
+                continue;
+            }
+            _ = resolver.load(allocator, imp.module) catch |err| {
+                std.log.err("module {s} not found: {}", .{ imp.module, err });
+                return error.TypeCheckFailed;
+            };
+        } else {
+            try all_decls.append(allocator, decl);
+        }
+    }
+
+    var it = resolver.loaded.valueIterator();
+    while (it.next()) |mod| {
+        for (mod.*.decls) |d| {
+            if (d != .import) {
+                try all_decls.append(allocator, d);
+            }
+        }
+    }
+
+    const typed_decls = typecheck.infer(allocator, all_decls.items, &type_env, primitives) catch |err| {
         if (err == error.TypeCheckFailed) {
             std.log.err("type check failed", .{});
             return err;

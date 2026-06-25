@@ -140,9 +140,20 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             const eval_opaque3: ?*anyopaque = @ptrCast(@constCast(&eval));
             return apply(right, left, allocator, eval_opaque3);
         },
-        .pipe_reverse => @panic("unimplemented: pipe_reverse (should be desugared to call)"),
-        .compose => @panic("unimplemented: compose (should be desugared to lambda+call)"),
-        .compose_reverse => @panic("unimplemented: compose_reverse (should be desugared to lambda+call)"),
+        .pipe_reverse => |v| {
+            const right = try eval(v.right, frame, allocator);
+            const left = try eval(v.left, frame, allocator);
+            const eval_opaque1: ?*anyopaque = @ptrCast(@constCast(&eval));
+            return apply(left, right, allocator, eval_opaque1);
+        },
+        .compose => |v| {
+            _ = v;
+            return error.Unimplemented;
+        },
+        .compose_reverse => |v| {
+            _ = v;
+            return error.Unimplemented;
+        },
         .map_literal => |v| evalMapLiteral(v.entries, frame, allocator),
         .set_literal => |v| evalSetLiteral(v.items, frame, allocator),
         .record_update => |v| {
@@ -172,10 +183,17 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .range_literal => |v| {
             const from_val = try eval(v.from, frame, allocator);
             const to_val = try eval(v.to, frame, allocator);
-            _ = from_val;
-            _ = to_val;
-            const node = try allocator.create(value_mod.StreamNode);
-            node.* = .{ .cmd = .{ .fd = -1, .pid = -1, .buf = &.{} } };
+            const step_val = if (v.step) |s| try eval(s, frame, allocator) else Value{ .int = 1 };
+            if (from_val != .int or to_val != .int or step_val != .int) return error.TypeMismatch;
+            if (step_val.int <= 0) return Value{ .nil = {} };
+            const count: i64 = @divTrunc(to_val.int - from_val.int, step_val.int) + 1;
+            if (count <= 0) return Value{ .nil = {} };
+            const items = try allocator.alloc(Value, @intCast(count));
+            var i: i64 = 0;
+            while (i < count) : (i += 1) {
+                items[@intCast(i)] = Value{ .int = from_val.int + i * step_val.int };
+            }
+            const node = try value_mod.streamFromList(allocator, items);
             return Value{ .stream = node };
         },
         .ternary => |v| {
