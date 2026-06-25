@@ -20,204 +20,179 @@ inline fn formatLoc(
 }
 
 pub fn formatError(allocator: std.mem.Allocator, err: TypeError, locale: Locale, env: *TypeEnv) ![]const u8 {
-    const span_str = switch (err) {
-        .mismatch => |m| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ m.span.start.line, m.span.start.col }),
-        .not_a_function => |n| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ n.span.start.line, n.span.start.col }),
-        .effect_in_pure => |e| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ e.span.start.line, e.span.start.col }),
-        .non_exhaustive => |ne| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ne.span.start.line, ne.span.start.col }),
-        .unknown_field => |uf| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ uf.span.start.line, uf.span.start.col }),
-        .missing_field => |mf| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ mf.span.start.line, mf.span.start.col }),
-        .nil_to_non_nilable => |nn| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ nn.start.line, nn.start.col }),
-        .unbound_variable => |uv| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ uv.span.start.line, uv.span.start.col }),
-        .unbound_type => |ut| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ut.span.start.line, ut.span.start.col }),
-        .infinite_type => |it| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ it.start.line, it.start.col }),
-        .function_apply_arg => |fa| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ fa.span.start.line, fa.span.start.col }),
-        .if_branch_mismatch => |ib| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ib.span.start.line, ib.span.start.col }),
-        .too_many_args => |tm| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ tm.span.start.line, tm.span.start.col }),
-        .effect_callback_mismatch => |ec| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ec.span.start.line, ec.span.start.col }),
-        .nilable_used_as_t => |nu| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ nu.span.start.line, nu.span.start.col }),
-        .redundant_pattern => |rp| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ rp.span.start.line, rp.span.start.col }),
-        .tuple_index_out_of_range => |to| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ to.span.start.line, to.span.start.col }),
-        .command_not_consumed => |cn| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ cn.span.start.line, cn.span.start.col }),
-        .stream_not_consumed => |sn| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ sn.start.line, sn.start.col }),
-        .recursive_alias_depth => |ra| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ra.span.start.line, ra.span.start.col }),
-        .pure_unit_return => |pu| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ pu.span.start.line, pu.span.start.col }),
-        .effect_in_let => |el| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ el.span.start.line, el.span.start.col }),
-        .empty_body => |eb| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ eb.span.start.line, eb.span.start.col }),
-        .duplicate_binding => |db| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ db.span.start.line, db.span.start.col }),
-        .unused_binding => |ub| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ub.span.start.line, ub.span.start.col }),
-        .unused_result => |ur| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ ur.start.line, ur.start.col }),
-        .pure_expr_last => |pe| try std.fmt.allocPrint(allocator, "{d}:{d}", .{ pe.start.line, pe.start.col }),
-    };
-    defer allocator.free(span_str);
-
     return switch (err) {
         .mismatch => |m| {
             const expected = try env.typeName(allocator, m.expected);
             const found = try env.typeName(allocator, m.found);
             return formatLoc(allocator,
-                "Type Mismatch: expected {s}, found {s}\n  at {s}",
-                "类型不匹配：期望 {s}，实际为 {s}\n  位于 {s}",
-                locale, .{ expected, found, span_str });
+                "Type Mismatch: expected {s}, found {s}\n  at {}",
+                "类型不匹配：期望 {s}，实际为 {s}\n  位于 {}",
+                locale, .{ expected, found, m.span });
         },
         .not_a_function => |n| {
             const found = try env.typeName(allocator, n.found);
             return formatLoc(allocator,
-                "Not A Function: value has type {s}\n  at {s}",
-                "非函数调用：值的类型为 {s}\n  位于 {s}",
-                locale, .{ found, span_str });
+                "Not A Function: value has type {s}\n  at {}",
+                "非函数调用：值的类型为 {s}\n  位于 {}",
+                locale, .{ found, n.span });
         },
         .effect_in_pure => |e| {
             return formatLoc(allocator,
-                "Effect In Pure Function: {s}\n  at {s}",
-                "纯函数中的效应调用：{s}\n  位于 {s}",
-                locale, .{ e.called_func, span_str });
+                "Effect In Pure Function: {s}\n  at {}",
+                "纯函数中的效应调用：{s}\n  位于 {}",
+                locale, .{ e.called_func, e.span });
         },
         .non_exhaustive => |ne| {
             const missing_str = if (ne.missing.len > 0) ne.missing[0] else "_";
             return formatLoc(allocator,
-                "Non-Exhaustive Pattern: missing {s}\n  at {s}",
-                "模式匹配非穷举：缺少 {s}\n  位于 {s}",
-                locale, .{ missing_str, span_str });
+                "Non-Exhaustive Pattern: missing {s}\n  at {}",
+                "模式匹配非穷举：缺少 {s}\n  位于 {}",
+                locale, .{ missing_str, ne.span });
         },
         .unknown_field => |uf| {
             return formatLoc(allocator,
-                "Unknown Field: {s}\n  at {s}",
-                "未知字段：{s}\n  位于 {s}",
-                locale, .{ uf.name, span_str });
+                "Unknown Field: {s}\n  at {}",
+                "未知字段：{s}\n  位于 {}",
+                locale, .{ uf.name, uf.span });
         },
         .missing_field => |mf| {
             return formatLoc(allocator,
-                "Missing Field: {s}\n  at {s}",
-                "缺少字段：{s}\n  位于 {s}",
-                locale, .{ mf.name, span_str });
+                "Missing Field: {s}\n  at {}",
+                "缺少字段：{s}\n  位于 {}",
+                locale, .{ mf.name, mf.span });
         },
-        .nil_to_non_nilable => return formatLoc(allocator,
-            "Nil assigned to non-nilable type\n  at {s}",
-            "Nil 赋值给非 Nilable 类型\n  位于 {s}",
-            locale, .{span_str}),
+        .nil_to_non_nilable => |nn| {
+            return formatLoc(allocator,
+                "Nil assigned to non-nilable type\n  at {}",
+                "Nil 赋值给非 Nilable 类型\n  位于 {}",
+                locale, .{nn.start});
+        },
         .unbound_variable => |uv| {
             return formatLoc(allocator,
-                "Unbound Variable: {s}\n  at {s}",
-                "未定义变量：{s}\n  位于 {s}",
-                locale, .{ uv.name, span_str });
+                "Unbound Variable: {s}\n  at {}",
+                "未定义变量：{s}\n  位于 {}",
+                locale, .{ uv.name, uv.span });
         },
         .unbound_type => |ut| {
             return formatLoc(allocator,
-                "Unbound Type: {s}\n  at {s}",
-                "未定义类型：{s}\n  位于 {s}",
-                locale, .{ ut.name, span_str });
+                "Unbound Type: {s}\n  at {}",
+                "未定义类型：{s}\n  位于 {}",
+                locale, .{ ut.name, ut.span });
         },
-        .infinite_type => return formatLoc(allocator,
-            "Infinite Type\n  at {s}",
-            "无限类型\n  位于 {s}",
-            locale, .{span_str}),
+        .infinite_type => |it| {
+            return formatLoc(allocator,
+                "Infinite Type\n  at {}",
+                "无限类型\n  位于 {}",
+                locale, .{it.start});
+        },
         .function_apply_arg => |fa| {
             const expected = try env.typeName(allocator, fa.expected);
             const found = try env.typeName(allocator, fa.found);
             return formatLoc(allocator,
-                "Argument Type Mismatch: expected {s}, got {s} for {s}\n  at {s}",
-                "函数参数类型不匹配：{s} 期望 {s}，传入 {s}\n  位于 {s}",
-                locale, .{ expected, found, fa.func_name, span_str });
+                "Argument Type Mismatch: expected {s}, got {s} for {s}\n  at {}",
+                "函数参数类型不匹配：{s} 期望 {s}，传入 {s}\n  位于 {}",
+                locale, .{ expected, found, fa.func_name, fa.span });
         },
         .if_branch_mismatch => |ib| {
             const then_t = try env.typeName(allocator, ib.then_type);
             const else_t = try env.typeName(allocator, ib.else_type);
             return formatLoc(allocator,
-                "Branch Type Mismatch: then={s} else={s}\n  at {s}",
-                "分支类型不一致：then={s} else={s}\n  位于 {s}",
-                locale, .{ then_t, else_t, span_str });
+                "Branch Type Mismatch: then={s} else={s}\n  at {}",
+                "分支类型不一致：then={s} else={s}\n  位于 {}",
+                locale, .{ then_t, else_t, ib.span });
         },
         .too_many_args => |tm| {
             const ftype = try env.typeName(allocator, tm.func_type);
             return formatLoc(allocator,
-                "Too Many Arguments for function type {s}\n  at {s}",
-                "函数 {s} 参数过多\n  位于 {s}",
-                locale, .{ ftype, span_str });
+                "Too Many Arguments for function type {s}\n  at {}",
+                "函数 {s} 参数过多\n  位于 {}",
+                locale, .{ ftype, tm.span });
         },
         .effect_callback_mismatch => |ec| {
             return formatLoc(allocator,
-                "Effect Callback Required: {s} must be an effect function\n  at {s}",
-                "需要效应回调：{s} 必须是效应函数\n  位于 {s}",
-                locale, .{ ec.func_name, span_str });
+                "Effect Callback Required: {s} must be an effect function\n  at {}",
+                "需要效应回调：{s} 必须是效应函数\n  位于 {}",
+                locale, .{ ec.func_name, ec.span });
         },
         .nilable_used_as_t => |nu| {
             const expected = try env.typeName(allocator, nu.expected);
             const inner = try env.typeName(allocator, nu.inner_type);
             return formatLoc(allocator,
-                "Nilable type {s} used where {s} is expected\n  at {s}",
-                "可空类型 {s} 用于期望 {s} 的位置\n  位于 {s}",
-                locale, .{ inner, expected, span_str });
+                "Nilable type {s} used where {s} is expected\n  at {}",
+                "可空类型 {s} 用于期望 {s} 的位置\n  位于 {}",
+                locale, .{ inner, expected, nu.span });
         },
         .redundant_pattern => |rp| {
             return formatLoc(allocator,
-                "Redundant Pattern: {s}\n  at {s}",
-                "冗余模式：{s}\n  位于 {s}",
-                locale, .{ rp.pattern, span_str });
+                "Redundant Pattern: {s}\n  at {}",
+                "冗余模式：{s}\n  位于 {}",
+                locale, .{ rp.pattern, rp.span });
         },
         .tuple_index_out_of_range => |to| {
             return formatLoc(allocator,
-                "Tuple Index Out Of Range: index={d}, length={d}\n  at {s}",
-                "元组索引越界：索引={d}，长度={d}\n  位于 {s}",
-                locale, .{ to.index, to.len, span_str });
+                "Tuple Index Out Of Range: index={d}, length={d}\n  at {}",
+                "元组索引越界：索引={d}，长度={d}\n  位于 {}",
+                locale, .{ to.index, to.len, to.span });
         },
         .command_not_consumed => |cn| {
             return formatLoc(allocator,
-                "Command Not Consumed: {s}\n  at {s}",
-                "Command 未消费：{s}\n  位于 {s}",
-                locale, .{ cn.cmd_name, span_str });
+                "Command Not Consumed: {s}\n  at {}",
+                "Command 未消费：{s}\n  位于 {}",
+                locale, .{ cn.cmd_name, cn.span });
         },
-        .stream_not_consumed => return formatLoc(allocator,
-            "Stream Not Consumed\n  at {s}",
-            "Stream 未消费\n  位于 {s}",
-            locale, .{span_str}),
+        .stream_not_consumed => |sn| {
+            return formatLoc(allocator,
+                "Stream Not Consumed\n  at {}",
+                "Stream 未消费\n  位于 {}",
+                locale, .{sn.start});
+        },
         .recursive_alias_depth => |ra| {
             return formatLoc(allocator,
-                "Recursive Type Expansion Limit: {s}\n  at {s}",
-                "递归类型展开超限：{s}\n  位于 {s}",
-                locale, .{ ra.path, span_str });
+                "Recursive Type Expansion Limit: {s}\n  at {}",
+                "递归类型展开超限：{s}\n  位于 {}",
+                locale, .{ ra.path, ra.span });
         },
         .pure_unit_return => |pu| {
             return formatLoc(allocator,
-                "Pure Function Returns Unit: {s}\n  at {s}",
-                "纯函数返回 Unit：{s}\n  位于 {s}",
-                locale, .{ pu.func_name, span_str });
+                "Pure Function Returns Unit: {s}\n  at {}",
+                "纯函数返回 Unit：{s}\n  位于 {}",
+                locale, .{ pu.func_name, pu.span });
         },
         .effect_in_let => |el| {
             return formatLoc(allocator,
-                "Effect In Pure Function: {s}\n  at {s}",
-                "纯函数中的效应调用：{s}\n  位于 {s}",
-                locale, .{ el.called_func, span_str });
+                "Effect In Pure Function: {s}\n  at {}",
+                "纯函数中的效应调用：{s}\n  位于 {}",
+                locale, .{ el.called_func, el.span });
         },
         .empty_body => |eb| {
             return formatLoc(allocator,
-                "Empty Body: {s}\n  at {s}",
-                "空函数体：{s}\n  位于 {s}",
-                locale, .{ eb.context, span_str });
+                "Empty Body: {s}\n  at {}",
+                "空函数体：{s}\n  位于 {}",
+                locale, .{ eb.context, eb.span });
         },
         .duplicate_binding => |db| {
             return formatLoc(allocator,
-                "Duplicate Binding: {s}\n  at {s}",
-                "重复绑定：{s}\n  位于 {s}",
-                locale, .{ db.name, span_str });
+                "Duplicate Binding: {s}\n  at {}",
+                "重复绑定：{s}\n  位于 {}",
+                locale, .{ db.name, db.span });
         },
         .unused_binding => |ub| {
             return formatLoc(allocator,
-                "Unused Binding: {s}\n  at {s}",
-                "未使用的绑定：{s}\n  位于 {s}",
-                locale, .{ ub.name, span_str });
+                "Unused Binding: {s}\n  at {}",
+                "未使用的绑定：{s}\n  位于 {}",
+                locale, .{ ub.name, ub.span });
         },
-        .unused_result => {
+        .unused_result => |ur| {
             return formatLoc(allocator,
-                "Unused Result\n  at {s}",
-                "未使用的结果\n  位于 {s}",
-                locale, .{span_str});
+                "Unused Result\n  at {}",
+                "未使用的结果\n  位于 {}",
+                locale, .{ur.start});
         },
-        .pure_expr_last => {
+        .pure_expr_last => |pe| {
             return formatLoc(allocator,
-                "Pure Expression as Last Statement\n  at {s}",
-                "纯表达式作为最后一条语句\n  位于 {s}",
-                locale, .{span_str});
+                "Pure Expression as Last Statement\n  at {}",
+                "纯表达式作为最后一条语句\n  位于 {}",
+                locale, .{pe.start});
         },
     };
 }

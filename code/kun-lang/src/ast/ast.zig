@@ -4,6 +4,10 @@ pub const SourceLoc = struct {
     line: u32,
     col: u32,
     offset: usize,
+
+    pub fn format(self: SourceLoc, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try writer.print("{d}:{d}", .{ self.line, self.col });
+    }
 };
 
 pub const Span = struct {
@@ -15,6 +19,10 @@ pub const Span = struct {
     col_start: u32 = 0,
     line_end: u32 = 0,
     col_end: u32 = 0,
+
+    pub fn format(self: Span, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try writer.print("{d}:{d}", .{ self.start.line, self.start.col });
+    }
 };
 
 pub const DurationUnit = enum(u3) { s, ms, min, h, d, us, ns };
