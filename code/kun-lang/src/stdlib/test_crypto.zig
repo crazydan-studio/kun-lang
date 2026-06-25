@@ -38,7 +38,9 @@ test "json parse valid inputs" {
         }.f },
     };
     for (cases) |c| {
-        var env = makeEnv(std.testing.allocator);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
         const args = [_]Value{Value{ .string = c.input }};
         const result = crypto_mod.jsonFromStringImpl(&env, &args);
         try std.testing.expect(c.check(result));
@@ -46,7 +48,9 @@ test "json parse valid inputs" {
 }
 
 test "json parse nested object" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "{\"x\":{\"y\":[1,2,{\"z\":3}]}}" }};
     const result = crypto_mod.jsonFromStringImpl(&env, &args);
     try std.testing.expect(result.adt.tag == 0);
@@ -55,7 +59,9 @@ test "json parse nested object" {
 }
 
 test "json parse escaped string" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "\"hello\\\"world\"" }};
     const result = crypto_mod.jsonFromStringImpl(&env, &args);
     try std.testing.expect(result.adt.tag == 0);
@@ -63,7 +69,9 @@ test "json parse escaped string" {
 }
 
 test "json parse negative number" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "-42" }};
     const result = crypto_mod.jsonFromStringImpl(&env, &args);
     try std.testing.expect(result.adt.tag == 0);
@@ -72,7 +80,9 @@ test "json parse negative number" {
 }
 
 test "json parse zero" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "0" }};
     const result = crypto_mod.jsonFromStringImpl(&env, &args);
     try std.testing.expect(result.adt.tag == 0);
@@ -80,7 +90,9 @@ test "json parse zero" {
 }
 
 test "json parse float" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "3.14" }};
     const result = crypto_mod.jsonFromStringImpl(&env, &args);
     try std.testing.expect(result.adt.tag == 0);
@@ -88,7 +100,9 @@ test "json parse float" {
 }
 
 test "json parse empty object" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "{}" }};
     const result = crypto_mod.jsonFromStringImpl(&env, &args);
     try std.testing.expect(result.adt.tag == 0);
@@ -103,7 +117,9 @@ test "json parse invalid inputs" {
         "[1,",
     };
     for (cases) |input| {
-        var env = makeEnv(std.testing.allocator);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
         const args = [_]Value{Value{ .string = input }};
         const result = crypto_mod.jsonFromStringImpl(&env, &args);
         try std.testing.expect(result == .adt);
@@ -112,7 +128,9 @@ test "json parse invalid inputs" {
 }
 
 test "json parse trailing comma" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "[1,]" }};
     const result = crypto_mod.jsonFromStringImpl(&env, &args);
     try std.testing.expect(result == .adt);
@@ -127,7 +145,9 @@ test "json toString basic types" {
         .{ .val = Value{ .string = "hi" }, .contains = "hi" },
     };
     for (cases) |c| {
-        var env = makeEnv(std.testing.allocator);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
         const args = [_]Value{c.val};
         const result = crypto_mod.jsonToStringImpl(&env, &args);
         try std.testing.expect(result == .adt);
@@ -137,7 +157,9 @@ test "json toString basic types" {
 }
 
 test "json toString array" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const items = [_]Value{ Value{ .int = 1 }, Value{ .int = 2 }, Value{ .int = 3 } };
     const val = Value{ .list = .{ .items = &items, .cap = 3 } };
     const args = [_]Value{val};
@@ -148,7 +170,9 @@ test "json toString array" {
 }
 
 test "json toString empty array" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const val = Value{ .list = .{ .items = &.{}, .cap = 0 } };
     const args = [_]Value{val};
     const result = crypto_mod.jsonToStringImpl(&env, &args);
@@ -158,7 +182,9 @@ test "json toString empty array" {
 }
 
 test "sha256 of bytes" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .bytes = "hello" }};
     const result = crypto_mod.sha256Impl(&env, &args);
     try std.testing.expect(result == .bytes);
@@ -166,7 +192,9 @@ test "sha256 of bytes" {
 }
 
 test "sha256 hex of bytes" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .bytes = "hello" }};
     const result = crypto_mod.sha256HexImpl(&env, &args);
     try std.testing.expect(result == .string);
@@ -174,7 +202,9 @@ test "sha256 hex of bytes" {
 }
 
 test "sha256Stream with bytes stream" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const items = try std.testing.allocator.alloc(Value, 1);
     defer std.testing.allocator.free(items);
     items[0] = Value{ .bytes = "test data" };
@@ -187,7 +217,9 @@ test "sha256Stream with bytes stream" {
 }
 
 test "sha256Stream with non-stream returns empty" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 0 }};
     const result = crypto_mod.sha256StreamImpl(&env, &args);
     try std.testing.expect(result == .bytes);
@@ -195,7 +227,9 @@ test "sha256Stream with non-stream returns empty" {
 }
 
 test "sha256 empty bytes" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .bytes = "" }};
     const result = crypto_mod.sha256Impl(&env, &args);
     try std.testing.expect(result == .bytes);
@@ -203,7 +237,9 @@ test "sha256 empty bytes" {
 }
 
 test "sha256 invalid arg type" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 42 }};
     const result = crypto_mod.sha256Impl(&env, &args);
     try std.testing.expect(result == .bytes);
@@ -211,7 +247,9 @@ test "sha256 invalid arg type" {
 }
 
 test "base64 encode decode round trip" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args_enc = [_]Value{Value{ .bytes = "hello world" }};
     const encoded = crypto_mod.base64EncodeImpl(&env, &args_enc);
     try std.testing.expect(encoded == .string);
@@ -223,7 +261,9 @@ test "base64 encode decode round trip" {
 }
 
 test "base64 decode invalid string" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .string = "!!!not base64!!!" }};
     const result = crypto_mod.base64DecodeImpl(&env, &args);
     try std.testing.expect(result == .adt);

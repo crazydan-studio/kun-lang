@@ -60,7 +60,10 @@ pub fn base64DecodeImpl(env: *RuntimeEnv, args: []const Value) Value {
     const decoder = std.base64.standard.Decoder;
     const out_len = decoder.calcSizeForSlice(args[0].string) catch return value_mod.makeErr(1, Value{ .string = "invalid" }, env.allocator) catch return Value{ .nil = {} };
     const buf = env.allocator.alloc(u8, out_len) catch return Value{ .nil = {} };
-    decoder.decode(buf, args[0].string) catch return value_mod.makeErr(1, Value{ .string = "decode error" }, env.allocator) catch return Value{ .nil = {} };
+    decoder.decode(buf, args[0].string) catch {
+        env.allocator.free(buf);
+        return value_mod.makeErr(1, Value{ .string = "decode error" }, env.allocator) catch return Value{ .nil = {} };
+    };
     return Value{ .bytes = buf };
 }
 

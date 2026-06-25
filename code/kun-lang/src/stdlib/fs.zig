@@ -5,7 +5,6 @@ const io = @import("io.zig");
 
 const Value = value_mod.Value;
 const StreamNode = value_mod.StreamNode;
-const c_alloc = std.heap.page_allocator;
 
 fn openFile(path: [*:0]const u8, flags: std.os.linux.O, perm: u32) isize {
     return @bitCast(std.os.linux.open(path, flags, perm));
@@ -21,7 +20,7 @@ pub fn readStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     var buf: [1048576]u8 = undefined;
     const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
     if (n <= 0) return Value{ .string = "" };
-    const content = c_alloc.dupe(u8, buf[0..n]) catch return Value{ .nil = {} };
+    const content = env.allocator.dupe(u8, buf[0..n]) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .string = content }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -48,8 +47,8 @@ pub fn listDirImpl(env: *RuntimeEnv, args: []const Value) Value {
         if (de.ino != 0 and de.reclen != 0) {
             const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
             if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
-                const duped = c_alloc.dupe(u8, name) catch break;
-                list.append(c_alloc, Value{ .path = duped }) catch break;
+                const duped = env.allocator.dupe(u8, name) catch break;
+                list.append(env.allocator, Value{ .path = duped }) catch break;
             }
         }
         pos += de.reclen;
@@ -64,7 +63,7 @@ pub fn statImpl(env: *RuntimeEnv, args: []const Value) Value {
     var stx: std.os.linux.Statx = undefined;
     const rc = std.os.linux.statx(0, path_z, 0, std.os.linux.STATX.BASIC_STATS, &stx);
     if (rc != 0) return value_mod.makeErr(1, Value{ .string = "stat error" }, env.allocator) catch return Value{ .nil = {} };
-    const fields = c_alloc.alloc(value_mod.RecordFieldValue, 8) catch return Value{ .nil = {} };
+    const fields = env.allocator.alloc(value_mod.RecordFieldValue, 8) catch return Value{ .nil = {} };
     fields[0] = .{ .name = "size", .value = Value{ .int = @intCast(stx.size) } };
     fields[1] = .{ .name = "mode", .value = Value{ .int = stx.mode } };
     fields[2] = .{ .name = "type_", .value = Value{ .int = @intCast(stx.mode & 0o170000) } };
@@ -148,29 +147,27 @@ pub fn removeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
 }
 
 pub fn currentDirImpl(env: *RuntimeEnv, args: []const Value) Value {
-    _ = env;
     _ = args;
     var buf: [4096]u8 = undefined;
     const result = std.os.linux.getcwd(&buf, buf.len);
-    if (result != 0) return Value{ .path = c_alloc.dupe(u8, "/") catch return Value{ .nil = {} } };
+    if (result != 0) return Value{ .path = env.allocator.dupe(u8, "/") catch return Value{ .nil = {} } };
     const len = std.mem.indexOfScalar(u8, buf[0..], 0) orelse buf.len;
-    return Value{ .path = c_alloc.dupe(u8, buf[0..len]) catch return Value{ .nil = {} } };
+    return Value{ .path = env.allocator.dupe(u8, buf[0..len]) catch return Value{ .nil = {} } };
 }
 
 pub fn homeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
     const val = getEnvValue(env.allocator, "HOME");
-    return Value{ .path = val orelse c_alloc.dupe(u8, "/root") catch return Value{ .nil = {} } };
+    return Value{ .path = val orelse env.allocator.dupe(u8, "/root") catch return Value{ .nil = {} } };
 }
 
 pub fn tempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
     const val = getEnvValue(env.allocator, "TMPDIR") orelse getEnvValue(env.allocator, "TMP");
-    return Value{ .path = val orelse c_alloc.dupe(u8, "/tmp") catch return Value{ .nil = {} } };
+    return Value{ .path = val orelse env.allocator.dupe(u8, "/tmp") catch return Value{ .nil = {} } };
 }
 
 fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
-    _ = allocator;
     const fd = openFile("/proc/self/environ", .{}, 0);
     if (fd < 0) return null;
     defer _ = std.os.linux.close(@intCast(fd));
@@ -186,7 +183,7 @@ fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
                 const entry = data[start..i];
                 if (std.mem.indexOfScalar(u8, entry, '=')) |eq_pos| {
                     if (std.mem.eql(u8, entry[0..eq_pos], key)) {
-                        return c_alloc.dupe(u8, entry[eq_pos + 1 ..]) catch return null;
+                        return allocator.dupe(u8, entry[eq_pos + 1 ..]) catch return null;
                     }
                 }
             }
@@ -202,8 +199,8 @@ pub fn readBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
     defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{}, 0);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "not found" }, env.allocator) catch return Value{ .nil = {} };
-    const buf = c_alloc.alloc(u8, 4096) catch { _ = std.os.linux.close(@intCast(fd)); return Value{ .nil = {} }; };
-    const node = c_alloc.create(StreamNode) catch return Value{ .nil = {} };
+    const buf = env.allocator.alloc(u8, 4096) catch { _ = std.os.linux.close(@intCast(fd)); return Value{ .nil = {} }; };
+    const node = env.allocator.create(StreamNode) catch return Value{ .nil = {} };
     node.* = .{ .cmd = .{ .fd = @intCast(fd), .pid = -1, .buf = buf } };
     return value_mod.makeOk(Value{ .stream = node }, env.allocator) catch return Value{ .nil = {} };
 }
@@ -240,13 +237,13 @@ pub fn readLinesImpl(env: *RuntimeEnv, args: []const Value) Value {
     defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{}, 0);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "not found" }, env.allocator) catch return Value{ .nil = {} };
-    const buf = c_alloc.alloc(u8, 4096) catch {
+    const buf = env.allocator.alloc(u8, 4096) catch {
         _ = std.os.linux.close(@intCast(fd));
         return Value{ .nil = {} };
     };
-    const raw_node = c_alloc.create(StreamNode) catch return Value{ .nil = {} };
+    const raw_node = env.allocator.create(StreamNode) catch return Value{ .nil = {} };
     raw_node.* = .{ .cmd = .{ .fd = @intCast(fd), .pid = -1, .buf = buf } };
-    const lines_node = value_mod.streamLines(c_alloc, raw_node, 65536) catch return Value{ .nil = {} };
+    const lines_node = value_mod.streamLines(env.allocator, raw_node, 65536) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .stream = lines_node }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -254,7 +251,7 @@ pub fn walkDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return Value{ .nil = {} };
     var list: std.ArrayListUnmanaged(Value) = .empty;
     walkDirRecursive(env.allocator, args[0].path, &list);
-    const items = list.toOwnedSlice(c_alloc) catch return Value{ .nil = {} };
+    const items = list.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .list = .{ .items = items, .cap = items.len } }, env.allocator) catch return Value{ .nil = {} };
 }
 
@@ -280,8 +277,8 @@ fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.A
         if (de.ino != 0 and de.reclen != 0) {
             const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
             if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
-                const full = std.fs.path.join(c_alloc, &.{ root, name }) catch continue;
-                list.append(c_alloc, Value{ .path = full }) catch continue;
+                const full = std.fs.path.join(allocator, &.{ root, name }) catch continue;
+                list.append(allocator, Value{ .path = full }) catch continue;
                 walkDirRecursive(allocator, full, list);
             }
         }
@@ -330,14 +327,14 @@ pub fn globImpl(env: *RuntimeEnv, args: []const Value) Value {
             const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
             if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
                 if (glob_mod.match(pattern, name)) {
-                    const full = std.fs.path.join(c_alloc, &.{ dir_path, name }) catch continue;
-                    list.append(c_alloc, Value{ .path = full }) catch continue;
+                    const full = std.fs.path.join(env.allocator, &.{ dir_path, name }) catch continue;
+                    list.append(env.allocator, Value{ .path = full }) catch continue;
                 }
             }
         }
         pos += de.reclen;
     }
-    const items = list.toOwnedSlice(c_alloc) catch return Value{ .nil = {} };
+    const items = list.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .list = .{ .items = items, .cap = items.len } }, env.allocator) catch return Value{ .nil = {} };
 }
 pub fn createTempFileImpl(env: *RuntimeEnv, args: []const Value) Value {
@@ -350,7 +347,7 @@ pub fn createTempFileImpl(env: *RuntimeEnv, args: []const Value) Value {
     } else {
         @memset(&random_bytes, 'X');
     }
-    const name = std.fmt.allocPrint(c_alloc, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
+    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
         random_bytes[0], random_bytes[1], random_bytes[2],
         random_bytes[3], random_bytes[4], random_bytes[5],
     }) catch return Value{ .nil = {} };
@@ -366,7 +363,7 @@ pub fn createTempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     } else {
         @memset(&random_bytes, 'X');
     }
-    const name = std.fmt.allocPrint(c_alloc, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
+    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
         random_bytes[0], random_bytes[1], random_bytes[2],
         random_bytes[3], random_bytes[4], random_bytes[5],
     }) catch return Value{ .nil = {} };

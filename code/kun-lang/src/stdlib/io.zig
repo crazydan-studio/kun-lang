@@ -230,12 +230,13 @@ pub fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
     while (it.next()) |dir| {
         if (dir.len == 0) continue;
         const full = std.fs.path.join(env.allocator, &.{ dir, args[0].string }) catch continue;
-        defer env.allocator.free(full);
         const full_z = allocSentinel(env.allocator, full) catch continue;
-        defer env.allocator.free(full_z);
         if (std.os.linux.access(full_z, std.os.linux.X_OK) == 0) {
+            env.allocator.free(full_z);
             return Value{ .path = full };
         }
+        env.allocator.free(full_z);
+        env.allocator.free(full);
     }
     return Value{ .nil = {} };
 }

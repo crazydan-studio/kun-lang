@@ -105,11 +105,13 @@ test "primitive impl functions return correct variant" {
         .{ .mod = "Hash", .name = "sha256Hex", .arg = .{ .bytes = "test" }, .expected = .string },
         .{ .mod = "Base64", .name = "encode", .arg = .{ .bytes = "test" }, .expected = .string },
     };
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
     for (cases) |c| {
         var found = false;
         for (table.bindings) |entry| {
             if (std.mem.eql(u8, entry.module, c.mod) and std.mem.eql(u8, entry.name, c.name)) {
-                var renv = primitive.RuntimeEnv{ .frame = undefined, .primitives = table, .allocator = std.testing.allocator };
+                var renv = primitive.RuntimeEnv{ .frame = undefined, .primitives = table, .allocator = arena.allocator() };
                 const result = entry.fn_ptr(&renv, &[_]value_mod.Value{c.arg});
                 try std.testing.expectEqual(@intFromEnum(c.expected), @intFromEnum(result));
                 found = true;

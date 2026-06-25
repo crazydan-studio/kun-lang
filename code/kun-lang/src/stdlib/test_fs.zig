@@ -11,8 +11,9 @@ fn makeEnv(allocator: std.mem.Allocator) RuntimeEnv {
 }
 
 test "file writeString and readString round trip" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_writestring.txt";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -28,8 +29,9 @@ test "file writeString and readString round trip" {
 }
 
 test "file writeBytes and readBytes round trip" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_writebytes.bin";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -44,8 +46,9 @@ test "file writeBytes and readBytes round trip" {
 }
 
 test "file appendBytes" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_append.bin";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -64,8 +67,9 @@ test "file appendBytes" {
 }
 
 test "file readLines from file" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_readlines.txt";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -79,32 +83,36 @@ test "file readLines from file" {
 }
 
 test "file readLines non-existent returns err" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_lines_xyz" }};
     const result = fs_mod.readLinesImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file writeBytes invalid path type" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .int = 0 }, Value{ .bytes = "data" } };
     const result = fs_mod.writeBytesImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file writeString invalid path type" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .int = 0 }, Value{ .string = "data" } };
     const result = fs_mod.writeStringImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file mkdir and removeDir" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_mkdir";
 
     const mk_args = [_]Value{Value{ .path = path }};
@@ -117,8 +125,9 @@ test "file mkdir and removeDir" {
 }
 
 test "file touch and remove" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_touch.txt";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -132,16 +141,18 @@ test "file touch and remove" {
 }
 
 test "file remove non-existent returns err" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_rm_xyz" }};
     const result = fs_mod.removeImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file mkdirAll nested" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_mkdirall/a/b";
     defer _ = std.os.linux.rmdir(@ptrCast("/tmp/kun_test_mkdirall/a/b\x00")); // non-null-terminated issue
     defer _ = std.os.linux.rmdir("/tmp/kun_test_mkdirall/a");
@@ -153,8 +164,9 @@ test "file mkdirAll nested" {
 }
 
 test "file stat existing file" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_stat.txt";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -168,24 +180,27 @@ test "file stat existing file" {
 }
 
 test "file stat non-existent returns err" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_stat_xyz" }};
     const result = fs_mod.statImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file readString non-existent returns err" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_xyz" }};
     const result = fs_mod.readStringImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file currentDir homeDir tempDir" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const cd = fs_mod.currentDirImpl(&env, &.{});
     try std.testing.expect(cd == .path);
     try std.testing.expect(cd.path.len > 0);
@@ -200,8 +215,9 @@ test "file currentDir homeDir tempDir" {
 }
 
 test "file copy and rename" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const src = "/tmp/kun_test_copy_src.txt";
     const dst = "/tmp/kun_test_copy_dst.txt";
     defer _ = std.os.linux.unlink(@ptrCast(src));
@@ -221,16 +237,18 @@ test "file copy and rename" {
 }
 
 test "file copy non-existent source" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .path = "/tmp/kun_nonexistent_src_xyz" }, Value{ .path = "/tmp/kun_nonexistent_dst_xyz" } };
     const result = fs_mod.copyImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file rename" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const src = "/tmp/kun_test_rename_src.txt";
     const dst = "/tmp/kun_test_rename_dst.txt";
     defer _ = std.os.linux.unlink(@ptrCast(src));
@@ -250,8 +268,9 @@ test "file rename" {
 }
 
 test "file listDir" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp" }};
     const result = fs_mod.listDirImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag == 0);
@@ -259,16 +278,18 @@ test "file listDir" {
 }
 
 test "file listDir non-existent" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_dir_xyz" }};
     const result = fs_mod.listDirImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file walkDir" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const dir = "/tmp/kun_test_walkdir";
     defer _ = std.os.linux.rmdir(@ptrCast(dir));
 
@@ -286,16 +307,18 @@ test "file walkDir" {
 }
 
 test "file walkDir non-existent" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_walk_xyz" }};
     const result = fs_mod.walkDirImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag == 0);
 }
 
 test "file glob filesystem" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const base = "/tmp/kun_test_glob";
     defer _ = std.os.linux.rmdir(@ptrCast(base));
 
@@ -321,8 +344,9 @@ test "file glob filesystem" {
 }
 
 test "file glob no match" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const glob_args = [_]Value{ Value{ .string = "zzz_no_match_glob_zzz" }, Value{ .path = "/tmp" } };
     const result = fs_mod.globImpl(&env, &glob_args);
     try std.testing.expect(result == .adt and result.adt.tag == 0);
@@ -331,24 +355,27 @@ test "file glob no match" {
 }
 
 test "file removeDir non-existent" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_rmdir_xyz" }};
     const result = fs_mod.removeDirImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file readBytes non-existent" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .path = "/tmp/kun_nonexistent_rb_xyz" }};
     const result = fs_mod.readBytesImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);
 }
 
 test "file appendBytes non-existent create" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_append_create.bin";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -358,8 +385,9 @@ test "file appendBytes non-existent create" {
 }
 
 test "file writeString empty content" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_emptystr.txt";
     defer _ = std.os.linux.unlink(@ptrCast(path));
 
@@ -375,8 +403,9 @@ test "file writeString empty content" {
 }
 
 test "file mkdir invalid path type" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 0 }};
     const result = fs_mod.mkdirImpl(&env, &args);
     try std.testing.expect(result == .adt and result.adt.tag != 0);

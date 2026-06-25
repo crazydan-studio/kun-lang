@@ -18,7 +18,9 @@ test "stream range produces sequence" {
         .{ .start = 10, .end = 1, .step = 1, .expected_len = 0 },
     };
     for (cases) |c| {
-        var env = makeEnv(std.testing.allocator);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
         const args = [_]Value{ Value{ .int = c.start }, Value{ .int = c.end }, Value{ .int = c.step } };
         const result = stream_mod.streamRangeImpl(&env, &args);
         if (c.expected_len == 0) {
@@ -40,7 +42,8 @@ test "stream fromList toList round trip" {
     for (cases) |c| {
         const allocator = std.testing.allocator;
         var env = makeEnv(allocator);
-        const items = try allocator.alloc(Value, c.values.len);
+        const items = try std.testing.allocator.alloc(Value, c.values.len);
+        defer std.testing.allocator.free(items);
         for (c.values, 0..) |v, i| items[i] = Value{ .int = v };
         const list = Value{ .list = .{ .items = items, .cap = c.values.len } };
         const stream_val = stream_mod.streamFromListImpl(&env, &.{list});
@@ -54,9 +57,11 @@ test "stream fromList toList round trip" {
 }
 
 test "stream lines and stringify" {
-    const allocator = std.testing.allocator;
-    var env = makeEnv(allocator);
-    const items = try allocator.alloc(Value, 2);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
+    const items = try std.testing.allocator.alloc(Value, 2);
+    defer std.testing.allocator.free(items);
     items[0] = Value{ .string = "hello\n" };
     items[1] = Value{ .string = "world" };
     const list = Value{ .list = .{ .items = items, .cap = 2 } };
@@ -73,7 +78,9 @@ test "stream range descending" {
         .{ .start = 0, .end = 5, .step = -2, .expected_nil = true },
     };
     for (cases) |c| {
-        var env = makeEnv(std.testing.allocator);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
         const args = [_]Value{ Value{ .int = c.start }, Value{ .int = c.end }, Value{ .int = c.step } };
         const result = stream_mod.streamRangeImpl(&env, &args);
         try std.testing.expectEqual(c.expected_nil, result == .nil);
@@ -81,14 +88,18 @@ test "stream range descending" {
 }
 
 test "stream range non-int args returns nil" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .string = "a" }, Value{ .int = 5 }, Value{ .int = 1 } };
     const result = stream_mod.streamRangeImpl(&env, &args);
     try std.testing.expect(result == .nil);
 }
 
 test "stream iterate generates values" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const seed = Value{ .int = 0 };
     const closure = value_mod.Closure{
         .param_names = &.{"x"},
@@ -101,15 +112,20 @@ test "stream iterate generates values" {
 }
 
 test "stream iterate invalid args returns nil" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .int = 0 }, Value{ .int = 1 } };
     const result = stream_mod.streamIterateImpl(&env, &args);
     try std.testing.expect(result == .nil);
 }
 
 test "stream iter calls callback" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const items = try std.testing.allocator.alloc(Value, 1);
+    defer std.testing.allocator.free(items);
     items[0] = Value{ .int = 42 };
     const list = Value{ .list = .{ .items = items, .cap = 1 } };
     const stream_val = stream_mod.streamFromListImpl(&env, &.{list});
@@ -124,15 +140,20 @@ test "stream iter calls callback" {
 }
 
 test "stream iter invalid args returns unit" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .int = 0 }, Value{ .int = 0 } };
     const result = stream_mod.streamIterImpl(&env, &args);
     try std.testing.expect(result == .unit);
 }
 
 test "stream fold with closure" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const items = try std.testing.allocator.alloc(Value, 3);
+    defer std.testing.allocator.free(items);
     items[0] = Value{ .int = 1 };
     items[1] = Value{ .int = 2 };
     items[2] = Value{ .int = 3 };
@@ -149,21 +170,27 @@ test "stream fold with closure" {
 }
 
 test "stream fold invalid args returns unit" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .int = 1 }, Value{ .int = 0 }, Value{ .int = 0 } };
     const result = stream_mod.streamFoldImpl(&env, &args);
     try std.testing.expect(result == .unit);
 }
 
 test "stream fromList non-list returns stream" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 42 }};
     const result = stream_mod.streamFromListImpl(&env, &args);
     try std.testing.expect(result == .stream);
 }
 
 test "stream fromList empty list" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const list = Value{ .list = .{ .items = &.{}, .cap = 0 } };
     const args = [_]Value{list};
     const result = stream_mod.streamFromListImpl(&env, &args);
@@ -173,8 +200,11 @@ test "stream fromList empty list" {
 }
 
 test "stream bytes from stream" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const items = try std.testing.allocator.alloc(Value, 2);
+    defer std.testing.allocator.free(items);
     items[0] = Value{ .bytes = "abc" };
     items[1] = Value{ .bytes = "def" };
     const list = Value{ .list = .{ .items = items, .cap = 2 } };
@@ -185,7 +215,9 @@ test "stream bytes from stream" {
 }
 
 test "stream bytes from non-stream returns empty" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 0 }};
     const result = stream_mod.streamBytesImpl(&env, &args);
     try std.testing.expect(result == .bytes);
@@ -193,21 +225,27 @@ test "stream bytes from non-stream returns empty" {
 }
 
 test "stream linesMax" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{ Value{ .int = 10 }, Value{ .int = 0 } };
     const result = stream_mod.streamLinesMaxImpl(&env, &args);
     try std.testing.expect(result == .nil);
 }
 
 test "stream toList invalid args returns nil" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 0 }};
     const result = stream_mod.streamToListImpl(&env, &args);
     try std.testing.expect(result == .nil);
 }
 
 test "stream stringify invalid args returns empty" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 0 }};
     const result = stream_mod.streamStringImpl(&env, &args);
     try std.testing.expect(result == .string);
@@ -215,7 +253,9 @@ test "stream stringify invalid args returns empty" {
 }
 
 test "stream lines invalid args returns nil" {
-    var env = makeEnv(std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var env = makeEnv(arena.allocator());
     const args = [_]Value{Value{ .int = 0 }};
     const result = stream_mod.streamLinesImpl(&env, &args);
     try std.testing.expect(result == .nil);
