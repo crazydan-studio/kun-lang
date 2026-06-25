@@ -26,21 +26,54 @@
 
 ## 内存管理
 
-### Arena 分配器（首选策略）
+### Arena 分配器（唯一策略）
 
-Kun 项目以 Arena 分配器为主要内存管理策略。Arena 在阶段开始时创建，阶段结束时整体释放。Zig 0.17 中 `ArenaAllocator` 为线程安全且无锁（lock-free）。
+Kun 项目中**所有运行时分配**均通过 `RuntimeEnv.allocator`（per-script ArenaAllocator）完成。禁止使用 `std.heap.page_allocator` 或其他分配器。
 
 ```zig
-const std = @import("std");
+// ✅ 正确：使用 env.allocator（Arena）
+const result = env.allocator.alloc(u8, n) catch return Value{ .nil = {} };
 
-fn processPhase(allocator: std.mem.Allocator) !void {
-    var arena = std.heap.ArenaAllocator.init(allocator);
+// ❌ 错误：不应使用 page_allocator
+const result = std.heap.page_allocator.alloc(u8, n) catch return Value{ .nil = {} };
+```
+
+### Arena 释放策略
+
+`ArenaAllocator.free()` 是 **no-op**——不实际释放内存。所有内存通过 `arena.deinit()` 一次性释放：
+
+```zig
+// ❌ 错误：Arena 上调用 free 无效，制造"在做清理"的假象
+defer env.allocator.free(buf);
+
+// ✅ 正确：唯一释放点在 deinit
+var arena = std.heap.ArenaAllocator.init(backing_allocator);
+defer arena.deinit();
+```
+
+| 原则 | 说明 |
+|------|------|
+| 禁止 `page_allocator` | 仅使用 `env.allocator` |
+| 禁止单独 `free()` | Arena 的 free 是 no-op，清理走 deinit |
+| `dupe`/`alloc`/`create` 选型 | 取决于数据形态，与分配器无关：`dupe`=拷贝已有切片，`alloc`=分配未初始化数组，`create`=分配单个结构体 |
+
+### 测试中的 Arena 模式
+
+测试需用 `ArenaAllocator` 包裹 `std.testing.allocator` 来模拟生产 Arena 语义，避免泄漏误报：
+
+```zig
+test "example" {
+    // ✅ 正确：Arena 包裹泄漏检测器
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
+    var env = makeEnv(arena.allocator());
+    // ... 原语调用产生的分配通过 arena.deinit() 统一释放
+}
 
-    const arena_allocator = arena.allocator();
-    // 所有临时分配使用 arena_allocator
-    const result = try arena_allocator.alloc(u8, 1024);
-    // arena.deinit() 整体释放
+// ❌ 错误：直接传 testing.allocator 作 RuntimeEnv.allocator
+test "example" {
+    var env = makeEnv(std.testing.allocator);
+    // ... 原语分配被泄漏检测器标记为泄漏
 }
 ```
 
@@ -331,6 +364,32 @@ const ParseError = error{
 };
 ```
 
+## 格式化陷阱
+
+### `{}` vs `{f}` 格式描述符
+
+Zig 中 `{}` 对结构体使用**默认字段打印**，而非调用自定义 `format` 方法。要调用 `format(self, writer)` 必须用 `{f}`：
+
+```zig
+const Span = struct {
+    start: SourceLoc,
+    end: SourceLoc,
+
+    // {f} 描述符调用此方法
+    pub fn format(self: Span, writer: anytype) !void {
+        try writer.print("{d}:{d}", .{ self.start.line, self.start.col });
+    }
+};
+
+// ❌ {} → 逐字段打印（对 undefined 字段可能 SIGSEGV）
+try writer.print("at {}", .{span});
+
+// ✅ {f} → 调用 Span.format(self, writer)
+try writer.print("at {f}", .{span});
+```
+
+自定义 `format` 使用 2 参数签名（`self` + `writer`）与 `{f}` 兼容。
+
 ## 常见陷阱
 
 ### 切片是 `[]const T` 而非 `[*]T`
@@ -416,5 +475,6 @@ std.log.debug("in {s}:{d}", .{ src.file, src.line });
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | 内存管理重写（Arena 唯一策略、禁止 page_allocator、禁止单独 free、测试 Arena 模式）；新增格式化陷阱（{} vs {f}） |
 | 2026.06.15 | 全面更新至 Zig 0.17.0-dev：类型反射字段小写、@Type 移除使用独立内置函数、@cImport 废弃、I/O as Interface、标记 switch/@branchHint、构建系统变更、Unmanaged 容器 .empty 初始化、文件系统 API 更新 |
 | 2026.06.10 | 初始版本，基于 Zig 0.13.0 |

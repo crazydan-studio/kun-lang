@@ -101,6 +101,18 @@
   - 文件命名：`test_{场景描述}.zig`
 - **测试运行器**：`test_main.zig` 是唯一的测试入口，通过 `comptime` 导入所有测试文件，不新增独立测试入口
 
+### 运行参数
+
+- **必须携带超时参数**：`zig build test --test-timeout 5s`，避免 IO 阻塞或死循环挂死整体测试
+- 测试不得调用实际 stdin 读取（`IO.readln`/`IO.readAll` 等在无终端环境下挂死）
+- 文件系统测试使用临时小目录，禁止遍历 `/tmp` 等大目录
+
+### 内存模型
+
+- 测试中 `RuntimeEnv` 构造**必须用 `ArenaAllocator` 包裹 `std.testing.allocator`**，`defer arena.deinit()` 统一释放
+- 实现代码禁止使用 `std.heap.page_allocator`，仅使用 `env.allocator`（Arena）
+- Arena 模型下不单独调用 `free()`（no-op），详见 `lessons/phase6-memory-testing.md`
+
 ### 写法模式
 
 对于同类型（相同测试维度）但具体测试目标不同的测试用例，优先采用**数据列表 + 循环遍历**方式在单个测试中实现，而非为每个数据点创建独立测试函数。
@@ -139,6 +151,7 @@ test "describes the category being tested" {
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | 测试规范扩展：新增运行参数（--test-timeout 5s、IO 阻塞规避、数据规模控制）和内存模型（Arena 包裹 testing.allocator） |
 | 2026.06.25 | 测试规范扩展：新增文件组织规则（共址原则、模块目录映射、test_main.zig 入口） |
 | 2026.06.24 | 新增测试用例编写规范（列表+循环模式） |
 | 2026.06.17 | 命名规范：新增 Kun 模块文件（PascalCase）、入口脚本（kebab-case）、`lib/` 子目录（PascalCase）、Zig 源文件（snake_case）命名规则；移除"待定"占位 |

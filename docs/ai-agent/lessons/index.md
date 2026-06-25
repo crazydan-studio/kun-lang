@@ -8,3 +8,4 @@
 |------|------|
 | [语法合规审计流程](grammar-audit-workflow.md) | 子代理审计 + 人工审核循环的流程、范围和检查清单 |
 | [AGENTS.md 合规性](agents-md-compliance.md) | AGENTS.md 流程违规根因分析与整改措施 |
+| [Phase 6 内存策略与测试教训](phase6-memory-testing.md) | Arena 唯一策略、禁止 page_allocator、free 陷阱、{f} vs {}、测试超时 |
