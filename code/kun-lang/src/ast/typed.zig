@@ -86,6 +86,7 @@ pub const TypedExpr = union(enum) {
     record_update: struct { record: *const TypedExpr, fields: []const RecordField, type_: TypeId, span: ast.Span },
     range_literal: struct { from: *const TypedExpr, to: *const TypedExpr, step: ?*const TypedExpr, type_: TypeId, span: ast.Span },
     ternary: struct { cond: *const TypedExpr, then: *const TypedExpr, else_: *const TypedExpr, type_: TypeId, span: ast.Span },
+    opt_chain: struct { object: *const TypedExpr, field: []const u8, type_: TypeId, span: ast.Span },
 };
 
 pub const MapEntry = struct { key: *const TypedExpr, value: *const TypedExpr };

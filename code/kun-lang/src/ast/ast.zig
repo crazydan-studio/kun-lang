@@ -7,8 +7,14 @@ pub const SourceLoc = struct {
 };
 
 pub const Span = struct {
-    start: SourceLoc,
-    end: SourceLoc,
+    start: SourceLoc = SourceLoc{ .line = 0, .col = 0, .offset = 0 },
+    end: SourceLoc = SourceLoc{ .line = 0, .col = 0, .offset = 0 },
+    file: []const u8 = "",
+    source: []const u8 = "",
+    line_start: u32 = 0,
+    col_start: u32 = 0,
+    line_end: u32 = 0,
+    col_end: u32 = 0,
 };
 
 pub const DurationUnit = enum(u3) { s, ms, min, h, d, us, ns };
@@ -50,16 +56,18 @@ pub const Pattern = union(enum) {
     wildcard: Span,
     literal: *const Expr,
     ident: struct { name: []const u8, span: Span },
-    variant: struct { name: []const u8, arg: ?*const Pattern, span: Span },
+    variant: struct { name: []const u8, inner: ?*const Pattern, span: Span },
     list: struct { items: []const Pattern, rest: ?*const Pattern, span: Span },
     tuple: struct { items: []const Pattern, span: Span },
-    record: struct { fields: []const RecordPatternField, span: Span },
+    record: []const RecordPatternField,
     guard: struct { inner: *const Pattern, cond: *const Expr, span: Span },
+    or_: struct { left: *const Pattern, right: *const Pattern, span: Span },
 };
 
 pub const RecordPatternField = struct {
     name: []const u8,
-    pattern: *const Pattern,
+    pattern: Pattern,
+    span: Span = undefined,
 };
 
 pub const BinaryOp = enum {
@@ -116,6 +124,7 @@ pub const Expr = union(enum) {
     set_literal: struct { items: []const *const Expr, span: Span },
     range_literal: struct { from: *const Expr, to: *const Expr, step: ?*const Expr, span: Span },
     ternary: struct { cond: *const Expr, then: *const Expr, else_: *const Expr, span: Span },
+    optional_chaining: struct { object: *const Expr, field: []const u8, span: Span },
 };
 
 pub const ExprItem = union(enum) {

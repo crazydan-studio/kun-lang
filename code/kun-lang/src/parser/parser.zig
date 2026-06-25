@@ -384,6 +384,7 @@ fn spanOf(expr: *const Expr) Span {
         .set_literal => |v| v.span,
         .range_literal => |v| v.span,
         .ternary => |v| v.span,
+        .optional_chaining => |v| v.span,
     };
 }
 
@@ -573,12 +574,16 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                         const arg = try parsePrefix(state);
                         try args.append(state.allocator, try heapExpr(state, &arg));
                     },
-                    .dot => {
+                    .dot, .opt_chain => {
                         if (args.items.len > 0) break;
-                        _ = state.advance();
+                        const dot_tok = state.advance();
                         const field = state.advance();
                         const span = Span{ .start = spanOf(&left).start, .end = field.span.end };
-                        left = Expr{ .record_access = .{ .record = try heapExpr(state, &left), .field = field.slice, .span = span } };
+                        if (dot_tok.kind == .opt_chain) {
+                            left = Expr{ .optional_chaining = .{ .object = try heapExpr(state, &left), .field = field.slice, .span = span } };
+                        } else {
+                            left = Expr{ .record_access = .{ .record = try heapExpr(state, &left), .field = field.slice, .span = span } };
+                        }
                     },
                     else => break,
                 }
@@ -596,12 +601,16 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                 left = Expr{ .call = .{ .func = try heapExpr(state, &left), .arg = arg, .span = span } };
             }
 
-            // Handle chained record access after call: f a .field
+            // Handle chained record access after call: f a .field or f a ?.field
             while (state.peek() == .dot or state.peek() == .opt_chain) {
-                _ = state.advance();
+                const dot_tok = state.advance();
                 const field = state.advance();
                 const span = Span{ .start = spanOf(&left).start, .end = field.span.end };
-                left = Expr{ .record_access = .{ .record = try heapExpr(state, &left), .field = field.slice, .span = span } };
+                if (dot_tok.kind == .opt_chain) {
+                    left = Expr{ .optional_chaining = .{ .object = try heapExpr(state, &left), .field = field.slice, .span = span } };
+                } else {
+                    left = Expr{ .record_access = .{ .record = try heapExpr(state, &left), .field = field.slice, .span = span } };
+                }
             }
 
             return left;
@@ -628,9 +637,12 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                 var i: usize = params.items.len;
                 while (i > 0) : (i -= 1) {
                     const span = Span{ .start = params.items[i - 1].span.start, .end = spanOf(&body).end };
+                    const inner = try heapExpr(state, &body);
+                    const heap_params = try state.allocator.alloc(ast.Param, 1);
+                    heap_params[0] = params.items[i - 1];
                     body = Expr{ .lambda = .{
-                        .params = &.{params.items[i - 1]},
-                        .body = try heapExpr(state, &body),
+                        .params = heap_params,
+                        .body = inner,
                         .span = span,
                     } };
                 }
@@ -885,24 +897,25 @@ fn parseCaseExpr(state: *ParserState, start: SourceLoc) ParserError!Expr {
             guard = try heapExpr(state, &g);
         }
         // Handle or-pattern: pat1 | pat2
-        var patterns = std.ArrayListUnmanaged(ast.Pattern).empty;
-        try patterns.append(state.allocator, pat);
+        var final_pat = pat;
         while (state.peek() == .pipe_pat) {
             _ = state.advance();
-            const alt_pat = try parsePattern(state);
-            try patterns.append(state.allocator, alt_pat);
+            const right_pat = try parsePattern(state);
+            final_pat = ast.Pattern{ .or_ = .{
+                .left = try heapPattern(state, final_pat),
+                .right = try heapPattern(state, right_pat),
+                .span = state.span(start),
+            } };
         }
         try state.expect(.arrow);
         const body = try parseExpr(state);
-        for (patterns.items) |pt| {
-            try branches.append(state.allocator, .{
-                .pattern = pt,
-                .guard = guard,
-                .body = try heapExpr(state, &body),
-                .is_unbound = false,
-                .span = state.span(start),
-            });
-        }
+        try branches.append(state.allocator, .{
+            .pattern = final_pat,
+            .guard = guard,
+            .body = try heapExpr(state, &body),
+            .is_unbound = false,
+            .span = state.span(start),
+        });
     }
     const span = Span{ .start = start, .end = state.current().span.end };
     return Expr{ .case_expr = .{ .subject = try heapExpr(state, &subject), .branches = branches.items, .span = span } };
@@ -933,9 +946,9 @@ fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
                 _ = state.advance();
                 const arg = try parsePattern(state);
                 try state.expect(.rparen);
-                return ast.Pattern{ .variant = .{ .name = tok.slice, .arg = try heapPattern(state, arg), .span = tok.span } };
+                return ast.Pattern{ .variant = .{ .name = tok.slice, .inner = try heapPattern(state, arg), .span = tok.span } };
             }
-            return ast.Pattern{ .variant = .{ .name = tok.slice, .arg = null, .span = tok.span } };
+            return ast.Pattern{ .variant = .{ .name = tok.slice, .inner = null, .span = tok.span } };
         },
         .ident => {
             const tok = state.advance();
@@ -978,15 +991,14 @@ fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
                 const name_tok = state.advance();
                 try state.expect(.assign);
                 const p = try parsePattern(state);
-                try fields.append(state.allocator, .{ .name = name_tok.slice, .pattern = try heapPattern(state, p) });
+                try fields.append(state.allocator, .{ .name = name_tok.slice, .pattern = p });
                 if (state.peek() == .comma) _ = state.advance();
             }
             try state.expect(.rbrace);
-            return ast.Pattern{ .record = .{ .fields = fields.items, .span = state.span(start) } };
+            return ast.Pattern{ .record = fields.items };
         },
         else => return ast.Pattern{ .wildcard = state.advance().span },
     }
 }
 
 // ============ Declarations ============
-
