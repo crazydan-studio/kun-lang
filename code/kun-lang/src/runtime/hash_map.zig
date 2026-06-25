@@ -121,7 +121,6 @@ fn resizeMap(allocator: std.mem.Allocator, old_entries: [*]u8, old_len: u64, old
                 new_buckets[slot] = b;
             }
         }
-        allocator.free(old_entries[0 .. @sizeOf(MapBucket) * old_cap]);
     }
 
     return MapRepr{ .entries = new_bytes.ptr, .len = old_len, .cap = new_cap };
@@ -141,7 +140,6 @@ fn resizeSet(allocator: std.mem.Allocator, old_entries: [*]u8, old_len: u64, old
                 new_buckets[slot] = b;
             }
         }
-        allocator.free(old_entries[0 .. @sizeOf(SetBucket) * old_cap]);
     }
 
     return SetRepr{ .entries = new_bytes.ptr, .len = old_len, .cap = new_cap };

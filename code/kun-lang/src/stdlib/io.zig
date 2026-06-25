@@ -15,7 +15,6 @@ pub fn printlnImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len > 0 and args[0] == .string) {
         if (!@import("builtin").is_test) {
             const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
-            defer env.allocator.free(msg);
             _ = std.os.linux.write(1, msg.ptr, msg.len);
         }
     }
@@ -53,7 +52,6 @@ pub fn eprintImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn eprintlnImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len > 0 and args[0] == .string) {
         const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
-        defer env.allocator.free(msg);
         _ = std.os.linux.write(2, msg.ptr, msg.len);
     }
     return Value{ .unit = {} };
@@ -232,11 +230,8 @@ pub fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
         const full = std.fs.path.join(env.allocator, &.{ dir, args[0].string }) catch continue;
         const full_z = allocSentinel(env.allocator, full) catch continue;
         if (std.os.linux.access(full_z, std.os.linux.X_OK) == 0) {
-            env.allocator.free(full_z);
             return Value{ .path = full };
         }
-        env.allocator.free(full_z);
-        env.allocator.free(full);
     }
     return Value{ .nil = {} };
 }

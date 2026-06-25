@@ -61,7 +61,6 @@ pub fn base64DecodeImpl(env: *RuntimeEnv, args: []const Value) Value {
     const out_len = decoder.calcSizeForSlice(args[0].string) catch return value_mod.makeErr(1, Value{ .string = "invalid" }, env.allocator) catch return Value{ .nil = {} };
     const buf = env.allocator.alloc(u8, out_len) catch return Value{ .nil = {} };
     decoder.decode(buf, args[0].string) catch {
-        env.allocator.free(buf);
         return value_mod.makeErr(1, Value{ .string = "decode error" }, env.allocator) catch return Value{ .nil = {} };
     };
     return Value{ .bytes = buf };
@@ -154,7 +153,6 @@ fn kunToJsonValue(allocator: std.mem.Allocator, val: Value, buf: *std.ArrayListU
                 buf.appendSliceAssumeCapacity("null");
                 return;
             };
-            defer allocator.free(keys);
             for (keys, 0..) |key, idx| {
                 if (idx > 0) buf.appendSliceAssumeCapacity(",");
                 try kunToJsonValue(allocator, key, buf);

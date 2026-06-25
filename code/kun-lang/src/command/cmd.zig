@@ -14,10 +14,7 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
     }
 
     const argv = try buildArgv(cmd, allocator);
-    defer {
-        for (argv[1..]) |a| allocator.free(a);
-        allocator.free(argv);
-    }
+    defer {}
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
     if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
@@ -30,9 +27,7 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
         _ = std.os.linux.dup2(pipe_fds[1], std.os.linux.STDOUT_FILENO);
         _ = std.os.linux.close(pipe_fds[1]);
         const resolved = resolvePath(cmd.bin, allocator) catch std.process.exit(127);
-        defer allocator.free(resolved);
         const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv.len, null);
-        defer allocator.free(argv_z);
         argv_z[0] = resolved.ptr;
         for (argv[1..], 1..) |a, i| {
             const z = try allocator.allocSentinel(u8, a.len, 0);
@@ -57,9 +52,7 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
 
 pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload, allocator: std.mem.Allocator) !*StreamNode {
     const argv1 = try buildArgv(cmd1, allocator);
-    defer allocator.free(argv1);
     const argv2 = try buildArgv(cmd2, allocator);
-    defer allocator.free(argv2);
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
     if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
@@ -72,9 +65,7 @@ pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload,
         _ = std.os.linux.dup2(pipe_fds[1], std.os.linux.STDOUT_FILENO);
         _ = std.os.linux.close(pipe_fds[1]);
         const resolved = resolvePath(cmd1.bin, allocator) catch std.process.exit(127);
-        defer allocator.free(resolved);
         const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv1.len, null);
-        defer allocator.free(argv_z);
         argv_z[0] = resolved.ptr;
         for (argv1[1..], 1..) |a, i| {
             const z = try allocator.allocSentinel(u8, a.len, 0);
@@ -91,9 +82,7 @@ pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload,
         _ = std.os.linux.dup2(pipe_fds[0], std.os.linux.STDIN_FILENO);
         _ = std.os.linux.close(pipe_fds[0]);
         const resolved = resolvePath(cmd2.bin, allocator) catch std.process.exit(127);
-        defer allocator.free(resolved);
         const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv2.len, null);
-        defer allocator.free(argv_z);
         argv_z[0] = resolved.ptr;
         for (argv2[1..], 1..) |a, i| {
             const z = try allocator.allocSentinel(u8, a.len, 0);
@@ -120,7 +109,6 @@ fn buildArgv(cmd: *const CommandPayload, allocator: std.mem.Allocator) ![]const 
     try list.append(allocator, cmd.bin);
     for (cmd.options) |opt| {
         const flag = try camelToKebab(allocator, opt.name);
-        defer allocator.free(flag);
         switch (opt.value) {
             .bool => |b| {
                 if (b) {
@@ -195,7 +183,6 @@ fn resolvePath(bin: []const u8, allocator: std.mem.Allocator) ![:0]const u8 {
     while (it.next()) |dir| {
         if (dir.len == 0) continue;
         const full = std.fs.path.join(allocator, &.{ dir, bin }) catch continue;
-        defer allocator.free(full);
         const full_z = try allocator.allocSentinel(u8, full.len, 0);
         @memcpy(full_z[0..full.len], full);
         if (std.os.linux.access(full_z, std.os.linux.X_OK) == 0) {

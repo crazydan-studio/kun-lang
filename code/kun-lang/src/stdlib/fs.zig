@@ -13,7 +13,6 @@ fn openFile(path: [*:0]const u8, flags: std.os.linux.O, perm: u32) isize {
 pub fn readStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{}, 0);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "file not found" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
@@ -27,7 +26,6 @@ pub fn readStringImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn listDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "dir not found" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
@@ -59,7 +57,6 @@ pub fn listDirImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn statImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     var stx: std.os.linux.Statx = undefined;
     const rc = std.os.linux.statx(0, path_z, 0, std.os.linux.STATX.BASIC_STATS, &stx);
     if (rc != 0) return value_mod.makeErr(1, Value{ .string = "stat error" }, env.allocator) catch return Value{ .nil = {} };
@@ -78,7 +75,6 @@ pub fn statImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn mkdirImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     if (std.os.linux.mkdir(path_z, 0o755) != 0) {
         return value_mod.makeErr(1, Value{ .string = "mkdir error" }, env.allocator) catch return Value{ .nil = {} };
     }
@@ -88,7 +84,6 @@ pub fn mkdirImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn mkdirAllImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "invalid arg" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     var tmp: [4096]u8 = undefined;
     @memcpy(tmp[0..path_z.len], path_z);
     tmp[path_z.len] = 0;
@@ -109,7 +104,6 @@ pub fn writeStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .string)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{ .CREAT = true, .TRUNC = true, .ACCMODE = .WRONLY }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
@@ -120,7 +114,6 @@ pub fn writeStringImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn touchImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{ .CREAT = true, .ACCMODE = .WRONLY }, 0o644);
     if (fd >= 0) _ = std.os.linux.close(@intCast(fd));
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
@@ -129,7 +122,6 @@ pub fn touchImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn removeImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     if (std.os.linux.unlink(path_z) != 0) {
         return value_mod.makeErr(1, Value{ .string = "remove error" }, env.allocator) catch return Value{ .nil = {} };
     }
@@ -139,7 +131,6 @@ pub fn removeImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn removeDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     if (std.os.linux.rmdir(path_z) != 0) {
         return value_mod.makeErr(1, Value{ .string = "rmdir error" }, env.allocator) catch return Value{ .nil = {} };
     }
@@ -196,7 +187,6 @@ fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
 pub fn readBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{}, 0);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "not found" }, env.allocator) catch return Value{ .nil = {} };
     const buf = env.allocator.alloc(u8, 4096) catch { _ = std.os.linux.close(@intCast(fd)); return Value{ .nil = {} }; };
@@ -209,7 +199,6 @@ pub fn writeBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .bytes)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{ .CREAT = true, .TRUNC = true, .ACCMODE = .WRONLY }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
@@ -221,7 +210,6 @@ pub fn appendBytesImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .bytes)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{ .CREAT = true, .TRUNC = false, .ACCMODE = .WRONLY }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
@@ -234,7 +222,6 @@ pub fn readLinesImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{}, 0);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "not found" }, env.allocator) catch return Value{ .nil = {} };
     const buf = env.allocator.alloc(u8, 4096) catch {
@@ -258,7 +245,6 @@ pub fn walkDirImpl(env: *RuntimeEnv, args: []const Value) Value {
 fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.ArrayListUnmanaged(Value)) void {
     const path_z = allocator.allocSentinel(u8, root.len, 0) catch return;
     @memcpy(path_z[0..root.len], root);
-    defer allocator.free(path_z);
     const fd = openFile(path_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
     if (fd < 0) return;
     defer _ = std.os.linux.close(@intCast(fd));
@@ -290,7 +276,6 @@ pub fn appendStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .string)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     const fd = openFile(path_z, .{ .CREAT = true, .TRUNC = false, .ACCMODE = .WRONLY }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
@@ -305,7 +290,6 @@ pub fn globImpl(env: *RuntimeEnv, args: []const Value) Value {
     const pattern = args[0].string;
     const dir_path = args[1].path;
     const dir_z = io.allocSentinel(env.allocator, dir_path) catch return Value{ .nil = {} };
-    defer env.allocator.free(dir_z);
     const fd = openFile(dir_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "dir not found" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
@@ -374,9 +358,7 @@ pub fn copyImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .path)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const src_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(src_z);
     const dst_z = io.allocSentinel(env.allocator, args[1].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(dst_z);
     const src_fd = openFile(src_z, .{}, 0);
     if (src_fd < 0) return value_mod.makeErr(1, Value{ .string = "open src" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(src_fd));
@@ -397,9 +379,7 @@ pub fn renameImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .path)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const old_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(old_z);
     const new_z = io.allocSentinel(env.allocator, args[1].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(new_z);
     if (std.os.linux.rename(old_z, new_z) != 0) {
         return value_mod.makeErr(1, Value{ .string = "rename error" }, env.allocator) catch return Value{ .nil = {} };
     }
@@ -410,7 +390,6 @@ pub fn removeAllImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(path_z);
     removeRecursive(env.allocator, path_z);
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
@@ -438,7 +417,6 @@ fn removeRecursive(allocator: std.mem.Allocator, path: [:0]u8) void {
             const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
             if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
                 const sub_path = std.fs.path.joinZ(allocator, &.{ path, name }) catch continue;
-                defer allocator.free(sub_path);
                 removeRecursive(allocator, sub_path);
             }
         }
@@ -451,15 +429,12 @@ pub fn atomicWriteImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .string)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const tmp_name = std.fmt.allocPrint(env.allocator, "{s}.tmp", .{args[0].path}) catch return Value{ .nil = {} };
-    defer env.allocator.free(tmp_name);
     const tmp_z = io.allocSentinel(env.allocator, tmp_name) catch return Value{ .nil = {} };
-    defer env.allocator.free(tmp_z);
     const fd = openFile(tmp_z, .{ .CREAT = true, .TRUNC = true, .ACCMODE = .WRONLY }, 0o644);
     if (fd < 0) return value_mod.makeErr(1, Value{ .string = "open error" }, env.allocator) catch return Value{ .nil = {} };
     defer _ = std.os.linux.close(@intCast(fd));
     if (@as(isize, @bitCast(std.os.linux.write(@intCast(fd), args[1].string.ptr, args[1].string.len))) < 0) return value_mod.makeErr(1, Value{ .string = "write error" }, env.allocator) catch return Value{ .nil = {} };
     const dst_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    defer env.allocator.free(dst_z);
     if (std.os.linux.rename(tmp_z, dst_z) != 0) {
         return value_mod.makeErr(1, Value{ .string = "rename error" }, env.allocator) catch return Value{ .nil = {} };
     }
