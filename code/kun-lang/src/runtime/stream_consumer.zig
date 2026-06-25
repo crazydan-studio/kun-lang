@@ -8,8 +8,7 @@ const StreamFn = value_mod.StreamFn;
 const Closure = value_mod.Closure;
 const Frame = value_mod.Frame;
 const PrimitiveFn = @import("primitive.zig").PrimitiveFn;
-
-pub const EvalFn = *const fn (expr: *const typed.TypedExpr, frame: *Frame, allocator: std.mem.Allocator) (error{UnboundVariable, NotAFunction, TypeMismatch, DivisionByZero, UnknownField, NoMatch, Unimplemented, OutOfMemory, MissingArgument}!Value);
+const EvalFn = @import("primitive.zig").EvalFn;
 
 pub fn consumeNext(node: *StreamNode, allocator: std.mem.Allocator, eval_fn: ?EvalFn) !?Value {
     return switch (node.*) {
@@ -123,7 +122,7 @@ fn applyStreamFn(allocator: std.mem.Allocator, eval_fn: ?EvalFn, f: StreamFn, ar
         .closure => |c| {
             const frame = try allocator.create(Frame);
             defer allocator.destroy(frame);
-            frame.* = Frame{ .bindings = .empty, .parent = c.env, .primitives = null };
+            frame.* = Frame{ .bindings = .empty, .parent = c.env, .primitives = c.env.primitives };
             defer frame.bindings.deinit(allocator);
             if (c.param_names.len == 1) {
                 try frame.bindings.put(allocator, c.param_names[0], arg);

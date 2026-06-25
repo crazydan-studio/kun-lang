@@ -21,6 +21,7 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
     if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
+        // TODO(v0.2): use non-blocking pipes with poll/select strategy per system-baseline.md
         return error.PipeFailed;
     }
 
@@ -67,6 +68,7 @@ pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload,
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
     if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
+        // TODO(v0.2): use non-blocking pipes with poll/select strategy per system-baseline.md
         return error.PipeFailed;
     }
 

@@ -31,9 +31,16 @@ pub const EvalError = error{
     Unimplemented,
     OutOfMemory,
     MissingArgument,
+    StackOverflow,
 };
 
+threadlocal var recursion_depth: u32 = 0;
+const MAX_RECURSION_DEPTH: u32 = 10000;
+
 pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator) EvalError!Value {
+    recursion_depth += 1;
+    defer recursion_depth -= 1;
+    if (recursion_depth > MAX_RECURSION_DEPTH) return error.StackOverflow;
     return switch (expr.*) {
         .int_literal => |v| Value{ .int = v.value },
         .float_literal => |v| Value{ .float = v.value },
@@ -85,7 +92,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .let_in => |v| {
             const local = try allocator.create(Frame);
-            local.* = Frame{ .bindings = .empty, .parent = frame, .primitives = null };
+            local.* = Frame{ .bindings = .empty, .parent = frame, .primitives = frame.primitives };
             for (v.bindings) |b| {
                 const val = try eval(b.value, frame, allocator);
                 try local.bindings.put(allocator, b.name, val);
@@ -94,7 +101,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .do_block => |v| {
             const local = try allocator.create(Frame);
-            local.* = Frame{ .bindings = .empty, .parent = frame, .primitives = null };
+            local.* = Frame{ .bindings = .empty, .parent = frame, .primitives = frame.primitives };
             var defers = DeferStack.init(allocator);
             defer defers.deinit();
             var stmt_err: ?EvalError = null;
@@ -223,7 +230,7 @@ fn apply(func: Value, arg: Value, allocator: std.mem.Allocator, eval_ptr: ?*anyo
     return switch (func) {
         .closure => |c| {
             const frame = try allocator.create(Frame);
-            frame.* = Frame{ .bindings = .empty, .parent = c.env, .primitives = null };
+            frame.* = Frame{ .bindings = .empty, .parent = c.env, .primitives = c.env.primitives };
             if (c.param_names.len == 1) {
                 try frame.bindings.put(allocator, c.param_names[0], arg);
             } else if (c.param_names.len > 1) {
@@ -475,17 +482,17 @@ fn evalCase(subject_expr: *const TypedExpr, branches: []const typed.Branch, fram
         if (try matchPattern(branch.pattern, subject, frame, allocator)) |local| {
             if (branch.guard_cond) |guard| {
                 const guard_frame = try allocator.create(Frame);
-                guard_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = null };
+                guard_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = frame.primitives };
                 const cond = try eval(guard, guard_frame, allocator);
                 if (cond == .bool and cond.bool) {
                     const local_frame = try allocator.create(Frame);
-                    local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = null };
+                    local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = frame.primitives };
                     return eval(branch.body, local_frame, allocator);
                 }
                 continue;
             }
             const local_frame = try allocator.create(Frame);
-            local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = null };
+            local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = frame.primitives };
             return eval(branch.body, local_frame, allocator);
         }
     }

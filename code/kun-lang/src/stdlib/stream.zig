@@ -21,7 +21,7 @@ pub fn streamIterImpl(env: *RuntimeEnv, args: []const Value) Value {
     const stream_node = args[1].stream;
     const frame = env.allocator.create(env_mod.Frame) catch return Value{ .nil = {} };
     defer env.allocator.destroy(frame);
-    frame.* = env_mod.Frame{ .bindings = .empty, .parent = callback.env, .primitives = null };
+    frame.* = env_mod.Frame{ .bindings = .empty, .parent = callback.env, .primitives = @constCast(@ptrCast(&env.primitives)) };
     defer frame.bindings.deinit(env.allocator);
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
         frame.bindings.clearRetainingCapacity();
@@ -38,7 +38,7 @@ pub fn streamFoldImpl(env: *RuntimeEnv, args: []const Value) Value {
     const stream_node = args[2].stream;
     const frame = env.allocator.create(env_mod.Frame) catch return Value{ .nil = {} };
     defer env.allocator.destroy(frame);
-    frame.* = env_mod.Frame{ .bindings = .empty, .parent = folder.env, .primitives = null };
+    frame.* = env_mod.Frame{ .bindings = .empty, .parent = folder.env, .primitives = @constCast(@ptrCast(&env.primitives)) };
     defer frame.bindings.deinit(env.allocator);
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
         frame.bindings.clearRetainingCapacity();
@@ -116,7 +116,9 @@ pub fn streamRangeImpl(env: *RuntimeEnv, args: []const Value) Value {
     const step = args[2];
     if (start != .int or end != .int or step != .int) return Value{ .nil = {} };
     if (step.int <= 0) return Value{ .nil = {} };
-    const count: i64 = @divTrunc(end.int - start.int + step.int - 1, step.int);
+    if (end.int <= start.int) return Value{ .nil = {} };
+    const range = end.int - start.int;
+    const count: i64 = @divTrunc(range + step.int - 1, step.int);
     if (count <= 0) return Value{ .nil = {} };
     const items = env.allocator.alloc(Value, @intCast(count)) catch return Value{ .nil = {} };
     var i: i64 = 0;
