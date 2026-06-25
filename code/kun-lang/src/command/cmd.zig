@@ -192,7 +192,8 @@ fn resolvePath(bin: []const u8, allocator: std.mem.Allocator) ![:0]const u8 {
         @memcpy(result[0..bin.len], bin);
         return result;
     }
-    const path_env = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    const path_env = try getPathEnv(allocator);
+    defer allocator.free(path_env);
     var it = std.mem.splitSequence(u8, path_env, ":");
     while (it.next()) |dir| {
         if (dir.len == 0) continue;
@@ -204,6 +205,33 @@ fn resolvePath(bin: []const u8, allocator: std.mem.Allocator) ![:0]const u8 {
         }
     }
     return error.CommandNotFound;
+}
+
+fn getPathEnv(allocator: std.mem.Allocator) ![]const u8 {
+    const default_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
+    if (fd < 0) return allocator.dupe(u8, default_path);
+    defer _ = std.os.linux.close(@intCast(fd));
+    var buf: [8192]u8 = undefined;
+    const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
+    if (n <= 0) return allocator.dupe(u8, default_path);
+    var start: usize = 0;
+    var i: usize = 0;
+    const data = buf[0..@intCast(n)];
+    while (i < data.len) : (i += 1) {
+        if (data[i] == 0) {
+            if (i > start) {
+                const entry = data[start..i];
+                if (std.mem.indexOfScalar(u8, entry, '=')) |eq_pos| {
+                    if (std.mem.eql(u8, entry[0..eq_pos], "PATH")) {
+                        return allocator.dupe(u8, entry[eq_pos + 1 ..]);
+                    }
+                }
+            }
+            start = i + 1;
+        }
+    }
+    return allocator.dupe(u8, default_path);
 }
 
 pub const known_cmd_apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };

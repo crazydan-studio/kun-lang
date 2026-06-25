@@ -4,6 +4,7 @@ const typed = @import("../ast/typed.zig");
 const primitive = @import("../runtime/primitive.zig");
 const error_mod = @import("error.zig");
 const env_mod = @import("env.zig");
+const cmd_mod = @import("../command/cmd.zig");
 
 const TypeError = error_mod.TypeError;
 const ErrorList = error_mod.ErrorList;
@@ -88,7 +89,7 @@ fn isEffectCall(func: *const ast.Expr) bool {
         .record_access => |ra| {
             if (ra.record.* == .ident) {
                 const rec_name = ra.record.ident.name;
-                var buf: [256]u8 = undefined;
+                var buf: [4096]u8 = undefined;
                 const combined = std.fmt.bufPrint(&buf, "{s}.{s}", .{ rec_name, ra.field }) catch return false;
                 return isEffectNamespaceCall(combined);
             }
@@ -368,7 +369,7 @@ fn isStreamSource(expr: *const ast.Expr) bool {
 
 fn isCommandIdent(expr: *const ast.Expr) bool {
     return switch (expr.*) {
-        .ident => |id| std.mem.startsWith(u8, id.name, "Cmd.") and !isKnownCmdApi(id.name) and !isCmdExecSuffix(id.name),
+        .ident => |id| std.mem.startsWith(u8, id.name, "Cmd.") and !cmd_mod.isKnownCmdApi(id.name) and !isCmdExecSuffix(id.name),
         else => false,
     };
 }
@@ -480,7 +481,7 @@ fn isCmdSource(expr: *const ast.Expr) bool {
     return switch (expr.*) {
         .ident => isCommandIdent(expr),
         .call => |c| switch (c.func.*) {
-            .ident => |id| std.mem.startsWith(u8, id.name, "Cmd.") and !isKnownCmdApi(id.name) and !isCmdExecSuffix(id.name),
+            .ident => |id| std.mem.startsWith(u8, id.name, "Cmd.") and !cmd_mod.isKnownCmdApi(id.name) and !isCmdExecSuffix(id.name),
             else => false,
         },
         else => false,
@@ -533,14 +534,6 @@ fn isCmdExecCall(func: *const ast.Expr) bool {
     };
 }
 
-fn isKnownCmdApi(name: []const u8) bool {
-    const rest = if (std.mem.startsWith(u8, name, "Cmd.")) name["Cmd.".len..] else return false;
-    const apis = [_][]const u8{ "pipe", "withEnv", "withWorkDir", "withStdin", "withStdinFile", "withRawOpt", "mergeStderr", "withRunAs", "andThen", "orElse", "exec", "timeout", "retry", "execSafe", "which" };
-    for (apis) |api| {
-        if (std.mem.eql(u8, rest, api)) return true;
-    }
-    return false;
-}
 
 pub fn checkUnusedBindings(allocator: std.mem.Allocator, names: []const []const u8, used: []const bool, errors: *ErrorList) !void {
     for (names, used, 0..) |name, is_used, i| {

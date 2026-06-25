@@ -92,6 +92,7 @@ const ParserError = error{
     OutOfMemory,
     Overflow,
     InvalidCharacter,
+    DuplicateVariantName,
 };
 
 pub fn parseModule(allocator: std.mem.Allocator, tokens: []const Token) ParserError![]const Decl {
@@ -185,6 +186,11 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
                     const v = state.advance();
                     if (v.kind != .ident and v.kind != .type_ident and v.kind != .kw_nil) return error.UnexpectedToken;
                     try variants.append(state.allocator, v.slice);
+                }
+                for (variants.items, 0..) |v1, i| {
+                    for (variants.items[i + 1 ..]) |v2| {
+                        if (std.mem.eql(u8, v1, v2)) return error.DuplicateVariantName;
+                    }
                 }
                 const def = try state.allocator.create(TypeDef);
                 def.* = TypeDef{ .union_ = .{ .variants = variants.items } };
@@ -454,7 +460,17 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             // Strip 0x/0o/0b prefix for parseInt
             const value_start: usize = if (radix != 10) 2 else 0;
             const stripped = slice[value_start..];
-            const value = try std.fmt.parseInt(i64, stripped, radix);
+            const value = if (std.mem.indexOfScalar(u8, stripped, '_')) |_| blk: {
+                var clean = try state.allocator.alloc(u8, stripped.len);
+                var i: usize = 0;
+                for (stripped) |c| {
+                    if (c != '_') {
+                        clean[i] = c;
+                        i += 1;
+                    }
+                }
+                break :blk try std.fmt.parseInt(i64, clean[0..i], radix);
+            } else try std.fmt.parseInt(i64, stripped, radix);
             return Expr{ .int_literal = .{ .value = value, .span = tok.span } };
         },
         .float_literal => {
@@ -816,7 +832,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             return Expr{ .lambda = .{ .params = &.{x_param}, .body = body, .span = state.span(start) } };
         },
         else => {
-            return Expr{ .int_literal = .{ .value = 0, .span = state.current().span } };
+            return error.UnexpectedToken;
         },
     }
 }

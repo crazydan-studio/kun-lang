@@ -93,6 +93,11 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
+    // DESIGN_INTENT: ModuleResolver.load() lexes+parses modules but does not
+    // typecheck them. Individual modules' internal consistency is validated when
+    // all decls are merged into a single global typecheck pass below. This is
+    // intentional — a module in isolation may reference symbols defined in the
+    // importing module or other sibling modules.
     const typed_decls = typecheck.infer(allocator, all_decls.items, &type_env, primitives) catch |err| {
         if (err == error.TypeCheckFailed) {
             std.log.err("type check failed", .{});

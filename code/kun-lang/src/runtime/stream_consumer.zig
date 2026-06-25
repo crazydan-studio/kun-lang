@@ -78,6 +78,11 @@ pub fn consumeNext(node: *StreamNode, allocator: std.mem.Allocator, eval_fn: ?Ev
                 if (l.pos + remaining <= l.buf.len) {
                     @memcpy(l.buf[l.pos..][0..remaining], data[start..]);
                     l.pos += remaining;
+                } else {
+                    // Buffer full, keep the tail end of incoming data (most recent)
+                    const keep = @min(remaining, l.buf.len);
+                    @memcpy(l.buf[0..keep], data[data.len - keep ..]);
+                    l.pos = keep;
                 }
             }
         },
