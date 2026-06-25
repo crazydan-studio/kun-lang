@@ -237,12 +237,13 @@ pub fn readLinesImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn walkDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path) return Value{ .nil = {} };
     var list: std.ArrayListUnmanaged(Value) = .empty;
-    walkDirRecursive(env.allocator, args[0].path, &list);
+    walkDirRecursive(env.allocator, args[0].path, &list, 0);
     const items = list.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
     return value_mod.makeOk(Value{ .list = .{ .items = items, .cap = items.len } }, env.allocator) catch return Value{ .nil = {} };
 }
 
-fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.ArrayListUnmanaged(Value)) void {
+fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.ArrayListUnmanaged(Value), depth: u32) void {
+    if (depth > 256) return;
     const path_z = allocator.allocSentinel(u8, root.len, 0) catch return;
     @memcpy(path_z[0..root.len], root);
     const fd = openFile(path_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
@@ -265,7 +266,9 @@ fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.A
             if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
                 const full = std.fs.path.join(allocator, &.{ root, name }) catch continue;
                 list.append(allocator, Value{ .path = full }) catch continue;
-                walkDirRecursive(allocator, full, list);
+                if (de.type == std.os.linux.DT.DIR) {
+                    walkDirRecursive(allocator, full, list, depth + 1);
+                }
             }
         }
         pos += de.reclen;

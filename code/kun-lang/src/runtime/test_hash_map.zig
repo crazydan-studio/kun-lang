@@ -6,12 +6,37 @@ const Value = value_mod.Value;
 const MapRepr = value_mod.MapRepr;
 const SetRepr = value_mod.SetRepr;
 
+const MapBucket = struct {
+    hash: u64,
+    key: Value,
+    value: Value,
+    occupied: bool,
+};
+
+const SetBucket = struct {
+    hash: u64,
+    key: Value,
+    occupied: bool,
+};
+
+fn freeMapRepr(allocator: std.mem.Allocator, repr: MapRepr) void {
+    if (repr.cap == 0) return;
+    const aligned: []align(@alignOf(MapBucket)) const u8 = @alignCast(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    allocator.free(aligned);
+}
+
+fn freeSetRepr(allocator: std.mem.Allocator, repr: SetRepr) void {
+    if (repr.cap == 0) return;
+    const aligned: []align(@alignOf(SetBucket)) const u8 = @alignCast(repr.entries[0 .. @sizeOf(SetBucket) * repr.cap]);
+    allocator.free(aligned);
+}
+
 test "hash_map insert and get" {
     const allocator = std.testing.allocator;
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "key1" }, Value{ .int = 42 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer freeMapRepr(allocator, repr);
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "key2" }, Value{ .int = 99 });
 
@@ -28,11 +53,11 @@ test "hash_map remove" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "a" }, Value{ .int = 1 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer freeMapRepr(allocator, repr);
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "b" }, Value{ .int = 2 });
 
-    var removed = try hash_map.mapRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "a" });
-    defer if (removed.cap > 0) allocator.free(removed.entries[0 .. @sizeOf(MapBucket) * removed.cap]);
+    const removed = try hash_map.mapRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "a" });
+    defer freeMapRepr(allocator, removed);
 
     try std.testing.expectEqual(@as(u64, 1), removed.len);
     try std.testing.expect(hash_map.mapGet(removed.entries, removed.len, removed.cap, Value{ .string = "a" }) == null);
@@ -44,7 +69,7 @@ test "hash_map keys and values" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "x" }, Value{ .int = 10 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer freeMapRepr(allocator, repr);
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "y" }, Value{ .int = 20 });
 
     const keys = try hash_map.mapKeys(allocator, repr.entries, repr.len, repr.cap);
@@ -60,7 +85,7 @@ test "hash_map set insert and contains" {
     var repr = SetRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 1 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(SetBucket) * repr.cap]);
+    defer freeSetRepr(allocator, repr);
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 2 });
 
     try std.testing.expect(hash_map.setContains(repr.entries, repr.len, repr.cap, Value{ .int = 1 }));
@@ -81,7 +106,7 @@ test "hash_map resize triggers" {
     }
     defer {
         for (key_strings) |ks| allocator.free(ks);
-        allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+        freeMapRepr(allocator, repr);
     }
 
     try std.testing.expect(repr.cap >= 8);
@@ -97,7 +122,7 @@ test "hash_map duplicate key overwrites value" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "key" }, Value{ .int = 1 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer freeMapRepr(allocator, repr);
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "key" }, Value{ .int = 99 });
 
     try std.testing.expectEqual(@as(u64, 1), repr.len);
@@ -111,7 +136,7 @@ test "hash_map collision keys with same hash" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 42 }, Value{ .string = "a" });
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer freeMapRepr(allocator, repr);
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "key" }, Value{ .string = "b" });
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "other" }, Value{ .string = "c" });
 
@@ -138,10 +163,10 @@ test "hash_map remove non-existent key" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "a" }, Value{ .int = 1 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer freeMapRepr(allocator, repr);
 
-    var removed = try hash_map.mapRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "b" });
-    defer if (removed.cap > 0) allocator.free(removed.entries[0 .. @sizeOf(MapBucket) * removed.cap]);
+    const removed = try hash_map.mapRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "b" });
+    defer freeMapRepr(allocator, removed);
 
     try std.testing.expectEqual(@as(u64, 1), removed.len);
     try std.testing.expect(hash_map.mapGet(removed.entries, removed.len, removed.cap, Value{ .string = "a" }) != null);
@@ -161,7 +186,7 @@ test "hash_map large map insert and retrieve" {
     }
     defer {
         for (key_strings) |ks| allocator.free(ks);
-        allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+        freeMapRepr(allocator, repr);
     }
 
     try std.testing.expectEqual(@as(u64, 100), repr.len);
@@ -183,14 +208,14 @@ test "hash_map set remove" {
     var repr = SetRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 1 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(SetBucket) * repr.cap]);
+    defer freeSetRepr(allocator, repr);
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 2 });
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 3 });
 
     try std.testing.expectEqual(@as(u64, 3), repr.len);
 
-    var removed = hash_map.setRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 2 });
-    defer if (removed.cap > 0) allocator.free(removed.entries[0 .. @sizeOf(SetBucket) * removed.cap]);
+    const removed = hash_map.setRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 2 });
+    defer freeSetRepr(allocator, removed);
 
     try std.testing.expectEqual(@as(u64, 2), removed.len);
     try std.testing.expect(hash_map.setContains(removed.entries, removed.len, removed.cap, Value{ .int = 1 }));
@@ -203,7 +228,7 @@ test "hash_map set duplicate insert" {
     var repr = SetRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 1 });
-    defer allocator.free(repr.entries[0 .. @sizeOf(SetBucket) * repr.cap]);
+    defer freeSetRepr(allocator, repr);
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 1 });
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 1 });
 
@@ -224,7 +249,7 @@ test "hash_map bool key" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .bool = true }, Value{ .string = "yes" });
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer freeMapRepr(allocator, repr);
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .bool = false }, Value{ .string = "no" });
 
     try std.testing.expectEqual(@as(u64, 2), repr.len);
@@ -242,16 +267,3 @@ test "hash_map keyEqual different types" {
     try std.testing.expect(hash_map.keyEqual(Value{ .bool = true }, Value{ .bool = true }));
     try std.testing.expect(!hash_map.keyEqual(Value{ .bool = true }, Value{ .bool = false }));
 }
-
-const MapBucket = struct {
-    hash: u64,
-    key: Value,
-    value: Value,
-    occupied: bool,
-};
-
-const SetBucket = struct {
-    hash: u64,
-    key: Value,
-    occupied: bool,
-};

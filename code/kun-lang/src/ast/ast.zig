@@ -153,3 +153,230 @@ pub const MapEntry = struct {
     key: *const Expr,
     value: *const Expr,
 };
+
+fn destroyStmtSub(allocator: std.mem.Allocator, stmt: *const Stmt) void {
+    switch (stmt.kind) {
+        .binding => |b| {
+            destroyExprSub(allocator, b.value);
+            allocator.destroy(@constCast(b.value));
+        },
+        .defer_ => |d| {
+            destroyExprSub(allocator, d.expr);
+            allocator.destroy(@constCast(d.expr));
+        },
+        .expr => |e| {
+            destroyExprSub(allocator, e);
+            allocator.destroy(@constCast(e));
+        },
+    }
+}
+
+fn destroyPatternSub(allocator: std.mem.Allocator, pat: *const Pattern) void {
+    switch (pat.*) {
+        .wildcard => {},
+        .literal => |l| {
+            destroyExprSub(allocator, l);
+            allocator.destroy(@constCast(l));
+        },
+        .ident => {},
+        .variant => |v| {
+            if (v.inner) |inner| destroyPatternSub(allocator, inner);
+        },
+        .list => |l| {
+            for (l.items) |item| destroyPatternSub(allocator, &item);
+            allocator.free(@constCast(l.items));
+            if (l.rest) |rest| destroyPatternSub(allocator, rest);
+        },
+        .tuple => |t| {
+            for (t.items) |item| destroyPatternSub(allocator, &item);
+            allocator.free(@constCast(t.items));
+        },
+        .record => |fields| {
+            for (fields) |f| destroyPatternSub(allocator, &f.pattern);
+            allocator.free(@constCast(fields));
+        },
+        .guard => |g| {
+            destroyPatternSub(allocator, g.inner);
+            destroyExprSub(allocator, g.cond);
+            allocator.destroy(@constCast(g.cond));
+        },
+        .or_ => |o| {
+            destroyPatternSub(allocator, o.left);
+            destroyPatternSub(allocator, o.right);
+        },
+    }
+}
+
+fn destroyBranchSub(allocator: std.mem.Allocator, branch: *const Branch) void {
+    destroyPatternSub(allocator, &branch.pattern);
+    if (branch.guard) |g| {
+        destroyExprSub(allocator, g);
+        allocator.destroy(@constCast(g));
+    }
+    destroyExprSub(allocator, branch.body);
+    allocator.destroy(@constCast(branch.body));
+}
+
+pub fn destroyExprSub(allocator: std.mem.Allocator, expr: *const Expr) void {
+    switch (expr.*) {
+        .int_literal, .float_literal, .string_literal, .bool_literal,
+        .char_literal, .nil_literal, .duration_literal, .path_literal,
+        .regex_literal, .bytes_literal, .ident => {},
+        .lambda => |l| {
+            destroyExprSub(allocator, l.body);
+            allocator.destroy(@constCast(l.body));
+            allocator.free(@constCast(l.params));
+        },
+        .call => |c| {
+            destroyExprSub(allocator, c.func);
+            allocator.destroy(@constCast(c.func));
+            destroyExprSub(allocator, c.arg);
+            allocator.destroy(@constCast(c.arg));
+        },
+        .let_in => |l| {
+            for (l.bindings) |b| {
+                destroyExprSub(allocator, b.value);
+                allocator.destroy(@constCast(b.value));
+            }
+            allocator.free(@constCast(l.bindings));
+            destroyExprSub(allocator, l.body);
+            allocator.destroy(@constCast(l.body));
+        },
+        .do_block => |d| {
+            for (d.body) |*s| destroyStmtSub(allocator, s);
+            allocator.free(@constCast(d.body));
+            if (d.result) |r| {
+                destroyExprSub(allocator, r);
+                allocator.destroy(@constCast(r));
+            }
+        },
+        .if_expr => |i| {
+            destroyExprSub(allocator, i.cond);
+            allocator.destroy(@constCast(i.cond));
+            destroyExprSub(allocator, i.then);
+            allocator.destroy(@constCast(i.then));
+            destroyExprSub(allocator, i.else_);
+            allocator.destroy(@constCast(i.else_));
+        },
+        .case_expr => |c| {
+            destroyExprSub(allocator, c.subject);
+            allocator.destroy(@constCast(c.subject));
+            for (c.branches) |*b| destroyBranchSub(allocator, b);
+            allocator.free(@constCast(c.branches));
+        },
+        .pipe => |p| {
+            destroyExprSub(allocator, p.left);
+            allocator.destroy(@constCast(p.left));
+            destroyExprSub(allocator, p.right);
+            allocator.destroy(@constCast(p.right));
+        },
+        .pipe_reverse => |p| {
+            destroyExprSub(allocator, p.left);
+            allocator.destroy(@constCast(p.left));
+            destroyExprSub(allocator, p.right);
+            allocator.destroy(@constCast(p.right));
+        },
+        .compose => |p| {
+            destroyExprSub(allocator, p.left);
+            allocator.destroy(@constCast(p.left));
+            destroyExprSub(allocator, p.right);
+            allocator.destroy(@constCast(p.right));
+        },
+        .compose_reverse => |p| {
+            destroyExprSub(allocator, p.left);
+            allocator.destroy(@constCast(p.left));
+            destroyExprSub(allocator, p.right);
+            allocator.destroy(@constCast(p.right));
+        },
+        .binary_op => |b| {
+            destroyExprSub(allocator, b.left);
+            allocator.destroy(@constCast(b.left));
+            destroyExprSub(allocator, b.right);
+            allocator.destroy(@constCast(b.right));
+        },
+        .unary_op => |u| {
+            destroyExprSub(allocator, u.operand);
+            allocator.destroy(@constCast(u.operand));
+        },
+        .list_literal => |l| {
+            for (l.items) |item| {
+                switch (item) {
+                    .expr => |e| {
+                        destroyExprSub(allocator, e);
+                        allocator.destroy(@constCast(e));
+                    },
+                    .spread => |s| {
+                        destroyExprSub(allocator, s);
+                        allocator.destroy(@constCast(s));
+                    },
+                }
+            }
+            allocator.free(@constCast(l.items));
+        },
+        .tuple_literal => |t| {
+            for (t.items) |item| {
+                destroyExprSub(allocator, item);
+                allocator.destroy(@constCast(item));
+            }
+            allocator.free(@constCast(t.items));
+        },
+        .record_literal => |r| {
+            for (r.fields) |f| {
+                destroyExprSub(allocator, f.value);
+                allocator.destroy(@constCast(f.value));
+            }
+            allocator.free(@constCast(r.fields));
+        },
+        .record_access => |r| {
+            destroyExprSub(allocator, r.record);
+            allocator.destroy(@constCast(r.record));
+        },
+        .record_update => |r| {
+            destroyExprSub(allocator, r.record);
+            allocator.destroy(@constCast(r.record));
+            for (r.fields) |f| {
+                destroyExprSub(allocator, f.value);
+                allocator.destroy(@constCast(f.value));
+            }
+            allocator.free(@constCast(r.fields));
+        },
+        .map_literal => |m| {
+            for (m.entries) |e| {
+                destroyExprSub(allocator, e.key);
+                allocator.destroy(@constCast(e.key));
+                destroyExprSub(allocator, e.value);
+                allocator.destroy(@constCast(e.value));
+            }
+            allocator.free(@constCast(m.entries));
+        },
+        .set_literal => |s| {
+            for (s.items) |item| {
+                destroyExprSub(allocator, item);
+                allocator.destroy(@constCast(item));
+            }
+            allocator.free(@constCast(s.items));
+        },
+        .range_literal => |r| {
+            destroyExprSub(allocator, r.from);
+            allocator.destroy(@constCast(r.from));
+            destroyExprSub(allocator, r.to);
+            allocator.destroy(@constCast(r.to));
+            if (r.step) |step| {
+                destroyExprSub(allocator, step);
+                allocator.destroy(@constCast(step));
+            }
+        },
+        .ternary => |t| {
+            destroyExprSub(allocator, t.cond);
+            allocator.destroy(@constCast(t.cond));
+            destroyExprSub(allocator, t.then);
+            allocator.destroy(@constCast(t.then));
+            destroyExprSub(allocator, t.else_);
+            allocator.destroy(@constCast(t.else_));
+        },
+        .optional_chaining => |o| {
+            destroyExprSub(allocator, o.object);
+            allocator.destroy(@constCast(o.object));
+        },
+    }
+}

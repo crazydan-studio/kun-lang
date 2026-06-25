@@ -1,4 +1,5 @@
 const std = @import("std");
+const ast = @import("../ast/ast.zig");
 const parser = @import("../parser/parser.zig");
 const typed = @import("../ast/typed.zig");
 const env_mod = @import("env.zig");
@@ -20,5 +21,22 @@ pub fn infer(
     var errors = try ErrorList.init(allocator);
     defer errors.deinit(allocator);
 
-    return constraint_mod.inferModule(allocator, decls, env, &errors, primitives);
+    const result = constraint_mod.inferModule(allocator, decls, env, &errors, primitives) catch |err| {
+        for (decls) |decl| {
+            switch (decl) {
+                .function_def => |f| ast.destroyExprSub(allocator, f.body),
+                else => {},
+            }
+        }
+        return err;
+    };
+
+    for (decls) |decl| {
+        switch (decl) {
+            .function_def => |f| ast.destroyExprSub(allocator, f.body),
+            else => {},
+        }
+    }
+
+    return result;
 }

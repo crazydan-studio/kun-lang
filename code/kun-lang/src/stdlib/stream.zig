@@ -55,10 +55,17 @@ pub fn streamFoldImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn streamToListImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .stream) return Value{ .nil = {} };
+    const stream_node = args[0].stream;
+    if (stream_node.* == .list_items) {
+        const items = stream_node.list_items.items;
+        env.allocator.destroy(stream_node);
+        return Value{ .list = .{ .items = items, .cap = items.len } };
+    }
     var list: std.ArrayListUnmanaged(Value) = .empty;
     while (stream_consumer.consumeNext(args[0].stream, env.allocator, null) catch null) |val| {
         list.append(env.allocator, val) catch return Value{ .nil = {} };
     }
+    env.allocator.destroy(stream_node);
     const items = list.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
     return Value{ .list = .{ .items = items, .cap = items.len } };
 }

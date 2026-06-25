@@ -34,6 +34,16 @@ const SetBucket = struct {
     }
 };
 
+fn asMapBuckets(entries: [*]u8, cap: u64) []MapBucket {
+    const ptr: [*]MapBucket = @ptrFromInt(@intFromPtr(entries));
+    return ptr[0..cap];
+}
+
+fn asSetBuckets(entries: [*]u8, cap: u64) []SetBucket {
+    const ptr: [*]SetBucket = @ptrFromInt(@intFromPtr(entries));
+    return ptr[0..cap];
+}
+
 pub fn hashKey(key: Value) u64 {
     return switch (key) {
         .int => |i| @bitCast(@as(u64, @intCast(i))),
@@ -109,12 +119,11 @@ fn needsResize(len: u64, cap: u64) bool {
 
 fn resizeMap(allocator: std.mem.Allocator, old_entries: [*]u8, old_len: u64, old_cap: u64) !MapRepr {
     const new_cap = if (old_cap == 0) MIN_CAP else old_cap * 2;
-    const new_bytes = try allocator.alloc(u8, @sizeOf(MapBucket) * new_cap);
-    @memset(new_bytes, 0);
-    const new_buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, new_bytes));
+    const new_buckets = try allocator.alloc(MapBucket, new_cap);
+    @memset(std.mem.sliceAsBytes(new_buckets), 0);
 
     if (old_cap > 0) {
-        const old_buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, old_entries[0 .. @sizeOf(MapBucket) * old_cap]));
+        const old_buckets = asMapBuckets(old_entries, old_cap);
         for (old_buckets) |b| {
             if (!b.occupied) continue;
             if (findMapSlot(new_buckets, new_cap, b.key, b.hash)) |slot| {
@@ -123,17 +132,16 @@ fn resizeMap(allocator: std.mem.Allocator, old_entries: [*]u8, old_len: u64, old
         }
     }
 
-    return MapRepr{ .entries = new_bytes.ptr, .len = old_len, .cap = new_cap };
+    return MapRepr{ .entries = @ptrCast(new_buckets.ptr), .len = old_len, .cap = new_cap };
 }
 
 fn resizeSet(allocator: std.mem.Allocator, old_entries: [*]u8, old_len: u64, old_cap: u64) !SetRepr {
     const new_cap = if (old_cap == 0) MIN_CAP else old_cap * 2;
-    const new_bytes = try allocator.alloc(u8, @sizeOf(SetBucket) * new_cap);
-    @memset(new_bytes, 0);
-    const new_buckets: []SetBucket = @alignCast(std.mem.bytesAsSlice(SetBucket, new_bytes));
+    const new_buckets = try allocator.alloc(SetBucket, new_cap);
+    @memset(std.mem.sliceAsBytes(new_buckets), 0);
 
     if (old_cap > 0) {
-        const old_buckets: []SetBucket = @alignCast(std.mem.bytesAsSlice(SetBucket, old_entries[0 .. @sizeOf(SetBucket) * old_cap]));
+        const old_buckets = asSetBuckets(old_entries, old_cap);
         for (old_buckets) |b| {
             if (!b.occupied) continue;
             if (findSetSlot(new_buckets, new_cap, b.key, b.hash)) |slot| {
@@ -142,14 +150,14 @@ fn resizeSet(allocator: std.mem.Allocator, old_entries: [*]u8, old_len: u64, old
         }
     }
 
-    return SetRepr{ .entries = new_bytes.ptr, .len = old_len, .cap = new_cap };
+    return SetRepr{ .entries = @ptrCast(new_buckets.ptr), .len = old_len, .cap = new_cap };
 }
 
 pub fn mapGet(entries: [*]u8, len: u64, cap: u64, key: Value) ?Value {
     _ = len;
     if (cap == 0) return null;
     const kh = hashKey(key);
-    const buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, entries[0 .. @sizeOf(MapBucket) * cap]));
+    const buckets = asMapBuckets(entries, cap);
     if (findMapSlotForGet(buckets, cap, key, kh)) |slot| {
         return buckets[slot].value;
     }
@@ -162,9 +170,13 @@ pub fn mapInsert(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
 
     if (needsResize(repr.len, repr.cap)) {
         repr = try resizeMap(allocator, repr.entries, repr.len, repr.cap);
+        if (cap > 0) {
+            const old_aligned: []align(@alignOf(MapBucket)) u8 = @alignCast(entries[0 .. @sizeOf(MapBucket) * cap]);
+            allocator.free(old_aligned);
+        }
     }
 
-    const buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]));
+    const buckets = asMapBuckets(repr.entries, repr.cap);
     if (findMapSlot(buckets, repr.cap, key, kh)) |slot| {
         const is_new = !buckets[slot].occupied;
         buckets[slot] = MapBucket{ .hash = kh, .key = key, .value = value, .occupied = true };
@@ -177,11 +189,10 @@ pub fn mapInsert(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
 pub fn mapRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u64, key: Value) !MapRepr {
     if (cap == 0 or len == 0) return MapRepr{ .entries = entries, .len = len, .cap = cap };
 
-    const new_bytes = try allocator.alloc(u8, @sizeOf(MapBucket) * cap);
-    @memset(new_bytes, 0);
-    const new_buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, new_bytes));
+    const new_buckets = try allocator.alloc(MapBucket, cap);
+    @memset(std.mem.sliceAsBytes(new_buckets), 0);
 
-    const old_buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, entries[0 .. @sizeOf(MapBucket) * cap]));
+    const old_buckets = asMapBuckets(entries, cap);
     const kh = hashKey(key);
     var new_len: u64 = 0;
 
@@ -194,12 +205,12 @@ pub fn mapRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
         }
     }
 
-    return MapRepr{ .entries = new_bytes.ptr, .len = new_len, .cap = cap };
+    return MapRepr{ .entries = @ptrCast(new_buckets.ptr), .len = new_len, .cap = cap };
 }
 
 pub fn mapKeys(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u64) ![]Value {
     if (cap == 0) return &[_]Value{};
-    const buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, entries[0 .. @sizeOf(MapBucket) * cap]));
+    const buckets = asMapBuckets(entries, cap);
     const items = try allocator.alloc(Value, len);
     var idx: usize = 0;
     for (buckets) |b| {
@@ -213,7 +224,7 @@ pub fn mapKeys(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u64)
 
 pub fn mapValues(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u64) ![]Value {
     if (cap == 0) return &[_]Value{};
-    const buckets: []MapBucket = @alignCast(std.mem.bytesAsSlice(MapBucket, entries[0 .. @sizeOf(MapBucket) * cap]));
+    const buckets = asMapBuckets(entries, cap);
     const items = try allocator.alloc(Value, len);
     var idx: usize = 0;
     for (buckets) |b| {
@@ -229,7 +240,7 @@ pub fn setContains(entries: [*]u8, len: u64, cap: u64, key: Value) bool {
     _ = len;
     if (cap == 0) return false;
     const kh = hashKey(key);
-    const buckets: []SetBucket = @alignCast(std.mem.bytesAsSlice(SetBucket, entries[0 .. @sizeOf(SetBucket) * cap]));
+    const buckets = asSetBuckets(entries, cap);
     return findSetSlotForGet(buckets, cap, key, kh) != null;
 }
 
@@ -239,9 +250,13 @@ pub fn setInsert(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
 
     if (needsResize(repr.len, repr.cap)) {
         repr = try resizeSet(allocator, repr.entries, repr.len, repr.cap);
+        if (cap > 0) {
+            const old_aligned: []align(@alignOf(SetBucket)) u8 = @alignCast(entries[0 .. @sizeOf(SetBucket) * cap]);
+            allocator.free(old_aligned);
+        }
     }
 
-    const buckets: []SetBucket = @alignCast(std.mem.bytesAsSlice(SetBucket, repr.entries[0 .. @sizeOf(SetBucket) * repr.cap]));
+    const buckets = asSetBuckets(repr.entries, repr.cap);
     if (findSetSlot(buckets, repr.cap, key, kh)) |slot| {
         const is_new = !buckets[slot].occupied;
         buckets[slot] = SetBucket{ .hash = kh, .key = key, .occupied = true };
@@ -254,13 +269,12 @@ pub fn setInsert(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
 pub fn setRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u64, key: Value) SetRepr {
     if (cap == 0 or len == 0) return SetRepr{ .entries = entries, .len = len, .cap = cap };
 
-    const new_bytes = allocator.alloc(u8, @sizeOf(SetBucket) * cap) catch {
+    const new_buckets = allocator.alloc(SetBucket, cap) catch {
         return SetRepr{ .entries = entries, .len = len, .cap = cap };
     };
-    @memset(new_bytes, 0);
-    const new_buckets: []SetBucket = @alignCast(std.mem.bytesAsSlice(SetBucket, new_bytes));
+    @memset(std.mem.sliceAsBytes(new_buckets), 0);
 
-    const old_buckets: []SetBucket = @alignCast(std.mem.bytesAsSlice(SetBucket, entries[0 .. @sizeOf(SetBucket) * cap]));
+    const old_buckets = asSetBuckets(entries, cap);
     const kh = hashKey(key);
     var new_len: u64 = 0;
 
@@ -273,5 +287,5 @@ pub fn setRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
         }
     }
 
-    return SetRepr{ .entries = new_bytes.ptr, .len = new_len, .cap = cap };
+    return SetRepr{ .entries = @ptrCast(new_buckets.ptr), .len = new_len, .cap = cap };
 }

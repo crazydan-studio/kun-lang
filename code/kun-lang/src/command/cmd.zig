@@ -14,7 +14,10 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
     }
 
     const argv = try buildArgv(cmd, allocator);
-    defer {}
+    defer {
+        for (argv[1..]) |a| allocator.free(a);
+        allocator.free(argv);
+    }
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
     if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
@@ -52,7 +55,15 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
 
 pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload, allocator: std.mem.Allocator) !*StreamNode {
     const argv1 = try buildArgv(cmd1, allocator);
+    defer {
+        for (argv1[1..]) |a| allocator.free(a);
+        allocator.free(argv1);
+    }
     const argv2 = try buildArgv(cmd2, allocator);
+    defer {
+        for (argv2[1..]) |a| allocator.free(a);
+        allocator.free(argv2);
+    }
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
     if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
@@ -109,6 +120,7 @@ fn buildArgv(cmd: *const CommandPayload, allocator: std.mem.Allocator) ![]const 
     try list.append(allocator, cmd.bin);
     for (cmd.options) |opt| {
         const flag = try camelToKebab(allocator, opt.name);
+        defer allocator.free(flag);
         switch (opt.value) {
             .bool => |b| {
                 if (b) {
