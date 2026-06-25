@@ -14,7 +14,7 @@ pub fn allocSentinel(allocator: std.mem.Allocator, s: []const u8) ![:0]u8 {
 pub fn printlnImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len > 0 and args[0] == .string) {
         if (!@import("builtin").is_test) {
-            const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
+            const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .nil = {} };
             _ = std.os.linux.write(1, msg.ptr, msg.len);
         }
     }
@@ -37,7 +37,7 @@ pub fn readlnImpl(env: *RuntimeEnv, args: []const Value) Value {
     const end = for (buf[0..n], 0..) |b, i| {
         if (b == '\n') break i;
     } else n;
-    const line = env.allocator.dupe(u8, buf[0..end]) catch return Value{ .string = "" };
+    const line = env.allocator.dupe(u8, buf[0..end]) catch return Value{ .nil = {} };
     return Value{ .string = line };
 }
 
@@ -51,7 +51,7 @@ pub fn eprintImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn eprintlnImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len > 0 and args[0] == .string) {
-        const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
+        const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .nil = {} };
         _ = std.os.linux.write(2, msg.ptr, msg.len);
     }
     return Value{ .unit = {} };
@@ -74,7 +74,7 @@ pub fn readAllImpl(env: *RuntimeEnv, args: []const Value) Value {
         if (n <= 0) break;
         buf.appendSlice(env.allocator, tmp[0..n]) catch break;
     }
-    const s = buf.toOwnedSlice(env.allocator) catch return Value{ .string = "" };
+    const s = buf.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
     return Value{ .string = s };
 }
 

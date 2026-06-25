@@ -19,7 +19,7 @@ pub fn sha256HexImpl(env: *RuntimeEnv, args: []const Value) Value {
     var out: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(args[0].bytes, &out, .{});
     const hex_chars = "0123456789abcdef";
-    const result = env.allocator.alloc(u8, 64) catch return Value{ .string = "" };
+    const result = env.allocator.alloc(u8, 64) catch return Value{ .nil = {} };
     for (&out, 0..) |byte, i| {
         result[i * 2] = hex_chars[byte >> 4];
         result[i * 2 + 1] = hex_chars[byte & 0xF];
@@ -50,7 +50,7 @@ pub fn base64EncodeImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .bytes) return Value{ .string = "" };
     const encoder = std.base64.standard.Encoder;
     const out_len = encoder.calcSize(args[0].bytes.len);
-    const buf = env.allocator.alloc(u8, out_len) catch return Value{ .string = "" };
+    const buf = env.allocator.alloc(u8, out_len) catch return Value{ .nil = {} };
     const encoded = encoder.encode(buf, args[0].bytes);
     return Value{ .string = encoded };
 }

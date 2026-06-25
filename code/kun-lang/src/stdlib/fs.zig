@@ -243,7 +243,10 @@ pub fn walkDirImpl(env: *RuntimeEnv, args: []const Value) Value {
 }
 
 fn walkDirRecursive(allocator: std.mem.Allocator, root: []const u8, list: *std.ArrayListUnmanaged(Value), depth: u32) void {
-    if (depth > 256) return;
+    if (depth > 256) {
+        std.log.warn("walkDir: max depth 256 reached, truncating at {s}", .{root});
+        return;
+    }
     const path_z = allocator.allocSentinel(u8, root.len, 0) catch return;
     @memcpy(path_z[0..root.len], root);
     const fd = openFile(path_z, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);

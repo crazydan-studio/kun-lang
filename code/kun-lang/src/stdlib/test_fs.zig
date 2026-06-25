@@ -154,9 +154,9 @@ test "file mkdirAll nested" {
     defer arena.deinit();
     var env = makeEnv(arena.allocator());
     const path = "/tmp/kun_test_mkdirall/a/b";
-    defer _ = std.os.linux.rmdir(@ptrCast("/tmp/kun_test_mkdirall/a/b\x00")); // non-null-terminated issue
-    defer _ = std.os.linux.rmdir("/tmp/kun_test_mkdirall/a");
     defer _ = std.os.linux.rmdir("/tmp/kun_test_mkdirall");
+    defer _ = std.os.linux.rmdir("/tmp/kun_test_mkdirall/a");
+    defer _ = std.os.linux.rmdir("/tmp/kun_test_mkdirall/a/b");
 
     const args = [_]Value{Value{ .path = path }};
     const result = fs_mod.mkdirAllImpl(&env, &args);

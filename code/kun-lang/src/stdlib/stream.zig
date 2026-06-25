@@ -19,13 +19,13 @@ pub fn streamIterImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .closure or args[1] != .stream) return Value{ .unit = {} };
     const callback = args[0].closure;
     const stream_node = args[1].stream;
-    const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
+    const frame = env.allocator.create(env_mod.Frame) catch return Value{ .nil = {} };
     defer env.allocator.destroy(frame);
     frame.* = env_mod.Frame{ .bindings = .empty, .parent = callback.env, .primitives = null };
     defer frame.bindings.deinit(env.allocator);
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
         frame.bindings.clearRetainingCapacity();
-        frame.bindings.put(env.allocator, callback.param_names[0], val) catch return Value{ .unit = {} };
+        frame.bindings.put(env.allocator, callback.param_names[0], val) catch return Value{ .nil = {} };
         _ = primitive_mod.callEval(env, callback.body, frame) catch {};
     }
     return Value{ .unit = {} };
@@ -36,17 +36,17 @@ pub fn streamFoldImpl(env: *RuntimeEnv, args: []const Value) Value {
     const folder = args[0].closure;
     var acc = args[1];
     const stream_node = args[2].stream;
-    const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
+    const frame = env.allocator.create(env_mod.Frame) catch return Value{ .nil = {} };
     defer env.allocator.destroy(frame);
     frame.* = env_mod.Frame{ .bindings = .empty, .parent = folder.env, .primitives = null };
     defer frame.bindings.deinit(env.allocator);
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
         frame.bindings.clearRetainingCapacity();
         if (folder.param_names.len >= 2) {
-            frame.bindings.put(env.allocator, folder.param_names[0], acc) catch return Value{ .unit = {} };
-            frame.bindings.put(env.allocator, folder.param_names[1], val) catch return Value{ .unit = {} };
+            frame.bindings.put(env.allocator, folder.param_names[0], acc) catch return Value{ .nil = {} };
+            frame.bindings.put(env.allocator, folder.param_names[1], val) catch return Value{ .nil = {} };
         } else if (folder.param_names.len == 1) {
-            frame.bindings.put(env.allocator, folder.param_names[0], val) catch return Value{ .unit = {} };
+            frame.bindings.put(env.allocator, folder.param_names[0], val) catch return Value{ .nil = {} };
         }
         acc = primitive_mod.callEval(env, folder.body, frame) catch return acc;
     }
@@ -77,7 +77,7 @@ pub fn streamStringImpl(env: *RuntimeEnv, args: []const Value) Value {
         if (val != .string) continue;
         buf.appendSlice(env.allocator, val.string) catch break;
     }
-    const s = buf.toOwnedSlice(env.allocator) catch return Value{ .string = "" };
+    const s = buf.toOwnedSlice(env.allocator) catch return Value{ .nil = {} };
     return Value{ .string = s };
 }
 
@@ -143,7 +143,7 @@ pub fn streamLinesMaxImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn cmdExecImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .command) return Value{ .unit = {} };
-    const stream_node = cmd_mod.execCommand(&args[0].command, env.allocator) catch return Value{ .unit = {} };
+    const stream_node = cmd_mod.execCommand(&args[0].command, env.allocator) catch return Value{ .nil = {} };
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |_| {}
     return Value{ .unit = {} };
 }
@@ -161,7 +161,7 @@ pub fn cmdPipeImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn cmdPipeBangImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .command or args[1] != .command) return Value{ .unit = {} };
-    const node = cmd_mod.execPipeCommand(&args[0].command, &args[1].command, env.allocator) catch return Value{ .unit = {} };
+    const node = cmd_mod.execPipeCommand(&args[0].command, &args[1].command, env.allocator) catch return Value{ .nil = {} };
     while (stream_consumer.consumeNext(node, env.allocator, null) catch null) |_| {}
     return Value{ .unit = {} };
 }
