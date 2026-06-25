@@ -103,10 +103,32 @@ libkunlang.so（解释器核心 + CLI 参数解析引擎 + 运行时 + Primitive
 
 i18n 子系统位于解释器核心内部——locale 检测在初始化阶段先于任何错误输出执行，确保错误消息按正确语言格式化。
 
+## 源代码映射
+
+各模块在 `code/kun-lang/src/` 中的物理路径与模块划分的对应关系：
+
+| 架构模块 | 源代码目录 |
+|---------|-----------|
+| 解释器核心 — Lexer | `lexer/` |
+| 解释器核心 — Parser | `parser/` |
+| 解释器核心 — Type Checker | `typecheck/` |
+| 解释器核心 — Effect Checker | `typecheck/effect.zig` |
+| 解释器核心 — AST | `ast/` |
+| 解释器核心 — i18n | `i18n/` |
+| 运行时 | `runtime/` |
+| 命令调用系统 | `command/` |
+| 标准库 | `stdlib/` |
+| CLI 参数解析引擎 | `cli/`（推迟 v0.3） |
+| 安全子系统 | `security/`（推迟 v0.2） |
+| Kun Shell | 推迟 v2.0 |
+
+完整源代码树见 `context/codebase-map.md`。
+
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | 新增源代码映射表，架构模块与物理目录一一对应 |
 | 2026.06.18 | Kun Shell 标注实现推迟至 v2.0，架构依赖关系保留但加推迟注记 |
 | 2026.06.15 | 解释器核心新增 i18n 子系统（locale 检测 + 消息翻译） |
 | 2026.06.15 | 标准库模块补充 Primitive 函数表绑定接口；模块职责说明细化实现分类；依赖图标注 Primitive 绑定 |

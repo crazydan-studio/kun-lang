@@ -81,6 +81,28 @@
 
 ## 测试用例编写规范
 
+### 文件组织
+
+- **单元测试**：采用 `test_{target}.zig` 命名，与实现文件**同目录放置**（共址原则）
+  - 每个实现模块必须有对应的单元测试文件，例如 `lexer/lexer.zig` ↔ `lexer/test_lexer.zig`
+  - 共址关系受 `src/test_main.zig` 中的 `comptime` 引用链管理
+  - 目录结构按 `architecture/module-boundaries.md` 模块划分组织：
+    | 模块 | 源代码目录 | 示例 |
+    |------|-----------|------|
+    | AST | `ast/` | `ast/ast.zig` ↔ `ast/`（无测试，纯数据结构定义） |
+    | 词法分析器 | `lexer/` | `lexer/lexer.zig` ↔ `lexer/test_lexer.zig` |
+    | 语法分析器 | `parser/` | `parser/parser.zig` ↔ `parser/test_parser.zig` |
+    | 类型检查器 | `typecheck/` | `typecheck/constraint.zig` ↔ `typecheck/test_constraint.zig` |
+    | i18n 子系统 | `i18n/` | `i18n/i18n.zig` ↔ `i18n/test_i18n.zig` |
+    | 运行时 | `runtime/` | `runtime/eval.zig` ↔ `runtime/test_eval.zig` |
+    | 命令调用系统 | `command/` | `command/cmd.zig` ↔ `command/test_cmd.zig` |
+    | 标准库 | `stdlib/` | `stdlib/stream.zig` ↔ `stdlib/test_stream.zig` |
+- **集成测试**：位于 `tests/` 目录，测试从词法分析到求值的全流水线（lex → parse → typecheck → eval）
+  - 文件命名：`test_{场景描述}.zig`
+- **测试运行器**：`test_main.zig` 是唯一的测试入口，通过 `comptime` 导入所有测试文件，不新增独立测试入口
+
+### 写法模式
+
 对于同类型（相同测试维度）但具体测试目标不同的测试用例，优先采用**数据列表 + 循环遍历**方式在单个测试中实现，而非为每个数据点创建独立测试函数。
 
 **模式**：
@@ -117,6 +139,7 @@ test "describes the category being tested" {
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | 测试规范扩展：新增文件组织规则（共址原则、模块目录映射、test_main.zig 入口） |
 | 2026.06.24 | 新增测试用例编写规范（列表+循环模式） |
 | 2026.06.17 | 命名规范：新增 Kun 模块文件（PascalCase）、入口脚本（kebab-case）、`lib/` 子目录（PascalCase）、Zig 源文件（snake_case）命名规则；移除"待定"占位 |
 | 2026.06.15 | 新增代码审查/版本管理/编码约定/注释标记规范 |

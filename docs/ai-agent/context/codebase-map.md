@@ -9,6 +9,76 @@
 | 文档 | `docs/` | VitePress 项目文档 |
 | 构建脚本 | `tools/` | 构建、预览等辅助脚本 |
 
+## 源代码结构
+
+`code/kun-lang/src/` 组织如下，目录命名与 `architecture/module-boundaries.md` 的模块划分一一对应：
+
+```
+src/
+├── main.zig              # CLI 入口（kun 可执行文件）
+├── lib.zig               # 共享库入口（libkunlang.so）
+├── test_main.zig         # 测试运行器根文件
+│
+├── ast/                  # 抽象语法树（解释器核心）
+│   ├── ast.zig           # 未类型化的 AST 节点与 Span
+│   └── typed.zig         # 带类型标注的 Typed AST
+│
+├── lexer/                # 词法分析器（解释器核心）
+│   ├── lexer.zig
+│   └── test_lexer.zig
+│
+├── parser/               # 语法分析器（解释器核心）
+│   ├── parser.zig
+│   └── test_parser.zig
+│
+├── typecheck/            # 类型检查器（解释器核心）
+│   ├── env.zig           # 类型环境
+│   ├── unify.zig         # 合一求解器
+│   ├── infer.zig         # 顶层推断入口
+│   ├── constraint.zig    # 约束生成与效应接线
+│   ├── effect.zig        # 效应检查器
+│   ├── pattern.zig       # 模式穷举与类型收窄
+│   ├── error.zig         # 结构化类型错误
+│   └── test_*.zig        # 对应模块的单元测试
+│
+├── i18n/                 # 国际化子系统（解释器核心）
+│   ├── i18n.zig          # locale 检测 + 双语消息格式
+│   └── test_i18n.zig
+│
+├── runtime/              # 运行时
+│   ├── value.zig         # 运行时值类型
+│   ├── env.zig           # 变量帧
+│   ├── eval.zig          # 求值器（标记 switch 分发）
+│   ├── defer.zig         # defer 链数据结构
+│   ├── hash_map.zig      # Map/Set 开地址哈希表
+│   ├── glob_engine.zig   # glob 模式匹配引擎
+│   ├── stream_consumer.zig  # Stream 惰性消费状态机
+│   ├── primitive.zig     # Primitive 函数表与绑定
+│   └── test_*.zig        # 对应模块的单元测试
+│
+├── command/              # 命令调用系统
+│   ├── cmd.zig           # fork-exec / pipe / PATH 解析
+│   └── test_cmd.zig
+│
+├── stdlib/               # 标准库 Primitive 实现
+│   ├── io.zig            # IO.println / print / readln / envList 等
+│   ├── fs.zig            # File.readString / writeBytes / walkDir / glob 等
+│   ├── crypto.zig        # sha256 / sha256Stream / jsonFromString / base64 等
+│   ├── data.zig          # List.length / head / Map.insert / Set.contains 等
+│   ├── stream.zig        # Stream.lines / iter / fold / range / Cmd.pipe 等
+│   └── test_*.zig        # 对应模块的单元测试
+│
+├── cli/                  # CLI 参数解析引擎（推迟 v0.3）
+├── security/             # 安全子系统（推迟 v0.2）
+│
+├── tests/                # 集成测试（lex→parse→typecheck→eval 全流水线）
+│   └── test_integration.zig
+│
+└── examples/             # Kun 示例脚本
+    ├── k8s-deploy/
+    └── monorepo-ci/
+```
+
 ## 关键目录
 
 | 目录 | 用途 |
@@ -35,7 +105,7 @@
 | `docs/ai-agent/retrospectives/` | 回顾总结 |
 | `docs/ai-agent/articles/` | 技术文章 |
 | `docs/ai-agent/analysis/` | 技术分析报告（如语言选型评估） |
-| `code/` | 源代码（待开发） |
+| `code/` | 源代码 |
 | `tools/` | 构建脚本 |
 
 ## 脆弱文件
@@ -46,5 +116,6 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | 新增源代码结构树，与 architecture/module-boundaries.md 模块划分对齐 |
 | 2026.06.20 | 关键目录表补全：新增 process/、examples/、audits/ 等 11 个目录条目 |
 | 2026.06.10 | 初始版本 |
