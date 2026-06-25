@@ -176,6 +176,7 @@ test "sha256 hex of bytes" {
 test "sha256Stream with bytes stream" {
     var env = makeEnv(std.testing.allocator);
     const items = try std.testing.allocator.alloc(Value, 1);
+    defer std.testing.allocator.free(items);
     items[0] = Value{ .bytes = "test data" };
     const list = Value{ .list = .{ .items = items, .cap = 1 } };
     const stream_val = stream_mod.streamFromListImpl(&env, &.{list});

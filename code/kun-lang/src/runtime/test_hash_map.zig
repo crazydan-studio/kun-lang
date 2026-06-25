@@ -48,8 +48,10 @@ test "hash_map keys and values" {
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "y" }, Value{ .int = 20 });
 
     const keys = try hash_map.mapKeys(allocator, repr.entries, repr.len, repr.cap);
+    defer allocator.free(keys);
     try std.testing.expectEqual(@as(usize, 2), keys.len);
     const vals = try hash_map.mapValues(allocator, repr.entries, repr.len, repr.cap);
+    defer allocator.free(vals);
     try std.testing.expectEqual(@as(usize, 2), vals.len);
 }
 
@@ -70,12 +72,17 @@ test "hash_map resize triggers" {
     const allocator = std.testing.allocator;
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
+    var key_strings: [20][]const u8 = undefined;
     var i: i64 = 0;
     while (i < 20) : (i += 1) {
         const key_s = try std.fmt.allocPrint(allocator, "key{d}", .{i});
+        key_strings[@intCast(i)] = key_s;
         repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = key_s }, Value{ .int = i });
     }
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer {
+        for (key_strings) |ks| allocator.free(ks);
+        allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    }
 
     try std.testing.expect(repr.cap >= 8);
     try std.testing.expectEqual(@as(u64, 20), repr.len);
@@ -145,12 +152,17 @@ test "hash_map large map insert and retrieve" {
     const allocator = std.testing.allocator;
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
+    var key_strings: [100][]const u8 = undefined;
     var i: i64 = 0;
     while (i < 100) : (i += 1) {
         const key_s = try std.fmt.allocPrint(allocator, "k{d}", .{i});
+        key_strings[@intCast(i)] = key_s;
         repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = key_s }, Value{ .int = i * 10 });
     }
-    defer allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    defer {
+        for (key_strings) |ks| allocator.free(ks);
+        allocator.free(repr.entries[0 .. @sizeOf(MapBucket) * repr.cap]);
+    }
 
     try std.testing.expectEqual(@as(u64, 100), repr.len);
 
