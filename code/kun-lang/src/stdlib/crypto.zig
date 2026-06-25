@@ -106,7 +106,7 @@ fn jsonToKunValue(allocator: std.mem.Allocator, jv: std.json.Value) !Value {
             while (it.next()) |entry| {
                 const k = Value{ .string = try allocator.dupe(u8, entry.key_ptr.*) };
                 const v = try jsonToKunValue(allocator, entry.value_ptr.*);
-                map = try @import("../hash_map.zig").mapInsert(allocator, map.entries, map.len, map.cap, k, v);
+                map = try @import("../runtime/hash_map.zig").mapInsert(allocator, map.entries, map.len, map.cap, k, v);
             }
             return Value{ .map = map };
         },

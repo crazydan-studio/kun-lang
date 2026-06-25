@@ -122,7 +122,9 @@ fn applyStreamFn(allocator: std.mem.Allocator, eval_fn: ?EvalFn, f: StreamFn, ar
         },
         .closure => |c| {
             const frame = try allocator.create(Frame);
+            defer allocator.destroy(frame);
             frame.* = Frame{ .bindings = .empty, .parent = c.env, .primitives = null };
+            defer frame.bindings.deinit(allocator);
             if (c.param_names.len == 1) {
                 try frame.bindings.put(allocator, c.param_names[0], arg);
             }

@@ -20,7 +20,9 @@ pub fn streamIterImpl(env: *RuntimeEnv, args: []const Value) Value {
     const callback = args[0].closure;
     const stream_node = args[1].stream;
     const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
+    defer env.allocator.destroy(frame);
     frame.* = env_mod.Frame{ .bindings = .empty, .parent = callback.env, .primitives = null };
+    defer frame.bindings.deinit(env.allocator);
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
         frame.bindings.clearRetainingCapacity();
         frame.bindings.put(env.allocator, callback.param_names[0], val) catch return Value{ .unit = {} };
@@ -35,7 +37,9 @@ pub fn streamFoldImpl(env: *RuntimeEnv, args: []const Value) Value {
     var acc = args[1];
     const stream_node = args[2].stream;
     const frame = env.allocator.create(env_mod.Frame) catch return Value{ .unit = {} };
+    defer env.allocator.destroy(frame);
     frame.* = env_mod.Frame{ .bindings = .empty, .parent = folder.env, .primitives = null };
+    defer frame.bindings.deinit(env.allocator);
     while (stream_consumer.consumeNext(stream_node, env.allocator, null) catch null) |val| {
         frame.bindings.clearRetainingCapacity();
         if (folder.param_names.len >= 2) {

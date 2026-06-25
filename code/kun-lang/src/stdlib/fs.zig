@@ -316,7 +316,7 @@ pub fn globImpl(env: *RuntimeEnv, args: []const Value) Value {
     var buf: [4096]u8 align(8) = undefined;
     var pos: usize = 0;
     var nread: usize = 0;
-    const glob_mod = @import("../glob_engine.zig");
+    const glob_mod = @import("../runtime/glob_engine.zig");
     while (true) {
         if (pos >= nread) {
             const r = std.os.linux.getdents64(@intCast(fd), &buf, buf.len);

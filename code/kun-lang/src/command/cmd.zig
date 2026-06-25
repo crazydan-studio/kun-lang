@@ -14,7 +14,10 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
     }
 
     const argv = try buildArgv(cmd, allocator);
-    defer allocator.free(argv);
+    defer {
+        for (argv[1..]) |a| allocator.free(a);
+        allocator.free(argv);
+    }
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
     if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
@@ -117,6 +120,7 @@ fn buildArgv(cmd: *const CommandPayload, allocator: std.mem.Allocator) ![]const 
     try list.append(allocator, cmd.bin);
     for (cmd.options) |opt| {
         const flag = try camelToKebab(allocator, opt.name);
+        defer allocator.free(flag);
         switch (opt.value) {
             .bool => |b| {
                 if (b) {
@@ -142,7 +146,15 @@ fn buildArgv(cmd: *const CommandPayload, allocator: std.mem.Allocator) ![]const 
 
 fn camelToKebab(allocator: std.mem.Allocator, name: []const u8) ![]const u8 {
     if (name.len == 0) return try allocator.dupe(u8, name);
-    var buf = try allocator.alloc(u8, name.len * 2);
+    var new_len: usize = 0;
+    for (name, 0..) |c, i| {
+        if (c >= 'A' and c <= 'Z' and i > 0) {
+            new_len += 2;
+        } else {
+            new_len += 1;
+        }
+    }
+    var buf = try allocator.alloc(u8, new_len);
     var j: usize = 0;
     for (name, 0..) |c, i| {
         if (c >= 'A' and c <= 'Z' and i > 0) {
