@@ -110,8 +110,8 @@ pub const LoadedModule = struct {
 - **脚本路径解析**：`--run <path>` 中的 `<path>` 先用 `std.fs.realpathAlloc` 解析为绝对路径
 - **ModuleResolver 初始化**：从脚本目录提取项目 `lib/`、读取 `KUN_PATH` 环境变量（冒号分隔）、定位运行时 `lib/kun/`（编译期 `@embedFile` 或固定路径）
 - **递归 import 加载**：遍历入口脚本的 import 声明，逐条 `ModuleResolver.load()`
-- **标准库回退**：import 未找到 `.kun` 文件时，从 `primitive.zig` 表回退——不报错
-- **导入符号注入**：类型检查前，将导入模块的 `export` 列表中符号注入类型环境；无 `export` 的脚本不可被导入
+- **标准库回退**：import 未找到 `.kun` 文件时，检查 `primitive.zig` 表是否有该模块绑定——有则注入 Primitive，无则检查是否为内置类型（`CommandError`/`Result`/`Duration`/`Path` 等已在 `typecheck/env.zig` 中定义的类型，无需 `.kun` 文件），两者均无则报错 `ModuleNotFound`
+- **导入符号注入**：类型检查前，将导入模块的 `export` 列表中符号注入类型环境；无 `export` 的脚本不可被导入；对 Primitive 回退的模块，注入表中该模块的所有函数绑定
 
 ### 2.3 标准库 .kun 模块
 
@@ -121,25 +121,26 @@ pub const LoadedModule = struct {
 
 ## Step 3：示例验证
 
-### 3.1 k8s-deploy/deploy.kun
+### 3.1 验证范围
 
-验证能通过 lex → parse → typecheck 全流水线。
+示例脚本 `k8s-deploy/deploy.kun` 和 `monorepo-ci/build.kun` 导入的模块分为三类：
 
-### 3.2 monorepo-ci/build.kun
+| 类别 | 模块 | 状态 | 验证 |
+|------|------|------|------|
+| Primitive 已就绪 | IO, File, Env, Process, Cmd, Stream, List, Map, Set, String, Bytes, Hash, Base64, Parser.JSON | 已实现 | lex→parse→typecheck 全流水线 |
+| 存根/推迟 | Cli (v0.3), Validator (v1.1), Task (v0.4), DateTime (v1.1), Regex (v1.1), Random (v0.3) | 无实现或 stub | lex→parse→**跳过 typecheck**（import 回退后报未定义符号） |
+| 项目本地模块 | Deployer, Verifier, Canary, Notifier, Builder, Tester, Dockerizer, Reporter | 存在于 `lib/` | lex→parse→ModuleResolver.load→typecheck |
+| 类型级 | CommandError, Duration, Result, Path | ADT/内置类型，非模块 | typecheck 通过（类型环境内置） |
 
-同上。
-
-### 3.3 验证方式
+### 3.2 实际验证命令
 
 ```bash
-# 语法+类型检查（dump-ast 覆盖 lex→parse+部分 typecheck）
+# 语法解析验证（全流水线 lex→parse）
 zig build dump-ast -- code/examples/k8s-deploy/deploy.kun
 zig build dump-ast -- code/examples/monorepo-ci/build.kun
 
-# 端到端执行（构建后直接运行 kun 二进制）
-zig build
-./zig-out/bin/kun --run code/examples/k8s-deploy/deploy.kun --help
-./zig-out/bin/kun --run code/examples/monorepo-ci/build.kun --help
+# 项目本地模块解析验证（需模块系统完成）
+# deploy.kun 的 lib/ 模块应能 resolve + parse 通过
 ```
 
 ## Step 4：收尾修复
@@ -189,6 +190,8 @@ Step 1-2 严格串行；Step 4 可与 Step 2 并行（修改不同文件）。
 |----|------|---------|
 | CLI 安全参数（--allow-path 等） | 沙箱子系统 | v0.2 |
 | Landlock/seccomp/rlimit | 安全子系统 | v0.2 |
+| `Duration`/`Int`/`Float`/`Char` 模块 Primitive 绑定 | 标准库扩展 | v0.2 |
+| `String`/`List`/`Map`/`Set` PureKun 函数 | .kun 标准库文件 | v0.2 |
 | Cli 模块 / Parser.Record | 编译期代码展开 | v0.3 |
 | 等递归类型 | TypeEnv 别名集合 | v0.3 |
 | Regex / Validator / DateTime | 专用引擎 | v1.1 |
@@ -198,4 +201,5 @@ Step 1-2 严格串行；Step 4 可与 Step 2 并行（修改不同文件）。
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | R2 审计修复（4 项）：示例验证按模块类别分级（Primitive就绪/存根推迟/本地模块/类型级）、标准库回退增加内置类型检查（CommandError/Result/Duration/Path）、推迟项补充 Duration/Int/Float/Char/PureKun 模块绑定 |
 | 2026.06.25 | R1 审计修复（8 项）：模块路径映射修正（`<root>`→四级路径遍历）、导入语法说明引用 syntax.md、标准库交互回退机制、LoadedModule 结构定义 + export 处理、import 处理流程细化（脚本路径解析 + 递归加载 + 符号注入 + 回退）、验证方式补充 --run、已知问题补充 constraint/eval import 处理、依赖图细化 |
