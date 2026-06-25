@@ -396,11 +396,15 @@ pub fn removeAllImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .path)
         return value_mod.makeErr(1, Value{ .string = "args" }, env.allocator) catch return Value{ .nil = {} };
     const path_z = io.allocSentinel(env.allocator, args[0].path) catch return Value{ .nil = {} };
-    removeRecursive(env.allocator, path_z);
+    removeRecursive(env.allocator, path_z, 0);
     return value_mod.makeOk(Value{ .unit = {} }, env.allocator) catch return Value{ .nil = {} };
 }
 
-fn removeRecursive(allocator: std.mem.Allocator, path: [:0]u8) void {
+fn removeRecursive(allocator: std.mem.Allocator, path: [:0]u8, depth: u32) void {
+    if (depth > 256) {
+        std.log.warn("removeAll: max depth 256 reached, truncating at {s}", .{path});
+        return;
+    }
     const fd = openFile(path, .{ .DIRECTORY = true, .CLOEXEC = true }, 0);
     if (fd < 0) {
         _ = std.os.linux.unlink(path);
@@ -423,7 +427,11 @@ fn removeRecursive(allocator: std.mem.Allocator, path: [:0]u8) void {
             const name = std.mem.sliceTo(@as([*:0]u8, @ptrCast(&de.name)), 0);
             if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
                 const sub_path = std.fs.path.joinZ(allocator, &.{ path, name }) catch continue;
-                removeRecursive(allocator, sub_path);
+                if (de.type == std.os.linux.DT.DIR) {
+                    removeRecursive(allocator, sub_path, depth + 1);
+                } else {
+                    _ = std.os.linux.unlink(sub_path);
+                }
             }
         }
         pos += de.reclen;
