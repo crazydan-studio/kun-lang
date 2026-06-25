@@ -166,6 +166,7 @@ fn exprSpan(expr: *const ast.Expr) ast.Span {
         .set_literal => |v| v.span,
         .range_literal => |v| v.span,
         .ternary => |v| v.span,
+        .optional_chaining => |v| v.span,
     };
 }
 

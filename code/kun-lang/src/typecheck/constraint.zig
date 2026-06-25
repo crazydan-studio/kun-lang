@@ -742,6 +742,19 @@ pub fn inferExpr(
             node.* = TypedExpr{ .ternary = .{ .cond = typed_cond, .then = typed_then, .else_ = typed_else, .type_ = result_type, .span = v.span } };
             return node;
         },
+        .optional_chaining => |v| {
+            const typed_obj = try inferExpr(allocator, v.object, env, errors, in_do);
+            const result_id = try env.newVar(allocator, std.math.maxInt(u32));
+            const obj_type = exprType(typed_obj);
+            const field_types = try ea.alloc(typed.RecordFieldType, 1);
+            field_types[0] = typed.RecordFieldType{ .name = v.field, .type_ = result_id };
+            const expected_rec = try env.registerType(allocator, Type{ .record = field_types });
+            unify_mod.unify(env, allocator, obj_type, expected_rec) catch {};
+            const nilable_result = try env.registerType(allocator, Type{ .nilable = result_id });
+            const node = try ea.create(TypedExpr);
+            node.* = TypedExpr{ .opt_chain = .{ .object = typed_obj, .field = v.field, .type_ = nilable_result, .span = v.span } };
+            return node;
+        },
     };
 }
 

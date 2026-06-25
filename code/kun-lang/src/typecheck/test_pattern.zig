@@ -260,3 +260,197 @@ test "narrowType variable on nilable narrows to inner" {
     const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
     try std.testing.expectEqual(env_mod.int_type, narrowed);
 }
+
+test "narrowType uppercase ident on ADT returns scrutinee" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const opt_ty = try env.registerType(std.testing.allocator, .{ .adt = .{
+        .name = "Option",
+        .variants = &.{
+            .{ .name = "Some", .payload = &.{env_mod.int_type} },
+            .{ .name = "None", .payload = &.{} },
+        },
+    } });
+    const pat = ast.Pattern{ .ident = .{ .name = "Some", .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, opt_ty, &env, std.testing.allocator);
+    try std.testing.expectEqual(opt_ty, narrowed);
+}
+
+test "narrowType lowercase ident on ADT returns scrutinee" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const opt_ty = try env.registerType(std.testing.allocator, .{ .adt = .{
+        .name = "Option",
+        .variants = &.{
+            .{ .name = "Some", .payload = &.{env_mod.int_type} },
+            .{ .name = "None", .payload = &.{} },
+        },
+    } });
+    const pat = ast.Pattern{ .ident = .{ .name = "val", .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, opt_ty, &env, std.testing.allocator);
+    try std.testing.expectEqual(opt_ty, narrowed);
+}
+
+test "narrowType variant pattern on ADT narrows to payload" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const opt_ty = try env.registerType(std.testing.allocator, .{ .adt = .{
+        .name = "Option",
+        .variants = &.{
+            .{ .name = "Some", .payload = &.{env_mod.int_type} },
+            .{ .name = "None", .payload = &.{} },
+        },
+    } });
+    const pat = ast.Pattern{ .variant = .{ .name = "Some", .inner = null, .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, opt_ty, &env, std.testing.allocator);
+    try std.testing.expectEqual(env_mod.int_type, narrowed);
+}
+
+test "narrowType variant pattern without payload on ADT returns scrutinee" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const opt_ty = try env.registerType(std.testing.allocator, .{ .adt = .{
+        .name = "Option",
+        .variants = &.{
+            .{ .name = "Some", .payload = &.{env_mod.int_type} },
+            .{ .name = "None", .payload = &.{} },
+        },
+    } });
+    const pat = ast.Pattern{ .variant = .{ .name = "None", .inner = null, .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, opt_ty, &env, std.testing.allocator);
+    try std.testing.expectEqual(opt_ty, narrowed);
+}
+
+test "narrowType bool True ident returns scrutinee" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const pat = ast.Pattern{ .ident = .{ .name = "True", .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, env_mod.bool_type, &env, std.testing.allocator);
+    try std.testing.expectEqual(env_mod.bool_type, narrowed);
+}
+
+test "narrowType bool False ident returns scrutinee" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const pat = ast.Pattern{ .ident = .{ .name = "False", .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, env_mod.bool_type, &env, std.testing.allocator);
+    try std.testing.expectEqual(env_mod.bool_type, narrowed);
+}
+
+test "narrowType boolean literal pattern" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const lit = try std.testing.allocator.create(ast.Expr);
+    defer std.testing.allocator.destroy(lit);
+    lit.* = .{ .bool_literal = .{ .value = true, .span = undefined } };
+    const pat = ast.Pattern{ .literal = lit };
+    const narrowed = try pattern_mod.narrowType(pat, env_mod.bool_type, &env, std.testing.allocator);
+    try std.testing.expectEqual(env_mod.bool_type, narrowed);
+}
+
+test "narrowType record pattern" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const fields = try std.testing.allocator.alloc(ast.RecordPatternField, 1);
+    defer std.testing.allocator.free(fields);
+    fields[0] = .{ .name = "x", .pattern = .{ .wildcard = undefined }, .span = undefined };
+    const pat = ast.Pattern{ .record = fields };
+    const narrowed = try pattern_mod.narrowType(pat, 5, &env, std.testing.allocator);
+    try std.testing.expectEqual(@as(typed.TypeId, 5), narrowed);
+}
+
+test "narrowType or-pattern" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const left = try std.testing.allocator.create(ast.Pattern);
+    defer std.testing.allocator.destroy(left);
+    left.* = .{ .wildcard = undefined };
+    const right = try std.testing.allocator.create(ast.Pattern);
+    defer std.testing.allocator.destroy(right);
+    right.* = .{ .wildcard = undefined };
+    const pat = ast.Pattern{ .or_ = .{ .left = left, .right = right, .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, 7, &env, std.testing.allocator);
+    try std.testing.expectEqual(@as(typed.TypeId, 7), narrowed);
+}
+
+test "narrowType guard pattern with nil literal on nilable" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    const lit = try std.testing.allocator.create(ast.Expr);
+    defer std.testing.allocator.destroy(lit);
+    lit.* = .{ .nil_literal = undefined };
+    const pat = ast.Pattern{ .literal = lit };
+    const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
+    try std.testing.expectEqual(nil_int, narrowed);
+}
+
+test "narrowType guard pattern delegates to inner" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    const inner = try std.testing.allocator.create(ast.Pattern);
+    defer std.testing.allocator.destroy(inner);
+    inner.* = .{ .ident = .{ .name = "x", .span = undefined } };
+    const pat = ast.Pattern{ .guard = .{ .inner = inner, .cond = undefined, .span = undefined } };
+    const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
+    try std.testing.expectEqual(env_mod.int_type, narrowed);
+}
+
+test "checkExhaustive int type with no wildcard" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const lit = try std.testing.allocator.create(ast.Expr);
+    defer std.testing.allocator.destroy(lit);
+    lit.* = .{ .int_literal = .{ .value = 42, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .literal = lit }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, env_mod.int_type, &branches);
+    try std.testing.expect(result != null);
+}
+
+test "checkExhaustive string type with wildcard is exhaustive" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .wildcard = undefined }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, env_mod.string_type, &branches);
+    try std.testing.expectEqual(@as(?[][]const u8, null), result);
+}
+
+test "checkExhaustive nilable type with Nil only" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .ident = .{ .name = "Nil", .span = undefined } }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, nil_int, &branches);
+    try std.testing.expect(result != null);
+}
+
+test "checkExhaustive nilable type with Nil and wildcard" {
+    var env = try makeEnv();
+    defer env.deinit(std.testing.allocator);
+    const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    const body = try std.testing.allocator.create(typed.TypedExpr);
+    defer std.testing.allocator.destroy(body);
+    body.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const branches = [_]typed.Branch{
+        .{ .pattern = .{ .ident = .{ .name = "Nil", .span = undefined } }, .body = body, .type_ = 0 },
+        .{ .pattern = .{ .wildcard = undefined }, .body = body, .type_ = 0 },
+    };
+    const result = try pattern_mod.checkExhaustive(std.testing.allocator, &env, nil_int, &branches);
+    try std.testing.expectEqual(@as(?[][]const u8, null), result);
+}

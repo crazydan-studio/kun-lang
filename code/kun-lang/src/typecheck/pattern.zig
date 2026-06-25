@@ -106,11 +106,11 @@ pub fn narrowType(
     env: *TypeEnv,
     allocator: std.mem.Allocator,
 ) !TypeId {
-    _ = allocator;
     const resolved = env.resolveType(scrutinee_ty);
 
     if (resolved == .nilable) {
         const inner = resolved.nilable;
+        if (pattern == .guard) return try narrowType(pattern.guard.inner.*, scrutinee_ty, env, allocator);
         if (pattern == .wildcard) return scrutinee_ty;
         if (pattern == .ident) {
             const name = pattern.ident.name;
@@ -147,6 +147,8 @@ pub fn narrowType(
             if (std.mem.eql(u8, name, "True") or std.mem.eql(u8, name, "False")) return scrutinee_ty;
         }
     }
+
+    if (pattern == .or_) return scrutinee_ty;
 
     return scrutinee_ty;
 }
