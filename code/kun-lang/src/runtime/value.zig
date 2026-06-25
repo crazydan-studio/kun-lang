@@ -83,13 +83,15 @@ pub const Value = union(enum) {
 };
 
 pub fn makeOk(val: Value, allocator: std.mem.Allocator) !Value {
-    const payload = try allocator.create(Value);
+    _ = allocator;
+    const payload = try std.heap.page_allocator.create(Value);
     payload.* = val;
     return Value{ .adt = .{ .tag = 0, .payload = payload } };
 }
 
 pub fn makeErr(tag: u8, val: Value, allocator: std.mem.Allocator) !Value {
-    const payload = try allocator.create(Value);
+    _ = allocator;
+    const payload = try std.heap.page_allocator.create(Value);
     payload.* = val;
     return Value{ .adt = .{ .tag = tag, .payload = payload } };
 }

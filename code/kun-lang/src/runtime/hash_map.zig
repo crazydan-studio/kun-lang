@@ -255,10 +255,12 @@ pub fn setInsert(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
     return repr;
 }
 
-pub fn setRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u64, key: Value) !SetRepr {
+pub fn setRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u64, key: Value) SetRepr {
     if (cap == 0 or len == 0) return SetRepr{ .entries = entries, .len = len, .cap = cap };
 
-    const new_bytes = try allocator.alloc(u8, @sizeOf(SetBucket) * cap);
+    const new_bytes = allocator.alloc(u8, @sizeOf(SetBucket) * cap) catch {
+        return SetRepr{ .entries = entries, .len = len, .cap = cap };
+    };
     @memset(new_bytes, 0);
     const new_buckets: []SetBucket = @alignCast(std.mem.bytesAsSlice(SetBucket, new_bytes));
 

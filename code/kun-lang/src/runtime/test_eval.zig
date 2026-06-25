@@ -6,6 +6,7 @@ const eval_mod = @import("eval.zig");
 const env_mod = @import("env.zig");
 const primitive_mod = @import("primitive.zig");
 const tc_env = @import("../typecheck/env.zig");
+const hash_map = @import("hash_map.zig");
 
 const Value = value_mod.Value;
 const Frame = env_mod.Frame;
@@ -1011,26 +1012,36 @@ test "eval binary div float" {
     try std.testing.expectApproxEqRel(3.0, result.float, 1e-10);
 }
 
-test "eval map literal returns map" {
+test "eval map literal returns map with content" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
     const global = try allocator.create(Frame);
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
-    const key = try allocator.create(typed.TypedExpr);
-    key.* = .{ .string_literal = .{ .value = "k", .type_ = 3, .span = undefined } };
-    const val = try allocator.create(typed.TypedExpr);
-    val.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
-    const entries = try allocator.alloc(typed.MapEntry, 1);
-    entries[0] = .{ .key = key, .value = val };
+    const key1 = try allocator.create(typed.TypedExpr);
+    key1.* = .{ .string_literal = .{ .value = "a", .type_ = 3, .span = undefined } };
+    const val1 = try allocator.create(typed.TypedExpr);
+    val1.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const key2 = try allocator.create(typed.TypedExpr);
+    key2.* = .{ .string_literal = .{ .value = "b", .type_ = 3, .span = undefined } };
+    const val2 = try allocator.create(typed.TypedExpr);
+    val2.* = .{ .int_literal = .{ .value = 2, .type_ = 0, .span = undefined } };
+    const entries = try allocator.alloc(typed.MapEntry, 2);
+    entries[0] = .{ .key = key1, .value = val1 };
+    entries[1] = .{ .key = key2, .value = val2 };
 
     const expr = typed.TypedExpr{ .map_literal = .{ .entries = entries, .type_ = 0, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
     try std.testing.expect(result == .map);
+    try std.testing.expectEqual(@as(u64, 2), result.map.len);
+
+    const v = hash_map.mapGet(result.map.entries, result.map.len, result.map.cap, Value{ .string = "a" });
+    try std.testing.expect(v != null);
+    try std.testing.expectEqual(@as(i64, 1), v.?.int);
 }
 
-test "eval set literal returns set" {
+test "eval set literal returns set with content" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
@@ -1039,12 +1050,19 @@ test "eval set literal returns set" {
 
     const e1 = try allocator.create(typed.TypedExpr);
     e1.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
-    const items = try allocator.alloc(typed.TypedExpr, 1);
+    const e2 = try allocator.create(typed.TypedExpr);
+    e2.* = .{ .int_literal = .{ .value = 2, .type_ = 0, .span = undefined } };
+    const items = try allocator.alloc(typed.TypedExpr, 2);
     items[0] = e1.*;
+    items[1] = e2.*;
 
     const expr = typed.TypedExpr{ .set_literal = .{ .items = items, .type_ = 0, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);
     try std.testing.expect(result == .set);
+    try std.testing.expectEqual(@as(u64, 2), result.set.len);
+    try std.testing.expect(hash_map.setContains(result.set.entries, result.set.len, result.set.cap, Value{ .int = 1 }));
+    try std.testing.expect(hash_map.setContains(result.set.entries, result.set.len, result.set.cap, Value{ .int = 2 }));
+    try std.testing.expect(!hash_map.setContains(result.set.entries, result.set.len, result.set.cap, Value{ .int = 3 }));
 }
 
 test "eval Cmd.echo ident returns command" {
@@ -1098,7 +1116,7 @@ test "eval record_update existing field" {
     try std.testing.expectEqual(@as(i64, 42), result.record.fields[0].value.int);
 }
 
-test "eval record_update missing field error" {
+test "eval record_update add field" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
@@ -1118,7 +1136,9 @@ test "eval record_update missing field error" {
     update_fields[0] = .{ .name = "y", .value = new_val };
 
     const expr = typed.TypedExpr{ .record_update = .{ .record = rec, .fields = update_fields, .type_ = 0, .span = undefined } };
-    try std.testing.expectError(error.UnknownField, eval_mod.eval(&expr, global, allocator));
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .record);
+    try std.testing.expectEqual(@as(usize, 2), result.record.fields.len);
 }
 
 test "eval record_update non-record base error" {
@@ -1228,4 +1248,160 @@ test "eval ident lookup PrimitiveTable unbound still error" {
 
     const expr = typed.TypedExpr{ .ident = .{ .name = "Undefined.var", .type_ = 0, .span = undefined } };
     try std.testing.expectError(error.UnboundVariable, eval_mod.eval(&expr, global, allocator));
+}
+
+test "eval range_literal with from and to" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const from_expr = try allocator.create(typed.TypedExpr);
+    from_expr.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const to_expr = try allocator.create(typed.TypedExpr);
+    to_expr.* = .{ .int_literal = .{ .value = 5, .type_ = 0, .span = undefined } };
+
+    const expr = typed.TypedExpr{ .range_literal = .{ .from = from_expr, .to = to_expr, .step = null, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .stream);
+}
+
+test "eval range_literal with step" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const from_expr = try allocator.create(typed.TypedExpr);
+    from_expr.* = .{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } };
+    const to_expr = try allocator.create(typed.TypedExpr);
+    to_expr.* = .{ .int_literal = .{ .value = 10, .type_ = 0, .span = undefined } };
+    const step_expr = try allocator.create(typed.TypedExpr);
+    step_expr.* = .{ .int_literal = .{ .value = 2, .type_ = 0, .span = undefined } };
+
+    const expr = typed.TypedExpr{ .range_literal = .{ .from = from_expr, .to = to_expr, .step = step_expr, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .stream);
+}
+
+test "eval range_literal from equals to" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const from_expr = try allocator.create(typed.TypedExpr);
+    from_expr.* = .{ .int_literal = .{ .value = 5, .type_ = 0, .span = undefined } };
+    const to_expr = try allocator.create(typed.TypedExpr);
+    to_expr.* = .{ .int_literal = .{ .value = 5, .type_ = 0, .span = undefined } };
+
+    const expr = typed.TypedExpr{ .range_literal = .{ .from = from_expr, .to = to_expr, .step = null, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .stream);
+}
+
+test "eval opt_chain on record" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const val = try allocator.create(typed.TypedExpr);
+    val.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
+    const fields = try allocator.alloc(typed.RecordField, 1);
+    fields[0] = .{ .name = "x", .value = val };
+    const rec = try allocator.create(typed.TypedExpr);
+    rec.* = .{ .record_literal = .{ .fields = fields, .type_ = 0, .span = undefined } };
+
+    const expr = typed.TypedExpr{ .opt_chain = .{ .object = rec, .field = "x", .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expectEqual(@as(i64, 42), result.int);
+}
+
+test "eval opt_chain nil returns nil" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const nil_val = try allocator.create(typed.TypedExpr);
+    nil_val.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
+
+    const expr = typed.TypedExpr{ .opt_chain = .{ .object = nil_val, .field = "x", .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .nil);
+}
+
+test "eval opt_chain non-record returns nil" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const int_val = try allocator.create(typed.TypedExpr);
+    int_val.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
+
+    const expr = typed.TypedExpr{ .opt_chain = .{ .object = int_val, .field = "x", .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .nil);
+}
+
+test "eval map empty literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const entries = try allocator.alloc(typed.MapEntry, 0);
+    const expr = typed.TypedExpr{ .map_literal = .{ .entries = entries, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .map);
+    try std.testing.expectEqual(@as(u64, 0), result.map.len);
+}
+
+test "eval set empty literal" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const items = try allocator.alloc(typed.TypedExpr, 0);
+    const expr = typed.TypedExpr{ .set_literal = .{ .items = items, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .set);
+    try std.testing.expectEqual(@as(u64, 0), result.set.len);
+}
+
+test "eval record update add field" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const global = try allocator.create(Frame);
+    global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
+
+    const val_x = try allocator.create(typed.TypedExpr);
+    val_x.* = .{ .int_literal = .{ .value = 1, .type_ = 0, .span = undefined } };
+    const fields_rec = try allocator.alloc(typed.RecordField, 1);
+    fields_rec[0] = .{ .name = "x", .value = val_x };
+    const rec = try allocator.create(typed.TypedExpr);
+    rec.* = .{ .record_literal = .{ .fields = fields_rec, .type_ = 0, .span = undefined } };
+
+    const new_y = try allocator.create(typed.TypedExpr);
+    new_y.* = .{ .int_literal = .{ .value = 2, .type_ = 0, .span = undefined } };
+    const update_fields = try allocator.alloc(typed.RecordField, 2);
+    update_fields[0] = .{ .name = "x", .value = val_x };
+    update_fields[1] = .{ .name = "y", .value = new_y };
+
+    const expr = typed.TypedExpr{ .record_update = .{ .record = rec, .fields = update_fields, .type_ = 0, .span = undefined } };
+    const result = try eval_mod.eval(&expr, global, allocator);
+    try std.testing.expect(result == .record);
+    try std.testing.expectEqual(@as(usize, 2), result.record.fields.len);
 }

@@ -148,21 +148,26 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .record_update => |v| {
             const rec_val = try eval(v.record, frame, allocator);
             if (rec_val != .record) return error.TypeMismatch;
-            const fields = try allocator.alloc(RecordFieldValue, rec_val.record.fields.len);
-            @memcpy(fields, rec_val.record.fields);
+            var fields = std.ArrayListUnmanaged(RecordFieldValue).empty;
+            try fields.ensureTotalCapacity(allocator, rec_val.record.fields.len + v.fields.len);
+            for (rec_val.record.fields) |rf| {
+                fields.appendAssumeCapacity(rf);
+            }
             for (v.fields) |f| {
                 const new_val = try eval(f.value, frame, allocator);
                 var found = false;
-                for (fields) |*rf| {
+                for (fields.items) |*rf| {
                     if (std.mem.eql(u8, rf.name, f.name)) {
                         rf.value = new_val;
                         found = true;
                         break;
                     }
                 }
-                if (!found) return error.UnknownField;
+                if (!found) {
+                    fields.appendAssumeCapacity(.{ .name = f.name, .value = new_val });
+                }
             }
-            return Value{ .record = .{ .fields = fields } };
+            return Value{ .record = .{ .fields = fields.items } };
         },
         .range_literal => |v| {
             const from_val = try eval(v.from, frame, allocator);
@@ -182,6 +187,17 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             return error.TypeMismatch;
         },
         .case_expr => |v| evalCase(v.subject, v.branches, frame, allocator),
+        .opt_chain => |v| {
+            const obj = try eval(v.object, frame, allocator);
+            if (obj == .nil) return Value.nil;
+            if (obj != .record) return Value.nil;
+            for (obj.record.fields) |f| {
+                if (std.mem.eql(u8, f.name, v.field)) {
+                    return f.value;
+                }
+            }
+            return Value.nil;
+        },
     };
 }
 
@@ -495,7 +511,7 @@ fn matchPattern(
                     if (std.fmt.parseInt(u8, v.name, 10)) |n| break :blk n else |_| return null;
                 };
             if (value.adt.tag != expected_tag) return null;
-            if (v.arg) |arg| {
+            if (v.inner) |arg| {
                 const payload_val = value.adt.payload.*;
                 if (try matchPattern(arg.*, payload_val, frame, allocator)) |sub| {
                     var merged: std.StringHashMapUnmanaged(Value) = .empty;
@@ -533,6 +549,15 @@ fn matchPattern(
                     try merged.put(allocator, entry.key_ptr.*, entry.value_ptr.*);
                 }
                 return Frame{ .bindings = merged, .parent = null, .primitives = null };
+            }
+            return null;
+        },
+        .or_ => |o| {
+            if (try matchPattern(o.left.*, value, frame, allocator)) |sub| {
+                return sub;
+            }
+            if (try matchPattern(o.right.*, value, frame, allocator)) |sub| {
+                return sub;
             }
             return null;
         },

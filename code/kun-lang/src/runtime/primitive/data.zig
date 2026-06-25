@@ -186,7 +186,7 @@ pub fn setRemoveImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[1] != .set) return Value{ .nil = {} };
     const k = args[0];
     const s = args[1].set;
-    const result = hash_map.setRemove(env.allocator, s.entries, s.len, s.cap, k) catch return Value{ .nil = {} };
+    const result = hash_map.setRemove(env.allocator, s.entries, s.len, s.cap, k);
     return Value{ .set = result };
 }
 
