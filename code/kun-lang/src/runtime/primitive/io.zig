@@ -13,16 +13,18 @@ pub fn allocSentinel(allocator: std.mem.Allocator, s: []const u8) ![:0]u8 {
 
 pub fn printlnImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len > 0 and args[0] == .string) {
-        const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
-        defer env.allocator.free(msg);
-        _ = std.os.linux.write(1, msg.ptr, msg.len);
+        if (!@import("builtin").is_test) {
+            const msg = std.fmt.allocPrint(env.allocator, "{s}\n", .{args[0].string}) catch return Value{ .unit = {} };
+            defer env.allocator.free(msg);
+            _ = std.os.linux.write(1, msg.ptr, msg.len);
+        }
     }
     return Value{ .unit = {} };
 }
 
 pub fn printImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
-    if (args.len > 0 and args[0] == .string) {
+    if (!@import("builtin").is_test and args.len > 0 and args[0] == .string) {
         _ = std.os.linux.write(1, args[0].string.ptr, args[0].string.len);
     }
     return Value{ .unit = {} };

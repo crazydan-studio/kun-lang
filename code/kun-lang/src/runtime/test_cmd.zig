@@ -59,3 +59,58 @@ test "execCommand returns StreamNode with valid fields" {
         }
     }
 }
+
+test "execCommand with echo returns output" {
+    const node = try cmd_mod.execCommand(&.{ .bin = "echo", .options = &.{}, .positional = &.{.{ .string = "hello" }} }, std.testing.allocator);
+    defer std.testing.allocator.destroy(node);
+    defer std.testing.allocator.free(node.cmd.buf);
+    defer if (node.cmd.pid > 0) {
+        var status: i32 = 0;
+        _ = std.os.linux.waitpid(node.cmd.pid, &status, 0);
+    };
+    defer if (node.cmd.fd > 0) {
+        _ = std.os.linux.close(node.cmd.fd);
+    };
+
+    try std.testing.expect(node.* == .cmd);
+    try std.testing.expect(node.cmd.fd > 0);
+    var read_buf: [1024]u8 = undefined;
+    const n = std.os.linux.read(node.cmd.fd, &read_buf, read_buf.len);
+    try std.testing.expect(n > 0);
+    try std.testing.expect(std.mem.indexOf(u8, read_buf[0..n], "hello") != null);
+}
+
+test "execCommand empty bin returns non-executable cmd node" {
+    const node = try cmd_mod.execCommand(&.{ .bin = "", .options = &.{}, .positional = &.{} }, std.testing.allocator);
+    defer std.testing.allocator.destroy(node);
+    defer std.testing.allocator.free(node.cmd.buf);
+    defer if (node.cmd.pid > 0) {
+        var status: i32 = 0;
+        _ = std.os.linux.waitpid(node.cmd.pid, &status, 0);
+    };
+    defer if (node.cmd.fd > 0) {
+        _ = std.os.linux.close(node.cmd.fd);
+    };
+    try std.testing.expect(node.* == .cmd);
+    try std.testing.expect(node.cmd.fd == 0 or node.cmd.pid == 0);
+}
+
+test "execCommand with options args" {
+    const node = try cmd_mod.execCommand(&.{
+        .bin = "echo",
+        .options = &.{.{ .name = "-n", .value = .{ .nil = {} } }},
+        .positional = &.{.{ .string = "test" }},
+    }, std.testing.allocator);
+    defer std.testing.allocator.destroy(node);
+    defer std.testing.allocator.free(node.cmd.buf);
+    defer if (node.cmd.pid > 0) {
+        var status: i32 = 0;
+        _ = std.os.linux.waitpid(node.cmd.pid, &status, 0);
+    };
+    defer if (node.cmd.fd > 0) {
+        _ = std.os.linux.close(node.cmd.fd);
+    };
+
+    try std.testing.expect(node.* == .cmd);
+    try std.testing.expect(node.cmd.fd > 0);
+}

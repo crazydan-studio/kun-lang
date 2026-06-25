@@ -1,6 +1,7 @@
 const std = @import("std");
 const stream_mod = @import("primitive/stream.zig");
 const value_mod = @import("value.zig");
+const typed = @import("../ast/typed.zig");
 const RuntimeEnv = @import("primitive.zig").RuntimeEnv;
 
 const Value = value_mod.Value;
@@ -63,4 +64,159 @@ test "stream lines and stringify" {
     const result = stream_mod.streamStringImpl(&env, &.{stream_val});
     try std.testing.expect(result == .string);
     try std.testing.expect(std.mem.eql(u8, "hello\nworld", result.string));
+}
+
+test "stream range descending" {
+    const cases = [_]struct { start: i64, end: i64, step: i64, expected_nil: bool }{
+        .{ .start = 10, .end = 1, .step = -1, .expected_nil = true },
+        .{ .start = 5, .end = 10, .step = 0, .expected_nil = true },
+        .{ .start = 0, .end = 5, .step = -2, .expected_nil = true },
+    };
+    for (cases) |c| {
+        var env = makeEnv(std.testing.allocator);
+        const args = [_]Value{ Value{ .int = c.start }, Value{ .int = c.end }, Value{ .int = c.step } };
+        const result = stream_mod.streamRangeImpl(&env, &args);
+        try std.testing.expectEqual(c.expected_nil, result == .nil);
+    }
+}
+
+test "stream range non-int args returns nil" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{ Value{ .string = "a" }, Value{ .int = 5 }, Value{ .int = 1 } };
+    const result = stream_mod.streamRangeImpl(&env, &args);
+    try std.testing.expect(result == .nil);
+}
+
+test "stream iterate generates values" {
+    var env = makeEnv(std.testing.allocator);
+    const seed = Value{ .int = 0 };
+    const closure = value_mod.Closure{
+        .param_names = &.{"x"},
+        .body = &typed.TypedExpr{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } },
+        .env = undefined,
+    };
+    const args = [_]Value{ seed, Value{ .closure = closure } };
+    const result = stream_mod.streamIterateImpl(&env, &args);
+    try std.testing.expect(result == .stream);
+}
+
+test "stream iterate invalid args returns nil" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{ Value{ .int = 0 }, Value{ .int = 1 } };
+    const result = stream_mod.streamIterateImpl(&env, &args);
+    try std.testing.expect(result == .nil);
+}
+
+test "stream iter calls callback" {
+    var env = makeEnv(std.testing.allocator);
+    const items = try std.testing.allocator.alloc(Value, 1);
+    items[0] = Value{ .int = 42 };
+    const list = Value{ .list = .{ .items = items, .cap = 1 } };
+    const stream_val = stream_mod.streamFromListImpl(&env, &.{list});
+    const closure = value_mod.Closure{
+        .param_names = &.{"x"},
+        .body = &typed.TypedExpr{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } },
+        .env = undefined,
+    };
+    const args = [_]Value{ Value{ .closure = closure }, stream_val };
+    const result = stream_mod.streamIterImpl(&env, &args);
+    try std.testing.expect(result == .unit);
+}
+
+test "stream iter invalid args returns unit" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{ Value{ .int = 0 }, Value{ .int = 0 } };
+    const result = stream_mod.streamIterImpl(&env, &args);
+    try std.testing.expect(result == .unit);
+}
+
+test "stream fold with closure" {
+    var env = makeEnv(std.testing.allocator);
+    const items = try std.testing.allocator.alloc(Value, 3);
+    items[0] = Value{ .int = 1 };
+    items[1] = Value{ .int = 2 };
+    items[2] = Value{ .int = 3 };
+    const list = Value{ .list = .{ .items = items, .cap = 3 } };
+    const stream_val = stream_mod.streamFromListImpl(&env, &.{list});
+    const closure = value_mod.Closure{
+        .param_names = &.{ "acc", "x" },
+        .body = &typed.TypedExpr{ .int_literal = .{ .value = 0, .type_ = 0, .span = undefined } },
+        .env = undefined,
+    };
+    const args = [_]Value{ Value{ .closure = closure }, Value{ .int = 0 }, stream_val };
+    const result = stream_mod.streamFoldImpl(&env, &args);
+    try std.testing.expectEqual(@as(i64, 0), result.int);
+}
+
+test "stream fold invalid args returns unit" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{ Value{ .int = 1 }, Value{ .int = 0 }, Value{ .int = 0 } };
+    const result = stream_mod.streamFoldImpl(&env, &args);
+    try std.testing.expect(result == .unit);
+}
+
+test "stream fromList non-list returns stream" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{Value{ .int = 42 }};
+    const result = stream_mod.streamFromListImpl(&env, &args);
+    try std.testing.expect(result == .stream);
+}
+
+test "stream fromList empty list" {
+    var env = makeEnv(std.testing.allocator);
+    const list = Value{ .list = .{ .items = &.{}, .cap = 0 } };
+    const args = [_]Value{list};
+    const result = stream_mod.streamFromListImpl(&env, &args);
+    try std.testing.expect(result == .stream);
+    const drained = stream_mod.streamToListImpl(&env, &.{result});
+    try std.testing.expectEqual(@as(usize, 0), drained.list.items.len);
+}
+
+test "stream bytes from stream" {
+    var env = makeEnv(std.testing.allocator);
+    const items = try std.testing.allocator.alloc(Value, 2);
+    items[0] = Value{ .bytes = "abc" };
+    items[1] = Value{ .bytes = "def" };
+    const list = Value{ .list = .{ .items = items, .cap = 2 } };
+    const stream_val = stream_mod.streamFromListImpl(&env, &.{list});
+    const result = stream_mod.streamBytesImpl(&env, &.{stream_val});
+    try std.testing.expect(result == .bytes);
+    try std.testing.expect(std.mem.eql(u8, "abcdef", result.bytes));
+}
+
+test "stream bytes from non-stream returns empty" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{Value{ .int = 0 }};
+    const result = stream_mod.streamBytesImpl(&env, &args);
+    try std.testing.expect(result == .bytes);
+    try std.testing.expectEqual(@as(usize, 0), result.bytes.len);
+}
+
+test "stream linesMax" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{ Value{ .int = 10 }, Value{ .int = 0 } };
+    const result = stream_mod.streamLinesMaxImpl(&env, &args);
+    try std.testing.expect(result == .nil);
+}
+
+test "stream toList invalid args returns nil" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{Value{ .int = 0 }};
+    const result = stream_mod.streamToListImpl(&env, &args);
+    try std.testing.expect(result == .nil);
+}
+
+test "stream stringify invalid args returns empty" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{Value{ .int = 0 }};
+    const result = stream_mod.streamStringImpl(&env, &args);
+    try std.testing.expect(result == .string);
+    try std.testing.expect(std.mem.eql(u8, "", result.string));
+}
+
+test "stream lines invalid args returns nil" {
+    var env = makeEnv(std.testing.allocator);
+    const args = [_]Value{Value{ .int = 0 }};
+    const result = stream_mod.streamLinesImpl(&env, &args);
+    try std.testing.expect(result == .nil);
 }

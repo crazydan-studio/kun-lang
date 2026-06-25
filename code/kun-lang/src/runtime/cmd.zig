@@ -6,11 +6,18 @@ const StreamNode = value_mod.StreamNode;
 const CommandPayload = value_mod.CommandPayload;
 
 pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*StreamNode {
+    if (cmd.bin.len == 0) {
+        const node = try allocator.create(StreamNode);
+        const buf = try allocator.alloc(u8, 4096);
+        node.* = .{ .cmd = .{ .fd = 0, .pid = 0, .buf = buf } };
+        return node;
+    }
+
     const argv = try buildArgv(cmd, allocator);
     defer allocator.free(argv);
 
     var pipe_fds: [2]std.os.linux.fd_t = undefined;
-    if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = true }) != 0) {
+    if (std.os.linux.pipe2(&pipe_fds, std.os.linux.O{ .NONBLOCK = false }) != 0) {
         return error.PipeFailed;
     }
 
@@ -23,11 +30,13 @@ pub fn execCommand(cmd: *const CommandPayload, allocator: std.mem.Allocator) !*S
         defer allocator.free(resolved);
         const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv.len, null);
         defer allocator.free(argv_z);
-        argv_z[0] = @ptrCast(resolved.ptr);
+        argv_z[0] = resolved.ptr;
         for (argv[1..], 1..) |a, i| {
-            argv_z[i] = @ptrCast(a.ptr);
+            const z = try allocator.allocSentinel(u8, a.len, 0);
+            @memcpy(z[0..a.len], a);
+            argv_z[i] = z.ptr;
         }
-        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(&argv_z), @ptrCast(&[_:null]?[*:0]const u8{null}));
+        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(argv_z.ptr), @ptrCast(&[_:null]?[*:0]const u8{null}));
         std.process.exit(126);
     } else if (pid < 0) {
         _ = std.os.linux.close(pipe_fds[0]);
@@ -63,9 +72,13 @@ pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload,
         defer allocator.free(resolved);
         const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv1.len, null);
         defer allocator.free(argv_z);
-        argv_z[0] = @ptrCast(resolved.ptr);
-        for (argv1[1..], 1..) |a, i| argv_z[i] = @ptrCast(a.ptr);
-        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(&argv_z), @ptrCast(&[_:null]?[*:0]const u8{null}));
+        argv_z[0] = resolved.ptr;
+        for (argv1[1..], 1..) |a, i| {
+            const z = try allocator.allocSentinel(u8, a.len, 0);
+            @memcpy(z[0..a.len], a);
+            argv_z[i] = z.ptr;
+        }
+        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(argv_z.ptr), @ptrCast(&[_:null]?[*:0]const u8{null}));
         std.process.exit(126);
     }
 
@@ -78,9 +91,13 @@ pub fn execPipeCommand(cmd1: *const CommandPayload, cmd2: *const CommandPayload,
         defer allocator.free(resolved);
         const argv_z = try allocator.allocSentinel(?[*:0]const u8, argv2.len, null);
         defer allocator.free(argv_z);
-        argv_z[0] = @ptrCast(resolved.ptr);
-        for (argv2[1..], 1..) |a, i| argv_z[i] = @ptrCast(a.ptr);
-        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(&argv_z), @ptrCast(&[_:null]?[*:0]const u8{null}));
+        argv_z[0] = resolved.ptr;
+        for (argv2[1..], 1..) |a, i| {
+            const z = try allocator.allocSentinel(u8, a.len, 0);
+            @memcpy(z[0..a.len], a);
+            argv_z[i] = z.ptr;
+        }
+        _ = std.os.linux.execve(argv_z[0].?, @ptrCast(argv_z.ptr), @ptrCast(&[_:null]?[*:0]const u8{null}));
         std.process.exit(126);
     }
 
@@ -155,9 +172,11 @@ fn formatValue(allocator: std.mem.Allocator, value: Value) ![]const u8 {
     };
 }
 
-fn resolvePath(bin: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+fn resolvePath(bin: []const u8, allocator: std.mem.Allocator) ![:0]const u8 {
     if (std.mem.indexOfScalar(u8, bin, '/') != null) {
-        return allocator.dupe(u8, bin);
+        const result = try allocator.allocSentinel(u8, bin.len, 0);
+        @memcpy(result[0..bin.len], bin);
+        return result;
     }
     const path_env = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
     var it = std.mem.splitSequence(u8, path_env, ":");
@@ -168,7 +187,7 @@ fn resolvePath(bin: []const u8, allocator: std.mem.Allocator) ![]const u8 {
         const full_z = try allocator.allocSentinel(u8, full.len, 0);
         @memcpy(full_z[0..full.len], full);
         if (std.os.linux.access(full_z, std.os.linux.X_OK) == 0) {
-            return allocator.dupe(u8, full);
+            return full_z;
         }
     }
     return error.CommandNotFound;

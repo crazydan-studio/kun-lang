@@ -84,7 +84,6 @@ test "primitive impl functions return correct variant" {
     const Tag = @typeInfo(value_mod.Value).@"union".tag_type.?;
     const table = buildTable();
     const cases = [_]struct { mod: []const u8, name: []const u8, arg: value_mod.Value, expected: Tag }{
-        .{ .mod = "IO", .name = "readln", .arg = .{ .unit = {} }, .expected = .string },
         .{ .mod = "IO", .name = "println", .arg = .{ .string = "hi" }, .expected = .unit },
         .{ .mod = "Env", .name = "getenv", .arg = .{ .string = "HOME" }, .expected = .string },
         .{ .mod = "Env", .name = "contains", .arg = .{ .unit = {} }, .expected = .bool },

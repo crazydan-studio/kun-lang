@@ -26,7 +26,8 @@ pub const RuntimeEnv = struct {
 pub const EvalFn = *const fn (expr: *const typed.TypedExpr, frame: *Frame, allocator: std.mem.Allocator) anyerror!Value;
 
 pub fn callEval(env: *RuntimeEnv, expr: *const typed.TypedExpr, frame: *Frame) anyerror!Value {
-    const fn_ptr: EvalFn = @ptrCast(@alignCast(env.eval_fn.?));
+    const eval = env.eval_fn orelse return error.EvalUnavailable;
+    const fn_ptr: EvalFn = @ptrCast(@alignCast(eval));
     return fn_ptr(expr, frame, env.allocator);
 }
 

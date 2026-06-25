@@ -15,12 +15,14 @@ pub fn consumeNext(node: *StreamNode, allocator: std.mem.Allocator, eval_fn: ?Ev
     return switch (node.*) {
         .cmd => |*c| {
             const n = std.os.linux.read(c.fd, c.buf.ptr, c.buf.len);
-            if (n == 0) {
-                _ = std.os.linux.close(c.fd);
-                if (c.pid > 0) { var status: i32 = 0; _ = std.os.linux.waitpid(c.pid, &status, 0); }
+            if (n <= 0) {
+                if (n == 0) {
+                    _ = std.os.linux.close(c.fd);
+                    if (c.pid > 0) { var status: i32 = 0; _ = std.os.linux.waitpid(c.pid, &status, 0); }
+                }
                 return null;
             }
-            return Value{ .bytes = c.buf[0..n] };
+            return Value{ .bytes = c.buf[0..@intCast(n)] };
         },
         .mapped => |*m| {
             while (try consumeNext(m.upstream, allocator, eval_fn)) |elem| {
