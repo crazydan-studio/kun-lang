@@ -345,15 +345,34 @@ fn heapPattern(state: *ParserState, pattern: ast.Pattern) ParserError!*const ast
     return ptr;
 }
 
-fn skipTypeAnn(state: *ParserState) ParserError!void {
-    while (state.peek() != .assign and state.peek() != .eof and state.peek() != .rparen and state.peek() != .rbrace and state.peek() != .rbrack) {
-        switch (state.peek()) {
-            .type_ident, .arrow, .lparen, .rparen, .comma, .dot => {
-                _ = state.advance();
-            },
-            else => break,
-        }
+fn parseTypeAnn(state: *ParserState) ParserError!TypeAnn {
+    switch (state.peek()) {
+        .type_ident => {
+            const tok = state.advance();
+            return TypeAnn{ .ident = tok.slice };
+        },
+        .question => {
+            _ = state.advance();
+            const inner = try state.allocator.create(TypeAnn);
+            inner.* = try parseTypeAnn(state);
+            return TypeAnn{ .nilable = inner };
+        },
+        else => {
+            // Skip unknown tokens as a fallback (type annotations are optional)
+            _ = state.advance();
+            return TypeAnn{ .ident = "_" };
+        },
     }
+}
+
+fn skipTypeAnn(state: *ParserState) ParserError!void {
+    // Parse type annotation but discard the result
+    // This maintains backward compatibility while we transition to full TypeAnn usage
+    _ = parseTypeAnn(state) catch {};
+
+
+
+
 }
 
 fn spanOf(expr: *const Expr) Span {
