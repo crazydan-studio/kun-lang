@@ -37,16 +37,15 @@ pub fn format(allocator: std.mem.Allocator, locale: Locale, comptime template: [
 
 /// Runtime string replacement for external locale.
 /// Runtime string replacement for external locale.
-/// Simple linear scan that handles {s} and {d} placeholders positionally.
-/// Unknown placeholders are left as-is (no panic).
-/// Falls back to returning the template unchanged for now.
+/// Unlike std.fmt, this handles runtime format strings (not comptime-only).
+/// Simple linear scan replacing {s}, {d} placeholders positionally.
+/// Falls back to returning the template for now (external locale is rare).
 pub fn runtimeReplace(allocator: std.mem.Allocator, template: []const u8, args: anytype) ![]const u8 {
     _ = allocator;
     _ = args;
-    // TODO: implement full runtime replacement for external locale
-    // For now, return the (translated) template with placeholders intact.
-    // The external locale path is currently only used when KUN_LOCALE is
-    // explicitly set to a non-zh-CN/non-en value.
+    // TODO: implement runtime format string replacement for external locale
+    // std.fmt.allocPrint requires comptime format strings, so we need a
+    // custom implementation that handles {s}, {d} at runtime.
     return template;
 }
 
