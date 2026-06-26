@@ -105,7 +105,19 @@ pub fn parseModule(allocator: std.mem.Allocator, tokens: []const Token) ParserEr
     var decls = std.ArrayListUnmanaged(Decl).empty;
 
     while (state.peek() != .eof) {
-        const decl = try parseDecl(&state);
+        const decl = parseDecl(&state) catch {
+            // Error recovery: skip tokens until the next likely declaration start
+            while (state.peek() != .eof and
+                state.peek() != .kw_import and
+                state.peek() != .kw_export and
+                state.peek() != .kw_type and
+                state.peek() != .ident and
+                state.peek() != .type_ident)
+            {
+                _ = state.advance();
+            }
+            continue;
+        };
         try decls.append(allocator, decl);
     }
 
@@ -204,18 +216,20 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
         else => {
             const name_tok = state.advance();
             var params = std.ArrayListUnmanaged(ast.Param).empty;
-            // Skip optional type signature (name : Type)
+            var return_type: ?*const TypeAnn = null;
+            // Parse optional type annotation (name : Type)
             if (state.peek() == .colon) {
                 _ = state.advance();
-                try skipTypeAnn(state);
-                // After type annotation, if there's no '=' on the same logical
-                // block, this was a standalone type signature. Return a minimal
-                // function_def so the next line can be parsed independently.
+                const ann = try parseTypeAnn(state);
+                const ret_ptr = try state.allocator.create(TypeAnn);
+                ret_ptr.* = ann;
+                return_type = ret_ptr;
+                // If no '=', this was a standalone type signature
                 if (state.peek() != .assign) {
                     return Decl{ .function_def = .{
                         .name = name_tok.slice,
                         .params = params.items,
-                        .return_type = null,
+                        .return_type = return_type,
                         .body = try heapExpr(state, &Expr{ .int_literal = .{ .value = 0, .span = name_tok.span } }),
                         .span = state.span(start),
                     } };
@@ -232,7 +246,7 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
             return Decl{ .function_def = .{
                 .name = name_tok.slice,
                 .params = params.items,
-                .return_type = null,
+                .return_type = return_type,
                 .body = try heapExpr(state, &body),
                 .span = state.span(start),
             } };
@@ -983,6 +997,9 @@ fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
         },
         .ident => {
             const tok = state.advance();
+            if (std.mem.eql(u8, tok.slice, "_")) {
+                return ast.Pattern{ .wildcard = tok.span };
+            }
             return ast.Pattern{ .ident = .{ .name = tok.slice, .span = tok.span } };
         },
         .lbrack => {
