@@ -8,7 +8,7 @@ test "isBuiltinType recognizes all builtins" {
         "CommandError", "Result", "Duration", "Path",
         "Int", "Float", "Bool", "String", "Bytes", "Char",
         "DateTime", "Decimal", "List", "Map", "Set", "Stream",
-        "Nil", "Unit", "Regex", "Signal", "IOError", "Uid", "Gid",
+        "Unit", "Regex", "Signal", "IOError", "Uid", "Gid",
     };
     for (cases) |name| {
         try std.testing.expect(module_resolver.isBuiltinType(name));
@@ -31,6 +31,7 @@ test "hasPrimitiveBinding recognizes all modules" {
         "Stream", "List", "Map", "Set",
         "Bytes", "String", "Hash", "Base64",
         "DateTime", "Parser.JSON", "Regex", "Validator",
+        "Nilable", "Duration", "Int", "Float", "Char",
     };
     for (cases) |name| {
         try std.testing.expect(module_resolver.hasPrimitiveBinding(name));

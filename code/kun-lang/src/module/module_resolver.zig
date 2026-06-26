@@ -148,7 +148,7 @@ pub fn isBuiltinType(name: []const u8) bool {
         "CommandError", "Result", "Duration", "Path",
         "Int", "Float", "Bool", "String", "Bytes", "Char",
         "DateTime", "Decimal", "List", "Map", "Set", "Stream",
-        "Nil", "Unit", "Regex", "Signal", "IOError", "Uid", "Gid",
+        "Unit", "Regex", "Signal", "IOError", "Uid", "Gid",
     };
     for (builtins) |b| {
         if (std.mem.eql(u8, name, b)) return true;
@@ -162,6 +162,7 @@ pub fn hasPrimitiveBinding(name: []const u8) bool {
         "Stream", "List", "Map", "Set",
         "Bytes", "String", "Hash", "Base64",
         "DateTime", "Parser.JSON", "Regex", "Validator",
+        "Nilable", "Duration", "Int", "Float", "Char",
     };
     for (primitive_modules) |m| {
         if (std.mem.eql(u8, name, m)) return true;
