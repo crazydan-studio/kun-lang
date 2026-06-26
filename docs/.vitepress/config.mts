@@ -211,6 +211,7 @@ function sidebarArchitecture() {
         { text: '项目愿景', link: '/ai-agent/architecture/project-vision' },
         { text: '系统基线', link: '/ai-agent/architecture/system-baseline' },
         { text: '模块边界', link: '/ai-agent/architecture/module-boundaries' },
+        { text: '国际化（i18n）', link: '/ai-agent/architecture/i18n' },
       ],
     },
   ]
@@ -304,6 +305,8 @@ function sidebarWorking() {
           { text: 'Phase 4 — 效应检查完成+命令系统+HM完备化', link: '/ai-agent/plans/plan-implementation-phase-4' },
           { text: 'Phase 5 — 标准库 Primitives 补全+Stream 函数体', link: '/ai-agent/plans/plan-implementation-phase-5' },
           { text: 'Phase 6 — 审计缺陷收官+基础设施补齐', link: '/ai-agent/plans/plan-implementation-phase-6' },
+          { text: 'Phase 7 — 模块系统+--run 端到端', link: '/ai-agent/plans/plan-implementation-phase-7' },
+          { text: 'Phase 8 — Nilable ADT+标准库扩展（v0.2）', link: '/ai-agent/plans/plan-implementation-phase-8' },
         ],
       },
       {
@@ -385,6 +388,7 @@ function sidebarWorking() {
           { text: 'Phase 1 双代理审计循环', link: '/ai-agent/logs/log-2026-06-20-audit-phase-1' },
           { text: '首阶段 Zig 代码实现', link: '/ai-agent/logs/log-2026-06-20-implementation-phase-1' },
           { text: '单一表达式范式全面定稿', link: '/ai-agent/logs/log-2026-06-19-single-expression-paradigm' },
+          { text: 'Phase 8 实施', link: '/ai-agent/logs/log-2026-06-26-phase-8-implementation' },
         ],
       },
       {

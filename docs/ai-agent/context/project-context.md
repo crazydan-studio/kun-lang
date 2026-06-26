@@ -6,9 +6,9 @@
 |---|---|
 | 项目名称 | Kun（鲲） |
 | 项目类型 | 编程语言设计与实现 |
-| 当前版本 | 0.1.0（Phase 7 全部完成，671 测试通过，全部审计缺陷修复） |
+| 当前版本 | 0.1.0（Phase 7-8 全部完成，708 测试通过，全部审计缺陷修复） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
-| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-7 全部完成；标准库 95% 真实实现，效应检查完备，Parser 语法补齐，模块系统搜索路径实现，--run 端到端可执行 |
+| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-8 全部完成；标准库 95% 真实实现，效应检查完备，Parser 语法补齐，模块系统搜索路径实现，--run 端到端可执行，kw_nil 关键字移除，zig-regex 引擎集成，i18n kmsg/format 命名插值 |
 | 宿主语言 | Zig（锁定 0.17.0-dev，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
@@ -17,11 +17,11 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | Nilable 公开 ADT 实施、Regex 引擎（zig-regex）实现、标准库 v0.2 扩展 |
+| 活跃需求 | v0.2 标准库扩展已基本完成，待下一阶段规划 |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 8 — Nilable ADT + 标准库扩展（v0.2） |
-| 最近完成 | Phase 7：模块系统搜索路径（ModuleResolver 四级搜索/递归加载/循环检测）、--run 端到端（Import 解析 → decls 合并 → TypeCheck → Eval）、eval.zig stub 修复（range_literal/pipe_reverse）、审计修复（58 项） |
-| 推迟项 | 沙箱（Landlock/seccomp/rlimit）→ v0.5；Kun Shell → v2.0；等递归类型 → v0.3；Cli 模块 + Parser.Record → v0.3 |
+| 活跃计划 | Phase 8 已完成，待下一阶段规划 |
+| 最近完成 | Phase 8：Nilable 公开 ADT（kw_nil 移除、`?T` 解析、`Some` 模式）、标准库扩展（Nilable/Duration/Int/Float/Char/Validator 模块）、zig-regex 引擎集成（isMatch/replace/firstMatch）、DateTime 格式化引擎、i18n kmsg/format 分层（26 条 zh_CN 翻译）、nil_to_non_nilable 错误移除、nil_literal 从 AST 完全移除（708 测试，零泄漏） |
+| 推迟项 | 沙箱（Landlock/seccomp/rlimit）→ v0.5；Kun Shell → v2.0；等递归类型 → v0.3；Cli 模块 + Parser.Record → v0.3；Validator PureKun 实现（.kun 文件）→ v0.2 后续 phase；String/List/Map/Set PureKun 函数（.kun 文件）→ v0.2 后续 phase |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 

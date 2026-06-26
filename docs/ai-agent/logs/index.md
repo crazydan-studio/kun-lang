@@ -20,3 +20,4 @@
 | [全面审计修复 + 语法检查](log-2026-06-06-comprehensive-audit-syntax-fixes.md) | 全面审计 + 语法检查 | 2026-06-06 |
 | [架构评审与全面修复](log-2026-06-07-comprehensive-review-and-fixes.md) | 架构评审与全面修复 | 2026-06-07 |
 | [架构重设计与标准库重组讨论](log-2026-06-11-design-discussions.md) | 架构重设计执行 + 设计讨论 | 2026-06-11 |
+| [Phase 8 实施](log-2026-06-26-phase-8-implementation.md) | Nilable ADT + 标准库扩展 + zig-regex + i18n 重构 | 2026-06-26 |

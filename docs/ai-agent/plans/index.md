@@ -33,4 +33,4 @@
 | [Phase 5 — 标准库 Primitives 补全 + Stream 函数体](plan-implementation-phase-5.md) | 106 Primitive stub→real + StreamNode 构造器/消费者 + 类型环境签名注册 | 已完成 |
 | [Phase 6 — 效应检查完备 + 语法补齐 + 数据结构 + 质量加固](plan-implementation-phase-6.md) | Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 接线、Stream.iter/fold、File 25 函数、JSON、质量加固 | 已完成 |
 | [Phase 7 — 模块系统 + --run 端到端 + 收官](plan-implementation-phase-7.md) | ModuleResolver 四级搜索、递归加载、循环检测、--run 接入、eval.zig stub 修复 | 已完成 |
-| [Phase 8 — Nilable ADT + 标准库扩展（v0.2）](plan-implementation-phase-8.md) | Nilable 公开 ADT（Some 变体 + 模式匹配 + 模块）、Regex 引擎（zig-regex）、Validator、DateTime 格式化、Duration/Int/Float/Char 模块 Primitive 绑定 | 计划中 |
+| [Phase 8 — Nilable ADT + 标准库扩展（v0.2）](plan-implementation-phase-8.md) | Nilable 公开 ADT（kw_nil 移除、?T 解析、Some 模式）、Regex 引擎（zig-regex）、DateTime 格式化、Duration/Int/Float/Char/Nilable 模块、i18n kmsg/format 分层、nil_to_non_nilable 移除、nil_literal AST 移除 | 已完成 |
