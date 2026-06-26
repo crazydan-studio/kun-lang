@@ -176,8 +176,6 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "Regex", .name = "replaceAll", .fn_ptr = crypto.regexReplaceAllImpl, .arg_count = 3, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
         .{ .module = "Regex", .name = "split", .fn_ptr = crypto.regexSplitImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
 
-        .{ .module = "Validator", .name = "regex", .fn_ptr = crypto.validatorRegexImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
-
         // Nilable module (PureKun combinators, temporarily registered as Primitive)
         .{ .module = "Nilable", .name = "withDefault", .fn_ptr = nilable_mod.withDefaultImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
         .{ .module = "Nilable", .name = "map", .fn_ptr = nilable_mod.mapImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },

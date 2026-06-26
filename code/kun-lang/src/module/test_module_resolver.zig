@@ -30,7 +30,7 @@ test "hasPrimitiveBinding recognizes all modules" {
         "IO", "File", "Env", "Process", "Cmd",
         "Stream", "List", "Map", "Set",
         "Bytes", "String", "Hash", "Base64",
-        "DateTime", "Parser.JSON", "Regex", "Validator",
+        "DateTime", "Parser.JSON", "Regex",
         "Nilable", "Duration", "Int", "Float", "Char",
     };
     for (cases) |name| {
@@ -39,6 +39,7 @@ test "hasPrimitiveBinding recognizes all modules" {
     try std.testing.expect(!module_resolver.hasPrimitiveBinding("Cli"));
     try std.testing.expect(!module_resolver.hasPrimitiveBinding("Task"));
     try std.testing.expect(!module_resolver.hasPrimitiveBinding("Random"));
+    try std.testing.expect(!module_resolver.hasPrimitiveBinding("Validator"));
 }
 
 test "hasPrimitiveBinding edge cases" {

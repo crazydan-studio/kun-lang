@@ -161,7 +161,7 @@ pub fn hasPrimitiveBinding(name: []const u8) bool {
         "IO", "File", "Env", "Process", "Cmd",
         "Stream", "List", "Map", "Set",
         "Bytes", "String", "Hash", "Base64",
-        "DateTime", "Parser.JSON", "Regex", "Validator",
+        "DateTime", "Parser.JSON", "Regex",
         "Nilable", "Duration", "Int", "Float", "Char",
     };
     for (primitive_modules) |m| {
