@@ -382,7 +382,6 @@ fn spanOf(expr: *const Expr) Span {
         .string_literal => |v| v.span,
         .bool_literal => |v| v.span,
         .char_literal => |v| v.span,
-        .nil_literal => |v| v,
         .duration_literal => |v| v.span,
         .path_literal => |v| v.span,
         .regex_literal => |v| v.span,
@@ -584,9 +583,9 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         },
         .ident, .type_ident => {
             const tok = state.advance();
-            // Nil and Some are handled as special expressions
+            // Nil is handled as a regular ident expression
             if (std.mem.eql(u8, tok.slice, "Nil")) {
-                return Expr{ .nil_literal = tok.span };
+                return Expr{ .ident = .{ .name = "Nil", .span = tok.span } };
             }
             var left = Expr{ .ident = .{ .name = tok.slice, .span = tok.span } };
 

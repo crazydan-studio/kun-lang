@@ -186,13 +186,6 @@ pub fn inferExpr(
             node.* = TypedExpr{ .char_literal = .{ .value = @intCast(v.value), .type_ = char_type, .span = v.span } };
             return node;
         },
-        .nil_literal => |v| {
-            const a = try env.newVar(allocator, std.math.maxInt(u32));
-            const nilable_id = try env.registerType(allocator, Type{ .nilable = a });
-            const node = try ea.create(TypedExpr);
-            node.* = TypedExpr{ .nil_literal = .{ .type_ = nilable_id, .span = v } };
-            return node;
-        },
         .duration_literal => |v| {
             const node = try ea.create(TypedExpr);
             node.* = TypedExpr{ .duration_literal = .{ .value = v.value, .unit = v.unit, .type_ = duration_type, .span = v.span } };
@@ -215,7 +208,11 @@ pub fn inferExpr(
         },
         .ident => |v| {
             const node = try ea.create(TypedExpr);
-            const ty = if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name))
+            const ty = if (std.mem.eql(u8, v.name, "Nil")) blk: {
+                // Nil is a nilable type with a fresh inner type variable
+                const a = try env.newVar(allocator, std.math.maxInt(u32));
+                break :blk try env.registerType(allocator, Type{ .nilable = a });
+            } else if (std.mem.startsWith(u8, v.name, "Cmd.") and !isKnownCmdApi(v.name))
                 command_type
             else if (env.let_types.get(v.name)) |poly_id|
                 try env.freshInstance(allocator, poly_id)

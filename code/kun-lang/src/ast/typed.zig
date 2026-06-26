@@ -59,7 +59,6 @@ pub const TypedExpr = union(enum) {
     string_literal: struct { value: []const u8, type_: TypeId, span: ast.Span },
     bool_literal: struct { value: bool, type_: TypeId, span: ast.Span },
     char_literal: struct { value: u32, type_: TypeId, span: ast.Span },
-    nil_literal: struct { type_: TypeId, span: ast.Span },
     duration_literal: struct { value: i64, unit: ast.DurationUnit, type_: TypeId, span: ast.Span },
     path_literal: struct { value: []const u8, type_: TypeId, span: ast.Span },
     regex_literal: struct { value: []const u8, type_: TypeId, span: ast.Span },

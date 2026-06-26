@@ -51,7 +51,7 @@ test "eval nil literal" {
     const global = try arena.allocator().create(Frame);
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
-    const expr = typed.TypedExpr{ .nil_literal = .{ .type_ = 0, .span = undefined } };
+    const expr = typed.TypedExpr{ .ident = .{ .name = "Nil", .type_ = 0, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, arena.allocator());
     try std.testing.expect(result == .nil);
 }
@@ -264,7 +264,7 @@ test "eval binary nil coalesce" {
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const left = try allocator.create(typed.TypedExpr);
-    left.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
+    left.* = .{ .ident = .{ .name = "Nil", .type_ = 0, .span = undefined } };
     const right = try allocator.create(typed.TypedExpr);
     right.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
 
@@ -427,7 +427,7 @@ test "eval case nil vs value" {
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const subject = try allocator.create(typed.TypedExpr);
-    subject.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
+    subject.* = .{ .ident = .{ .name = "Nil", .type_ = 0, .span = undefined } };
     const nil_body = try allocator.create(typed.TypedExpr);
     nil_body.* = .{ .string_literal = .{ .value = "none", .type_ = 3, .span = undefined } };
     const val_body = try allocator.create(typed.TypedExpr);
@@ -806,11 +806,11 @@ test "eval case tuple pattern with Nil narrowing" {
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const nil_item = try allocator.create(typed.TypedExpr);
-    nil_item.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
+    nil_item.* = .{ .ident = .{ .name = "Nil", .type_ = 0, .span = undefined } };
     const int_item = try allocator.create(typed.TypedExpr);
     int_item.* = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
     const tuple_items = try allocator.alloc(typed.TypedExpr, 2);
-    tuple_items[0] = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
+    tuple_items[0] = .{ .ident = .{ .name = "Nil", .type_ = 0, .span = undefined } };
     tuple_items[1] = .{ .int_literal = .{ .value = 42, .type_ = 0, .span = undefined } };
 
     const subject = try allocator.create(typed.TypedExpr);
@@ -1330,7 +1330,7 @@ test "eval opt_chain nil returns nil" {
     global.* = Frame{ .bindings = .empty, .parent = null, .primitives = null };
 
     const nil_val = try allocator.create(typed.TypedExpr);
-    nil_val.* = .{ .nil_literal = .{ .type_ = 0, .span = undefined } };
+    nil_val.* = .{ .ident = .{ .name = "Nil", .type_ = 0, .span = undefined } };
 
     const expr = typed.TypedExpr{ .opt_chain = .{ .object = nil_val, .field = "x", .type_ = 0, .span = undefined } };
     const result = try eval_mod.eval(&expr, global, allocator);

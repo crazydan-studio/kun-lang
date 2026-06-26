@@ -48,7 +48,6 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .string_literal => |v| Value{ .string = v.value },
         .bool_literal => |v| Value{ .bool = v.value },
         .char_literal => |v| Value{ .char = v.value },
-        .nil_literal => Value{ .nil = {} },
         .duration_literal => |v| Value{ .duration = v.value },
         .path_literal => |v| Value{ .path = v.value },
         .regex_literal => |v| {
@@ -58,6 +57,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         },
         .bytes_literal => |v| Value{ .bytes = v.value },
         .ident => |v| {
+            if (std.mem.eql(u8, v.name, "Nil")) return Value{ .nil = {} };
             if (frame.lookup(v.name)) |val| return val;
             if (frame.primitives) |pt_ptr| {
                 const pt: *const PrimitiveTable = @ptrCast(@alignCast(pt_ptr));
@@ -599,7 +599,6 @@ fn evalLiteral(literal: *const ast.Expr, allocator: std.mem.Allocator) !Value {
         .string_literal => |v| Value{ .string = v.value },
         .bool_literal => |v| Value{ .bool = v.value },
         .char_literal => |v| Value{ .char = @intCast(v.value) },
-        .nil_literal => Value{ .nil = {} },
         else => error.Unimplemented,
     };
 }

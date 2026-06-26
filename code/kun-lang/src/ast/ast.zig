@@ -109,7 +109,6 @@ pub const Expr = union(enum) {
     string_literal: struct { value: []const u8, span: Span },
     bool_literal: struct { value: bool, span: Span },
     char_literal: struct { value: u21, span: Span },
-    nil_literal: Span,
     duration_literal: struct { value: i64, unit: DurationUnit, span: Span },
     path_literal: struct { value: []const u8, span: Span },
     regex_literal: struct { value: []const u8, span: Span },
@@ -220,7 +219,7 @@ fn destroyBranchSub(allocator: std.mem.Allocator, branch: *const Branch) void {
 pub fn destroyExprSub(allocator: std.mem.Allocator, expr: *const Expr) void {
     switch (expr.*) {
         .int_literal, .float_literal, .string_literal, .bool_literal,
-        .char_literal, .nil_literal, .duration_literal, .path_literal,
+        .char_literal, .duration_literal, .path_literal,
         .regex_literal, .bytes_literal, .ident => {},
         .lambda => |l| {
             destroyExprSub(allocator, l.body);

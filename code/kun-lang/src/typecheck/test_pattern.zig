@@ -382,7 +382,7 @@ test "narrowType guard pattern with nil literal on nilable" {
     const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
     const lit = try std.testing.allocator.create(ast.Expr);
     defer std.testing.allocator.destroy(lit);
-    lit.* = .{ .nil_literal = undefined };
+    lit.* = .{ .bool_literal = .{ .value = true, .span = undefined } };
     const pat = ast.Pattern{ .literal = lit };
     const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
     try std.testing.expectEqual(nil_int, narrowed);

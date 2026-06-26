@@ -140,7 +140,6 @@ fn exprSpan(expr: *const ast.Expr) ast.Span {
         .string_literal => |v| v.span,
         .bool_literal => |v| v.span,
         .char_literal => |v| v.span,
-        .nil_literal => |s| s,
         .duration_literal => |v| v.span,
         .path_literal => |v| v.span,
         .regex_literal => |v| v.span,

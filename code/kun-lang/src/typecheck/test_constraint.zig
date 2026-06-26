@@ -57,19 +57,19 @@ test "constraint infers string literal" {
     try std.testing.expect(result.string_literal.type_ == env_mod.string_type);
 }
 
-test "constraint nil literal is nilable" {
+test "constraint bool literal type inference" {
     var s = try setup();
     defer s.env.deinit(std.testing.allocator);
     defer s.arena.deinit();
 
-    const expr = ast.Expr{ .nil_literal = undefined };
+    const expr = ast.Expr{ .bool_literal = .{ .value = true, .span = undefined } };
     var errors = try ErrorList.init(std.testing.allocator);
     defer errors.deinit(std.testing.allocator);
 
     const result = try constraint_mod.inferExpr(s.arena.allocator(), &expr, &s.env, &errors, false);
-    try std.testing.expect(result.* == .nil_literal);
-    const nil_ty = s.env.resolveType(result.nil_literal.type_);
-    try std.testing.expect(nil_ty == .nilable);
+    try std.testing.expect(result.* == .bool_literal);
+    const bool_ty = s.env.resolveType(result.bool_literal.type_);
+    try std.testing.expect(bool_ty == .bool);
 }
 
 test "constraint infers float literal" {

@@ -123,7 +123,6 @@ pub fn narrowType(
             if (std.mem.eql(u8, v.name, "Some")) return inner;
         }
         if (pattern == .literal) {
-            if (pattern.literal.* == .nil_literal) return scrutinee_ty;
         }
     }
 

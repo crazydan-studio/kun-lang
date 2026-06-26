@@ -1304,8 +1304,8 @@ test "Phase4 hasEffectInExpr bool_literal returns false" {
     try std.testing.expect(!effect_mod.hasEffectInExpr(&expr));
 }
 
-test "Phase4 hasEffectInExpr nil_literal returns false" {
-    const expr = ast.Expr{ .nil_literal = undefined };
+test "Phase4 hasEffectInExpr nil ident returns false" {
+    const expr = ast.Expr{ .bool_literal = .{ .value = true, .span = undefined } };
     try std.testing.expect(!effect_mod.hasEffectInExpr(&expr));
 }
 
