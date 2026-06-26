@@ -466,11 +466,11 @@ cd code/kun-lang && zig build test
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
 | 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/lexer/lexer.zig`, `src/lexer/test_lexer.zig`, `src/ast/ast.zig`, `src/ast/typed.zig`, `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/effect.zig`, `src/typecheck/pattern.zig`, `src/typecheck/error.zig`, `src/typecheck/unify.zig`, `src/typecheck/test_constraint.zig`, `src/typecheck/test_unify.zig`, `src/typecheck/test_pattern.zig`, `src/typecheck/test_effect.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/runtime/test_eval.zig`, `src/module/module_resolver.zig`, `src/module/test_module_resolver.zig`, `src/i18n/i18n.zig`, `src/i18n/test_i18n.zig`, `src/test_main.zig` | ~470 | ~25 |
-| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/module/module_resolver.zig`, `src/test_main.zig` | ~200 | ~15 |
+| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~200 | ~15 |
 | 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
-| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **26 个修改文件** | **~1570** | **~98** |
+| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **25 个修改文件** | **~1570** | **~98** |
 
 目标：**679 → ~777 测试**。
 
