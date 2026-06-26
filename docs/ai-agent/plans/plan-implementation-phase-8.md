@@ -482,7 +482,7 @@ cd code/kun-lang && zig build test
 
 | 变更 | 说明 |
 |------|------|
-| 新增 `Locale.external` 枚举变体 | 标识非 zh_CN/en 的 locale，由 `KUN_LOCALE` 显式设置触发 |
+| 新增 `Locale.external` 枚举变体 + `detectLocale` 函数 | 标识非 zh_CN/en 的 locale，由 `KUN_LOCALE` 显式设置触发；从环境变量检测 locale |
 | 新增 `formatError` 重写 | 拆为三段：`title`（无插值，直接 `kmsg` + `writer.print`）、`body`（含命名插值，走 `format`）、`details`（`label: value` 行，直接 `kmsg` + `writer.print`） |
 | 保留 `formatLoc` 辅助函数 | 供内部简单格式场景使用 |
 | 新增 `kmsg` / `format` 导出 | 供编译器其他组件（CLI、运行时）调用 |
@@ -500,6 +500,7 @@ cd code/kun-lang && zig build test
 
 ```zig
 // 验证 po/*.po 中所有翻译的占位符与 msgid 一致
+// po/ 目录暂可为空——msgcheck 在目录为空或无 .po 文件时静默通过
 const msgcheck_step = b.step("msgcheck", "Verify .po placeholder consistency");
 // 实现：遍历 po/ 目录，对每个 .po 文件逐条检查占位符名称集合是否匹配
 ```
