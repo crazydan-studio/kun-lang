@@ -36,29 +36,23 @@ pub fn format(allocator: std.mem.Allocator, locale: Locale, comptime template: [
 }
 
 /// Runtime string replacement for external locale.
-/// Runtime string replacement for external locale.
-/// Unlike std.fmt, this handles runtime format strings (not comptime-only).
-/// Simple linear scan replacing {s}, {d} placeholders positionally.
-/// Falls back to returning the template for now (external locale is rare).
+/// Falls back to the original template since std.fmt requires comptime format strings.
+/// The external locale is only triggered by explicit KUN_LOCALE setting.
+/// Implementation pending: custom runtime format string parser for {s}, {d}, {f}.
 pub fn runtimeReplace(allocator: std.mem.Allocator, template: []const u8, args: anytype) ![]const u8 {
     _ = allocator;
     _ = args;
-    // TODO: implement runtime format string replacement for external locale
-    // std.fmt.allocPrint requires comptime format strings, so we need a
-    // custom implementation that handles {s}, {d} at runtime.
     return template;
 }
 
 /// Detect locale from environment variables.
 /// Priority: KUN_LOCALE > LC_ALL > LC_MESSAGES > LANG > default en
 pub fn detectLocale() Locale {
-    // KUN_LOCALE explicit override (highest priority)
     if (std.os.getenv("KUN_LOCALE")) |val| {
         if (isZh(val)) return .zh_CN;
         if (isEn(val)) return .en;
         return .external;
     }
-    // POSIX locale environment variables
     for (&[_][]const u8{ "LC_ALL", "LC_MESSAGES", "LANG" }) |var_name| {
         if (std.os.getenv(var_name)) |val| {
             if (isZh(val)) return .zh_CN;
@@ -77,7 +71,6 @@ fn isEn(s: []const u8) bool {
 }
 
 fn lookupZhCn(comptime msgid: []const u8) ?[]const u8 {
-    // Embedded zh_CN translations for type error messages
     const translations = struct {
         const data = [_]struct { msgid: []const u8, zh: []const u8 }{
             .{ .msgid = "Type Mismatch: expected {s}, found {s}\n  at {f}", .zh = "类型不匹配：期望 {s}，实际为 {s}\n  位于 {f}" },
