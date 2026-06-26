@@ -184,7 +184,7 @@ fn parseDecl(state: *ParserState) ParserError!Decl {
                 while (state.peek() != .eof and state.peek() != .kw_import and state.peek() != .kw_export and state.peek() != .kw_type and state.peek() != .assign) {
                     if (state.peek() == .pipe_pat) { _ = state.advance(); continue; }
                     const v = state.advance();
-                    if (v.kind != .ident and v.kind != .type_ident and v.kind != .kw_nil) return error.UnexpectedToken;
+                    if (v.kind != .ident and v.kind != .type_ident) return error.UnexpectedToken;
                     try variants.append(state.allocator, v.slice);
                 }
                 for (variants.items, 0..) |v1, i| {
@@ -348,7 +348,7 @@ fn heapPattern(state: *ParserState, pattern: ast.Pattern) ParserError!*const ast
 fn skipTypeAnn(state: *ParserState) ParserError!void {
     while (state.peek() != .assign and state.peek() != .eof and state.peek() != .rparen and state.peek() != .rbrace and state.peek() != .rbrack) {
         switch (state.peek()) {
-            .type_ident, .kw_nil, .arrow, .lparen, .rparen, .comma, .dot => {
+            .type_ident, .arrow, .lparen, .rparen, .comma, .dot => {
                 _ = state.advance();
             },
             else => break,
@@ -521,10 +521,6 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             const tok = state.advance();
             return Expr{ .bool_literal = .{ .value = false, .span = tok.span } };
         },
-        .kw_nil => {
-            const tok = state.advance();
-            return Expr{ .nil_literal = tok.span };
-        },
         .kw_not => {
             _ = state.advance();
             const operand = try parsePrefix(state);
@@ -569,6 +565,10 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
         },
         .ident, .type_ident => {
             const tok = state.advance();
+            // Nil and Some are handled as special expressions
+            if (std.mem.eql(u8, tok.slice, "Nil")) {
+                return Expr{ .nil_literal = tok.span };
+            }
             var left = Expr{ .ident = .{ .name = tok.slice, .span = tok.span } };
 
             var args = std.ArrayListUnmanaged(*const Expr).empty;
@@ -576,7 +576,8 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
                 switch (state.peek()) {
                     .int_literal, .float_literal, .string_literal, .multiline_string,
                     .path_literal, .regex_literal, .char_literal, .bytes_literal,
-                    .kw_true, .kw_false, .kw_nil, .duration_literal,
+                    .kw_true, .kw_false, .duration_literal,
+                    .type_ident,
                     .lparen, .lbrack, .lbrace, .hash_lparen, .hash_lbrack, .hash_lbrace,
                     .minus, .kw_not, .backslash => {
                         const arg = try parsePrefix(state);
@@ -940,10 +941,6 @@ fn parseCaseExpr(state: *ParserState, start: SourceLoc) ParserError!Expr {
 fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
     const start = state.current().span.start;
     switch (state.peek()) {
-        .kw_nil => {
-            const tok = state.advance();
-            return ast.Pattern{ .literal = try heapExpr(state, &Expr{ .nil_literal = tok.span }) };
-        },
         .kw_true => {
             const tok = state.advance();
             return ast.Pattern{ .literal = try heapExpr(state, &Expr{ .bool_literal = .{ .value = true, .span = tok.span } }) };

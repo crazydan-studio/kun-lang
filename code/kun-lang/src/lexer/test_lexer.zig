@@ -40,7 +40,7 @@ test "lexer bool and nil" {
     const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.kw_true, tokens[0].kind);
     try std.testing.expectEqual(TokenKind.kw_false, tokens[1].kind);
-    try std.testing.expectEqual(TokenKind.kw_nil, tokens[2].kind);
+    try std.testing.expectEqual(TokenKind.type_ident, tokens[2].kind);
 }
 
 test "lexer string with escapes" {
@@ -138,7 +138,7 @@ test "lexer all keywords" {
     const expected = [_]TokenKind{
         .kw_type, .kw_case, .kw_of, .kw_if, .kw_then, .kw_else,
         .kw_do, .kw_in, .kw_let, .kw_defer, .kw_import, .kw_export,
-        .kw_as, .kw_when, .kw_not, .kw_true, .kw_false, .kw_nil,
+        .kw_as, .kw_when, .kw_not, .kw_true, .kw_false,
     };
     for (expected, 0..) |exp_kind, i| {
         try std.testing.expectEqual(exp_kind, tokens[i].kind);

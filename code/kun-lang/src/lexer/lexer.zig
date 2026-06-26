@@ -24,7 +24,6 @@ pub const TokenKind = enum {
     kw_not,
     kw_true,
     kw_false,
-    kw_nil,
     // identifiers
     ident,
     type_ident,
@@ -111,7 +110,6 @@ const keywords = blk: {
         .{ .text = "not", .kind = .kw_not },
         .{ .text = "true", .kind = .kw_true },
         .{ .text = "false", .kind = .kw_false },
-        .{ .text = "Nil", .kind = .kw_nil },
     };
     break :blk entries;
 };
