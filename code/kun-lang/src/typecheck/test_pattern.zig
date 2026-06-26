@@ -256,9 +256,12 @@ test "narrowType variable on nilable narrows to inner" {
     var env = try makeEnv();
     defer env.deinit(std.testing.allocator);
     const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
+    // Bare variable patterns on nilable types no longer narrow automatically.
+    // Users must use explicit `Some v` pattern.
+    // The ident pattern `x` now falls through and returns scrutinee_ty.
     const pat = ast.Pattern{ .ident = .{ .name = "x", .span = undefined } };
     const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
-    try std.testing.expectEqual(env_mod.int_type, narrowed);
+    try std.testing.expectEqual(nil_int, narrowed);
 }
 
 test "narrowType uppercase ident on ADT returns scrutinee" {
@@ -391,10 +394,12 @@ test "narrowType guard pattern delegates to inner" {
     const nil_int = try env.registerType(std.testing.allocator, .{ .nilable = env_mod.int_type });
     const inner = try std.testing.allocator.create(ast.Pattern);
     defer std.testing.allocator.destroy(inner);
+    // Guard delegates to its inner pattern. With bare variable narrowing removed,
+    // the guard's inner `x` pattern returns scrutinee_ty.
     inner.* = .{ .ident = .{ .name = "x", .span = undefined } };
     const pat = ast.Pattern{ .guard = .{ .inner = inner, .cond = undefined, .span = undefined } };
     const narrowed = try pattern_mod.narrowType(pat, nil_int, &env, std.testing.allocator);
-    try std.testing.expectEqual(env_mod.int_type, narrowed);
+    try std.testing.expectEqual(nil_int, narrowed);
 }
 
 test "checkExhaustive int type with no wildcard" {

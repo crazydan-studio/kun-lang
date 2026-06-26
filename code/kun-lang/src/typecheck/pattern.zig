@@ -115,7 +115,12 @@ pub fn narrowType(
         if (pattern == .ident) {
             const name = pattern.ident.name;
             if (std.mem.eql(u8, name, "Nil")) return scrutinee_ty;
-            if (name.len > 0 and name[0] >= 'a' and name[0] <= 'z') return inner;
+            if (std.mem.eql(u8, name, "Some")) return inner;
+        }
+        if (pattern == .variant) {
+            const v = pattern.variant;
+            if (std.mem.eql(u8, v.name, "Nil")) return scrutinee_ty;
+            if (std.mem.eql(u8, v.name, "Some")) return inner;
         }
         if (pattern == .literal) {
             if (pattern.literal.* == .nil_literal) return scrutinee_ty;
