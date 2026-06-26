@@ -173,8 +173,6 @@ if (resolved == .nilable) {
 
 `Nil` 作为 `Nilable` ADT 的变体名始终缺省可用，无需 `import`。
 
-`Nil` 作为 `Nilable` ADT 的变体名始终缺省可用，无需 `import`。
-
 ### 1.3 测试
 
 **修改文件**：`src/test_main.zig`（添加 `nilable` 测试引用）
@@ -457,25 +455,25 @@ cd code/kun-lang && zig build test
 
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
-| 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~300 | ~25 |
-| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~200 | ~15 |
+| 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/lexer/lexer.zig`, `src/ast/ast.zig`, `src/ast/typed.zig`, `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/typecheck/error.zig`, `src/typecheck/unify.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/module/module_resolver.zig`, `src/test_main.zig` | ~400 | ~25 |
+| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/module/module_resolver.zig`, `src/test_main.zig` | ~200 | ~15 |
 | 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
-| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **12 个修改文件** | **~1380** | **~98** |
+| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **18 个修改文件** | **~1480** | **~98** |
 
 目标：**679 → ~777 测试**。
 
 ## 依赖关系
 
 ```
+Step 1 (Nilable ADT) ── 独立，影响 Parser + TypeChecker + Runtime
+                           可与其他 Step 并行
+Step 2 (Regex) ──── 独立
 Step 3 (Validator) ──依赖── Step 2 (Regex)
-                                      ├── 无其他依赖
 Step 4 (DateTime) ── 独立
 Step 5 (Duration/Int/Float/Char) ── 独立，可并行
 ```
-
-Step 1 影响类型检查器和模式匹配，与 Step 2-5 无代码冲突（修改不同模块），可并行实施。
 
 ## 推迟项（不在本计划范围）
 
@@ -492,6 +490,12 @@ Step 1 影响类型检查器和模式匹配，与 Step 2-5 无代码冲突（修
 
 | 版本 | 变更 |
 |------|------|
-| 2026.06.26 | 初始版本 |
+| 2026.06.26 | R7 审计修复：删除重复行；Step 1 摘要表补齐 1.2b/1.2f 中漏列的 8 个修改文件；Step 2 补充 module_resolver.zig；依赖关系图补充 Step 1；总计修正 |
 | 2026.06.26 | R6 审计修复：module_resolver 变更修正（移除 Nil + 新增 Nilable/Duration/Int/Float/Char 到 hasPrimitiveBinding）、AdtVariant.fields → .payload、TypeAnn.nilable 构造修正、DateTime.parse 已存在（替换存根非新增）、Regex Primitive 存根已存在（替换+新增补充）、Step 4 补充 crypto.zig 修改 |
+| 2026.06.26 | R5 审计修复：Float 表 sin/cos/tan 重复行删除；build.zig.zon 为新建非修改；build.zig regex import 补充 lib_mod/test_mod；RuntimeEnv regex_cache 字段补充；摘要表文件路径修正 |
+| 2026.06.26 | R4 审计修复：datetime_fmt.zig 重复新建行删除；各步骤补充 test_main.zig；Float floor/ceil/round → Primitive；regex 编译策略改为首次使用缓存；Step 2 补充 value.zig RegexHandle 更新；变更范围表补充测试文件数和 test_main.zig |
+| 2026.06.26 | R3 审计修复：Duration fromString/format → PureKun；Int/Float 已有条目不实修正；DateTime 存根替换说明；Float/Char 补充当前状态说明 |
+| 2026.06.26 | R2 审计修复：全部 8 项修复确认通过，无新问题 |
+| 2026.06.26 | R1 审计修复：裸变量糖化删除、Nilable 模块 Primitive 过渡说明、标记分类修正等 8 项 |
+| 2026.06.26 | 初始版本 |
 
