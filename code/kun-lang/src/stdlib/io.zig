@@ -236,7 +236,7 @@ pub fn whichImpl(env: *RuntimeEnv, args: []const Value) Value {
     return Value{ .nil = {} };
 }
 
-fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
+pub fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
     const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
     if (fd < 0) return null;
     defer _ = std.os.linux.close(@intCast(fd));

@@ -1,6 +1,7 @@
 const std = @import("std");
 const lexer = @import("../lexer/lexer.zig");
 const parser = @import("../parser/parser.zig");
+const io = @import("../stdlib/io.zig");
 
 pub const LoadedModule = struct {
     name: []const u8,
@@ -25,7 +26,7 @@ pub const ModuleResolver = struct {
 
     pub fn init(allocator: std.mem.Allocator, script_dir: ?[]const u8) !ModuleResolver {
         var kun_path_list: std.ArrayListUnmanaged([]const u8) = .empty;
-        if (getEnvValue(allocator, "KUN_PATH")) |kp| {
+        if (io.getEnvValue(allocator, "KUN_PATH")) |kp| {
             var it = std.mem.splitSequence(u8, kp, ":");
             while (it.next()) |dir| {
                 if (dir.len > 0) {
@@ -37,8 +38,8 @@ pub const ModuleResolver = struct {
         return ModuleResolver{
             .project_lib = if (script_dir) |d| try std.fs.path.join(allocator, &.{ d, "lib" }) else null,
             .kun_path = try kun_path_list.toOwnedSlice(allocator),
-            .runtime_lib = getEnvValue(allocator, "KUN_RUNTIME") orelse "/usr/local/lib/kun",
-            .cmd_path = if (getEnvValue(allocator, "HOME")) |home|
+            .runtime_lib = io.getEnvValue(allocator, "KUN_RUNTIME") orelse "/usr/local/lib/kun",
+            .cmd_path = if (io.getEnvValue(allocator, "HOME")) |home|
                 try std.fs.path.join(allocator, &.{ home, ".kun/cmd" })
             else
                 "/root/.kun/cmd",
@@ -132,32 +133,6 @@ fn readFileAlloc(allocator: std.mem.Allocator, path: []const u8, limit: usize) M
     };
     if (n == 0) return buf[0..0];
     return try allocator.realloc(buf, n);
-}
-
-fn getEnvValue(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
-    const fd = std.os.linux.open("/proc/self/environ", .{}, 0);
-    if (fd < 0) return null;
-    defer _ = std.os.linux.close(@intCast(fd));
-    var buf: [8192]u8 = undefined;
-    const n = std.os.linux.read(@intCast(fd), &buf, buf.len);
-    if (n <= 0) return null;
-    var start: usize = 0;
-    var i: usize = 0;
-    const data = buf[0..@intCast(n)];
-    while (i < data.len) : (i += 1) {
-        if (data[i] == 0) {
-            if (i > start) {
-                const entry = data[start..i];
-                if (std.mem.indexOfScalar(u8, entry, '=')) |eq_pos| {
-                    if (std.mem.eql(u8, entry[0..eq_pos], key)) {
-                        return allocator.dupe(u8, entry[eq_pos + 1 ..]) catch return null;
-                    }
-                }
-            }
-            start = i + 1;
-        }
-    }
-    return null;
 }
 
 pub fn isBuiltinType(name: []const u8) bool {
