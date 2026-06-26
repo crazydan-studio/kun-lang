@@ -51,6 +51,24 @@ pub const TypeEnv = struct {
         };
     }
 
+    pub fn registerNilableAdt(self: *TypeEnv) !TypeId {
+        // Pre-register Nilable ADT type (Nilable a = Some a | Nil)
+        // Returns the type ID of the Nilable ADT (index 13 on first call)
+        // The generic parameter is a type variable that gets resolved during unification
+        const arena = self.expr_arena.allocator();
+        _ = try self.registerType(arena, .{ .variable = .{ .id = @intCast(self.types.items.len), .level = 0 } });
+        const var_id: TypeId = @intCast(self.types.items.len - 1);
+        const some_payload = try arena.alloc(TypeId, 1);
+        some_payload[0] = var_id;
+        return self.registerType(arena, Type{ .adt = .{
+            .name = "Nilable",
+            .variants = &.{
+                .{ .name = "Some", .payload = some_payload },
+                .{ .name = "Nil", .payload = &.{} },
+            },
+        } });
+    }
+
     pub fn deinit(self: *TypeEnv, allocator: std.mem.Allocator) void {
         _ = allocator;
         self.types.deinit(self._allocator);
