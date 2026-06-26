@@ -59,7 +59,7 @@ filterByNames = \svcs rawNames ->
   case rawNames of
     Nil ->
       svcs
-    namesStr ->
+    Some namesStr ->
       let
         trimmed = String.trim namesStr
         names =

@@ -74,7 +74,7 @@ buildAndPush = \serviceName cfg contextDir ->
     dockerfilePath =
       case cfg.dockerfile of
         Nil -> contextDir ++ p"Dockerfile"
-        df  -> df
+        Some df -> df
   in
     case File.stat dockerfilePath of
       Ok _ ->

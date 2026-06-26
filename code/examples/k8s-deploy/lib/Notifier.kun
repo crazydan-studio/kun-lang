@@ -55,7 +55,7 @@ formatMessage = \event ->
     durationStr =
       case event.duration of
         Nil -> ""
-        d   -> f" (took {Duration.toSeconds d}s)"
+        Some d -> f" (took {Duration.toSeconds d}s)"
   in
     f"""
     {icon} *{event.service}* — {event.phase}{durationStr}

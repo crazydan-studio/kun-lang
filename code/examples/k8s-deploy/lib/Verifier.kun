@@ -90,7 +90,7 @@ evaluateCode = \code elapsed expected ->
           { responseTime = elapsed, statusCode = code
           , reason = f"status {code}"
           }
-    exp ->
+    Some exp ->
       if code == exp then
         Healthy { responseTime = elapsed, statusCode = code, body = "" }
       else
@@ -120,7 +120,7 @@ retryLoop = \attempt started hc ->
               case hc.expect of
                 Nil ->
                   code >= 200 && code < 400
-                exp ->
+                Some exp ->
                   code == exp
           in
             if okCode then
