@@ -44,7 +44,9 @@ Phase 8 是 v0.2 的第一个实施阶段，核心变更来自今日的设计调
 ```zig
 // 在 parseTypeAnn 中处理 '?' token
 if (kind == .question) {
-    return TypeAnn{ .nilable = .{ .inner = try parseTypeAnn(...) } };
+    const inner = try state.heap.alloc(TypeAnn, 1);
+    inner.* = try parseTypeAnn(state);
+    return TypeAnn{ .nilable = inner };
 }
 ```
 
@@ -67,8 +69,8 @@ if (kind == .question) {
 ```zig
 // env.zig init
 const nilable_adt_variants = [_]AdtVariant{
-    .{ .name = "Some", .fields = &.{some_inner_id} },  // Some : T -> Nilable T
-    .{ .name = "Nil", .fields = &.{} },                  // Nil : Nilable T
+    .{ .name = "Some", .payload = &.{some_inner_id} },  // Some : T -> Nilable T
+    .{ .name = "Nil", .payload = &.{} },                  // Nil : Nilable T
 };
 const nilable_adt_id = registerType(.{ .adt = .{
     .name = "Nilable",
@@ -137,9 +139,8 @@ if (resolved == .nilable) {
 
 | 文件 | 变更 |
 |------|------|
-| `src/module/module_resolver.zig` | `isBuiltinType` 列表中的 `"Nil"` 替换为 `"Nilable"` |
-| `src/runtime/primitive.zig` | 注册 `Nilable` 模块（而非 `Nil`），绑定 `nilable.zig` 中的函数 |
-| 内置模块导出 | 确保 `Nilable` 模块的函数可通过 `import Nilable` 导入（而非 `import Nil`） |
+| `src/module/module_resolver.zig` | `isBuiltinType` 列表中移除 `"Nil"`（`Nil` 现在是 `Nilable` ADT 的变体，非独立类型）；`hasPrimitiveBinding` 列表新增 `"Nilable"`、`"Duration"`、`"Int"`、`"Float"`、`"Char"` |
+| `src/runtime/primitive.zig` | 注册 `Nilable` 模块（而非 `Nil`），绑定 `nilable.zig` 中的函数
 
 `Nil` 作为 `Nilable` ADT 的变体名始终缺省可用，无需 `import`。
 
@@ -236,9 +237,11 @@ pub fn split(re: *const RegexHandle, allocator: std.mem.Allocator, input: []cons
 
 `Regex.fromString` 同样在**运行时**编译：接受用户输入的模式字符串，调用 `Regex.compile(allocator, pattern)`，失败时返回 `Err`。`fromString` 编译的结果不做跨次缓存（每次调用独立编译），因为动态模式来源不可预测。
 
-### 2.4 注册 Regex Primitive 函数
+### 2.4 替换 Regex Primitive 存根 + 新增函数
 
-**修改文件**：`src/runtime/primitive.zig`
+当前 `primitive.zig` 中已有 `Regex.isMatch`、`Regex.fromString`、`Regex.firstMatch`、`Regex.allMatches` 的 Primitive 存根（`crypto.zig` 中的 `regexIsMatchImpl`/`regexFromStringImpl`/`regexFirstMatchImpl`/`regexAllMatchesImpl`），均返回虚假值。本步骤将这些存根替换为真实 zig-regex 实现，并新增 `replace`、`replaceAll`、`split`。
+
+**修改文件**：`src/runtime/primitive.zig`、`src/stdlib/crypto.zig`
 
 | 函数 | 签名 | is_effect |
 |------|------|-----------|
@@ -289,7 +292,7 @@ cd code/kun-lang && zig build test
 
 ### 4.1 实现
 
-当前 `DateTime.now` 和 `DateTime.format` 已有 Primitive 存根（`primitive.zig` 中的 `dateTimeNowImpl`/`dateTimeFormatImpl`），实则为 `@panic("unimplemented")`。本步骤将存根替换为真实实现，并新增 `DateTime.parse`。
+当前 `DateTime.now`、`DateTime.format` 和 `DateTime.parse` 已有 Primitive 存根（`primitive.zig` 中 `crypto.dateTimeNowImpl`/`dateTimeFormatImpl`/`dateTimeParseImpl`，均在 `crypto.zig` 中返回虚假值）。本步骤将存根替换为真实实现。同时修正 `now` 的 `is_effect` 值（当前为 `false`，应为 `true`——`now` 需要系统调用获取当前时间）。
 
 **新建文件**：`src/runtime/datetime_fmt.zig`
 
@@ -314,7 +317,7 @@ pub fn parse(template: []const u8, input: []const u8, allocator: std.mem.Allocat
 | `parse` | `String -> String -> Result DateTime String` | false |
 | `now` | `-> DateTime` | true |
 
-**修改文件**：`src/runtime/primitive.zig`（替换 `dateTimeNowImpl`/`dateTimeFormatImpl` 存根，新增 `dateTimeParseImpl`）、`src/runtime/eval.zig`
+**修改文件**：`src/runtime/primitive.zig`（替换 `dateTimeNowImpl`/`dateTimeFormatImpl`/`dateTimeParseImpl` 存根，修正 `now` 的 `is_effect` 为 `true`）、`src/runtime/eval.zig`、`src/stdlib/crypto.zig`
 
 ### 4.3 验证
 
@@ -424,9 +427,9 @@ cd code/kun-lang && zig build test
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
 | 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~300 | ~25 |
-| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~200 | ~15 |
+| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~200 | ~15 |
 | 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
-| 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~250 | ~10 |
+| 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
 | **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **12 个修改文件** | **~1380** | **~98** |
 
@@ -459,4 +462,5 @@ Step 1 影响类型检查器和模式匹配，与 Step 2-5 无代码冲突（修
 | 版本 | 变更 |
 |------|------|
 | 2026.06.26 | 初始版本 |
+| 2026.06.26 | R6 审计修复：module_resolver 变更修正（移除 Nil + 新增 Nilable/Duration/Int/Float/Char 到 hasPrimitiveBinding）、AdtVariant.fields → .payload、TypeAnn.nilable 构造修正、DateTime.parse 已存在（替换存根非新增）、Regex Primitive 存根已存在（替换+新增补充）、Step 4 补充 crypto.zig 修改 |
 
