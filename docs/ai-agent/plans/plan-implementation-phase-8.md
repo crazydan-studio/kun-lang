@@ -52,17 +52,46 @@ if (kind == .question) {
 
 `TypeAnn.nilable` 在约束生成阶段（`constraint.zig`）脱糖为 `Type.nilable`（内部快捷表示）或构造 ADT 类型。
 
-#### 1.2b 添加 `Some` 变体支持
+#### 1.2b 去除 `Nil` 字面量关键字，改为缺省导入的 ADT 变体
+
+当前 `Nil` 是特殊字面量关键字（`kw_nil` token、`Expr.nil_literal`、`Pattern.literal(.nil_literal)`、`Value.nil` 多条特殊路径）。改为将 `Nil` 和 `Some` 均作为 `Nilable` ADT 的变体缺省导入，去除 `Nil` 的特判路径——编译器内部复用已有的 ADT 变体机制。
+
+| 组件 | 当前 | 改为 |
+|------|------|------|
+| 词法分析 | `kw_nil` 关键字 token | 普通大写标识符，与 `Ok`/`Err`/`Some` 一致 |
+| 语法分析 | `nil_literal` 特殊 Expr + 特殊 Pattern | 按 ADT 变体构造器处理（大写标识符 → 尝试匹配已知 ADT 变体） |
+| 类型检查 | `nil_literal` → `Type.nilable(a)` 特判分支 | 走 ADT 变体合一——`Nil` 是 `Nilable` ADT 的无 payload 变体 |
+| 求值 | `nil_literal` → `Value.nil` 特判分支 | 走 ADT 变体构造路径 |
 
 **修改文件**：
 
 | 文件 | 变更 |
 |------|------|
-| `src/typecheck/env.zig` | 预注册 `Nilable` ADT 类型（`nilable_adt`）及其 `Some` / `Nil` 变体 |
-| `src/typecheck/constraint.zig` | `TypeAnn.nilable` 脱糖为 `Type.nilable`（复用现有逻辑）；`Some` 作为变体构造器解析为 `nilable` 的 `Some` 变体 |
-| `src/typecheck/pattern.zig` | 添加 `Some v` 模式处理——`Some` 模式匹配时提取内层值 |
-| `src/lexer/lexer.zig` | `Some` **不**作为关键字。`Some` 作为 ADT 变体名已经可通过标识符机制处理（大写开头 → 类型/变体） |
-| `src/typecheck/error.zig` | 新增 `Some` 相关错误的消息（可选——若 `Some` 在作用域外使用，现有"未定义变体"错误已覆盖） |
+| `src/lexer/lexer.zig` | **删除** `kw_nil` token kind；从关键字映射表中移除 `"Nil"` |
+| `src/ast/ast.zig` | **删除** `Expr` 和 `Pattern` 中的 `nil_literal` 变体（如适用） |
+| `src/ast/typed.zig` | **删除** `TypedExpr` 中的 `nil_literal` 变体；`Value.nil` 可保留为 ADT Nil 变体的运行时快捷表示 |
+| `src/parser/parser.zig` | **删除** `nil_literal` 表达式解析分支；`Nil` 作为大写标识符走 ADT 变体解析路径（与 `Ok`、`Err` 相同） |
+| `src/typecheck/constraint.zig` | **删除** `nil_literal` 约束生成特判；`Nil` 作为 ADT 变体由已有 ADT 模式处理 |
+| `src/typecheck/pattern.zig` | **删除** `nil_literal` 模式特判；`Nil` 模式走 ADT 变体匹配 |
+| `src/typecheck/error.zig` | 删除 `nil_to_non_nilable` 错误变体（由 ADT 统一错误代替） |
+| `src/runtime/eval.zig` | **删除** `nil_literal` 求值特判；ADT `Nil` 变体求值走已有 ADT 路径 |
+| `src/runtime/value.zig` | `Value.nil` 保留为运行时快捷表示（与 `Type.nilable` 同理，是内部优化） |
+| `src/module/module_resolver.zig` | `isBuiltinType` 移除 `"Nil"`（已在 1.2f 中处理） |
+| `src/typecheck/unify.zig` | 删除 `nil_to_non_nilable` 合一错误；`Nil` 作为 `Nilable` ADT 变体与预期类型合一 |
+
+`kw_nil` 删除后，`Nil` 在表达式和模式中统一通过"大写标识符 → ADT 变体查找"路径处理。`Nil` 作为 `Nilable` ADT 的 `Nil` 变体被识别（如同 `Ok` 作为 `Result` 的变体被识别）。`Some` 同理——两者均通过缺省导入的变体作用域可用。
+
+#### 1.2c 添加 `Some` 变体支持
+
+`Some` 和 `Nil` 都是 `Nilable` ADT 的变体，通过缺省导入自动可用。`Some` 不是关键字——作为 ADT 变体名通过标识符机制处理（大写开头 → 类型/变体）。
+
+**修改文件**：
+
+| 文件 | 变更 |
+|------|------|
+| `src/typecheck/env.zig` | 预注册 `Nilable` ADT 类型（`nilable_adt`）及其 `Some` / `Nil` 变体；将两个变体注入缺省环境 |
+| `src/typecheck/constraint.zig` | `TypeAnn.nilable` 脱糖为 `Type.nilable`（复用现有逻辑）；`Some` / `Nil` 作为变体构造器由已有 ADT 路径处理 |
+| `src/typecheck/pattern.zig` | 添加 `Some v` 模式处理——`Some` 模式匹配时提取内层值；`Nil` 模式匹配时保持类型 |
 
 **预注册 ADT**：
 
@@ -82,7 +111,7 @@ const nilable_adt_id = registerType(.{ .adt = .{
 
 > **实现复杂度**：`Type.nilable` ↔ ADT 双向兼容需要在 `unify.zig`、`generalize`、`freshInstance`、`typeName`、`occursCheck` 等所有操作处增加分支判断——当前遇到 `adt` 时需检查其是否为预注册的 `Nilable` ADT，若是则等价于 `nilable`。`generalize` 和 `freshInstance` 的递归逻辑需要同时处理两种表示。此兼容层的代码量约 60-80 行，分散在 5-6 个函数中。
 
-#### 1.2c `Nilable` 模块
+#### 1.2d `Nilable` 模块
 
 `Nilable` 模块函数均为 PureKun（纯组合子），按标准库分类规则应使用 Kun 语言实现。但在实现 .kun 标准库文件之前，采用**过渡方案**：将 `Nilable` 模块函数以 Primitive 形式注册（Zig 实现），待后续 phase 支持 .kun 标准库文件后降级为 PureKun。此过渡在 `standard-library.md` 中标注 `[Primitive]`，并记录 PureKun 回退计划。
 
@@ -109,7 +138,7 @@ pub const filter : fn (env, args) Value { ... }
 
 **后续降级计划**（v0.2 后续 phase）：当 Kun 的 .kun 标准库文件系统就绪后，创建 `lib/kun/Nilable.kun`，将函数体从 Zig 迁移到 Kun，并移除 Primitive 表中的 `Nilable` 条目。
 
-#### 1.2d 模式匹配更新
+#### 1.2e 模式匹配更新
 
 **修改文件**：`src/typecheck/pattern.zig`
 
@@ -118,7 +147,7 @@ pub const filter : fn (env, args) Value { ... }
 - 匹配 `Some v` 模式 → `v` 收窄为内层 `T`
 - `checkExhaustive`：Nilable 的穷举需要覆盖 `Some` 和 `Nil` 两个变体
 
-`Some` 变体模式的处理：
+`Nil` 和 `Some` 都通过 ADT 变体模式路径处理（去除 `nil_literal` 特判）：
 
 ```zig
 // pattern.zig — narrowType
@@ -133,14 +162,16 @@ if (resolved == .nilable) {
 
 **不保留**裸变量 `v ->` 的向后兼容——设计文档明确要求"case 分支需显式 Some，不做糖化"。用户在 `case` 中必须写 `Some v ->`，编译期遇到裸变量模式在 Nilable scrutinee 上时直接报错，提示使用显式 `Some` 变体。所有现有示例已在 `docs/ai-agent/examples/` 和 `code/examples/` 中更新为显式 `Some`。
 
-#### 1.2e `Nilable` 模块名迁移
+#### 1.2f `Nilable` 模块名迁移
 
 当前源码中的内置类型列表和模块引用使用 `Nil` 作为内置类型名。`Nilable` 作为新模块名独立注册，涉及以下文件：
 
 | 文件 | 变更 |
 |------|------|
 | `src/module/module_resolver.zig` | `isBuiltinType` 列表中移除 `"Nil"`（`Nil` 现在是 `Nilable` ADT 的变体，非独立类型）；`hasPrimitiveBinding` 列表新增 `"Nilable"`、`"Duration"`、`"Int"`、`"Float"`、`"Char"` |
-| `src/runtime/primitive.zig` | 注册 `Nilable` 模块（而非 `Nil`），绑定 `nilable.zig` 中的函数
+| `src/runtime/primitive.zig` | 注册 `Nilable` 模块（而非 `Nil`），绑定 `nilable.zig` 中的函数 |
+
+`Nil` 作为 `Nilable` ADT 的变体名始终缺省可用，无需 `import`。
 
 `Nil` 作为 `Nilable` ADT 的变体名始终缺省可用，无需 `import`。
 
@@ -151,9 +182,9 @@ if (resolved == .nilable) {
 | 范围 | 测试内容 |
 |------|---------|
 | 类型标注 | `?T` 解析、`Nilable T` 等价 |
-| `Some` 模式 | `case x of Some v -> v; Nil -> 0` 穷举检查 |
+| `Nil`/`Some` 变体 | `case x of Some v -> v; Nil -> 0` 穷举检查——`Nil` 和 `Some` 均通过 ADT 变体路径处理 |
 | `Nilable` 模块函数 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`/`isNil`/`isSome`/`filter` |
-| 裸变量模式拒绝 | 在 Nilable scrutinee 上使用裸变量 `v ->` 时报错 |
+| `Nil` 非关键字 | `Nil` 不再作为字面量关键字——可用作变量名（遮蔽时警告） |
 | Nilable 合一 | `nilable` 内部表示 ↔ ADT 表示的双向兼容 |
 
 ## Step 2：Regex 引擎（zig-regex）

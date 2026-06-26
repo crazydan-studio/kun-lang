@@ -126,7 +126,7 @@ Kun 仅支持 `//` 风格的注释。没有块注释语法（`/* */`）。连续
 | Regex | `r"..."` 前缀 + 双引号 | `r"(?i)[a-z]+"` |
 | Duration | 整数 + 单位后缀 | `5s`, `100ms`, `2h`, `30m`, `1d`, `500us`, `200ns` |
 | Unit | 无字面量 | — |
-| `Nil` | `Nil` | `Nilable T`（`?T`）类型的 `Nil` 变体 |
+| `Nil` | `Nil` | `Nilable T`（`?T`）类型的 `Nil` 变体——与 `Some` 同为缺省可用的 ADT 变体，非特殊字面量 |
 | Path | `p"..."` 前缀 + 双引号 | `p"/tmp/foo"`, `p"./foo"`, `p"/tmp/foo.sh"` |
 
 前缀字面量（`p"..."`、`r"..."`、`f"..."`）的内容为**原始字符串**，不处理转义序列，仅双引号本身通过 `\"` 转义。这与普通字符串 `"..."`（处理 `\n`、`\t` 等转义）形成对照。
@@ -344,8 +344,10 @@ value'  : Int                           // 用户约定的"立即求值"变体
 | 控制流 | `if`、`then`、`else`、`case`、`of`、`when` |
 | 绑定 | `let`、`in`、`do` |
 | 清理 | `defer` |
-| 字面量 | `true`、`false`、`Nil` |
+| 字面量 | `true`、`false` |
 | 运算符 | `not` |
+
+> `Nil` 和 `Some` 不是关键字——它们是编译器内置 ADT `Nilable a` 的变体名，始终缺省可用（类似 `Ok`/`Err`）。`Nil` 不是特殊字面量，而是 `Nilable` ADT 的无 payload 变体。
 
 ## 类型声明
 
@@ -1279,7 +1281,7 @@ add1 = add 1
 | 三元 | `? :` | 右结合 |
 | 绑定 | `=` | 右结合 |
 
-`Nil` 字面量为编译器内置 ADT `Nilable a` 的 `Nil` 变体，类型为多态 `Nilable a`（`?a`），可赋值给任何 `?T` 类型的变量或在模式匹配中使用。`Some` 变体同样缺省可用，用于 `case` 模式匹配中提取值。详见 [类型系统](type-system.md#nilable-类型-t)。
+`Nil` 和 `Some` 为编译器内置 ADT `Nilable a` 的两个变体，始终缺省可用。`Nil` 是无 payload 变体（类似 `true`/`false` 的语法角色），`Some` 是带 payload 变体。二者在 `case` 模式匹配中使用。`Nil` 在表达式和模式中统一通过 ADT 变体查找路径处理，非特殊字面量关键字。详见 [类型系统](type-system.md#nilable-类型-t)。
 
 ### 优先级（从高到低）
 
