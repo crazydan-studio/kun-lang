@@ -99,7 +99,7 @@ Record 字面量中未提供的字段自动填充为 `Nil`。填充的 `Nil` 被
 |------|------|
 | `T`（无 `?`） | **不可**为 Nil。`x : String = Nil` 编译期报错 |
 | `?T` | **可**为 Nil。`x : ?String = Nil` 合法 |
-| `Nil` | 字面量类型为多态 `?a`，与上下文合一确定具体类型 |
+| `Nil` | `Nilable` ADT 的 `Nil` 变体，类型为多态 `?a`，与上下文合一确定具体类型——非特殊字面量，与 `Some` 同为缺省可用变体 |
 | 和类型字段 | 默认不可 Nil，`?` 需显式标注 |
 | 嵌套 `? ?T` | **类型检查阶段报错**。`Nilable (Nilable T)` 取值空间与 `?T` 完全相同——`Nil` 在嵌套上下文中不可区分外层与内层 |
 | `if x /= Nil` | **不**支持流敏感收窄，使用 `case` 显式匹配 |
@@ -881,6 +881,7 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 | 2026.06.10 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型（`{ Base \| field : T }`）；效应跟踪改为 AST 标记方案 |
 | 2026.06.10 | 目录即命名空间模块系统：`export (...)` 替代 `module Xxx export (...)`；`import X (...)` 替代 `import X with (...)` |
 | 2026.06.02 | 扩展积类型 `{ Base \| field : T }`，移除行变量以降低类型检查器实现复杂度 |
+| 2026.06.26 | Nil 去除字面量特殊地位——`Nil` 和 `Some` 同为 `Nilable` ADT 的缺省可用变体，非字面量关键字；`Nil` 在类型规则表中改为"ADT 变体"说明 |
 | 2026.06.02 | Nilable 类型 `?T` 替代 `Maybe`，新增 `?.` 可选链和 `??` Nil 合并操作符 |
 | 2026.05.27 | MVP 基础类型 + `Maybe`/`Result` + HM 推断 + 简单参数化多态 + `IO` 效应标记 |
 

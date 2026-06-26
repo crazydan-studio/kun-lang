@@ -350,7 +350,7 @@ const Expr = union(enum) {
     char_literal: u32,
     bool_literal: bool,
     unit_literal,
-    nil_literal,
+    // Nil 不是字面量关键字——Nilable ADT 的 Nil 变体通过 ADT 变体路径处理
 
     // 变量与绑定
     variable: struct { name: []const u8, index: u32 },
@@ -1176,6 +1176,7 @@ HM 约束生成器在处理 Primitive 函数调用时：
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.26 | `nil_literal` 从 Expr 枚举中移除——`Nil` 不作为特殊字面量，而是通过 `Nilable` ADT 的 `Nil` 变体路径处理；类型标注粒度表同步更新 |
 | 2026.06.19 | 单一表达式范式配套更新：`do` 固定返回 `Unit`，`do in` 返回 `in` 表达式值（必须非 `Unit`，`in` 处于效应上下文）；求值策略表更新（隐式 `do` 分支、`let in`/`do` 互斥约束）；`do` 块与效应函数章节更新（函数体约束、隐式 `do` 说明、`do in` 的 `in` 上下文） |
 | 2026.06.18 | Cmd API 精简：效应函数列表更新（`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`；移除 `stdoutToString`/`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!`）；Command 消费验证规则新增 `!` 后缀 |
 | 2026.06.18 | Kun Shell 二进制产物标注 [推迟 v2.0]；内存模型引用添加推迟标注 |
