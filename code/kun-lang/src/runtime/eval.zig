@@ -147,12 +147,7 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
             const eval_opaque3: ?*anyopaque = @ptrCast(@constCast(&eval));
             return apply(right, left, allocator, eval_opaque3);
         },
-        .pipe_reverse => |v| {
-            const right = try eval(v.right, frame, allocator);
-            const left = try eval(v.left, frame, allocator);
-            const eval_opaque1: ?*anyopaque = @ptrCast(@constCast(&eval));
-            return apply(left, right, allocator, eval_opaque1);
-        },
+        .pipe_reverse => return error.Unimplemented,
         .compose => |v| {
             _ = v;
             return error.Unimplemented;
@@ -489,6 +484,8 @@ fn evalCase(subject_expr: *const TypedExpr, branches: []const typed.Branch, fram
                     local_frame.* = Frame{ .bindings = local.bindings, .parent = frame, .primitives = frame.primitives };
                     return eval(branch.body, local_frame, allocator);
                 }
+                guard_frame.bindings.deinit(allocator);
+                allocator.destroy(guard_frame);
                 continue;
             }
             const local_frame = try allocator.create(Frame);

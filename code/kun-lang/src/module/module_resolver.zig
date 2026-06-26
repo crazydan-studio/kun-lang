@@ -92,6 +92,14 @@ pub const ModuleResolver = struct {
         return module;
     }
 
+    pub fn deinit(_: *ModuleResolver, _: std.mem.Allocator) void {
+        // TODO: resolver lives on the Arena, so deinit is a no-op.
+        // When moving off arena allocation, free:
+        //   - loaded HashMap values (*LoadedModule) and keys
+        //   - loading HashMap
+        //   - kun_path entries
+    }
+
     pub fn resolve(self: *ModuleResolver, allocator: std.mem.Allocator, module_name: []const u8) ModuleError![]const u8 {
         if (self.project_lib) |base| {
             if (try findModule(allocator, base, module_name)) |p| return p;

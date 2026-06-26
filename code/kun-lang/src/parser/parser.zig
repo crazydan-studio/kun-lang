@@ -1013,7 +1013,7 @@ fn parsePattern(state: *ParserState) ParserError!ast.Pattern {
             try state.expect(.rbrace);
             return ast.Pattern{ .record = fields.items };
         },
-        else => return ast.Pattern{ .wildcard = state.advance().span },
+        else => return error.UnexpectedToken,
     }
 }
 

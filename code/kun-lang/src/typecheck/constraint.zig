@@ -273,14 +273,26 @@ pub fn inferExpr(
             const expected_fn = try env.registerFunctionType(allocator, is_effect_fn, arg_type, result_id);
             unify_mod.unify(env, allocator, func_type, expected_fn) catch |err| switch (err) {
                 error.Mismatch => {
+                    const resolved_func = env.applySubst(func_type);
+                    const expected_param = if (resolved_func < env.types.items.len) switch (env.types.items[resolved_func]) {
+                        .function => |f| f.param,
+                        .effect_fn => |f| f.param,
+                        else => arg_type,
+                    } else arg_type;
                     const func_name = if (typed_func.* == .ident) typed_func.ident.name else "function";
-                    try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = func_name, .expected = arg_type, .found = arg_type, .span = v.span } });
+                    try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = func_name, .expected = expected_param, .found = arg_type, .span = v.span } });
                 },
                 error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
                 error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                 else => {
+                    const resolved_func = env.applySubst(func_type);
+                    const expected_param = if (resolved_func < env.types.items.len) switch (env.types.items[resolved_func]) {
+                        .function => |f| f.param,
+                        .effect_fn => |f| f.param,
+                        else => arg_type,
+                    } else arg_type;
                     const func_name = if (typed_func.* == .ident) typed_func.ident.name else "function";
-                    try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = func_name, .expected = arg_type, .found = arg_type, .span = v.span } });
+                    try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = func_name, .expected = expected_param, .found = arg_type, .span = v.span } });
                 },
             };
             const node = try ea.create(TypedExpr);

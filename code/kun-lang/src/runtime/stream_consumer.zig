@@ -67,7 +67,7 @@ pub fn consumeNext(node: *StreamNode, allocator: std.mem.Allocator, eval_fn: ?Ev
                         if (l.pos + i - start <= l.max_len) {
                             @memcpy(l.buf[l.pos..][0..(i - start)], data[start..i]);
                             l.pos += i - start;
-                            const result = try allocator.dupe(u8, l.buf[0..l.pos]);
+                            const result = allocator.dupe(u8, l.buf[0..l.pos]) catch return error.OutOfMemory;
                             l.pos = 0;
                             return Value{ .string = result };
                         }
