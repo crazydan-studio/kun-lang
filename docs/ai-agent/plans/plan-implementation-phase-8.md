@@ -145,6 +145,8 @@ if (resolved == .nilable) {
 
 ### 1.3 测试
 
+**修改文件**：`src/test_main.zig`（添加 `nilable` 测试引用）
+
 | 范围 | 测试内容 |
 |------|---------|
 | 类型标注 | `?T` 解析、`Nilable T` 等价 |
@@ -155,9 +157,9 @@ if (resolved == .nilable) {
 
 ## Step 2：Regex 引擎（zig-regex）
 
-### 2.1 添加 zig-regex 依赖
+### 2.1 添加 zig-regex 依赖并更新类型定义
 
-**修改文件**：`build.zig.zon`、`build.zig`
+**修改文件**：`build.zig.zon`、`build.zig`、`src/runtime/value.zig`（将 `RegexHandle` 从 `opaque {}` 改为 `regex.Regex` 的类型别名）
 
 ```zig
 // build.zig.zon
@@ -214,16 +216,17 @@ pub fn split(re: *const RegexHandle, allocator: std.mem.Allocator, input: []cons
 
 当前 `regex_literal` 处的 `@panic("regex engine not yet implemented")` 改为真实编译。
 
-`r"..."` 字面量的正则表达式模式在**编译期**（`comptime`）通过 zig-regex 编译为 `Regex` 对象，运行时直接使用编译好的句柄。
+`r"..."` 字面量的正则表达式模式采用**首次使用编译**策略：第一次执行到 `regex_literal` 时将模式字符串通过 zig-regex 编译，编译后的 `Regex` 对象缓存在 `RuntimeEnv` 的正则缓存表中。后续再次遇到同一字面量时直接返回缓存句柄。
 
 ```zig
 .regex_literal => |v| {
-    // v.value 是模式字符串，在编译期使用 zig-regex 编译
-    // 运行时直接返回编译好的 Regex 句柄
+    // 1. 查缓存：相同模式字符串的 Regex 句柄
+    // 2. 未命中：调用 Regex.compile(allocator, v.value) 编译
+    // 3. 缓存并返回句柄
 },
 ```
 
-`Regex.fromString` 在**运行时**编译：接受用户输入的模式字符串，调用 `Regex.compile(allocator, pattern)`，失败时返回 `Err`。
+`Regex.fromString` 同样在**运行时**编译：接受用户输入的模式字符串，调用 `Regex.compile(allocator, pattern)`，失败时返回 `Err`。`fromString` 编译的结果不做跨次缓存（每次调用独立编译），因为动态模式来源不可预测。
 
 ### 2.4 注册 Regex Primitive 函数
 
@@ -240,6 +243,8 @@ pub fn split(re: *const RegexHandle, allocator: std.mem.Allocator, input: []cons
 | `fromString` | `String -> Result Regex String` | false |
 
 ### 2.5 验证
+
+**修改文件**：`src/test_main.zig`（添加 `regex` 测试引用）
 
 ```bash
 cd code/kun-lang && zig build test
@@ -265,6 +270,8 @@ cd code/kun-lang && zig build test
 
 ### 3.2 验证
 
+**修改文件**：`src/test_main.zig`（添加 `validator` 测试引用）
+
 ```bash
 cd code/kun-lang && zig build test
 # 新增 stdlib/test_validator.zig（~8 测试）
@@ -274,13 +281,11 @@ cd code/kun-lang && zig build test
 
 ### 4.1 实现
 
-**新建文件**：`src/runtime/datetime_fmt.zig`
-
 当前 `DateTime.now` 和 `DateTime.format` 已有 Primitive 存根（`primitive.zig` 中的 `dateTimeNowImpl`/`dateTimeFormatImpl`），实则为 `@panic("unimplemented")`。本步骤将存根替换为真实实现，并新增 `DateTime.parse`。
 
 **新建文件**：`src/runtime/datetime_fmt.zig`
 
-`DateTime.format` 和 `DateTime.parse` 的 Zig 实现：
+`DateTime.format`、`DateTime.parse` 和 `DateTime.now` 的 Zig 实现：
 
 ```zig
 pub fn format(template: []const u8, dt: i64, allocator: std.mem.Allocator) ![]const u8 {
@@ -304,6 +309,8 @@ pub fn parse(template: []const u8, input: []const u8, allocator: std.mem.Allocat
 **修改文件**：`src/runtime/primitive.zig`（替换 `dateTimeNowImpl`/`dateTimeFormatImpl` 存根，新增 `dateTimeParseImpl`）、`src/runtime/eval.zig`
 
 ### 4.3 验证
+
+**修改文件**：`src/test_main.zig`（添加 `datetime` 测试引用）
 
 ```bash
 cd code/kun-lang && zig build test
@@ -365,7 +372,9 @@ Duration 模块全部函数在设计中标注 `[PureKun]`（`system-baseline.md`
 | 函数 | 签名 | 实现方式 |
 |------|------|---------|
 | `pi` / `e` | `Float` | PureKun（常量） |
-| `abs` / `floor` / `ceil` / `round` | `Float -> Float` | PureKun |
+| `abs` | `Float -> Float` | PureKun |
+| `floor` / `ceil` / `round` | `Float -> Float` | **Primitive**（委托 Zig `@floor`/`@ceil`/`@round` 内建） |
+| `sin` / `cos` / `tan` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
 | `sin` / `cos` / `tan` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
 | `exp` / `log` / `log2` / `log10` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
 | `pow` / `sqrt` | `Float -> Float -> Float` / `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
@@ -376,7 +385,7 @@ Duration 模块全部函数在设计中标注 `[PureKun]`（`system-baseline.md`
 | `toInt` | `Float -> Int` | PureKun |
 | `toString` | `Float -> String` | PureKun |
 
-> 注：`sin`/`cos`/`tan`/`exp`/`log`/`pow`/`sqrt` 在标准库 `standard-library.md` 中标注为 `[PureKun]`，但实际需要 Zig 的 `std.math` 数值计算能力，无法用纯 Kun 实现。本计划按实际实现需求标记为 Primitive，后续应同步更新 `standard-library.md` 的标注。
+> 注：`sin`/`cos`/`tan`/`exp`/`log`/`pow`/`sqrt` 在标准库 `standard-library.md` 中标注为 `[PureKun]`，但实际需要 Zig 的 `std.math` 数值计算能力，无法用纯 Kun 实现。`floor`/`ceil`/`round` 也需要 Zig `@floor`/`@ceil`/`@round` 内建函数。本计划按实际实现需求标记为 Primitive，后续应同步更新 `standard-library.md` 的标注。
 
 ### 5.4 Char 模块
 
@@ -396,6 +405,8 @@ Duration 模块全部函数在设计中标注 `[PureKun]`（`system-baseline.md`
 
 ### 5.5 验证
 
+**修改文件**：`src/test_main.zig`（添加 `duration`、`int`、`float`、`char` 测试引用）
+
 ```bash
 cd code/kun-lang && zig build test
 # 新增 stdlib/test_duration.zig、stdlib/test_int.zig、stdlib/test_float.zig、stdlib/test_char.zig（各 ~8 测试）
@@ -405,12 +416,12 @@ cd code/kun-lang && zig build test
 
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
-| 1 — Nilable ADT | `src/stdlib/nilable.zig` | `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/runtime/primitive.zig` | ~300 | ~25 |
-| 2 — Regex | `src/runtime/regex_engine.zig` | `build.zig.zon`, `build.zig`, `src/runtime/eval.zig`, `src/runtime/primitive.zig` | ~200 | ~15 |
-| 3 — Validator | `src/stdlib/validator.zig` | `src/runtime/primitive.zig` | ~80 | ~8 |
-| 4 — DateTime | `src/runtime/datetime_fmt.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig` | ~250 | ~10 |
-| 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig` | `src/runtime/primitive.zig` | ~550 | ~40 |
-| **合计** | **8 个新文件** | **9 个修改文件** | **~1380** | **~98** |
+| 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~300 | ~25 |
+| 2 — Regex | `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig.zon`, `build.zig`, `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~200 | ~15 |
+| 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
+| 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~250 | ~10 |
+| 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
+| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **12 个修改文件** | **~1380** | **~98** |
 
 目标：**679 → ~777 测试**。
 
