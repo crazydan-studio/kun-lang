@@ -11,7 +11,7 @@
 | 基础类型 | ✅ 设计定型 | Int(i64)、Float(f64)、Bool、String(UTF-8)、Bytes、Char、Regex、Duration、Unit、Path |
 | 复合类型 | ✅ 设计定型 | List、Map、Set、Stream(tagged union)、Tuple |
 | 和类型 | ✅ 设计定型 | Result、自定义和类型，穷举检查 |
-| Nilable 类型 `?T` | ✅ 设计定型 | 语言内置 Nilable 类型，`?.` 可选链 + `??` Nil 合并 |
+| Nilable 类型 `?T` | ✅ 设计定型 | 编译器内置 ADT `type Nilable a = Some a | Nil`，`?T` 语法糖，`?.`/`??` 脱糖为 `case` 表达式 |
 | 代数数据类型 | ✅ 设计定型 | 积类型(Record/Tuple) + 和类型的组合 |
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句，穷举性规则 |
 | 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态 |

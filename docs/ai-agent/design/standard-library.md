@@ -299,7 +299,7 @@ toString : a -> String
 | List | `[value, value, ...]` | `[1, 2, 3]` |
 | Map | `#{ key = value, ... }` | `#{ "a" = 1, "b" = 2 }` |
 | Set | `#[ value, value, ... ]` | `#[ 1, 2, 3 ]` |
-| Nilable `?T` | `Nil` 或 内层 T 的表示 | `Nil`、`"hello"`（?String 自动收窄） |
+| `?T` | `Nil` 或 内层 T 的表示 | `Nil`、`"hello"`（?String 自动收窄） |
 | 不透明类型（Command/Regex/Stream） | `TypeName(<opaque>)` | `Command(<opaque>)`、`Regex(r"[0-9]+")` |
 
 > `Path`、`Duration`、`Decimal` 的标准库模块提供了显式 `toString` 实现（优先于编译器缺省生成）。`Regex` 的 `toString` 由编译器内置（格式 `Regex(r"...")`）——见上方不透明类型行。
@@ -1108,24 +1108,21 @@ Decimal.round 2 d                    // → Decimal "3.14"
 
 > `Decimal` 与 `Float` 不可隐式互转。需要转换时通过字符串中转：`Float.toString` → `Decimal.fromString`，或 `Decimal.toString` → `Float.fromString`。
 
-## `Nil` — 可选值操作
+## `Nilable` — 可选值操作
 
 ### 定位
 
-`Nil` 模块提供 `?T`（Nilable）类型的组合子。`Nil` 变体始终缺省自动导入（因为 `case` 模式匹配需要），但模块中函数需显式导入方可使用。
+`Nilable` 模块提供 `?T`（即 `Nilable T`）类型的组合子。`Nilable` 为编译器内置 ADT（`type Nilable a = Some a | Nil`），其变体 `Nil` 和 `Some` 始终缺省自动导入（因为 `case` 模式匹配需要），但模块中函数需显式导入方可使用。
 
 需显式导入：
 
 ```kun
-import Nil
+import Nilable
 ```
 
 ### API
 
 ```kun
-// 以下为编译器内置伪代码，用户无需自行定义
-type Nil = Nil   // 始终缺省自动导入
-
 // [PureKun] Nil 时返回缺省值（解包，返回 a）
 withDefault : a -> ?a -> a
 
@@ -1144,7 +1141,7 @@ andThen : (a -> ?b) -> ?a -> ?b
 // [PureKun] 是否为 Nil
 isNil : ?a -> Bool
 
-// [PureKun] 是否为非 Nil
+// [PureKun] 是否为非 Nil（即存在 Some 值）
 isSome : ?a -> Bool
 
 // [PureKun] 按谓词过滤可选值
@@ -1157,10 +1154,10 @@ filter : (a -> Bool) -> ?a -> ?a
 - `toResult` — 将可选值提升为 `Result`，Nil 携带错误信息
 - `andThen` — 串联返回 `?T` 的操作，前一步为 Nil 则短路。适合「取值 → 解析 → 查表」等多步可能失败的操作链
 - `isNil` — 检查可选值是否为 `Nil`
-- `isSome` — 检查可选值是否为非 `Nil`（即存在值）
+- `isSome` — 检查可选值是否为非 `Nil`（即存在 `Some` 值）
 - `filter` — 在值存在且满足谓词时保留值，否则返回 `Nil`
 
-`?T` 为语言内置的类型构造器，`case` 和 `??` / `?.` 为内置操作符，不受 `import Nil` 影响。
+`?T` 为 `Nilable T` 的语法糖。`?T` 与 `Nilable T` 在类型系统中完全等价。`??` / `?.` 在语法分析阶段脱糖为 `case` 表达式。`import Nilable` 不影响这些语法。
 
 ### 示例
 
@@ -1174,20 +1171,20 @@ import String
 // withDefault：用缺省值解包
 host =
   Map.get "host" #{ "host" = "localhost" }
-    |> Nil.withDefault "127.0.0.1"        // → "localhost"
+    |> Nilable.withDefault "127.0.0.1"        // → "localhost"
 
 count =
   Map.get "count" #{}                     // → Nil
-    |> Nil.withDefault 0                  // → 0
+    |> Nilable.withDefault 0                  // → 0
 
 // map：在可选值上做变换
 name =
   Map.get "name" #{ "name" = "Kun" }
-    |> Nil.map (\s -> String.toUpper s)   // → "KUN"
+    |> Nilable.map (\s -> String.toUpper s)   // → "KUN"
 
 absent =
   Map.get "name" #{}
-    |> Nil.map (\s -> String.toUpper s)   // → Nil
+    |> Nilable.map (\s -> String.toUpper s)   // → Nil
 
 // orElse：依次尝试多个来源
 dbConfig : ?String
@@ -1195,29 +1192,29 @@ dbConfig = Nil
 
 config =
   Map.get "host" #{}
-    |> Nil.orElse dbConfig                // 回退到 dbConfig
-    |> Nil.orElse (Map.get "host" #{ "host" = "prod" })
-    |> Nil.withDefault "localhost"        // → "prod"
+    |> Nilable.orElse dbConfig                // 回退到 dbConfig
+    |> Nilable.orElse (Map.get "host" #{ "host" = "prod" })
+    |> Nilable.withDefault "localhost"        // → "prod"
 
 // toResult：可选值 → Result
 required =
   Map.get "port" #{ "port" = "8080" }
-    |> Nil.toResult "port is required"    // → Ok "8080"
+    |> Nilable.toResult "port is required"    // → Ok "8080"
 
 missing =
   Map.get "port" #{}
-    |> Nil.toResult "port is required"    // → Err "port is required"
+    |> Nilable.toResult "port is required"    // → Err "port is required"
 
 // andThen：串联可失败的操作链
 port =
   Map.get "port" #{ "port" = "8080" }     // ?String
-    |> Nil.andThen (\s -> Int.fromString s |> Result.ok)  // ?Int
-    |> Nil.withDefault 80                 // → 8080
+    |> Nilable.andThen (\s -> Int.fromString s |> Result.ok)  // ?Int
+    |> Nilable.withDefault 80                 // → 8080
 
 missingPort =
   Map.get "port" #{}
-    |> Nil.andThen (\s -> Int.fromString s |> Result.ok)
-    |> Nil.withDefault 80                 // → 80（回退到缺省）
+    |> Nilable.andThen (\s -> Int.fromString s |> Result.ok)
+    |> Nilable.withDefault 80                 // → 80（回退到缺省）
 ```
 
 ## `List` — 列表操作
@@ -2013,7 +2010,7 @@ contains : String -> Bool
 import Env
 
 do
-  level = Env.getenv "KUN_LOG_LEVEL" |> Nil.withDefault "info"
+  level = Env.getenv "KUN_LOG_LEVEL" |> Nilable.withDefault "info"
   IO.println f"log level: {level}"
 ```
 
@@ -2813,7 +2810,7 @@ main = \_ ->
 | 模块 | 导入方式 | 说明 |
 |------|---------|------|
 | `Function` | 始终缺省可用 | `identity`、`always`、`<\|`、`\|>`、`<<`、`>>` |
-| `Nil` | 变体 `Nil` 缺省可用；函数需 `import Nil` | `withDefault`、`map`、`orElse`、`toResult`、`andThen` |
+| `Nilable` | 变体 `Nil`、`Some` 缺省可用；函数需 `import Nilable` | `withDefault`、`map`、`orElse`、`toResult`、`andThen`、`isNil`、`isSome`、`filter` |
 | `Bytes` | `import Bytes` | 二进制数据操作 |
 | `Char` | `import Char` | 字符分类与转换 |
 | `Decimal` | `import Decimal` | 精确十进制数值 |

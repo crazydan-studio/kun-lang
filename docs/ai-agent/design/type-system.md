@@ -41,8 +41,7 @@ Type Universe
 ├── Base Types         (Int, Float, Bool, String, Bytes, Char, Regex, Duration, Unit, Path)
 ├── Compound Types     (List, Map, Set, Stream, Tuple)
 ├── Product Types      (Record/Tuple)
-├── Sum Types / ADTs   (custom sum types, Result)
-├── Nilable Types      (?T — Nil or T)
+├── Sum Types / ADTs   (custom sum types, Result, Nilable)
 ├── Function Types     (pure functions, command functions)
 ├── Standard Library Types (compiler-supported)
 │   ├── Decimal    (mantissa + exponent)
@@ -53,81 +52,80 @@ Type Universe
 
 > `DateTime`、`Decimal`、`Command` 为标准库类型——由编译器提供 TypeEnv 变体和运行时表示支持，但非语言内置基础类型。`DateTime` 为 `Int` 的 newtype，`Decimal` 为尾数+指数二元组，`Command` 为不透明值。
 
-### Nilable 类型（`?T`）
+### Nilable 类型（`Nilable a` / `?T`）
 
-> **编译器内置**：`?T` 是语言内置类型构造器，`Nil` 是编译器内置值，不可在纯 Kun 代码中定义等价物。操作符 `?.` 和 `??` 同样由编译器直接处理。
+`Nilable a` 是编译器内置的 ADT，表示值可能存在（`Some a`），也可能不存在（`Nil`）。`?T` 为 `Nilable T` 的语法糖——用户可在类型标注中任选其一。
 
-类型 `?T` 表示值可能存在（`T`），也可能不存在（`Nil`）。这是语言内置类型构造器，非 ADT。
+> **编译器内置**：`type Nilable a = Some a | Nil` 是编译器预定义的和类型，等效于用户定义的 ADT。`Some` 和 `Nil` 两个变体始终缺省可用（无需 `import` 即可在 `case` 模式匹配中使用）。`Nilable` 模块（需导入）提供组合子函数。
+
+#### `?T` 语法糖
+
+`?T` 在语法分析阶段脱糖为 `Nilable T`：
+
+| 写法 | 脱糖后 | 说明 |
+|------|--------|------|
+| `?T` | `Nilable T` | 如 `?String` → `Nilable String` |
+| `?(T1 T2)` | `Nilable (T1 T2)` | 多词类型须括号包裹，**不**支持 `?Result T E`（作用域不明确） |
+
+`?T` 与 `Nilable T` 在类型系统中完全等价，可在类型标注中互用。模块函数签名**统一使用 `?a`** 以保持简洁。
+
+#### 操作符脱糖（语法分析阶段）
+
+| 操作符 | 脱糖为 |
+|-------|--------|
+| `e ?. f` | `case e of Some x -> f x; Nil -> Nil` |
+| `e ?? d` | `case e of Some x -> x; Nil -> d` |
+
+脱糖在语法分析阶段完成，无类型依赖。
+
+#### 隐式包装（约束生成阶段）
+
+值 `v : T` 在以下场景自动包装为 `?T`：
+- 赋值给 `?T` 类型变量/字段（`x : ?Int = 42`）
+- 作为 `?T` 类型函数实参
+- 从高阶函数回调返回 `T` 值到 `?T` 期望位置
+
+> 这不违反"无子类型"原则——`T` 与 `?T` 之间无子类型关系，提升是编译器层面的自动包装。
+
+此隐式包装在 `Nilable` 模块的 PureKun 实现中同样生效——例如 `Nilable.map` 中 `f v` 的结果 `b` 自动提升为 `?b`。
+
+#### Record 字段 Nil 填充（约束生成阶段）
+
+Record 字面量中未提供的字段自动填充为 `Nil`。填充的 `Nil` 被赋予该字段的具体 `?T` 类型（而非多态 `?a`），保证合一无歧义。若字段类型非 `?T` 且未提供，报"缺少字段"错误。
+
+#### 规则
 
 | 规则 | 说明 |
 |------|------|
 | `T`（无 `?`） | **不可**为 Nil。`x : String = Nil` 编译期报错 |
 | `?T` | **可**为 Nil。`x : ?String = Nil` 合法 |
-| `?(T1 T2)` | 对多词类型使用括号包裹，如 `?(Result T E)` 表示 `Result T E` 可为 Nil。**不支持 `?Result T E` 形式**——`?` 的作用域不明确 |
-| `Nil` 字面量 | 唯一值为 `Nil`，类型为 `?a`（多态） |
-| Record 字段 | 未提供的字段自动为 `Nil` |
-| 和类型字段 | 字段类型默认不可 Nil，`?` 需显式标注 |
-| 函数参数 | 默认不可 Nil。`?` 标注时可为 Nil |
-| 嵌套 `? ?T` | **编译期报错**。`Nil` 已表示"不存在"，嵌套 Nilable 不增加表达能力——`? ?T` 的取值空间与 `?T` 完全相同（值级折叠）。`Nil` 字面量在 `? ?T` 上下文中不可区分"外层 Nil"与"外层存在但内层 Nil" |
+| `Nil` | 字面量类型为多态 `?a`，与上下文合一确定具体类型 |
+| 和类型字段 | 默认不可 Nil，`?` 需显式标注 |
+| 嵌套 `? ?T` | **类型检查阶段报错**。`Nilable (Nilable T)` 取值空间与 `?T` 完全相同——`Nil` 在嵌套上下文中不可区分外层与内层 |
+| `if x /= Nil` | **不**支持流敏感收窄，使用 `case` 显式匹配 |
 
-**隐式包装**：值 `v : T` 可隐式提升为 `?T`。编译器在约束生成阶段自动插入提升，以下场景合法：
-- 赋值给 `?T` 类型变量/字段（`x : ?Int = 42`）
-- 作为 `?T` 类型函数实参
-- 作为 `?T` 位置的 Record 字段值
-- 从高阶函数回调返回 `T` 值到 `?T` 期望位置
-
-> 此规则不违反"无子类型"原则——`T` 与 `?T` 之间无子类型关系，提升是编译器层面的语法糖转换。
-
-操作符：
-
-| 操作符 | 语义 | 示例 |
-|-------|------|------|
-| `x ?? default` | Nil 合并：`x` 为 `Nil` 时返回 `default`，否则返回 `x` | `name ?? "guest"` |
-| `x ?. f` | 可选链：`x` 为 `Nil` 时返回 `Nil`，否则调用 `f(x)` | `getConfig "port" ?. parseInt` |
-
-模式匹配收窄：
+#### 模式匹配
 
 ```kun
 x : ?String
 x = someFunctionReturningOptional
 
 case x of
-  Nil -> "none"        // Nil 分支
-  s   -> s             // 此分支 s 收窄为非 Nil 的 String（安全）
-
-if x /= Nil then
-  String.length x         // 此分支 x 收窄为非 Nil 的 String（安全）
+  Some s -> String.length s   // 显式 Some，s 收窄为 String
+  Nil    -> 0
 ```
 
-#### 表达式 scrutinee 收窄
+`case` 匹配 `Nilable` 时必须显式使用 `Some` 和 `Nil` 变体——编译器不做裸变量糖化。
 
-`case` 的 scrutinee 可以是任意表达式（非仅变量）。编译器对表达式 scrutinee 引入隐式临时绑定：
-
-```kun
-case someFunc() of          // someFunc : -> ?String
-  Nil -> "absent"
-  s   -> String.length s    // s 收窄为 String
-```
-
-收窄作用于模式绑定的变量——`Nil` 分支中无绑定，`s` 分支中 `s` 的类型收窄为 `String`。每个分支对 scrutinee 的求值次数为一次（编译器插入临时绑定保证）。
-
-#### 复合模式收窄
-
-元组和 Record 模式中，每个子模式独立收窄：
+#### 复合模式
 
 ```kun
 case (x, y) of              // x : ?Int, y : ?String
-  (Nil, Nil) -> "both absent"
-  (a, Nil)   -> -a           // a : Int（收窄），第二项仍为 Nil
-  (Nil, b)   -> b           // b : String（收窄），第一项为 Nil
-  (a, b)     ->             // a : Int, b : String（均收窄）
-    Int.toString a ++ b
+  (Some a, Some b) -> Int.toString a ++ b
+  (Some a, Nil)    -> Int.toString a
+  (Nil, Some b)    -> b
+  (Nil, Nil)       -> "both absent"
 ```
-
-规则：
-- 元组模式 `(p1, p2, ...)`：每个位置根据该位置的值类型独立收窄。`Nil` 子模式收窄对应位置为 `Nil`；变量子模式在非 `Nil` 分支中收窄为 `T`
-- Record 模式 `{f1 = p1, f2 = p2, ...}`：每个字段根据其子模式独立收窄，规则同元组
-- 守卫子句中的变量类型为 scrutinee 原始类型（不收窄）
 
 ## 基础类型
 
@@ -588,8 +586,8 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 > | `Not A Function` | 非函数调用 |
 > | `Too Many Arguments` | 参数过多 |
 > | `Effect Callback Required` | 效应回调必需 |
-> | `Nil For Non-Nilable` | Nil 赋值给非 Nilable |
-> | `Nilable Used As Non-Nilable` | ?T 用于非 Nilable 位置 |
+> | `Nil For Non-Nilable` | Nil 赋值给非 ?T 类型 |
+> | `Nilable Used As Non-Nilable` | ?T 用于非 ?T 位置 |
 > | `Non-Exhaustive Pattern` | 模式匹配非穷举 |
 > | `Redundant Pattern` | 冗余模式 |
 > | `Unknown Field` | 未知字段 |
@@ -668,9 +666,9 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
      Hint: 标记了 ! 的参数必须传入效应函数（含 do 块或调用 IO/File/Cmd 等）。传入的函数 {name} 为纯函数
    ```
 
-**Nilable 类型**
+**Nilable 类型（`?T`）**
 
-7. **`NilAssignedToT`**（Nil 赋值给非 Nilable 类型）
+7. **`NilAssignedToT`**（Nil 赋值给非 `?T` 类型）
    ```
    Error: Nil For Non-Nilable ─── src/main.kun:{line}:{col}
      Type: {expected} (not nilable)

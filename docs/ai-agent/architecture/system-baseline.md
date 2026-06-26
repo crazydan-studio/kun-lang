@@ -398,7 +398,7 @@ const Expr = union(enum) {
 | 节点类型 | 需要的类型信息 | 运行时使用方式 |
 |---------|--------------|--------------|
 | ADT 模式匹配 | 变体 tag 值（`uint8_t`） | 选择 `case` 分支 |
-| `?T` 模式匹配 | Nil/非 Nil 区分 | 选择 `Nil` 分支或值分支 |
+| `Nilable T`（`?T`）模式匹配 | ADT 变体 tag（`Some`/`Nil`） | 选择 `case` 分支 |
 | Record 字段访问 | 字段偏移量（编译期计算） | 直接内存偏移访问，tag 为 `uint8_t` |
 
 Record 字段偏移量在编译期计算（已知字段顺序和类型排列），编码在 Typed AST 的 Record 访问节点中。无运行时虚表分发。
@@ -431,7 +431,7 @@ const Type = union(enum) {
     record: struct { fields: []const RecordField },
     tuple: struct { elements: []const TypeId },
     adt: struct { name: []const u8, variants: []const ADTVariant },
-    nilable: TypeId,
+    nilable: TypeId,   // Nilable T — 编译器内置 ADT 的快捷表示，等价于 adt{ Some(T), Nil }
     function: struct { param: TypeId, result: TypeId },
     effect_fn: struct { param: TypeId, result: TypeId },
     // 标准库类型（编译器内置支持但非基础类型）
@@ -792,22 +792,22 @@ typedef struct {
 } ADT;
 ```
 
-#### `?T` (Nilable 类型)
+#### `Nilable a`（`?T`——可选值类型）
 
-`?T` 的运行时表示分两个策略：
-
-- **引用类型**（`String`、`Bytes`、`Path`、`List`、`Map`、`Set`、`Closure`）：使用 **null 指针** 表示 `Nil`。底层 `Slice.ptr == NULL` 且 `Slice.len == 0` 时值为 `Nil`，否则值为 `T`。零额外存储开销。
-- **值类型**（`Int`、`Float`、`Bool`、`Char`、`Duration`、`ADT`、`Record`、`Tuple`）：使用 **tagged union** 表示。tag=0 → `Nil`，tag=1 → `T`。与 ADT 布局一致（`uint8_t` tag + payload）。Zig 0.17 中，值类型的 nilable 可使用 `packed struct { tag: u8, value: T }` 实现，等值比较退化为单条整数比较指令。
+`Nilable a` 为编译器内置 ADT，运行时表示为标准 ADT tagged union 布局。`Some` 变体 tag = `0`，`Nil` 变体 tag = `1`：
 
 ```c
-// ?Int 的运行时表示（值类型策略）
+// Nilable Int 的运行时表示（标准 ADT tagged union）
 typedef struct {
-    uint8_t tag;          // 0 = Nil, 1 = Int value present
+    uint8_t tag;          // 0 = Some, 1 = Nil
     union {
-        int64_t value;    // tag=1 时有效
+        int64_t value;    // tag=0 时有效（Some 内部值）
+        // Nil 变体无 payload
     };
 } NilableInt;
 ```
+
+**零开销优化**：对于引用类型（`String`、`Bytes`、`Path`、`List`、`Map`、`Set`、`Closure`），编译器可选用 **null 指针** 策略优化 `Nil` 表示——`Slice.ptr == NULL` 且 `Slice.len == 0` 时值为 `Nil`，否则值为 `T`。此优化在代码生成阶段应用，对类型系统透明。
 
 #### Record
 
