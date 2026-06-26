@@ -27,6 +27,9 @@ const test_int = @import("stdlib/test_int.zig");
 const test_float = @import("stdlib/test_float.zig");
 const test_char = @import("stdlib/test_char.zig");
 const test_nilable = @import("stdlib/test_nilable.zig");
+const test_regex = @import("runtime/test_regex.zig");
+const test_datetime = @import("runtime/test_datetime.zig");
+const test_validator = @import("stdlib/test_validator.zig");
 
 comptime {
     _ = test_lexer;
@@ -56,4 +59,7 @@ comptime {
     _ = test_float;
     _ = test_char;
     _ = test_nilable;
+    _ = test_regex;
+    _ = test_datetime;
+    _ = test_validator;
 }
