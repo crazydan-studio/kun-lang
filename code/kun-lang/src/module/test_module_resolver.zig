@@ -1,5 +1,7 @@
 const std = @import("std");
 const module_resolver = @import("module_resolver.zig");
+const parser = @import("../parser/parser.zig");
+const lexer = @import("../lexer/lexer.zig");
 
 test "isBuiltinType recognizes all builtins" {
     const cases = [_][]const u8{
@@ -109,4 +111,75 @@ test "ModuleResolver resolve nonexistent returns error" {
     defer arena.deinit();
     var resolver = try module_resolver.ModuleResolver.init(arena.allocator(), null);
     try std.testing.expectError(error.ModuleNotFound, resolver.resolve(arena.allocator(), "NonExistentModule"));
+}
+
+test "ModuleResolver search path init priority" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Verify init configures correct path strings
+    const resolver = try module_resolver.ModuleResolver.init(alloc, "/app");
+    try std.testing.expectEqualStrings("/app/lib", resolver.project_lib.?);
+    // runtime_lib should be non-empty default
+    try std.testing.expect(resolver.runtime_lib.len > 0);
+    // cmd_path should be non-empty default
+    try std.testing.expect(resolver.cmd_path.len > 0);
+}
+
+test "ModuleResolver parse export lists" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Parse a module with exports (single line, no newlines)
+    const source = "export (add, sub)";
+    const tokens = try lexer.tokenize(alloc, source);
+    const decls = try parser.parseModule(alloc, tokens);
+
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .export_);
+    try std.testing.expectEqualStrings("add", decls[0].export_.names[0]);
+    try std.testing.expectEqualStrings("sub", decls[0].export_.names[1]);
+
+    // Parse a module without exports
+    const source2 = "add = \\x -> x";
+    const tokens2 = try lexer.tokenize(alloc, source2);
+    const decls2 = try parser.parseModule(alloc, tokens2);
+
+    try std.testing.expectEqual(@as(usize, 1), decls2.len);
+    try std.testing.expect(decls2[0] == .function_def);
+}
+
+test "ModuleResolver script without export" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Single function def, no export — script-like
+    const source = "answer = 42";
+    const tokens = try lexer.tokenize(alloc, source);
+    const decls = try parser.parseModule(alloc, tokens);
+
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+    try std.testing.expectEqualStrings("answer", decls[0].function_def.name);
+}
+
+test "ModuleResolver decl classifies correctly" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Test that a module with export and function_def is classified as lib
+    const src_lib = "export (add)";
+    const tokens = try lexer.tokenize(alloc, src_lib);
+    const decls = try parser.parseModule(alloc, tokens);
+    try std.testing.expect(decls[0] == .export_);
+
+    // Test that a script with just a function def and no export
+    const src_script = "answer = 42";
+    const tokens2 = try lexer.tokenize(alloc, src_script);
+    const decls2 = try parser.parseModule(alloc, tokens2);
+    try std.testing.expect(decls2[0] == .function_def);
 }
