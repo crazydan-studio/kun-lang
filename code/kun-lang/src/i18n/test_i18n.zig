@@ -207,24 +207,6 @@ test "i18n formatError unknown_field zh_CN" {
     try std.testing.expect(std.mem.startsWith(u8, msg, "未知字段"));
 }
 
-test "i18n formatError nil_to_non_nilable en" {
-    var env = try createTypeEnv();
-    defer env.deinit(std.testing.allocator);
-    const err = error_mod.TypeError{ .nil_to_non_nilable = undefined };
-    const msg = try i18n.formatError(std.testing.allocator, err, .en, &env);
-    defer std.testing.allocator.free(msg);
-    try std.testing.expect(std.mem.startsWith(u8, msg, "Nil assigned"));
-}
-
-test "i18n formatError nil_to_non_nilable zh_CN" {
-    var env = try createTypeEnv();
-    defer env.deinit(std.testing.allocator);
-    const err = error_mod.TypeError{ .nil_to_non_nilable = undefined };
-    const msg = try i18n.formatError(std.testing.allocator, err, .zh_CN, &env);
-    defer std.testing.allocator.free(msg);
-    try std.testing.expect(std.mem.startsWith(u8, msg, "Nil 赋值"));
-}
-
 test "i18n formatError infinite_type en" {
     var env = try createTypeEnv();
     defer env.deinit(std.testing.allocator);

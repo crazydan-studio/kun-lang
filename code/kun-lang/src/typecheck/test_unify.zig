@@ -52,8 +52,10 @@ test "unify nilable with base type errors" {
     const a = try env.newVar(std.testing.allocator, 1);
     const nil_a = try env.registerType(std.testing.allocator, .{ .nilable = a });
 
-    try std.testing.expectError(error.NilToNonNilable, unify_mod.unify(&env, std.testing.allocator, nil_a, env_mod.int_type));
-    try std.testing.expectError(error.NilToNonNilable, unify_mod.unify(&env, std.testing.allocator, env_mod.int_type, nil_a));
+    // nilable no longer has a specific error for base type unification;
+    // it falls through to generic Mismatch (ADT vs base type)
+    try std.testing.expectError(error.Mismatch, unify_mod.unify(&env, std.testing.allocator, nil_a, env_mod.int_type));
+    try std.testing.expectError(error.Mismatch, unify_mod.unify(&env, std.testing.allocator, env_mod.int_type, nil_a));
 }
 
 test "unify function types" {

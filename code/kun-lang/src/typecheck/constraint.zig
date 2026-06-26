@@ -283,7 +283,6 @@ pub fn inferExpr(
                     try errors.add(allocator, .{ .function_apply_arg = .{ .func_name = func_name, .expected = expected_param, .found = arg_type, .span = v.span } });
                 },
                 error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                 else => {
                     const resolved_func = env.applySubst(func_type);
                     const expected_param = if (resolved_func < env.types.items.len) switch (env.types.items[resolved_func]) {
@@ -410,7 +409,6 @@ pub fn inferExpr(
                             .then_type = result_type, .else_type = b.type_, .span = v.span,
                         } }),
                         error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                         else => try errors.add(allocator, .{ .mismatch = .{
                             .expected = result_type, .found = b.type_, .span = v.span,
                         } }),
@@ -432,7 +430,6 @@ pub fn inferExpr(
                     unify_mod.unify(env, allocator, left_type, right_type) catch |err| switch (err) {
                         error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = left_type, .found = right_type, .span = v.span } }),
                         error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                         else => try errors.add(allocator, .{ .mismatch = .{ .expected = left_type, .found = right_type, .span = v.span } }),
                     };
                 },
@@ -440,7 +437,6 @@ pub fn inferExpr(
                     unify_mod.unify(env, allocator, left_type, right_type) catch |err| switch (err) {
                         error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = left_type, .found = right_type, .span = v.span } }),
                         error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                         else => try errors.add(allocator, .{ .mismatch = .{ .expected = left_type, .found = right_type, .span = v.span } }),
                     };
                 },
@@ -448,13 +444,11 @@ pub fn inferExpr(
                     unify_mod.unify(env, allocator, left_type, bool_type) catch |err| switch (err) {
                         error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = bool_type, .found = left_type, .span = v.span } }),
                         error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                         else => try errors.add(allocator, .{ .mismatch = .{ .expected = bool_type, .found = left_type, .span = v.span } }),
                     };
                     unify_mod.unify(env, allocator, right_type, bool_type) catch |err| switch (err) {
                         error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = bool_type, .found = right_type, .span = v.span } }),
                         error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                         else => try errors.add(allocator, .{ .mismatch = .{ .expected = bool_type, .found = right_type, .span = v.span } }),
                     };
                 },
@@ -462,7 +456,6 @@ pub fn inferExpr(
                     unify_mod.unify(env, allocator, left_type, right_type) catch |err| switch (err) {
                         error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = left_type, .found = right_type, .span = v.span } }),
                         error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                         else => try errors.add(allocator, .{ .mismatch = .{ .expected = left_type, .found = right_type, .span = v.span } }),
                     };
                 },
@@ -471,7 +464,6 @@ pub fn inferExpr(
                     unify_mod.unify(env, allocator, left_type, nilable_right) catch |err| switch (err) {
                         error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = nilable_right, .found = left_type, .span = v.span } }),
                         error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                        error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                         else => try errors.add(allocator, .{ .mismatch = .{ .expected = nilable_right, .found = left_type, .span = v.span } }),
                     };
                 },
@@ -693,7 +685,6 @@ pub fn inferExpr(
                                 switch (err) {
                                     error.Mismatch => try errors.add(allocator, .{ .mismatch = .{ .expected = rf.type_, .found = exprType(typed_val), .span = v.span } }),
                                     error.InfiniteType => try errors.add(allocator, .{ .infinite_type = v.span }),
-                                    error.NilToNonNilable => try errors.add(allocator, .{ .nil_to_non_nilable = v.span }),
                                     else => {},
                                 }
                             };

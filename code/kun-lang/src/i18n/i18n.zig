@@ -49,11 +49,6 @@ pub fn formatError(allocator: std.mem.Allocator, err: TypeError, locale: Locale,
                 "Missing Field: {s}\n  at {f}",
                 .{ mf.name, mf.span });
         },
-        .nil_to_non_nilable => |nn| {
-            return try format(allocator, locale,
-                "Nil assigned to non-nilable type\n  at {f}",
-                .{nn.start});
-        },
         .unbound_variable => |uv| {
             return try format(allocator, locale,
                 "Unbound Variable: {s}\n  at {f}",

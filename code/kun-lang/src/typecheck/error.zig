@@ -10,7 +10,6 @@ pub const TypeError = union(enum) {
     non_exhaustive: struct { missing: []const []const u8, span: ast.Span },
     unknown_field: struct { name: []const u8, span: ast.Span },
     missing_field: struct { name: []const u8, span: ast.Span },
-    nil_to_non_nilable: ast.Span,
     unbound_variable: struct { name: []const u8, span: ast.Span },
     unbound_type: struct { name: []const u8, span: ast.Span },
     infinite_type: ast.Span,

@@ -11,7 +11,6 @@ const unit_type = env_mod.unit_type;
 
 pub const TypeError = enum {
     mismatch,
-    nil_to_non_nilable,
     effect_fn_pure_mismatch,
     infinite_type,
     unknown_field,
@@ -60,12 +59,6 @@ pub fn unify(env: *TypeEnv, allocator: std.mem.Allocator, a: TypeId, b: TypeId) 
 
     if (ta == .nilable and tb == .nilable) {
         return unify(env, allocator, ta.nilable, tb.nilable);
-    }
-    if (ta == .nilable and isBaseType(tb)) {
-        return error.NilToNonNilable;
-    }
-    if (isBaseType(ta) and tb == .nilable) {
-        return error.NilToNonNilable;
     }
 
     if (ta == .function and tb == .function) {
