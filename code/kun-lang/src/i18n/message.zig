@@ -7,7 +7,7 @@ pub const Locale = enum {
     external,
 };
 
-/// Pure template lookup — returns the translated string with {name} placeholders.
+/// Pure template lookup — returns the translated string with {s}/{d} placeholders.
 /// en path returns msgid directly (zero allocation, zero lookup).
 /// zh_CN path does compile-time binary search in the embedded translation table.
 /// external path looks up the runtime-loaded hash table.
@@ -19,7 +19,7 @@ pub fn kmsg(comptime msgid: []const u8, locale: Locale) []const u8 {
     };
 }
 
-/// Lookup + interpolation — replaces {name} placeholders with values.
+/// Lookup + interpolation — replaces {s}/{d} placeholders with positional args.
 /// en/zh_CN use std.fmt.allocPrint (compile-time validation).
 /// external uses runtime string replacement.
 pub fn format(allocator: std.mem.Allocator, locale: Locale, comptime template: []const u8, args: anytype) ![]const u8 {
@@ -38,7 +38,6 @@ pub fn format(allocator: std.mem.Allocator, locale: Locale, comptime template: [
 /// Runtime string replacement for external locale.
 /// Falls back to the original template since std.fmt requires comptime format strings.
 /// The external locale is only triggered by explicit KUN_LOCALE setting.
-/// Implementation pending: custom runtime format string parser for {s}, {d}, {f}.
 pub fn runtimeReplace(allocator: std.mem.Allocator, template: []const u8, args: anytype) ![]const u8 {
     _ = allocator;
     _ = args;
