@@ -1,6 +1,7 @@
 const std = @import("std");
 const ast = @import("../ast/ast.zig");
 const typed = @import("../ast/typed.zig");
+const regex = @import("regex");
 
 pub const Closure = struct {
     param_names: []const []const u8,
@@ -32,7 +33,7 @@ pub const CommandPayload = struct {
     positional: []const Value,
 };
 
-pub const RegexHandle = opaque {};
+pub const RegexHandle = regex.Regex;
 
 pub const Frame = @import("env.zig").Frame;
 const PrimitiveFn = @import("primitive.zig").PrimitiveFn;

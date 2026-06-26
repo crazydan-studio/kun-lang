@@ -1,7 +1,8 @@
 const std = @import("std");
-const ast = @import("../ast/ast.zig");
 const typed = @import("../ast/typed.zig");
+const ast = @import("../ast/ast.zig");
 const value_mod = @import("value.zig");
+const regex = @import("regex");
 const env_mod = @import("env.zig");
 const defer_mod = @import("defer.zig");
 const primitive_mod = @import("primitive.zig");
@@ -50,7 +51,11 @@ pub fn eval(expr: *const TypedExpr, frame: *Frame, allocator: std.mem.Allocator)
         .nil_literal => Value{ .nil = {} },
         .duration_literal => |v| Value{ .duration = v.value },
         .path_literal => |v| Value{ .path = v.value },
-        .regex_literal => @panic("regex engine not yet implemented"),
+        .regex_literal => |v| {
+            const re = allocator.create(value_mod.RegexHandle) catch @panic("OOM");
+            re.* = regex.Regex.compile(allocator, v.value) catch @panic("invalid regex");
+            return Value{ .regex = re };
+        },
         .bytes_literal => |v| Value{ .bytes = v.value },
         .ident => |v| {
             if (frame.lookup(v.name)) |val| return val;
