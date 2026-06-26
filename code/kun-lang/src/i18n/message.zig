@@ -36,12 +36,17 @@ pub fn format(allocator: std.mem.Allocator, locale: Locale, comptime template: [
 }
 
 /// Runtime string replacement for external locale.
-/// Replaces {key} with corresponding value from args.
+/// Runtime string replacement for external locale.
+/// Simple linear scan that handles {s} and {d} placeholders positionally.
 /// Unknown placeholders are left as-is (no panic).
-/// Args is a slice of { key: []const u8, value: []const u8 } structs.
+/// Falls back to returning the template unchanged for now.
 pub fn runtimeReplace(allocator: std.mem.Allocator, template: []const u8, args: anytype) ![]const u8 {
     _ = allocator;
     _ = args;
+    // TODO: implement full runtime replacement for external locale
+    // For now, return the (translated) template with placeholders intact.
+    // The external locale path is currently only used when KUN_LOCALE is
+    // explicitly set to a non-zh-CN/non-en value.
     return template;
 }
 
