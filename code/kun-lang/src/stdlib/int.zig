@@ -66,6 +66,6 @@ pub fn toFloatImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn toStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
-    if (args.len < 1) return Value{ .string = .{ .ptr = "", .len = 0 } };
-    return Value{ .string = .{ .ptr = "", .len = 0 } };
+    if (args.len < 1) return Value{ .string = "" };
+    return Value{ .string = "" };
 }

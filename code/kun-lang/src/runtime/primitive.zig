@@ -7,6 +7,11 @@ const fs = @import("../stdlib/fs.zig");
 const data = @import("../stdlib/data.zig");
 const stream = @import("../stdlib/stream.zig");
 const crypto = @import("../stdlib/crypto.zig");
+const nilable_mod = @import("../stdlib/nilable.zig");
+const duration_mod = @import("../stdlib/duration.zig");
+const int_mod = @import("../stdlib/int.zig");
+const float_mod = @import("../stdlib/float.zig");
+const char_mod = @import("../stdlib/char.zig");
 
 const TypeId = typed.TypeId;
 const Frame = @import("env.zig").Frame;
@@ -172,6 +177,79 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "Regex", .name = "split", .fn_ptr = crypto.regexSplitImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
 
         .{ .module = "Validator", .name = "regex", .fn_ptr = crypto.validatorRegexImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+
+        // Nilable module (PureKun combinators, temporarily registered as Primitive)
+        .{ .module = "Nilable", .name = "withDefault", .fn_ptr = nilable_mod.withDefaultImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Nilable", .name = "map", .fn_ptr = nilable_mod.mapImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Nilable", .name = "orElse", .fn_ptr = nilable_mod.orElseImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Nilable", .name = "toResult", .fn_ptr = nilable_mod.toResultImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Nilable", .name = "andThen", .fn_ptr = nilable_mod.andThenImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Nilable", .name = "isNil", .fn_ptr = nilable_mod.isNilImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Nilable", .name = "isSome", .fn_ptr = nilable_mod.isSomeImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = P, .is_effect = false },
+        .{ .module = "Nilable", .name = "filter", .fn_ptr = nilable_mod.filterImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = P, .is_effect = false },
+
+        // Duration module
+        .{ .module = "Duration", .name = "toNanos", .fn_ptr = duration_mod.toNanosImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "toMicros", .fn_ptr = duration_mod.toMicrosImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "toMillis", .fn_ptr = duration_mod.toMillisImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "toSeconds", .fn_ptr = duration_mod.toSecondsImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "toMinutes", .fn_ptr = duration_mod.toMinutesImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "toHours", .fn_ptr = duration_mod.toHoursImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "toDays", .fn_ptr = duration_mod.toDaysImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "fromString", .fn_ptr = duration_mod.fromStringImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "fromMillis", .fn_ptr = duration_mod.fromMillisImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "toString", .fn_ptr = duration_mod.toStringImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "format", .fn_ptr = duration_mod.formatImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "negate", .fn_ptr = duration_mod.negateImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "isNegative", .fn_ptr = duration_mod.isNegativeImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Duration", .name = "abs", .fn_ptr = duration_mod.absImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+
+        // Int module
+        .{ .module = "Int", .name = "abs", .fn_ptr = int_mod.absImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Int", .name = "min", .fn_ptr = int_mod.minImpl, .arg_count = 2, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Int", .name = "max", .fn_ptr = int_mod.maxImpl, .arg_count = 2, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Int", .name = "pow", .fn_ptr = int_mod.powImpl, .arg_count = 2, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Int", .name = "clamp", .fn_ptr = int_mod.clampImpl, .arg_count = 3, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Int", .name = "fromString", .fn_ptr = int_mod.fromStringImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Int", .name = "toFloat", .fn_ptr = int_mod.toFloatImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Int", .name = "toString", .fn_ptr = int_mod.toStringImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+
+        // Float module (float_type = 1)
+        .{ .module = "Float", .name = "pi", .fn_ptr = float_mod.piImpl, .arg_count = 0, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "e", .fn_ptr = float_mod.eImpl, .arg_count = 0, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "abs", .fn_ptr = float_mod.absImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "floor", .fn_ptr = float_mod.floorImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "ceil", .fn_ptr = float_mod.ceilImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "round", .fn_ptr = float_mod.roundImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "sin", .fn_ptr = float_mod.sinImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "cos", .fn_ptr = float_mod.cosImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "tan", .fn_ptr = float_mod.tanImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "exp", .fn_ptr = float_mod.expImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "log", .fn_ptr = float_mod.logImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "log2", .fn_ptr = float_mod.log2Impl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "log10", .fn_ptr = float_mod.log10Impl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "pow", .fn_ptr = float_mod.powImpl, .arg_count = 2, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "sqrt", .fn_ptr = float_mod.sqrtImpl, .arg_count = 1, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "approxEqual", .fn_ptr = float_mod.approxEqualImpl, .arg_count = 3, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "min", .fn_ptr = float_mod.minImpl, .arg_count = 2, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "max", .fn_ptr = float_mod.maxImpl, .arg_count = 2, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "clamp", .fn_ptr = float_mod.clampImpl, .arg_count = 3, .return_type = @as(TypeId, 1), .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "fromString", .fn_ptr = float_mod.fromStringImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "toInt", .fn_ptr = float_mod.toIntImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Float", .name = "toString", .fn_ptr = float_mod.toStringImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
+
+        // Char module
+        .{ .module = "Char", .name = "of", .fn_ptr = char_mod.ofImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "fromInt", .fn_ptr = char_mod.fromIntImpl, .arg_count = 1, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "isDigit", .fn_ptr = char_mod.isDigitImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "isAlpha", .fn_ptr = char_mod.isAlphaImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "isUpper", .fn_ptr = char_mod.isUpperImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "isLower", .fn_ptr = char_mod.isLowerImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "isWhitespace", .fn_ptr = char_mod.isWhitespaceImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "isControl", .fn_ptr = char_mod.isControlImpl, .arg_count = 1, .return_type = bool_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "toUpper", .fn_ptr = char_mod.toUpperImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "toLower", .fn_ptr = char_mod.toLowerImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "Char", .name = "toInt", .fn_ptr = char_mod.toIntImpl, .arg_count = 1, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
     };
     _ = .{ int_t, string_t, unit_t, stream_string_t, bool_t, bytes_t };
     return .{ .bindings = &bindings };

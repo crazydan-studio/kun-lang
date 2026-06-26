@@ -24,7 +24,7 @@ pub fn isDigitImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn isAlphaImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     if (args.len < 1) return Value{ .bool = false };
-    return Value{ .bool = std.ascii.isAlpha(@intCast(args[0].char)) };
+    return Value{ .bool = std.ascii.isAlphabetic(@intCast(args[0].char)) };
 }
 
 pub fn isUpperImpl(env: *RuntimeEnv, args: []const Value) Value {

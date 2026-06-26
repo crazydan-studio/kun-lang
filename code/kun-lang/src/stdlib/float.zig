@@ -13,9 +13,9 @@ pub fn sinImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.
 pub fn cosImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.cos(args[0].float) }; }
 pub fn tanImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.tan(args[0].float) }; }
 pub fn expImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.exp(args[0].float) }; }
-pub fn logImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.log(args[0].float) }; }
-pub fn log2Impl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.log2(args[0].float) }; }
-pub fn log10Impl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.log10(args[0].float) }; }
+pub fn logImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.log(f64, std.math.e, args[0].float) }; }
+pub fn log2Impl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.log(f64, 2.0, args[0].float) }; }
+pub fn log10Impl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.log(f64, 10.0, args[0].float) }; }
 pub fn powImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 2) return Value{ .float = 1 }; return Value{ .float = std.math.pow(f64, args[0].float, args[1].float) }; }
 pub fn sqrtImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .float = 0 }; return Value{ .float = std.math.sqrt(args[0].float) }; }
 pub fn approxEqualImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 3) return Value{ .bool = false }; return Value{ .bool = @abs(args[0].float - args[1].float) < args[2].float }; }
@@ -24,4 +24,4 @@ pub fn maxImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.
 pub fn clampImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 3) return Value{ .float = 0 }; return Value{ .float = @min(@max(args[0].float, args[1].float), args[2].float) }; }
 pub fn fromStringImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
 pub fn toIntImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; if (args.len < 1) return Value{ .int = 0 }; return Value{ .int = @intFromFloat(args[0].float) }; }
-pub fn toStringImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .string = .{ .ptr = "", .len = 0 } }; }
+pub fn toStringImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .string = "" }; }

@@ -14,42 +14,42 @@ pub fn toMicrosImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     if (args.len < 1) return Value{ .int = 0 };
     if (args[0] != .duration) return Value{ .int = 0 };
-    return Value{ .int = args[0].duration / 1000 };
+    return Value{ .int = @divTrunc(args[0].duration, 1000) };
 }
 
 pub fn toMillisImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     if (args.len < 1) return Value{ .int = 0 };
     if (args[0] != .duration) return Value{ .int = 0 };
-    return Value{ .int = args[0].duration / (1000 * 1000) };
+    return Value{ .int = @divTrunc(args[0].duration, (1000 * 1000)) };
 }
 
 pub fn toSecondsImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     if (args.len < 1) return Value{ .int = 0 };
     if (args[0] != .duration) return Value{ .int = 0 };
-    return Value{ .int = args[0].duration / (1000 * 1000 * 1000) };
+    return Value{ .int = @divTrunc(args[0].duration, (1000 * 1000 * 1000)) };
 }
 
 pub fn toMinutesImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     if (args.len < 1) return Value{ .int = 0 };
     if (args[0] != .duration) return Value{ .int = 0 };
-    return Value{ .int = args[0].duration / (60 * 1000 * 1000 * 1000) };
+    return Value{ .int = @divTrunc(args[0].duration, (60 * 1000 * 1000 * 1000)) };
 }
 
 pub fn toHoursImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     if (args.len < 1) return Value{ .int = 0 };
     if (args[0] != .duration) return Value{ .int = 0 };
-    return Value{ .int = args[0].duration / (3600 * 1000 * 1000 * 1000) };
+    return Value{ .int = @divTrunc(args[0].duration, (3600 * 1000 * 1000 * 1000)) };
 }
 
 pub fn toDaysImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
     if (args.len < 1) return Value{ .int = 0 };
     if (args[0] != .duration) return Value{ .int = 0 };
-    return Value{ .int = args[0].duration / (24 * 3600 * 1000 * 1000 * 1000) };
+    return Value{ .int = @divTrunc(args[0].duration, (24 * 3600 * 1000 * 1000 * 1000)) };
 }
 
 pub fn fromStringImpl(env: *RuntimeEnv, args: []const Value) Value {
@@ -67,8 +67,8 @@ pub fn fromMillisImpl(env: *RuntimeEnv, args: []const Value) Value {
 
 pub fn toStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = env;
-    if (args.len < 1) return Value{ .string = .{ .ptr = "", .len = 0 } };
-    return Value{ .string = .{ .ptr = "", .len = 0 } };
+    if (args.len < 1) return Value{ .string = "" };
+    return Value{ .string = "" };
 }
 
 pub fn formatImpl(env: *RuntimeEnv, args: []const Value) Value {
