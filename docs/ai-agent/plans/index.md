@@ -30,4 +30,7 @@
 | [Phase 2 — 类型检查器 + 运行时求值器 MVP](plan-implementation-phase-2.md) | HM 类型推断 + 效应检查 + 模式穷举 + 标记 switch 求值器 | 已完成 |
 | [Phase 3 — 标准库基础 + 效应检查补齐 + 错误消息完整化](plan-implementation-phase-3.md) | Primitive 表 + 14 TypeError + typeName/generalize + 效应检查 18 项 + Value 扩展 + StreamNode + map/set eval + Cmd ident + 模式穷举 | 已完成 |
 | [Phase 4 — 效应检查完成 + 命令系统 + HM 完备化](plan-implementation-phase-4.md) | PrimitiveTable 管道 + 效应接线 + i18n + cmd.zig + TypedExpr 补全 | 已完成 |
-| [Phase 5 — 标准库 Primitives 补全 + Stream 函数体](plan-implementation-phase-5.md) | 106 Primitive stub→real + StreamNode 构造器/消费者 + 类型环境签名注册 | 进行中 |
+| [Phase 5 — 标准库 Primitives 补全 + Stream 函数体](plan-implementation-phase-5.md) | 106 Primitive stub→real + StreamNode 构造器/消费者 + 类型环境签名注册 | 已完成 |
+| [Phase 6 — 效应检查完备 + 语法补齐 + 数据结构 + 质量加固](plan-implementation-phase-6.md) | Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 接线、Stream.iter/fold、File 25 函数、JSON、质量加固 | 已完成 |
+| [Phase 7 — 模块系统 + --run 端到端 + 收官](plan-implementation-phase-7.md) | ModuleResolver 四级搜索、递归加载、循环检测、--run 接入、eval.zig stub 修复 | 已完成 |
+| [Phase 8 — Nilable ADT + 标准库扩展（v0.2）](plan-implementation-phase-8.md) | Nilable 公开 ADT（Some 变体 + 模式匹配 + 模块）、Regex 引擎（zig-regex）、Validator、DateTime 格式化、Duration/Int/Float/Char 模块 Primitive 绑定 | 计划中 |

@@ -17,11 +17,11 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 所有核心功能已实现，v0.1.0 功能完整 |
+| 活跃需求 | Nilable 公开 ADT 实施、Regex 引擎（zig-regex）实现、标准库 v0.2 扩展 |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 7 全部完成（4 Steps，671 测试）；v0.2 计划待启动 |
+| 活跃计划 | Phase 8 — Nilable ADT + 标准库扩展（v0.2） |
 | 最近完成 | Phase 7：模块系统搜索路径（ModuleResolver 四级搜索/递归加载/循环检测）、--run 端到端（Import 解析 → decls 合并 → TypeCheck → Eval）、eval.zig stub 修复（range_literal/pipe_reverse）、审计修复（58 项） |
-| 推迟项 | Regex 引擎（zig-regex）+ Validator → v0.2；DateTime 格式化 → v0.2；沙箱（Landlock/seccomp/rlimit）→ v0.5；Kun Shell → v2.0；等递归类型 → v0.3；Cli 模块 + Parser.Record → v0.3；`Duration`/`Int`/`Float`/`Char` 模块 Primitive 绑定 + PureKun 函数 → v0.2 |
+| 推迟项 | 沙箱（Landlock/seccomp/rlimit）→ v0.5；Kun Shell → v2.0；等递归类型 → v0.3；Cli 模块 + Parser.Record → v0.3 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
