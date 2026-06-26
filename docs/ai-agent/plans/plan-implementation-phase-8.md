@@ -276,7 +276,11 @@ cd code/kun-lang && zig build test
 
 **新建文件**：`src/runtime/datetime_fmt.zig`
 
-`DateTime.format` 和 `DateTime.parse` 的 Primitive 实现：
+当前 `DateTime.now` 和 `DateTime.format` 已有 Primitive 存根（`primitive.zig` 中的 `dateTimeNowImpl`/`dateTimeFormatImpl`），实则为 `@panic("unimplemented")`。本步骤将存根替换为真实实现，并新增 `DateTime.parse`。
+
+**新建文件**：`src/runtime/datetime_fmt.zig`
+
+`DateTime.format` 和 `DateTime.parse` 的 Zig 实现：
 
 ```zig
 pub fn format(template: []const u8, dt: i64, allocator: std.mem.Allocator) ![]const u8 {
@@ -297,7 +301,7 @@ pub fn parse(template: []const u8, input: []const u8, allocator: std.mem.Allocat
 | `parse` | `String -> String -> Result DateTime String` | false |
 | `now` | `-> DateTime` | true |
 
-**修改文件**：`src/runtime/primitive.zig`、`src/runtime/eval.zig`
+**修改文件**：`src/runtime/primitive.zig`（替换 `dateTimeNowImpl`/`dateTimeFormatImpl` 存根，新增 `dateTimeParseImpl`）、`src/runtime/eval.zig`
 
 ### 4.3 验证
 
@@ -310,9 +314,11 @@ cd code/kun-lang && zig build test
 
 ### 5.1 Duration 模块
 
-当前 `Duration` 已有编译器内置类型和字面量支持，缺少模块函数。
+当前 `Duration` 已有编译器内置类型和字面量支持，但模块函数未注册。
 
 **新建文件**：`src/stdlib/duration.zig`
+
+Duration 模块全部函数在设计中标注 `[PureKun]`（`system-baseline.md` 分类为"全部 PureKun"）。`fromString` 和 `format` 依赖字符串解析/格式化，但可用纯 Kun 实现（字符处理 + 算术运算）。采用与 Nilable 模块相同的**过渡方案**：暂以 Primitive 注册，后续降级为 PureKun。
 
 | 函数 | 签名 | 实现方式 |
 |------|------|---------|
@@ -323,17 +329,19 @@ cd code/kun-lang && zig build test
 | `toMinutes` | `Duration -> Int` | PureKun |
 | `toHours` | `Duration -> Int` | PureKun |
 | `toDays` | `Duration -> Int` | PureKun |
-| `fromString` | `String -> Result Duration String` | Primitive |
+| `fromString` | `String -> Result Duration String` | PureKun |
 | `fromMillis` | `Int -> Duration` | PureKun |
 | `toString` | `Duration -> String` | PureKun |
-| `format` | `String -> Duration -> Result String String` | Primitive |
+| `format` | `String -> Duration -> Result String String` | PureKun |
 | `negate` | `Duration -> Duration` | PureKun |
 | `isNegative` | `Duration -> Bool` | PureKun |
 | `abs` | `Duration -> Duration` | PureKun |
 
 ### 5.2 Int 模块
 
-当前 `Int` 的 `fromString`/`toFloat`/`toString` 已作为 Primitive 存在，补齐剩余函数。
+当前 Primitive 表中无 `Int` 模块条目。`Int` 模块函数在设计中标注 `[PureKun]`（`system-baseline.md` 分类为"少量 Primitive"）。采用**过渡方案**：暂以 Primitive 注册，后续降级为 PureKun（当 .kun 标准库文件就绪时）。
+
+**新建文件**：`src/stdlib/int.zig`
 
 | 函数 | 签名 | 实现方式 |
 |------|------|---------|
@@ -342,12 +350,17 @@ cd code/kun-lang && zig build test
 | `max` | `Int -> Int -> Int` | PureKun |
 | `pow` | `Int -> Int -> Int` | PureKun |
 | `clamp` | `Int -> Int -> Int -> Int` | PureKun |
+| `fromString` | `String -> Result Int String` | PureKun |
+| `toFloat` | `Int -> Float` | PureKun |
+| `toString` | `Int -> String` | PureKun |
 
 **修改文件**：注册到 `src/runtime/primitive.zig`
 
 ### 5.3 Float 模块
 
-当前 `Float` `fromString`/`toInt`/`toString` 已作为 Primitive 存在。
+当前 Primitive 表中无 `Float` 模块条目。`Float` 模块大部分函数在设计中标注 `[PureKun]`，但三角函数、指数、对数等实际需要 Zig `std.math`。
+
+**新建文件**：`src/stdlib/float.zig`
 
 | 函数 | 签名 | 实现方式 |
 |------|------|---------|
@@ -359,12 +372,17 @@ cd code/kun-lang && zig build test
 | `approxEqual` | `Float -> Float -> Float -> Bool` | PureKun |
 | `min` / `max` | `Float -> Float -> Float` | PureKun |
 | `clamp` | `Float -> Float -> Float -> Float` | PureKun |
+| `fromString` | `String -> Result Float String` | PureKun |
+| `toInt` | `Float -> Int` | PureKun |
+| `toString` | `Float -> String` | PureKun |
 
 > 注：`sin`/`cos`/`tan`/`exp`/`log`/`pow`/`sqrt` 在标准库 `standard-library.md` 中标注为 `[PureKun]`，但实际需要 Zig 的 `std.math` 数值计算能力，无法用纯 Kun 实现。本计划按实际实现需求标记为 Primitive，后续应同步更新 `standard-library.md` 的标注。
 
-**修改文件**：注册到 `src/runtime/primitive.zig`
-
 ### 5.4 Char 模块
+
+当前 Primitive 表中无 `Char` 模块条目。
+
+**新建文件**：`src/stdlib/char.zig`
 
 | 函数 | 签名 | 实现方式 |
 |------|------|---------|
@@ -376,13 +394,11 @@ cd code/kun-lang && zig build test
 
 > 注：`isDigit`/`isAlpha`/`isUpper`/`toLower` 等函数在 `standard-library.md` 标注为 `[PureKun]`，但实际需要 Zig 标准库的 Unicode 类别判断（`std.unicode`）和大小写转换能力。本计划按实际需求标记为 Primitive，后续应同步更新 `standard-library.md`。
 
-**新建文件**：`src/stdlib/char.zig`
-
 ### 5.5 验证
 
 ```bash
 cd code/kun-lang && zig build test
-# 新增 stdlib/test_duration.zig、stdlib/test_float.zig、stdlib/test_char.zig（各 ~8 测试）
+# 新增 stdlib/test_duration.zig、stdlib/test_int.zig、stdlib/test_float.zig、stdlib/test_char.zig（各 ~8 测试）
 ```
 
 ## 变更范围总表
@@ -393,10 +409,10 @@ cd code/kun-lang && zig build test
 | 2 — Regex | `src/runtime/regex_engine.zig` | `build.zig.zon`, `build.zig`, `src/runtime/eval.zig`, `src/runtime/primitive.zig` | ~200 | ~15 |
 | 3 — Validator | `src/stdlib/validator.zig` | `src/runtime/primitive.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig` | ~250 | ~10 |
-| 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/char.zig` | `src/runtime/primitive.zig` | ~350 | ~30 |
-| **合计** | **6 个新文件** | **9 个修改文件** | **~1180** | **~88** |
+| 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig` | `src/runtime/primitive.zig` | ~550 | ~40 |
+| **合计** | **8 个新文件** | **9 个修改文件** | **~1380** | **~98** |
 
-目标：**679 → ~767 测试**。
+目标：**679 → ~777 测试**。
 
 ## 依赖关系
 
