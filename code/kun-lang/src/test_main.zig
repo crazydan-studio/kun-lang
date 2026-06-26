@@ -26,6 +26,7 @@ const test_duration = @import("stdlib/test_duration.zig");
 const test_int = @import("stdlib/test_int.zig");
 const test_float = @import("stdlib/test_float.zig");
 const test_char = @import("stdlib/test_char.zig");
+const test_nilable = @import("stdlib/test_nilable.zig");
 
 comptime {
     _ = test_lexer;
@@ -54,4 +55,5 @@ comptime {
     _ = test_int;
     _ = test_float;
     _ = test_char;
+    _ = test_nilable;
 }
