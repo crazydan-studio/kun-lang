@@ -76,6 +76,9 @@ pub const TokenKind = enum {
     hash_lbrace,// #{
     // multiline string
     multiline_string,
+    // f-string (interpolated)
+    f_string_literal,
+    f_multiline_string,
     // special
     exclamation, // !
     question,    // ?
@@ -557,7 +560,6 @@ fn isHexDigit(ch: u8) bool {
 }
 
 fn readString(state: *LexerState, start: ast.SourceLoc, is_f_string: bool) !void {
-    _ = is_f_string;
     while (state.peek()) |ch| {
         if (ch == '\\') {
             _ = state.advance(); // backslash
@@ -565,7 +567,8 @@ fn readString(state: *LexerState, start: ast.SourceLoc, is_f_string: bool) !void
         } else if (ch == '"') {
             _ = state.advance(); // closing "
             const text = state.source[start.offset..state.pos];
-            try state.pushToken(.string_literal, text, state.span(start));
+            const kind: TokenKind = if (is_f_string) .f_string_literal else .string_literal;
+            try state.pushToken(kind, text, state.span(start));
             return;
         } else {
             _ = state.advance();
@@ -595,7 +598,6 @@ fn readRawString(state: *LexerState, start: ast.SourceLoc, kind: TokenKind) !voi
 }
 
 fn readMultilineString(state: *LexerState, start: ast.SourceLoc, is_f_string: bool) !void {
-    _ = is_f_string;
     // Skip newline after opening """
     if (state.peek()) |ch| {
         if (ch == '\n') _ = state.advance();
@@ -608,7 +610,8 @@ fn readMultilineString(state: *LexerState, start: ast.SourceLoc, is_f_string: bo
                 _ = state.advance(); // "
                 _ = state.advance(); // "
                 const text = state.source[start.offset..state.pos];
-                try state.pushToken(.multiline_string, text, state.span(start));
+                const kind: TokenKind = if (is_f_string) .f_multiline_string else .multiline_string;
+                try state.pushToken(kind, text, state.span(start));
                 return;
             }
         }

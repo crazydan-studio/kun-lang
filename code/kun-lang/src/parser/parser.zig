@@ -2,6 +2,7 @@ const std = @import("std");
 const ast = @import("../ast/ast.zig");
 const Token = @import("../lexer/lexer.zig").Token;
 const TokenKind = @import("../lexer/lexer.zig").TokenKind;
+const tokenize = @import("../lexer/lexer.zig").tokenize;
 
 const Span = ast.Span;
 const SourceLoc = ast.SourceLoc;
@@ -520,6 +521,16 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             const inner = tok.slice[3 .. tok.slice.len - 3];
             return Expr{ .string_literal = .{ .value = inner, .span = tok.span } };
         },
+        .f_string_literal => {
+            const tok = state.advance();
+            const inner = tok.slice[2 .. tok.slice.len - 1];
+            return try parseFStringInterpolation(state, inner, tok.span);
+        },
+        .f_multiline_string => {
+            const tok = state.advance();
+            const inner = tok.slice[4 .. tok.slice.len - 3];
+            return try parseFStringInterpolation(state, inner, tok.span);
+        },
         .path_literal => {
             const tok = state.advance();
             const inner = tok.slice[2 .. tok.slice.len - 1];
@@ -607,6 +618,7 @@ fn parsePrefix(state: *ParserState) ParserError!Expr {
             while (true) {
                 switch (state.peek()) {
                     .int_literal, .float_literal, .string_literal, .multiline_string,
+                    .f_string_literal, .f_multiline_string,
                     .path_literal, .regex_literal, .char_literal, .bytes_literal,
                     .kw_true, .kw_false, .duration_literal,
                     .type_ident,
@@ -968,6 +980,51 @@ fn parseCaseExpr(state: *ParserState, start: SourceLoc) ParserError!Expr {
     }
     const span = Span{ .start = start, .end = state.current().span.end };
     return Expr{ .case_expr = .{ .subject = try heapExpr(state, &subject), .branches = branches.items, .span = span } };
+}
+
+/// Parse f-string interpolation into a concatenation expression chain.
+/// "hello {name}" becomes "hello " ++ toString name
+fn parseFStringInterpolation(state: *ParserState, content: []const u8, span: Span) ParserError!Expr {
+    var result: ?Expr = null;
+    var i: usize = 0;
+
+    while (i < content.len) {
+        const brace_start = std.mem.indexOfScalarPos(u8, content, i, '{') orelse {
+            const literal = content[i..];
+            const lit = Expr{ .string_literal = .{ .value = literal, .span = span } };
+            result = if (result) |r| concatExpr(state, &r, &lit, span) else lit;
+            break;
+        };
+        if (brace_start > i) {
+            const literal = content[i..brace_start];
+            const lit = Expr{ .string_literal = .{ .value = literal, .span = span } };
+            result = if (result) |r| concatExpr(state, &r, &lit, span) else lit;
+        }
+        const brace_end = std.mem.indexOfScalarPos(u8, content, brace_start + 1, '}') orelse {
+            const literal = content[brace_start..];
+            const lit = Expr{ .string_literal = .{ .value = literal, .span = span } };
+            result = if (result) |r| concatExpr(state, &r, &lit, span) else lit;
+            break;
+        };
+        const expr_content = content[brace_start + 1 .. brace_end];
+        // Strip format specifier (everything after ':')
+        const expr_only = if (std.mem.indexOfScalar(u8, expr_content, ':')) |colon| expr_content[0..colon] else expr_content;
+        const sub_tokens = try tokenize(state.allocator, expr_only);
+        var sub_state = ParserState{ .tokens = sub_tokens, .pos = 0, .allocator = state.allocator };
+        const inner_expr = try parseExpr(&sub_state);
+        const call = Expr{ .call = .{
+            .func = try heapExpr(state, &Expr{ .ident = .{ .name = "toString", .span = span } }),
+            .arg = try heapExpr(state, &inner_expr),
+            .span = span,
+        } };
+        result = if (result) |r| concatExpr(state, &r, &call, span) else call;
+        i = brace_end + 1;
+    }
+    return result orelse Expr{ .string_literal = .{ .value = "", .span = span } };
+}
+
+fn concatExpr(_: *ParserState, left: *const Expr, right: *const Expr, span: Span) Expr {
+    return Expr{ .binary_op = .{ .op = .concat, .left = left, .right = right, .span = span } };
 }
 
 fn parsePattern(state: *ParserState) ParserError!ast.Pattern {

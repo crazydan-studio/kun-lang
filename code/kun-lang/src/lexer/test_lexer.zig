@@ -187,7 +187,7 @@ test "lexer path and f-string" {
     const source = "p\"/tmp\" f\"hello {name}\" r\"[0-9]+\"";
     const tokens = try tokenize(allocator, source);
     try std.testing.expectEqual(TokenKind.path_literal, tokens[0].kind);
-    try std.testing.expectEqual(TokenKind.string_literal, tokens[1].kind);
+    try std.testing.expectEqual(TokenKind.f_string_literal, tokens[1].kind);
     try std.testing.expectEqual(TokenKind.regex_literal, tokens[2].kind);
 }
 
@@ -197,7 +197,7 @@ test "lexer multiline f-string" {
     const allocator = arena.allocator();
     const source = "f\"\"\"\nhello {name}\n\"\"\"";
     const tokens = try tokenize(allocator, source);
-    try std.testing.expectEqual(TokenKind.multiline_string, tokens[0].kind);
+    try std.testing.expectEqual(TokenKind.f_multiline_string, tokens[0].kind);
 }
 
 test "lexer duration all units" {
