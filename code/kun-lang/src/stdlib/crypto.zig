@@ -171,11 +171,38 @@ fn kunToJsonValue(allocator: std.mem.Allocator, val: Value, buf: *std.ArrayListU
     }
 }
 
-pub fn regexIsMatchImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .bool = false }; }
-pub fn regexFromStringImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn regexFirstMatchImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
+pub fn regexIsMatchImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2) return Value{ .bool = false };
+    if (args[0] != .string or args[1] != .string) return Value{ .bool = false };
+    const result = regex_engine.isMatch(env.allocator, args[0].string, args[1].string) catch return Value{ .bool = false };
+    return Value{ .bool = result };
+}
+pub fn regexFromStringImpl(env: *RuntimeEnv, args: []const Value) Value {
+    _ = env;
+    _ = args;
+    return Value{ .nil = {} };
+}
+pub fn regexFirstMatchImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 2) return Value{ .nil = {} };
+    if (args[0] != .string or args[1] != .string) return Value{ .nil = {} };
+    const result = regex_engine.firstMatch(env.allocator, args[0].string, args[1].string) catch return Value{ .nil = {} };
+    if (result) |slice| {
+        return Value{ .string = slice };
+    }
+    return Value{ .nil = {} };
+}
 pub fn regexAllMatchesImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .list = .{ .items = &.{}, .cap = 0 } }; }
-pub fn regexReplaceImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .string = "" }; }
-pub fn regexReplaceAllImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .string = "" }; }
+pub fn regexReplaceImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 3) return Value{ .string = "" };
+    if (args[0] != .string or args[1] != .string or args[2] != .string) return Value{ .string = "" };
+    const result = regex_engine.replace(env.allocator, args[0].string, args[1].string, args[2].string) catch return Value{ .string = "" };
+    return Value{ .string = result };
+}
+pub fn regexReplaceAllImpl(env: *RuntimeEnv, args: []const Value) Value {
+    if (args.len < 3) return Value{ .string = "" };
+    if (args[0] != .string or args[1] != .string or args[2] != .string) return Value{ .string = "" };
+    const result = regex_engine.replaceAll(env.allocator, args[0].string, args[1].string, args[2].string) catch return Value{ .string = "" };
+    return Value{ .string = result };
+}
 pub fn regexSplitImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .list = .{ .items = &.{}, .cap = 0 } }; }
 pub fn validatorRegexImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
