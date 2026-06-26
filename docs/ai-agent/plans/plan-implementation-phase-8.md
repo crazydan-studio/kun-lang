@@ -79,6 +79,8 @@ if (kind == .question) {
 | `src/runtime/value.zig` | `Value.nil` 保留为运行时快捷表示（与 `Type.nilable` 同理，是内部优化） |
 | `src/module/module_resolver.zig` | `isBuiltinType` 移除 `"Nil"`（已在 1.2f 中处理） |
 | `src/typecheck/unify.zig` | 删除 `nil_to_non_nilable` 合一错误；`Nil` 作为 `Nilable` ADT 变体与预期类型合一 |
+| `src/i18n/i18n.zig` | 删除 `nil_to_non_nilable` 格式化分支（已由 ADT 统一错误消息代替） |
+| `src/i18n/test_i18n.zig` | 删除 `nil_to_non_nilable` 测试用例 |
 | `src/lexer/test_lexer.zig` | 删除 `kw_nil` 相关测试用例 |
 | `src/typecheck/test_constraint.zig` | `nil_literal` 测试用例迁移为 ADT 变体测试 |
 | `src/typecheck/test_pattern.zig` | `nil_literal` 测试用例迁移 |
@@ -461,12 +463,12 @@ cd code/kun-lang && zig build test
 
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
-| 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/lexer/lexer.zig`, `src/lexer/test_lexer.zig`, `src/ast/ast.zig`, `src/ast/typed.zig`, `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/effect.zig`, `src/typecheck/pattern.zig`, `src/typecheck/error.zig`, `src/typecheck/unify.zig`, `src/typecheck/test_constraint.zig`, `src/typecheck/test_pattern.zig`, `src/typecheck/test_effect.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/runtime/test_eval.zig`, `src/module/module_resolver.zig`, `src/test_main.zig` | ~450 | ~25 |
+| 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/lexer/lexer.zig`, `src/lexer/test_lexer.zig`, `src/ast/ast.zig`, `src/ast/typed.zig`, `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/effect.zig`, `src/typecheck/pattern.zig`, `src/typecheck/error.zig`, `src/typecheck/unify.zig`, `src/typecheck/test_constraint.zig`, `src/typecheck/test_pattern.zig`, `src/typecheck/test_effect.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/runtime/test_eval.zig`, `src/module/module_resolver.zig`, `src/i18n/i18n.zig`, `src/i18n/test_i18n.zig`, `src/test_main.zig` | ~460 | ~25 |
 | 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/module/module_resolver.zig`, `src/test_main.zig` | ~200 | ~15 |
 | 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
-| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **23 个修改文件** | **~1530** | **~98** |
+| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **24 个修改文件** | **~1550** | **~98** |
 
 目标：**679 → ~777 测试**。
 
