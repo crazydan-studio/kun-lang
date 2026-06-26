@@ -112,7 +112,7 @@ pub const filter : fn (env, args) Value { ... }
 **修改文件**：`src/typecheck/pattern.zig`
 
 `Some v` 模式匹配的 `narrowType` 行为：
-- 匹配 `Nil` 模式 → scrutinee 类型保持 `Nilable T`（scrtinee 整体类型不变）
+- 匹配 `Nil` 模式 → scrutinee 类型保持 `Nilable T`（scrutinee 整体类型不变）
 - 匹配 `Some v` 模式 → `v` 收窄为内层 `T`
 - `checkExhaustive`：Nilable 的穷举需要覆盖 `Some` 和 `Nil` 两个变体
 
@@ -159,20 +159,28 @@ if (resolved == .nilable) {
 
 ### 2.1 添加 zig-regex 依赖并更新类型定义
 
-**修改文件**：`build.zig.zon`、`build.zig`、`src/runtime/value.zig`（将 `RegexHandle` 从 `opaque {}` 改为 `regex.Regex` 的类型别名）
+**修改文件**：`build.zig`（添加 zig-regex 依赖导入）、`src/runtime/value.zig`（将 `RegexHandle` 从 `opaque {}` 改为 `regex.Regex` 的类型别名）
+**新建文件**：`build.zig.zon`（声明 zig-regex 外部依赖）
+
+**新建文件**：`build.zig.zon`
 
 ```zig
-// build.zig.zon
-.dependencies = .{
-    .regex = .{
-        .url = "https://github.com/zig-utils/zig-regex/archive/main.tar.gz",
-        .hash = "...",
+.{
+    .name = "kun-lang",
+    .version = "0.1.0",
+    .dependencies = .{
+        .regex = .{
+            .url = "https://github.com/zig-utils/zig-regex/archive/main.tar.gz",
+            .hash = "...",
+        },
     },
-},
+}
 
 // build.zig
 const regex = b.dependency("regex", .{ .target = target, .optimize = optimize });
-exe.root_module.addImport("regex", regex.module("regex"));
+exe_mod.addImport("regex", regex.module("regex"));
+lib_mod.addImport("regex", regex.module("regex"));
+test_mod.addImport("regex", regex.module("regex"));
 ```
 
 ### 2.2 实现 RegexHandle / Regex 运行时
@@ -212,11 +220,11 @@ pub fn split(re: *const RegexHandle, allocator: std.mem.Allocator, input: []cons
 
 ### 2.3 替换 eval.zig 中的 regex stub
 
-**修改文件**：`src/runtime/eval.zig`
+**修改文件**：`src/runtime/eval.zig`、`src/runtime/primitive.zig`（在 `RuntimeEnv` 中新增 `regex_cache` 字段）
 
 当前 `regex_literal` 处的 `@panic("regex engine not yet implemented")` 改为真实编译。
 
-`r"..."` 字面量的正则表达式模式采用**首次使用编译**策略：第一次执行到 `regex_literal` 时将模式字符串通过 zig-regex 编译，编译后的 `Regex` 对象缓存在 `RuntimeEnv` 的正则缓存表中。后续再次遇到同一字面量时直接返回缓存句柄。
+`r"..."` 字面量的正则表达式模式采用**首次使用编译**策略：第一次执行到 `regex_literal` 时将模式字符串通过 zig-regex 编译，编译后的 `Regex` 对象缓存在 `RuntimeEnv.regex_cache`（`std.StringHashMapUnmanaged(*const regex.Regex)`）中，后续再次遇到同一字面量时直接返回缓存句柄。
 
 ```zig
 .regex_literal => |v| {
@@ -375,7 +383,6 @@ Duration 模块全部函数在设计中标注 `[PureKun]`（`system-baseline.md`
 | `abs` | `Float -> Float` | PureKun |
 | `floor` / `ceil` / `round` | `Float -> Float` | **Primitive**（委托 Zig `@floor`/`@ceil`/`@round` 内建） |
 | `sin` / `cos` / `tan` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
-| `sin` / `cos` / `tan` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
 | `exp` / `log` / `log2` / `log10` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
 | `pow` / `sqrt` | `Float -> Float -> Float` / `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
 | `approxEqual` | `Float -> Float -> Float -> Bool` | PureKun |
@@ -417,7 +424,7 @@ cd code/kun-lang && zig build test
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
 | 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~300 | ~25 |
-| 2 — Regex | `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig.zon`, `build.zig`, `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~200 | ~15 |
+| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~200 | ~15 |
 | 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
