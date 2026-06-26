@@ -729,11 +729,11 @@ seccomp-BPF 过滤规则禁止以下系统调用类别：
 | `Char` | `uint32_t` | 4 字节 | 4 |
 | `Duration` | `int64_t` | 8 字节 | 8 |
 | `Unit` | `void` | 0 字节 | 1 |
-| `Regex` | `*const RegexHandle` | 8 字节 | 8 |
+| `Regex` | `*const regex.Regex` | 8 字节 | 8 |
 | `Decimal` | `struct { int64_t mantissa, int32_t exponent }` | 12 字节 | 8 |
 | `Command` | `struct { uint8_t tag, uint8_t payload[32] }` | 33 字节 | 1 |
 
-> `Regex` 的运行时表示为指向编译后正则引擎句柄的不透明指针。`Command` 为 `Cmd.<bin>` 构造的不透明值，内部结构为编译器实现细节；`Decimal` 以尾数+指数二元组表示。
+> `Regex` 的运行时表示为指向 [zig-regex](https://github.com/zig-utils/zig-regex) 编译后正则对象的指针。`Command` 为 `Cmd.<bin>` 构造的不透明值，内部结构为编译器实现细节；`Decimal` 以尾数+指数二元组表示。
 >
 > `Unit` 在 Record/Tuple 作为字段时占用 0 字节（编译器优化省略），但对齐视为 1（与 Zig 0 大小类型的对齐行为一致）。
 >
@@ -908,7 +908,7 @@ const Value = union(enum) {
     bytes: Slice,
     path: Slice,
     duration: i64,
-    regex: *const RegexHandle,
+    regex: *const regex.Regex,
     decimal: struct { mantissa: i64, exponent: i32 },
     command: CommandPayload,
     list: Array,
@@ -1160,7 +1160,7 @@ HM 约束生成器在处理 Primitive 函数调用时：
 | 模块 | Primitive 占比 | 说明 |
 |------|--------------|------|
 | `Int`、`Float`、`String`、`Bytes`、`Char` | 少量 Primitive | 基础运算符由编译器内置；`String.length`/`slice` 需直接操作内存 |
-| `Regex` | 几乎全部 Primitive | 正则引擎依赖 C 库（PCRE2/regexec） |
+| `Regex` | 几乎全部 Primitive | 基于 zig-regex（Zig 纯实现正则引擎） |
 | `Function`、`Result`、`Nil` | 全部 PureKun | 纯组合子 |
 | `List`、`Map`、`Set` | 结构操作为 Primitive | `map`/`filter`/`fold` 为 PureKun，`get`/`insert`/`append` 等为 Primitive |
 | `IO`、`File`(大部分)、`Env`、`Process`、`Random`、`Task` | 全部 Primitive | 需要系统调用 |

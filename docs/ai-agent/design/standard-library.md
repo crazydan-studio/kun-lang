@@ -459,7 +459,7 @@ case Char.fromInt 0xD800 of    // 代理对，非法
 
 ### 定位
 
-`Regex` 为编译器内置类型，编译期验证正则语法。`Regex` 模块提供正则匹配和替换操作。
+`Regex` 为编译器内置类型，编译期验证正则语法。`Regex` 模块基于 [zig-regex](https://github.com/zig-utils/zig-regex) 引擎实现，提供正则匹配和替换操作。
 
 需显式导入：
 
@@ -1586,7 +1586,7 @@ range : Int -> Int -> Int -> Result Int String
 // [PureKun] 非空字符串
 nonEmpty : String -> Result String String
 
-// [Primitive] 正则匹配：模式必须匹配整个字符串（依赖 C 正则引擎）
+// [Primitive] 正则匹配：模式必须匹配整个字符串（基于 zig-regex 引擎）
 regex : String -> String -> Result String String
 ```
 

@@ -37,7 +37,7 @@
 | Function | ✅ 设计定型 | `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`，始终缺省可用 |
 | Nil | ✅ 设计定型 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`，变体 `Nil` 缺省可用，函数需显式导入 |
 | String | ✅ 设计定型 | `toString`（编译器级泛型）+ 类型互转函数 |
-| Regex | ✅ 设计定型 [推迟 v0.2] | 正则匹配与替换（`fromString` 运行时构造） |
+| Regex | ✅ 设计定型 [推迟 v0.2] | 正则匹配与替换（基于 zig-regex 引擎，`fromString` 运行时构造） |
 | Bytes | ✅ 设计定型 | 二进制编解码（`toHex`/`fromHex`） |
 | List | ✅ 设计定型 | 不可变列表查询与变换 |
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
