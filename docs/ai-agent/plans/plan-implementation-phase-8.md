@@ -10,7 +10,7 @@ Phase 8 是 v0.2 的第一个实施阶段，核心变更来自今日的设计调
 2. **Regex 引擎**：改用 `zig-regex` 替代自研 NFA，实现 `Regex` Primitive 绑定
 3. **Validator 模块**：依赖 zig-regex，实现常用校验函数
 4. **`Duration`/`Int`/`Float`/`Char` 模块**：Primitive 绑定 + PureKun 函数补齐
-5. **Nil 模块重命名**：`Nil` → `Nilable`（模块代码文件改名）
+5. **Nil 内置模块重命名**：`Nil` → `Nilable`（模块名与类型名 `Nilable a` 统一，`isNil`/`isSome` 等函数移至 `Nilable` 模块）
 
 ## 基线数据
 
@@ -29,6 +29,7 @@ Phase 8 是 v0.2 的第一个实施阶段，核心变更来自今日的设计调
 - `Some` 成为 `Nilable` ADT 的已知变体，在 `case` 模式中可用
 - `?T` 在类型标注中脱糖为 `Nilable T`（类型环境内部仍可用 `nilable` 快捷表示）
 - `Nilable` 模块提供组合子函数
+- 源码中引用 `Nil` 内置类型名的位置更新为 `Nilable`（模块名与类型名统一）
 
 **注意**：不改变运行时 `nilable` 的内部类型表示和存储——`Type.nilable: TypeId` 仍作为编译器内部的快捷表示存在，等价于 `adt{ Some(T), Nil }`。
 
@@ -77,12 +78,16 @@ const nilable_adt_id = registerType(.{ .adt = .{
 
 对 `Type.nilable` 的引用映射到该 ADT 的 `Some` 变体包含内层类型——类型检查器在合一 Nilable ADT 时与 `Type.nilable` 快捷表示双向兼容。
 
+> **实现复杂度**：`Type.nilable` ↔ ADT 双向兼容需要在 `unify.zig`、`generalize`、`freshInstance`、`typeName`、`occursCheck` 等所有操作处增加分支判断——当前遇到 `adt` 时需检查其是否为预注册的 `Nilable` ADT，若是则等价于 `nilable`。`generalize` 和 `freshInstance` 的递归逻辑需要同时处理两种表示。此兼容层的代码量约 60-80 行，分散在 5-6 个函数中。
+
 #### 1.2c `Nilable` 模块
 
-**新建文件**：`code/kun-lang/src/runtime/nilable_module.zig`
+`Nilable` 模块函数均为 PureKun（纯组合子），按标准库分类规则应使用 Kun 语言实现。但在实现 .kun 标准库文件之前，采用**过渡方案**：将 `Nilable` 模块函数以 Primitive 形式注册（Zig 实现），待后续 phase 支持 .kun 标准库文件后降级为 PureKun。此过渡在 `standard-library.md` 中标注 `[Primitive]`，并记录 PureKun 回退计划。
+
+**新建文件**：`src/stdlib/nilable.zig`
 
 ```zig
-// PureKun 风格的组合子函数，注册为 Primitive（因 ?a 类型签名需要编译器支持）
+// 过渡实现：暂以 Primitive 注册，后续降级为 PureKun
 
 pub const withDefault : fn (env, args) Value {
     // args[0] = default value, args[1] = ?value
@@ -98,20 +103,20 @@ pub const isSome : fn (env, args) Value { ... }
 pub const filter : fn (env, args) Value { ... }
 ```
 
-**stdlib/kun/Nilable.kun**（推迟到有 .kun 标准库支持时）：暂不创建 .kun 文件。函数通过 Primitive 表注册。
-
 **注册到 Primitive 表**：`src/runtime/primitive.zig` 添加 `Nilable` 模块条目，`is_effect = false`（纯函数）。
+
+**后续降级计划**（v0.2 后续 phase）：当 Kun 的 .kun 标准库文件系统就绪后，创建 `lib/kun/Nilable.kun`，将函数体从 Zig 迁移到 Kun，并移除 Primitive 表中的 `Nilable` 条目。
 
 #### 1.2d 模式匹配更新
 
 **修改文件**：`src/typecheck/pattern.zig`
 
 `Some v` 模式匹配的 `narrowType` 行为：
-- 匹配 `Nil` 模式 → scrutinee 类型保持 `?T`（不变）
+- 匹配 `Nil` 模式 → scrutinee 类型保持 `Nilable T`（scrtinee 整体类型不变）
 - 匹配 `Some v` 模式 → `v` 收窄为内层 `T`
 - `checkExhaustive`：Nilable 的穷举需要覆盖 `Some` 和 `Nil` 两个变体
 
-当前 `narrowType` 已有对 `Nil` 和裸变量（`name[0] >= 'a'`）的特殊处理。新增 `Some` 变体模式的处理：
+`Some` 变体模式的处理：
 
 ```zig
 // pattern.zig — narrowType
@@ -121,17 +126,22 @@ if (resolved == .nilable) {
         // Some v 模式 → v 收窄为内层 T
         return inner_type;
     }
-    if (name[0] >= 'a' && name[0] <= 'z') {
-        return inner_type;  // 兼容：裸变量 v → Some v（旧代码过渡）
-    }
 }
 ```
 
-**向后兼容**：保留裸变量 `v ->` 模式到 `Some v ->` 的自动映射（当前 `pattern.zig` 已有此逻辑）。设计文档说"不做糖化"，但现有测试依赖此行为。采用**温和过渡**：裸变量模式产生告警，建议改为显式 `Some v`。
+**不保留**裸变量 `v ->` 的向后兼容——设计文档明确要求"case 分支需显式 Some，不做糖化"。用户在 `case` 中必须写 `Some v ->`，编译期遇到裸变量模式在 Nilable scrutinee 上时直接报错，提示使用显式 `Some` 变体。所有现有示例已在 `docs/ai-agent/examples/` 和 `code/examples/` 中更新为显式 `Some`。
 
-#### 1.2e `Nilable` 模块名替换 `Nil` 引用
+#### 1.2e `Nilable` 模块名迁移
 
-当前源码中的内置类型列表、模块引用使用 `Nil` 作为内置类型名。`Nilable` 模块独立注册。
+当前源码中的内置类型列表和模块引用使用 `Nil` 作为内置类型名。`Nilable` 作为新模块名独立注册，涉及以下文件：
+
+| 文件 | 变更 |
+|------|------|
+| `src/module/module_resolver.zig` | `isBuiltinType` 列表中的 `"Nil"` 替换为 `"Nilable"` |
+| `src/runtime/primitive.zig` | 注册 `Nilable` 模块（而非 `Nil`），绑定 `nilable.zig` 中的函数 |
+| 内置模块导出 | 确保 `Nilable` 模块的函数可通过 `import Nilable` 导入（而非 `import Nil`） |
+
+`Nil` 作为 `Nilable` ADT 的变体名始终缺省可用，无需 `import`。
 
 ### 1.3 测试
 
@@ -140,7 +150,7 @@ if (resolved == .nilable) {
 | 类型标注 | `?T` 解析、`Nilable T` 等价 |
 | `Some` 模式 | `case x of Some v -> v; Nil -> 0` 穷举检查 |
 | `Nilable` 模块函数 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`/`isNil`/`isSome`/`filter` |
-| 向后兼容 | 裸变量模式 → 告警 |
+| 裸变量模式拒绝 | 在 Nilable scrutinee 上使用裸变量 `v ->` 时报错 |
 | Nilable 合一 | `nilable` 内部表示 ↔ ADT 表示的双向兼容 |
 
 ## Step 2：Regex 引擎（zig-regex）
@@ -202,14 +212,18 @@ pub fn split(re: *const RegexHandle, allocator: std.mem.Allocator, input: []cons
 
 **修改文件**：`src/runtime/eval.zig`
 
-当前 `regex_literal` 处的 `@panic("regex engine not yet implemented")` 改为真实调用：
+当前 `regex_literal` 处的 `@panic("regex engine not yet implemented")` 改为真实编译。
+
+`r"..."` 字面量的正则表达式模式在**编译期**（`comptime`）通过 zig-regex 编译为 `Regex` 对象，运行时直接使用编译好的句柄。
 
 ```zig
 .regex_literal => |v| {
-    // v.value 是模式字符串，编译期为 regex handle
-    // 编译时由 zig-regex 编译
+    // v.value 是模式字符串，在编译期使用 zig-regex 编译
+    // 运行时直接返回编译好的 Regex 句柄
 },
 ```
+
+`Regex.fromString` 在**运行时**编译：接受用户输入的模式字符串，调用 `Regex.compile(allocator, pattern)`，失败时返回 `Err`。
 
 ### 2.4 注册 Regex Primitive 函数
 
@@ -302,16 +316,16 @@ cd code/kun-lang && zig build test
 
 | 函数 | 签名 | 实现方式 |
 |------|------|---------|
-| `toNanos` | `Duration -> Int` | Primitive |
-| `toMicros` | `Duration -> Int` | Primitive |
-| `toMillis` | `Duration -> Int` | Primitive |
-| `toSeconds` | `Duration -> Int` | Primitive |
-| `toMinutes` | `Duration -> Int` | Primitive |
-| `toHours` | `Duration -> Int` | Primitive |
-| `toDays` | `Duration -> Int` | Primitive |
+| `toNanos` | `Duration -> Int` | PureKun |
+| `toMicros` | `Duration -> Int` | PureKun |
+| `toMillis` | `Duration -> Int` | PureKun |
+| `toSeconds` | `Duration -> Int` | PureKun |
+| `toMinutes` | `Duration -> Int` | PureKun |
+| `toHours` | `Duration -> Int` | PureKun |
+| `toDays` | `Duration -> Int` | PureKun |
 | `fromString` | `String -> Result Duration String` | Primitive |
 | `fromMillis` | `Int -> Duration` | PureKun |
-| `toString` | `Duration -> String` | Primitive |
+| `toString` | `Duration -> String` | PureKun |
 | `format` | `String -> Duration -> Result String String` | Primitive |
 | `negate` | `Duration -> Duration` | PureKun |
 | `isNegative` | `Duration -> Bool` | PureKun |
@@ -339,12 +353,14 @@ cd code/kun-lang && zig build test
 |------|------|---------|
 | `pi` / `e` | `Float` | PureKun（常量） |
 | `abs` / `floor` / `ceil` / `round` | `Float -> Float` | PureKun |
-| `sin` / `cos` / `tan` | `Float -> Float` | PureKun |
-| `exp` / `log` / `log2` / `log10` | `Float -> Float` | PureKun |
-| `pow` / `sqrt` | `Float -> Float -> Float` / `Float -> Float` | PureKun |
+| `sin` / `cos` / `tan` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
+| `exp` / `log` / `log2` / `log10` | `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
+| `pow` / `sqrt` | `Float -> Float -> Float` / `Float -> Float` | **Primitive**（委托 Zig `std.math`） |
 | `approxEqual` | `Float -> Float -> Float -> Bool` | PureKun |
 | `min` / `max` | `Float -> Float -> Float` | PureKun |
 | `clamp` | `Float -> Float -> Float -> Float` | PureKun |
+
+> 注：`sin`/`cos`/`tan`/`exp`/`log`/`pow`/`sqrt` 在标准库 `standard-library.md` 中标注为 `[PureKun]`，但实际需要 Zig 的 `std.math` 数值计算能力，无法用纯 Kun 实现。本计划按实际实现需求标记为 Primitive，后续应同步更新 `standard-library.md` 的标注。
 
 **修改文件**：注册到 `src/runtime/primitive.zig`
 
@@ -354,9 +370,11 @@ cd code/kun-lang && zig build test
 |------|------|---------|
 | `of` | `Int -> Char` | Primitive（of 约定：调用者自保证，非法 panic） |
 | `fromInt` | `Int -> Result Char String` | Primitive |
-| `isDigit` / `isAlpha` / `isUpper` / `isLower` / `isWhitespace` / `isControl` | `Char -> Bool` | PureKun |
-| `toUpper` / `toLower` | `Char -> Char` | PureKun |
+| `isDigit` / `isAlpha` / `isUpper` / `isLower` / `isWhitespace` / `isControl` | `Char -> Bool` | **Primitive**（委托 Zig Unicode 判断） |
+| `toUpper` / `toLower` | `Char -> Char` | **Primitive**（委托 Zig Unicode 转换） |
 | `toInt` | `Char -> Int` | PureKun |
+
+> 注：`isDigit`/`isAlpha`/`isUpper`/`toLower` 等函数在 `standard-library.md` 标注为 `[PureKun]`，但实际需要 Zig 标准库的 Unicode 类别判断（`std.unicode`）和大小写转换能力。本计划按实际需求标记为 Primitive，后续应同步更新 `standard-library.md`。
 
 **新建文件**：`src/stdlib/char.zig`
 
@@ -371,7 +389,7 @@ cd code/kun-lang && zig build test
 
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
-| 1 — Nilable ADT | `src/runtime/nilable_module.zig` | `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/runtime/primitive.zig` | ~300 | ~25 |
+| 1 — Nilable ADT | `src/stdlib/nilable.zig` | `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/pattern.zig`, `src/runtime/primitive.zig` | ~300 | ~25 |
 | 2 — Regex | `src/runtime/regex_engine.zig` | `build.zig.zon`, `build.zig`, `src/runtime/eval.zig`, `src/runtime/primitive.zig` | ~200 | ~15 |
 | 3 — Validator | `src/stdlib/validator.zig` | `src/runtime/primitive.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig` | ~250 | ~10 |
