@@ -15,6 +15,14 @@ test "isBuiltinType recognizes all builtins" {
     try std.testing.expect(!module_resolver.isBuiltinType(""));
 }
 
+test "isBuiltinType edge cases" {
+    try std.testing.expect(!module_resolver.isBuiltinType("IntExtra"));
+    try std.testing.expect(!module_resolver.isBuiltinType("float"));
+    try std.testing.expect(!module_resolver.isBuiltinType("CMDERror"));
+    try std.testing.expect(!module_resolver.isBuiltinType(" "));
+    try std.testing.expect(!module_resolver.isBuiltinType("Int."));
+}
+
 test "hasPrimitiveBinding recognizes all modules" {
     const cases = [_][]const u8{
         "IO", "File", "Env", "Process", "Cmd",
@@ -27,6 +35,14 @@ test "hasPrimitiveBinding recognizes all modules" {
     }
     try std.testing.expect(!module_resolver.hasPrimitiveBinding("Cli"));
     try std.testing.expect(!module_resolver.hasPrimitiveBinding("Task"));
+    try std.testing.expect(!module_resolver.hasPrimitiveBinding("Random"));
+}
+
+test "hasPrimitiveBinding edge cases" {
+    try std.testing.expect(!module_resolver.hasPrimitiveBinding("IOExtra"));
+    try std.testing.expect(!module_resolver.hasPrimitiveBinding("I O"));
+    try std.testing.expect(!module_resolver.hasPrimitiveBinding(""));
+    try std.testing.expect(!module_resolver.hasPrimitiveBinding("NOT_A_MODULE"));
 }
 
 test "LoadedModule struct fields" {
@@ -40,11 +56,32 @@ test "LoadedModule struct fields" {
     try std.testing.expect(module.exports == null);
 }
 
+test "LoadedModule with exports" {
+    const module = module_resolver.LoadedModule{
+        .name = "Math",
+        .path = "/tmp/Math.kun",
+        .decls = &.{},
+        .exports = &.{ "add", "sub" },
+    };
+    try std.testing.expectEqualStrings("Math", module.name);
+    try std.testing.expect(module.exports != null);
+    try std.testing.expectEqualStrings("add", module.exports.?[0]);
+    try std.testing.expectEqualStrings("sub", module.exports.?[1]);
+}
+
 test "ModuleResolver init with no script dir" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const resolver = try module_resolver.ModuleResolver.init(arena.allocator(), null);
     try std.testing.expect(resolver.project_lib == null);
+}
+
+test "ModuleResolver init with script dir" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const resolver = try module_resolver.ModuleResolver.init(arena.allocator(), "/my/project");
+    try std.testing.expect(resolver.project_lib != null);
+    try std.testing.expectEqualStrings("/my/project/lib", resolver.project_lib.?);
 }
 
 test "ModuleResolver circular import detection" {
@@ -65,4 +102,11 @@ test "ModuleResolver resolve cached module" {
     try resolver.loaded.put(arena.allocator(), "Cached", module);
     const result = try resolver.load(arena.allocator(), "Cached");
     try std.testing.expectEqualStrings("Cached", result.name);
+}
+
+test "ModuleResolver resolve nonexistent returns error" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var resolver = try module_resolver.ModuleResolver.init(arena.allocator(), null);
+    try std.testing.expectError(error.ModuleNotFound, resolver.resolve(arena.allocator(), "NonExistentModule"));
 }

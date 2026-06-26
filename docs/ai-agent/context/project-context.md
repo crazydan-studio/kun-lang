@@ -6,9 +6,9 @@
 |---|---|
 | 项目名称 | Kun（鲲） |
 | 项目类型 | 编程语言设计与实现 |
-| 当前版本 | 0.1.0（Phase 6 全部完成，470 测试通过，28/37 审计缺陷修复） |
+| 当前版本 | 0.1.0（Phase 7 全部完成，671 测试通过，全部审计缺陷修复） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
-| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-6 全部完成；标准库 95% 真实实现，效应检查完备，Parser 9/10 语法补齐 |
+| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-7 全部完成；标准库 95% 真实实现，效应检查完备，Parser 语法补齐，模块系统搜索路径实现，--run 端到端可执行 |
 | 宿主语言 | Zig（锁定 0.17.0-dev，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
@@ -17,11 +17,11 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 语言核心设计与类型系统定义（定型）、语法设计（定型 — 单一表达式范式定稿）、标准库类型设计（定型）、运行时架构设计（定型）、命令调用系统设计（定型）、安全隔离设计（定型 — 实现推迟 v0.2）、Kun Shell 设计（定型）[推迟 v2.0]、类型检查算法设计（定型）、CLI 工具功能（定型）、模块系统搜索路径设计（定型 — Phase 6 实施） |
+| 活跃需求 | 所有核心功能已实现，v0.1.0 功能完整 |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 6 全部完成（7 Steps，470 测试）；待执行：模块系统搜索路径、CLI 沙箱推迟 v0.2 |
-| 最近完成 | Phase 6 全部 7 Steps：Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 函数接线、Stream.iter/fold/range/pipe、File 25 函数全真实、JSON(std.json)、glob 引擎、质量加固；审计缺陷修复 28/37 项 |
-| 推迟项 | Regex 引擎 + Validator → v1.1；DateTime 格式化 → v1.1；沙箱（Landlock/seccomp/rlimit）→ v0.2；Kun Shell → v2.0；等递归类型 → v0.3；模块系统搜索路径 → Phase 7 |
+| 活跃计划 | Phase 7 全部完成（4 Steps，671 测试）；v0.2 计划待启动 |
+| 最近完成 | Phase 7：模块系统搜索路径（ModuleResolver 四级搜索/递归加载/循环检测）、--run 端到端（Import 解析 → decls 合并 → TypeCheck → Eval）、eval.zig stub 修复（range_literal/pipe_reverse）、审计修复（58 项） |
+| 推迟项 | Regex 引擎 + Validator → v1.1；DateTime 格式化 → v1.1；沙箱（Landlock/seccomp/rlimit）→ v0.2；Kun Shell → v2.0；等递归类型 → v0.3；Cli 模块 + Parser.Record → v0.3；`Duration`/`Int`/`Float`/`Char` 模块 Primitive 绑定 + PureKun 函数 → v0.2 |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -98,6 +98,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | Phase 7 全部完成（4 Steps，671 测试）：模块系统（ModuleResolver 四级搜索/递归加载/循环检测）、--run 端到端（import 解析 → decls 合并 → TypeCheck → Eval）、eval stub 修复（range_literal/pipe_reverse）、6 轮审计修复（58 项）；v0.1.0 功能完整 |
 | 2026.06.24 | Phase 6 全部完成（7 Steps，470 测试）：Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 函数接线、Stream.iter/fold/range/pipe、File 25 函数全真实（含 statx/walkDir/glob/copy/atomicWrite）、JSON(std.json)、glob_engine.zig、质量加固（span/内存泄漏/narrowType/docs）；审计缺陷修复 28/37 项 |
 | 2026.06.24 | Phase 5 实施完成：前置架构修复（A1-A4, R2, F9-F11）+ Steps 1-5（签名注册 + Stream + Syscall + 数据结构），106 Primitive 绑定；Primitive 拆分为 5 子模块（子目录 primitive/）；测试重构（50→13 tests，列表+循环模式） |
 | 2026.06.23 | 版本路线图重构：模块系统搜索路径提升至 v0.1；CLI 沙箱推迟至 v0.2；Cli.parse/show + Parser.Record + Random.* + 类型化命令模块 + Hash.md5 提升至 v0.3；Task.spawn/all 提升至 v0.4；kun doc 推迟至 v0.5；Test 推迟至 v1.2；移除 PlantUML 图表任务 |

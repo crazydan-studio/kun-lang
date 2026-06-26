@@ -60,6 +60,10 @@ src/
 │   ├── cmd.zig           # fork-exec / pipe / PATH 解析
 │   └── test_cmd.zig
 │
+├── module/               # 模块解析系统
+│   ├── module_resolver.zig  # ModuleResolver（四级搜索/递归加载/循环检测）
+│   └── test_module_resolver.zig
+│
 ├── stdlib/               # 标准库 Primitive 实现
 │   ├── io.zig            # IO.println / print / readln / envList 等
 │   ├── fs.zig            # File.readString / writeBytes / walkDir / glob 等
@@ -116,6 +120,7 @@ src/
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | 源代码结构树新增 module/ 目录（模块解析系统） |
 | 2026.06.25 | 新增源代码结构树，与 architecture/module-boundaries.md 模块划分对齐 |
 | 2026.06.20 | 关键目录表补全：新增 process/、examples/、audits/ 等 11 个目录条目 |
 | 2026.06.10 | 初始版本 |

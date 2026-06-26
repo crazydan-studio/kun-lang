@@ -156,8 +156,8 @@
 | 模式匹配 | ✅ 设计定型 | 穷举、守卫、嵌套、解构 |
 | 解构赋值 | ✅ 设计定型 | 元组/Record/List |
 | 扩展积类型 | ❌ 已移除 | 移除 `{ Base \| field : T }` 语法，Record 类型需精确静态匹配 |
-| 模块系统 | ✅ 设计定型 | 目录即命名空间，`export (...)`，`import X (...)`；搜索路径解析在 v0.1 实现 |
-| 可执行脚本 | ✅ 设计定型 | `main : List String -> Unit`（类型标注可选） |
+| 模块系统 | ✅ 设计定型 | 目录即命名空间，`export (...)`，`import X (...)`；四级搜索路径（项目 lib/ → $KUN_PATH → runtime/lib/kun/ → ~/.kun/cmd/）；递归加载 + 循环依赖检测 |
+| 可执行脚本 | ✅ 设计定型 | `main : List String -> Unit`（类型标注可选），`kun --run <file.kun>` |
 | `kun doc` | ✅ 设计定型 | 为模块及函数生成 Markdown 文档（类型签名、变体、示例、交叉引用），实现推迟 v0.5 |
 | `--trace` | ✅ 设计定型 | 可选函数调用追踪（文件名:行号:列号 + 参数 + 调用深度），缺省关闭 |
 
@@ -182,6 +182,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.25 | 模块系统实现状态更新（四级搜索路径实现、--run 端到端） |
 | 2026.06.18 | Kun Shell 添加 [推迟 v2.0] 标注：设计已定型，实现在 v2.0 前不启动 |
 | 2026.06.14 | 安全加固：网络隔离 CLONE_NEWNET + seccomp 扩展 + PR_SET_NO_NEW_PRIVS + env 过滤扩展；标准库增补：`File.mkdir`/`mkdirAll`/`exists`、`Bytes.fromString`/`toString`、`Map.remove`、`String.replaceAll`；新增 `Test` 测试断言模块；效应跟踪：`!` → `EffectFn` 独立类型构造器 |
 | 2026.06.14 | 效应跟踪更新：新增 `(a -> b)!` 效应回调标注；命令系统更新：移除 `do` 块隐式执行，新增 `Cmd.exec` 显式执行 |
