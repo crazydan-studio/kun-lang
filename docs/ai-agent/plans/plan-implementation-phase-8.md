@@ -470,7 +470,7 @@ cd code/kun-lang && zig build test
 | 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
-| **合计** | **8 个新建 Zig 模块 + 7 个新建测试文件** | **25 个修改文件** | **~1570** | **~98** |
+| **合计** | **1 个配置文件（build.zig.zon）+ 8 个新建 Zig 模块 + 8 个新建测试文件** | **25 个修改文件** | **~1570** | **~98** |
 
 目标：**679 → ~777 测试**。
 
