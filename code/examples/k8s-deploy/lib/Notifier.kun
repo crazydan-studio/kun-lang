@@ -74,11 +74,10 @@ notifySlack = \webhookUrl event ->
         Failure | Rollback -> "danger"
 
     text = formatMessage event
+    slackAttachments : { attachments : List { color : String, text : String } }
+    slackAttachments = { attachments = [{ color = color, text = text }] }
     payload =
-      case
-        Parser.Record.toJson
-          { attachments = [{ color = color, text = text }] }
-      of
+      case Parser.Record.toJson slackAttachments of
         Ok s  -> s
         Err _ -> "{}"
   in

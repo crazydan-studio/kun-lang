@@ -2684,7 +2684,24 @@ do
 
 #### 定位
 
-利用 Kun 的 HM 类型系统实现泛型反序列化，目标类型由调用点的变量显式类型声明驱动。编译器在编译期为每个调用点生成特化的序列化/反序列化代码，运行时不依赖类型反射。
+利用 Kun 的 HM 类型系统实现泛型的 Record ↔ JSON 序列化与反序列化。目标类型由调用点的显式类型标注驱动——编译器在编译期为每个调用点生成特化的代码，运行时不依赖类型反射。
+
+> **显式类型标注要求**：`fromJson` 和 `toJson` 均为多态函数（`a` 由调用点确定）。调用时必须为承载目标类型的绑定提供显式类型标注，否则 HM 无法确定 `a` 的具体类型：
+>
+> ```kun
+> // ✅ toJson —— 标注值的类型
+> cfg : Config
+> cfg = { host = "localhost", port = 8080, debug = false }
+> json = Parser.Record.toJson cfg
+>
+> // ✅ fromJson —— 标注结果的类型
+> parsed : Result Config String
+> parsed = Parser.Record.fromJson text
+>
+> // ❌ 错误：a 无法推断
+> json = Parser.Record.toJson { host = "localhost" }
+> parsed = Parser.Record.fromJson "{ ... }"
+> ```
 
 需显式导入：
 

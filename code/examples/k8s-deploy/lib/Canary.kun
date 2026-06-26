@@ -40,11 +40,10 @@ setTrafficWeight : String -> String -> Int -> Result (Stream String) CommandErro
 setTrafficWeight = \namespace svcName canaryPercent ->
   do
     stableWeight = 100 - canaryPercent
+    trafficSpec : { spec : { traffic : { canary : Int, stable : Int } } }
+    trafficSpec = { spec = { traffic = { canary = canaryPercent, stable = stableWeight } } }
     patchData =
-      case
-        Parser.Record.toJson
-          { spec = { traffic = { canary = canaryPercent, stable = stableWeight } } }
-      of
+      case Parser.Record.toJson trafficSpec of
         Ok s  -> s
         Err _ -> "{}"
   in
