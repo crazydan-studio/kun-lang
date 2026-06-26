@@ -461,6 +461,58 @@ cd code/kun-lang && zig build test
 # 新增 stdlib/test_duration.zig、stdlib/test_int.zig、stdlib/test_float.zig、stdlib/test_char.zig（各 ~8 测试）
 ```
 
+## Step 6：i18n 命名插值 + 三路径格式化
+
+### 6.1 概述
+
+当前 `i18n.zig` 的 `formatError` 函数直接拼接 `formatLoc` 输出的字符串，缺少命名插值接口；仅支持 en/zh_CN 两种 locale，不支持运行时加载的外部 locale 的字符串替换。
+
+本步骤将 `formatError` 拆分为 `kmsg`（纯模板查找）和 `format`（模板查找 + 命名插值），新增三路径格式化（en/zh_CN 用 `std.fmt`，external 用运行时字符串替换）。
+
+### 6.2 具体实现
+
+**新建文件**：`src/i18n/message.zig`
+
+职责：
+- `kmsg(comptime msgid, locale)` — 纯模板查找，返回含 `{name}` 占位符的翻译字符串。en 路径直接返回 msgid（零分配、零查找），zh_CN 路径在编译期翻译表中二分查找，external 路径查运行时加载的哈希表
+- `format(allocator, locale, template, args)` — 模板查找 + 命名插值，完成全部替换后返回最终字符串。en/zh_CN 走 `std.fmt.allocPrint`（在编译期校验占位符和参数类型），external 走运行时字符串替换
+- `runtimeReplace(allocator, template, args)` — 对 `{key}` → value 做线性替换，不存在占位符保留原文，不 panic
+
+**修改文件**：`src/i18n/i18n.zig`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 `Locale.external` 枚举变体 | 标识非 zh_CN/en 的 locale，由 `KUN_LOCALE` 显式设置触发 |
+| 新增 `formatError` 重写 | 拆为三段：`title`（无插值，直接 `kmsg` + `writer.print`）、`body`（含命名插值，走 `format`）、`details`（`label: value` 行，直接 `kmsg` + `writer.print`） |
+| 保留 `formatLoc` 辅助函数 | 供内部简单格式场景使用 |
+| 新增 `kmsg` / `format` 导出 | 供编译器其他组件（CLI、运行时）调用 |
+
+**修改文件**：`src/i18n/test_i18n.zig`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 `kmsg` 测试 | en 直接返回 msgid，zh_CN 返回翻译，external 返回外挂或 fallback |
+| 新增 `format` 测试 | 命名插值 en/zh_CN/external 三路径 |
+| 新增 `runtimeReplace` 测试 | 值替换、未知占位符保留、多参数 |
+| `formatError` 适配 | 按新结构更新测试用例 |
+
+**修改文件**：`build.zig`（新增 `msgcheck` 构建步骤）
+
+```zig
+// 验证 po/*.po 中所有翻译的占位符与 msgid 一致
+const msgcheck_step = b.step("msgcheck", "Verify .po placeholder consistency");
+// 实现：遍历 po/ 目录，对每个 .po 文件逐条检查占位符名称集合是否匹配
+```
+
+### 6.3 验证
+
+**修改文件**：`src/test_main.zig`（添加 `i18n` 测试引用）
+
+```bash
+cd code/kun-lang && zig build test
+# 更新 i18n/test_i18n.zig（新增 ~15 测试）
+```
+
 ## 变更范围总表
 
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
@@ -470,9 +522,10 @@ cd code/kun-lang && zig build test
 | 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
-| **合计** | **1 个配置文件（build.zig.zon）+ 8 个新建 Zig 模块 + 8 个新建测试文件** | **25 个修改文件** | **~1570** | **~98** |
+| 6 — i18n | `src/i18n/message.zig` | `src/i18n/i18n.zig`, `src/i18n/test_i18n.zig`, `build.zig`, `src/test_main.zig` | ~200 | ~15 |
+| **合计** | **1 个配置文件（build.zig.zon）+ 9 个新建 Zig 模块 + 8 个新建测试文件** | **27 个修改文件** | **~1770** | **~113** |
 
-目标：**679 → ~777 测试**。
+目标：**679 → ~792 测试**。
 
 ## 依赖关系
 
@@ -483,6 +536,7 @@ Step 2 (Regex) ──── 独立
 Step 3 (Validator) ──依赖── Step 2 (Regex)
 Step 4 (DateTime) ── 独立
 Step 5 (Duration/Int/Float/Char) ── 独立，可并行
+Step 6 (i18n) ── 独立，不影响其他步骤
 ```
 
 ## 推迟项（不在本计划范围）
@@ -508,4 +562,5 @@ Step 5 (Duration/Int/Float/Char) ── 独立，可并行
 | 2026.06.26 | R2 审计修复：全部 8 项修复确认通过，无新问题 |
 | 2026.06.26 | R1 审计修复：裸变量糖化删除、Nilable 模块 Primitive 过渡说明、标记分类修正等 8 项 |
 | 2026.06.26 | 初始版本 |
+| 2026.06.26 | Phase 8 扩容：新增 Step 6（i18n 命名插值 + 三路径格式化）——`kmsg`/`format` 分层、`Locale.external` 枚举、`runtimeReplace`、`msgcheck` 构建步骤 |
 
