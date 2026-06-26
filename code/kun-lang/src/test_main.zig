@@ -22,6 +22,10 @@ const test_glob = @import("runtime/test_glob_engine.zig");
 const test_file = @import("stdlib/test_fs.zig");
 const test_module = @import("module/test_module_resolver.zig");
 const test_integration = @import("tests/test_integration.zig");
+const test_duration = @import("stdlib/test_duration.zig");
+const test_int = @import("stdlib/test_int.zig");
+const test_float = @import("stdlib/test_float.zig");
+const test_char = @import("stdlib/test_char.zig");
 
 comptime {
     _ = test_lexer;
@@ -46,4 +50,8 @@ comptime {
     _ = test_file;
     _ = test_module;
     _ = test_integration;
+    _ = test_duration;
+    _ = test_int;
+    _ = test_float;
+    _ = test_char;
 }
