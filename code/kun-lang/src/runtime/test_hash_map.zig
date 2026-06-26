@@ -53,7 +53,6 @@ test "hash_map remove" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "a" }, Value{ .int = 1 });
-    defer freeMapRepr(allocator, repr);
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "b" }, Value{ .int = 2 });
 
     const removed = try hash_map.mapRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "a" });
@@ -163,7 +162,6 @@ test "hash_map remove non-existent key" {
     var repr = MapRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.mapInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "a" }, Value{ .int = 1 });
-    defer freeMapRepr(allocator, repr);
 
     const removed = try hash_map.mapRemove(allocator, repr.entries, repr.len, repr.cap, Value{ .string = "b" });
     defer freeMapRepr(allocator, removed);
@@ -208,7 +206,6 @@ test "hash_map set remove" {
     var repr = SetRepr{ .entries = @constCast(&[0]u8{}), .len = 0, .cap = 0 };
 
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 1 });
-    defer freeSetRepr(allocator, repr);
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 2 });
     repr = try hash_map.setInsert(allocator, repr.entries, repr.len, repr.cap, Value{ .int = 3 });
 

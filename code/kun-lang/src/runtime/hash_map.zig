@@ -205,6 +205,11 @@ pub fn mapRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
         }
     }
 
+    if (cap > 0) {
+        const old_aligned: []align(@alignOf(MapBucket)) u8 = @alignCast(entries[0 .. @sizeOf(MapBucket) * cap]);
+        allocator.free(old_aligned);
+    }
+
     return MapRepr{ .entries = @ptrCast(new_buckets.ptr), .len = new_len, .cap = cap };
 }
 
@@ -285,6 +290,11 @@ pub fn setRemove(allocator: std.mem.Allocator, entries: [*]u8, len: u64, cap: u6
             new_buckets[slot] = b;
             new_len += 1;
         }
+    }
+
+    if (cap > 0) {
+        const old_aligned: []align(@alignOf(SetBucket)) u8 = @alignCast(entries[0 .. @sizeOf(SetBucket) * cap]);
+        allocator.free(old_aligned);
     }
 
     return SetRepr{ .entries = @ptrCast(new_buckets.ptr), .len = new_len, .cap = cap };

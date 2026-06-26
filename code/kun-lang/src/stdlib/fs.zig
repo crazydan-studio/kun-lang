@@ -141,7 +141,7 @@ pub fn currentDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
     var buf: [4096]u8 = undefined;
     const result = std.os.linux.getcwd(&buf, buf.len);
-    if (result != 0) return Value{ .path = env.allocator.dupe(u8, "/") catch return Value{ .nil = {} } };
+    if (@as(isize, @bitCast(result)) < 0) return Value{ .path = env.allocator.dupe(u8, "/") catch return Value{ .nil = {} } };
     const len = std.mem.indexOfScalar(u8, buf[0..], 0) orelse buf.len;
     return Value{ .path = env.allocator.dupe(u8, buf[0..len]) catch return Value{ .nil = {} } };
 }
@@ -304,35 +304,61 @@ pub fn globImpl(env: *RuntimeEnv, args: []const Value) Value {
 pub fn createTempFileImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
     var random_bytes: [6]u8 = undefined;
-    const urandom = openFile("/dev/urandom", .{}, 0);
-    if (urandom >= 0) {
-        _ = std.os.linux.read(@intCast(urandom), &random_bytes, random_bytes.len);
-        _ = std.os.linux.close(@intCast(urandom));
-    } else {
-        @memset(&random_bytes, 'X');
+    var i: u32 = 0;
+    while (i < 5) : (i += 1) {
+        const urandom = openFile("/dev/urandom", .{}, 0);
+        if (urandom >= 0) {
+            _ = std.os.linux.read(@intCast(urandom), &random_bytes, random_bytes.len);
+            _ = std.os.linux.close(@intCast(urandom));
+        } else {
+            @memset(&random_bytes, 'X');
+        }
+        var path_buf: [64]u8 = undefined;
+        const name = std.fmt.bufPrint(&path_buf, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
+            random_bytes[0], random_bytes[1], random_bytes[2],
+            random_bytes[3], random_bytes[4], random_bytes[5],
+        }) catch continue;
+        path_buf[name.len] = 0;
+        const fd = openFile(path_buf[0..name.len :0], .{ .CREAT = true, .EXCL = true, .ACCMODE = .WRONLY }, 0o644);
+        if (fd >= 0) {
+            _ = std.os.linux.close(@intCast(fd));
+            const duped = env.allocator.dupe(u8, name) catch return Value{ .nil = {} };
+            return value_mod.makeOk(Value{ .path = duped }, env.allocator) catch return Value{ .nil = {} };
+        }
+        if (fd != -@as(isize, @intCast(17))) {
+            return value_mod.makeErr(1, Value{ .string = "tempfile error" }, env.allocator) catch return Value{ .nil = {} };
+        }
     }
-    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
-        random_bytes[0], random_bytes[1], random_bytes[2],
-        random_bytes[3], random_bytes[4], random_bytes[5],
-    }) catch return Value{ .nil = {} };
-    return value_mod.makeOk(Value{ .path = name }, env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeErr(1, Value{ .string = "tempfile retries exhausted" }, env.allocator) catch return Value{ .nil = {} };
 }
 pub fn createTempDirImpl(env: *RuntimeEnv, args: []const Value) Value {
     _ = args;
     var random_bytes: [6]u8 = undefined;
-    const urandom = openFile("/dev/urandom", .{}, 0);
-    if (urandom >= 0) {
-        _ = std.os.linux.read(@intCast(urandom), &random_bytes, random_bytes.len);
-        _ = std.os.linux.close(@intCast(urandom));
-    } else {
-        @memset(&random_bytes, 'X');
+    var i: u32 = 0;
+    while (i < 5) : (i += 1) {
+        const urandom = openFile("/dev/urandom", .{}, 0);
+        if (urandom >= 0) {
+            _ = std.os.linux.read(@intCast(urandom), &random_bytes, random_bytes.len);
+            _ = std.os.linux.close(@intCast(urandom));
+        } else {
+            @memset(&random_bytes, 'X');
+        }
+        var path_buf: [64]u8 = undefined;
+        const name = std.fmt.bufPrint(&path_buf, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
+            random_bytes[0], random_bytes[1], random_bytes[2],
+            random_bytes[3], random_bytes[4], random_bytes[5],
+        }) catch continue;
+        path_buf[name.len] = 0;
+        const rc = std.os.linux.mkdir(path_buf[0..name.len :0], 0o700);
+        if (rc == 0) {
+            const duped = env.allocator.dupe(u8, name) catch return Value{ .nil = {} };
+            return value_mod.makeOk(Value{ .path = duped }, env.allocator) catch return Value{ .nil = {} };
+        }
+        if (@as(isize, @bitCast(rc)) != -@as(isize, @intCast(17))) {
+            return value_mod.makeErr(1, Value{ .string = "tempdir error" }, env.allocator) catch return Value{ .nil = {} };
+        }
     }
-    const name = std.fmt.allocPrint(env.allocator, "/tmp/kun_{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}{x:0>2}", .{
-        random_bytes[0], random_bytes[1], random_bytes[2],
-        random_bytes[3], random_bytes[4], random_bytes[5],
-    }) catch return Value{ .nil = {} };
-    _ = std.os.linux.mkdir(@ptrCast(name.ptr), 0o700);
-    return value_mod.makeOk(Value{ .path = name }, env.allocator) catch return Value{ .nil = {} };
+    return value_mod.makeErr(1, Value{ .string = "tempdir retries exhausted" }, env.allocator) catch return Value{ .nil = {} };
 }
 pub fn copyImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 2 or args[0] != .path or args[1] != .path)
