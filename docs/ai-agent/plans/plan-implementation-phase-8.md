@@ -199,29 +199,8 @@ if (resolved == .nilable) {
 
 ### 2.1 添加 zig-regex 依赖并更新类型定义
 
-**修改文件**：`build.zig`（添加 zig-regex 依赖导入）、`src/runtime/value.zig`（将 `RegexHandle` 从 `opaque {}` 改为 `regex.Regex` 的类型别名）
-**新建文件**：`build.zig.zon`（声明 zig-regex 外部依赖）
-
-**新建文件**：`build.zig.zon`
-
-```zig
-.{
-    .name = "kun-lang",
-    .version = "0.1.0",
-    .dependencies = .{
-        .regex = .{
-            .url = "https://github.com/zig-utils/zig-regex/archive/main.tar.gz",
-            .hash = "...",
-        },
-    },
-}
-
-// build.zig
-const regex = b.dependency("regex", .{ .target = target, .optimize = optimize });
-exe_mod.addImport("regex", regex.module("regex"));
-lib_mod.addImport("regex", regex.module("regex"));
-test_mod.addImport("regex", regex.module("regex"));
-```
+**修改文件**：`build.zig`（创建 `regex_module` 并注入 exe/lib/test 三个模块）、`src/runtime/value.zig`（将 `RegexHandle` 从 `opaque {}` 改为 `regex.Regex` 的类型别名）
+**新建目录**：`deps/zig-regex/`（本地复制 zig-regex 源码，替代 external dependency）
 
 ### 2.2 实现 RegexHandle / Regex 运行时
 
@@ -301,31 +280,25 @@ cd code/kun-lang && zig build test
 # 新增 runtime/test_regex.zig（~15 测试）
 ```
 
-## Step 3：Validator 模块
+## Step 3：Validator 模块（PureKun，推迟到 .kun 标准库就绪）
 
-### 3.1 实现 Validator 函数
+### 3.1 设计
 
-**新建文件**：`src/stdlib/validator.zig`
+`Validator` 模块的 `oneOf`/`range`/`nonEmpty` 为 PureKun 纯函数，`regex` 依赖 `Regex.fromString`（Primitive）。Validator **不是** Primitive 内置模块。
 
-`Validator.regex` 委托 `Regex.fromString`，其余为 PureKun 纯函数：
+### 3.2 实现状态
 
-| 函数 | 签名 | 实现方式 |
-|------|------|---------|
-| `oneOf` | `List String -> String -> Result String String` | PureKun |
-| `range` | `Int -> Int -> Int -> Result Int String` | PureKun |
-| `nonEmpty` | `String -> Result String String` | PureKun |
-| `regex` | `String -> String -> Result String String` | Primitive（委托 Regex.fromString） |
+当前已从 `primitive.zig` 和 `hasPrimitiveBinding` 中移除。待 `.kun` 标准库文件系统就绪后，创建 `lib/kun/Validator.kun`：
 
-注册到 `primitive.zig`，`Validator` 模块标记为 `is_effect = false`。
-
-### 3.2 验证
-
-**修改文件**：`src/test_main.zig`（添加 `validator` 测试引用）
-
-```bash
-cd code/kun-lang && zig build test
-# 新增 stdlib/test_validator.zig（~8 测试）
+```kun
+export (oneOf, range, nonEmpty)
+// 函数体为 PureKun 实现
+// regex 委托 Regex.fromString
 ```
+
+### 3.3 验证
+
+推迟到 `.kun` 文件支持实现后。
 
 ## Step 4：DateTime 格式化引擎
 
@@ -467,24 +440,24 @@ cd code/kun-lang && zig build test
 
 当前 `i18n.zig` 的 `formatError` 函数直接拼接 `formatLoc` 输出的字符串，缺少命名插值接口；仅支持 en/zh_CN 两种 locale，不支持运行时加载的外部 locale 的字符串替换。
 
-本步骤将 `formatError` 拆分为 `kmsg`（纯模板查找）和 `format`（模板查找 + 命名插值），新增三路径格式化（en/zh_CN 用 `std.fmt`，external 用运行时字符串替换）。
+本步骤将 `formatError` 拆分为 `kmsg`（纯模板查找）和 `format`（模板查找 + 位置插值），新增三路径格式化（en/zh_CN 用 `std.fmt`，external 用运行时字符串替换）。
 
 ### 6.2 具体实现
 
 **新建文件**：`src/i18n/message.zig`
 
 职责：
-- `kmsg(comptime msgid, locale)` — 纯模板查找，返回含 `{name}` 占位符的翻译字符串。en 路径直接返回 msgid（零分配、零查找），zh_CN 路径在编译期翻译表中二分查找，external 路径查运行时加载的哈希表
-- `format(allocator, locale, template, args)` — 模板查找 + 命名插值，完成全部替换后返回最终字符串。en/zh_CN 走 `std.fmt.allocPrint`（在编译期校验占位符和参数类型），external 走运行时字符串替换
-- `runtimeReplace(allocator, template, args)` — 对 `{key}` → value 做线性替换，不存在占位符保留原文，不 panic
+- `kmsg(comptime msgid, locale)` — 纯模板查找，返回含 `{s}`/`{d}` 占位符的翻译字符串。en 路径直接返回 msgid（零分配、零查找），zh_CN 路径在编译期翻译表中二分查找，external 路径查运行时加载的哈希表
+- `format(allocator, locale, template, args)` — 模板查找 + 位置插值（Zig `std.fmt` 风格 `{s}`/`{d}`/`{f}`），完成全部替换后返回最终字符串。en/zh_CN 走 `std.fmt.allocPrint`（在编译期校验占位符和参数类型），external 走运行时字符串替换（当前为 stub，因 `std.fmt` 要求 comptime 格式字符串）
+- `runtimeReplace(allocator, template, args)` — 运行时位置插值（当前为 stub，待实现自定义格式解析器）
 
 **修改文件**：`src/i18n/i18n.zig`
 
 | 变更 | 说明 |
 |------|------|
 | 新增 `Locale.external` 枚举变体 + `detectLocale` 函数 | 标识非 zh_CN/en 的 locale，由 `KUN_LOCALE` 显式设置触发；从环境变量检测 locale |
-| 新增 `formatError` 重写 | 拆为三段：`title`（无插值，直接 `kmsg` + `writer.print`）、`body`（含命名插值，走 `format`）、`details`（`label: value` 行，直接 `kmsg` + `writer.print`） |
-| 保留 `formatLoc` 辅助函数 | 供内部简单格式场景使用 |
+| 新增 `formatError` 重写 | 拆为三段：`title`（无插值，直接 `kmsg` + `writer.print`）、`body`（含位置插值，走 `format`）、`details`（`label: value` 行，直接 `kmsg` + `writer.print`）——**暂缓**：`formatError` 当前仍返回 `[]const u8`，未改为 writer 模式 |
+| 保留 `formatLoc` 辅助函数 | 已移除（改用 `format`） |
 | 新增 `kmsg` / `format` 导出 | 供编译器其他组件（CLI、运行时）调用 |
 
 **修改文件**：`src/i18n/test_i18n.zig`
@@ -492,9 +465,8 @@ cd code/kun-lang && zig build test
 | 变更 | 说明 |
 |------|------|
 | 新增 `kmsg` 测试 | en 直接返回 msgid，zh_CN 返回翻译，external 返回外挂或 fallback |
-| 新增 `format` 测试 | 命名插值 en/zh_CN/external 三路径 |
-| 新增 `runtimeReplace` 测试 | 值替换、未知占位符保留、多参数 |
-| `formatError` 适配 | 按新结构更新测试用例 |
+| 新增 `format` 测试 | 位置插值 en/zh_CN/external 三路径 |
+| `formatError` 适配 | 删除 `nil_to_non_nilable` 测试用例；其余按现有结构更新 |
 
 **修改文件**：`build.zig`（新增 `msgcheck` 构建步骤）
 
@@ -519,14 +491,14 @@ cd code/kun-lang && zig build test
 | Step | 新建文件 | 修改文件 | 新增代码行 | 新增测试 |
 |------|---------|---------|-----------|---------|
 | 1 — Nilable ADT | `src/stdlib/nilable.zig`, `src/stdlib/test_nilable.zig` | `src/lexer/lexer.zig`, `src/lexer/test_lexer.zig`, `src/ast/ast.zig`, `src/ast/typed.zig`, `src/parser/parser.zig`, `src/typecheck/env.zig`, `src/typecheck/constraint.zig`, `src/typecheck/effect.zig`, `src/typecheck/pattern.zig`, `src/typecheck/error.zig`, `src/typecheck/unify.zig`, `src/typecheck/test_constraint.zig`, `src/typecheck/test_unify.zig`, `src/typecheck/test_pattern.zig`, `src/typecheck/test_effect.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/runtime/test_eval.zig`, `src/module/module_resolver.zig`, `src/module/test_module_resolver.zig`, `src/i18n/i18n.zig`, `src/i18n/test_i18n.zig`, `src/test_main.zig` | ~470 | ~25 |
-| 2 — Regex | `build.zig.zon`, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~200 | ~15 |
-| 3 — Validator | `src/stdlib/validator.zig`, `src/stdlib/test_validator.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~80 | ~8 |
+| 2 — Regex | `deps/zig-regex/`（35 文件）, `src/runtime/regex_engine.zig`, `src/runtime/test_regex.zig` | `build.zig`, `src/runtime/eval.zig`, `src/runtime/value.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~200 | ~15 |
+| 3 — Validator | — | — | — | — |
 | 4 — DateTime | `src/runtime/datetime_fmt.zig`, `src/runtime/test_datetime.zig` | `src/runtime/eval.zig`, `src/runtime/primitive.zig`, `src/stdlib/crypto.zig`, `src/test_main.zig` | ~250 | ~10 |
 | 5 — Duration/Int/Float/Char | `src/stdlib/duration.zig`, `src/stdlib/int.zig`, `src/stdlib/float.zig`, `src/stdlib/char.zig`, `src/stdlib/test_duration.zig`, `src/stdlib/test_int.zig`, `src/stdlib/test_float.zig`, `src/stdlib/test_char.zig` | `src/runtime/primitive.zig`, `src/test_main.zig` | ~550 | ~40 |
 | 6 — i18n | `src/i18n/message.zig` | `src/i18n/i18n.zig`, `src/i18n/test_i18n.zig`, `build.zig`, `src/test_main.zig` | ~200 | ~15 |
-| **合计** | **1 个配置文件（build.zig.zon）+ 9 个新建 Zig 模块 + 8 个新建测试文件** | **25 个修改文件** | **~1770** | **~113** |
+| **合计** | **deps/zig-regex/（35 文件）+ 9 个新建 Zig 模块 + 8 个新建测试文件** | **25 个修改文件** | **~1770** | **~105** |
 
-目标：**679 → ~792 测试**。
+目标：**679 → ~710 测试**。
 
 ## 依赖关系
 
@@ -534,7 +506,7 @@ cd code/kun-lang && zig build test
 Step 1 (Nilable ADT) ── 独立，影响 Parser + TypeChecker + Runtime
                            可与其他 Step 并行
 Step 2 (Regex) ──── 独立
-Step 3 (Validator) ──依赖── Step 2 (Regex)
+Step 3 (Validator) ── 推迟（依赖 .kun 标准库基础设施）
 Step 4 (DateTime) ── 独立
 Step 5 (Duration/Int/Float/Char) ── 独立，可并行
 Step 6 (i18n) ── 独立，不影响其他步骤
@@ -555,6 +527,7 @@ Step 6 (i18n) ── 独立，不影响其他步骤
 
 | 版本 | 变更 |
 |------|------|
+| 2026.06.26 | 版本同步：Step 2 zig-regex 从 external dependency 改为本地 `deps/`；Step 3 Validator 从 Primitive 改为 PureKun（推迟到 .kun 文件就绪）；Step 6 i18n 从命名插值改为位置插值 `{s}`/`{d}`；`formatError` 三段式重构标记为暂缓；测试目标从 ~792 调整为 ~710 |
 | 2026.06.26 | R7 审计修复：删除重复行；Step 1 摘要表补齐 1.2b/1.2f 中漏列的 8 个修改文件；Step 2 补充 module_resolver.zig；依赖关系图补充 Step 1；总计修正 |
 | 2026.06.26 | R6 审计修复：module_resolver 变更修正（移除 Nil + 新增 Nilable/Duration/Int/Float/Char 到 hasPrimitiveBinding）、AdtVariant.fields → .payload、TypeAnn.nilable 构造修正、DateTime.parse 已存在（替换存根非新增）、Regex Primitive 存根已存在（替换+新增补充）、Step 4 补充 crypto.zig 修改 |
 | 2026.06.26 | R5 审计修复：Float 表 sin/cos/tan 重复行删除；build.zig.zon 为新建非修改；build.zig regex import 补充 lib_mod/test_mod；RuntimeEnv regex_cache 字段补充；摘要表文件路径修正 |
