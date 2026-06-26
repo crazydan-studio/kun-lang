@@ -58,7 +58,7 @@ if (kind == .question) {
 
 | 组件 | 当前 | 改为 |
 |------|------|------|
-| 词法分析 | `kw_nil` 关键字 token | 普通大写标识符，与 `Ok`/`Err`/`Some` 一致 |
+| 词法分析 | `kw_nil` 关键字 token | 普通大写标识符（`Nil` 和 `Some` 因编译器内置 ADT 自动缺省可用，无需 `import`；区别于 `Ok`/`Err` 需要 `import Result`） |
 | 语法分析 | `nil_literal` 特殊 Expr + 特殊 Pattern | 按 ADT 变体构造器处理（大写标识符 → 尝试匹配已知 ADT 变体） |
 | 类型检查 | `nil_literal` → `Type.nilable(a)` 特判分支 | 走 ADT 变体合一——`Nil` 是 `Nilable` ADT 的无 payload 变体 |
 | 求值 | `nil_literal` → `Value.nil` 特判分支 | 走 ADT 变体构造路径 |
@@ -79,7 +79,7 @@ if (kind == .question) {
 | `src/module/module_resolver.zig` | `isBuiltinType` 移除 `"Nil"`（已在 1.2f 中处理） |
 | `src/typecheck/unify.zig` | 删除 `nil_to_non_nilable` 合一错误；`Nil` 作为 `Nilable` ADT 变体与预期类型合一 |
 
-`kw_nil` 删除后，`Nil` 在表达式和模式中统一通过"大写标识符 → ADT 变体查找"路径处理。`Nil` 作为 `Nilable` ADT 的 `Nil` 变体被识别（如同 `Ok` 作为 `Result` 的变体被识别）。`Some` 同理——两者均通过缺省导入的变体作用域可用。
+`kw_nil` 删除后，`Nil` 在表达式和模式中统一通过"大写标识符 → ADT 变体查找"路径处理。`Nil` 作为 `Nilable` ADT 的 `Nil` 变体被识别。`Some` 同理。两者均通过编译器内置 ADT 的变体作用域自动缺省可用——与 `Result` 的 `Ok`/`Err`（需 `import Result`）不同，`Nilable` 是编译器内置类型。
 
 #### 1.2c 添加 `Some` 变体支持
 
