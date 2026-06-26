@@ -26,7 +26,7 @@
 | Signal | ✅ 设计定型 | POSIX 信号枚举，`Signal.on`（signalfd），仅可执行脚本可用 |
 | IOError | ✅ 设计定型 | 结构化系统调用错误类型 |
 | CommandError | ✅ 设计定型 | 语义化命令错误类型（NotFound/PermissionDenied/CommandFailed/KilledBySignal/IoError/PipeFailed/Timeout） |
-| DateTime | ✅ 设计定型 [推迟 v1.1] | newtype，`format` 返回 `Result String String` |
+| DateTime | ✅ 设计定型 [推迟 v0.2] | newtype，`format` 返回 `Result String String` |
 | Uid / Gid | ✅ 设计定型 | 用户/组 ID 数字类型（Int newtype） |
 | Decimal | ✅ 设计定型 | 精确十进制数值（非编译器内置） |
 
@@ -37,7 +37,7 @@
 | Function | ✅ 设计定型 | `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`，始终缺省可用 |
 | Nil | ✅ 设计定型 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`，变体 `Nil` 缺省可用，函数需显式导入 |
 | String | ✅ 设计定型 | `toString`（编译器级泛型）+ 类型互转函数 |
-| Regex | ✅ 设计定型 [推迟 v1.1] | 正则匹配与替换（`fromString` 运行时构造） |
+| Regex | ✅ 设计定型 [推迟 v0.2] | 正则匹配与替换（`fromString` 运行时构造） |
 | Bytes | ✅ 设计定型 | 二进制编解码（`toHex`/`fromHex`） |
 | List | ✅ 设计定型 | 不可变列表查询与变换 |
 | Map | ✅ 设计定型 | 不可变字典查询与变换 |
@@ -55,7 +55,7 @@
 | Hash | ✅ 设计定型 | SHA-256 哈希（`sha256`/`sha256Hex`；`md5` 推迟 v0.3） |
 | Base64 | ✅ 设计定型 | Base64 编解码（`encode`/`decode`） |
 | Cli | ✅ 设计定型 | 类型驱动 CLI 解析，对标 argparse；auto --help；子命令/互斥组/透传 |
-| Validator | ✅ 设计定型 [推迟 v1.1] | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用（依赖 Regex） |
+| Validator | ✅ 设计定型 [推迟 v0.2] | `oneOf`/`range`/`nonEmpty`/`regex`，供 `Cli.withValidator` 使用（依赖 Regex） |
 | Parser.JSON | ✅ 设计定型 | JSON 值类型与字符串互转 |
 | Parser.Record | ✅ 设计定型 | Record 类型安全反序列化（编译期代码生成） |
 | Path | ✅ 设计定型 | `parent`/`fileName`/`extension`/`join`/`(++)`/`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`/`toString` |
@@ -110,24 +110,24 @@
 | 严格求值 | ✅ 设计定型 | 严格求值为默认，let 绑定延迟求值，Stream 惰性 |
 | 高阶函数 | ✅ 设计定型 | map、filter、fold、reduce 等标准库函数已定义 |
 
-### 安全 [实现推迟 v0.2]
+### 安全 [实现推迟 v0.5]
 
-> CLI 参数与安全控制见 [`kun` CLI 工具](kun-cli-tool.md)。安全沙箱设计已定型，实现推迟至 v0.2。
+> CLI 参数与安全控制见 [`kun` CLI 工具](kun-cli-tool.md)。安全沙箱设计已定型，实现推迟至 v0.5。
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| CLI `--allow-path` | ✅ 设计定型 [v0.2] | 路径级文件系统访问控制 |
-| CLI `--allow-net` | ✅ 设计定型 [v0.2] | 网络出站/入站控制 |
-| CLI `--no-sandbox` | ✅ 设计定型 [v0.2] | 完全关闭沙箱 |
-| CLI `--force` | ✅ 设计定型 [v0.2] | 强制运行（跳过安全确认） |
-| CLI `--env=` | ✅ 设计定型 [v0.2] | 环境变量继承策略 |
-| CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 [v0.2] | rlimit 资源限制 |
-| Landlock | ✅ 设计定型 [v0.2] | 内核 5.13+：文件控制；6.7+：文件 + 网络控制（首选） |
-| Network namespace 网络隔离 | ✅ 设计定型 [v0.2] | `CLONE_NEWNET`（内核 3.0+），覆盖 Landlock 网络控制不可用场景 |
-| Mount namespace 兜底 | ✅ 设计定型 [v0.2] | 内核 3.8+：目录级隔离（`pivot_root`） |
-| seccomp-BPF | ✅ 设计定型 [v0.2] | 系统调用类型过滤（含 `bpf`/`perf_event_open`/`userfaultfd`/`memfd_create`/`io_uring_*`） |
-| `PR_SET_NO_NEW_PRIVS` | ✅ 设计定型 [v0.2] | 阻止 setuid/setgid 特权提升，Landlock 前置条件 |
-| 环境变量安全过滤 | ✅ 设计定型 [v0.2] | 干净白名单 + 始终剔除列表（含 `BASH_FUNC_*`/`LD_*`/解释器注入向量） |
+| CLI `--allow-path` | ✅ 设计定型 [v0.5] | 路径级文件系统访问控制 |
+| CLI `--allow-net` | ✅ 设计定型 [v0.5] | 网络出站/入站控制 |
+| CLI `--no-sandbox` | ✅ 设计定型 [v0.5] | 完全关闭沙箱 |
+| CLI `--force` | ✅ 设计定型 [v0.5] | 强制运行（跳过安全确认） |
+| CLI `--env=` | ✅ 设计定型 [v0.5] | 环境变量继承策略 |
+| CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 [v0.5] | rlimit 资源限制 |
+| Landlock | ✅ 设计定型 [v0.5] | 内核 5.13+：文件控制；6.7+：文件 + 网络控制（首选） |
+| Network namespace 网络隔离 | ✅ 设计定型 [v0.5] | `CLONE_NEWNET`（内核 3.0+），覆盖 Landlock 网络控制不可用场景 |
+| Mount namespace 兜底 | ✅ 设计定型 [v0.5] | 内核 3.8+：目录级隔离（`pivot_root`） |
+| seccomp-BPF | ✅ 设计定型 [v0.5] | 系统调用类型过滤（含 `bpf`/`perf_event_open`/`userfaultfd`/`memfd_create`/`io_uring_*`） |
+| `PR_SET_NO_NEW_PRIVS` | ✅ 设计定型 [v0.5] | 阻止 setuid/setgid 特权提升，Landlock 前置条件 |
+| 环境变量安全过滤 | ✅ 设计定型 [v0.5] | 干净白名单 + 始终剔除列表（含 `BASH_FUNC_*`/`LD_*`/解释器注入向量） |
 
 ### IO 与数据
 

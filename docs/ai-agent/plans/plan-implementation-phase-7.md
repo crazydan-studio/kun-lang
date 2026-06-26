@@ -192,13 +192,14 @@ Step 1→2 严格串行。Step 4 与 Step 2-3 无代码冲突（修改 eval.zig 
 
 | 项 | 原因 | 目标版本 |
 |----|------|---------|
-| CLI 安全参数（--allow-path 等） | 沙箱子系统 | v0.2 |
-| Landlock/seccomp/rlimit | 安全子系统 | v0.2 |
+| CLI 安全参数（--allow-path 等） | 沙箱子系统 | v0.5 |
+| Landlock/seccomp/rlimit | 安全子系统 | v0.5 |
 | `Duration`/`Int`/`Float`/`Char` 模块 Primitive 绑定 | 标准库扩展 | v0.2 |
 | `String`/`List`/`Map`/`Set` PureKun 函数 | .kun 标准库文件 | v0.2 |
+| Regex 引擎 + Validator 完整实现 | 专用引擎 | v0.2 |
+| DateTime 格式化引擎 | 专用引擎 | v0.2 |
 | Cli 模块 / Parser.Record | 编译期代码展开 | v0.3 |
 | 等递归类型 | TypeEnv 别名集合 | v0.3 |
-| Regex / Validator / DateTime | 专用引擎 | v1.1 |
 | Kun Shell | 交互环境 | v2.0 |
 
 ## 版本历史
