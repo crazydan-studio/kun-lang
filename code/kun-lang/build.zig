@@ -12,23 +12,32 @@ pub fn build(b: *std.Build) void {
     } });
     const optimize = b.standardOptimizeOption(.{});
 
+    const regex_module = b.createModule(.{
+        .root_source_file = b.path("deps/zig-regex/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    exe_mod.addImport("regex", regex_module);
 
     const lib_mod = b.createModule(.{
         .root_source_file = b.path("src/lib.zig"),
         .target = target,
         .optimize = optimize,
     });
+    lib_mod.addImport("regex", regex_module);
 
     const test_mod = b.createModule(.{
         .root_source_file = b.path("src/test_main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    test_mod.addImport("regex", regex_module);
 
     const exe = b.addExecutable(.{
         .name = "kun",

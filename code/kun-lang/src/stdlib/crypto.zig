@@ -4,6 +4,7 @@ const RuntimeEnv = @import("../runtime/primitive.zig").RuntimeEnv;
 const stream_consumer = @import("../runtime/stream_consumer.zig");
 const hash_map = @import("../runtime/hash_map.zig");
 const datetime_fmt = @import("../runtime/datetime_fmt.zig");
+const regex_engine = @import("../runtime/regex_engine.zig");
 
 const Value = value_mod.Value;
 
