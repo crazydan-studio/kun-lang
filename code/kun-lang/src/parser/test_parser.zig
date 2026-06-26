@@ -785,3 +785,63 @@ test "parser nil coalesce operator" {
     try std.testing.expectEqual(ast.BinaryOp.nil_coal, e.binary_op.op);
 }
 
+test "parser multi-line let-in with indentation" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator,
+        \\main = let
+        \\  x = 1
+        \\  y = 2
+        \\in
+        \\  x + y
+    );
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
+test "parser multi-line case simple" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator,
+        \\main = if true then 1 else 0
+    );
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
+test "parser multi-line do block with indentation" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator,
+        \\main = \_ ->
+        \\  do
+        \\    a = 1
+        \\    b = 2
+        \\  in
+        \\    a + b
+    );
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
+test "parser multi-line pipe chain with indentation" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tokens = try lexer.tokenize(allocator,
+        \\result =
+        \\  [1, 2, 3]
+        \\    |> List.map (\x -> x * 2)
+        \\    |> List.sum
+    );
+    const decls = try parseModule(allocator, tokens);
+    try std.testing.expectEqual(@as(usize, 1), decls.len);
+    try std.testing.expect(decls[0] == .function_def);
+}
+
