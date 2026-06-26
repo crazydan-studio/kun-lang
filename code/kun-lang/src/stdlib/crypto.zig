@@ -3,6 +3,7 @@ const value_mod = @import("../runtime/value.zig");
 const RuntimeEnv = @import("../runtime/primitive.zig").RuntimeEnv;
 const stream_consumer = @import("../runtime/stream_consumer.zig");
 const hash_map = @import("../runtime/hash_map.zig");
+const datetime_fmt = @import("../runtime/datetime_fmt.zig");
 
 const Value = value_mod.Value;
 
@@ -66,9 +67,9 @@ pub fn base64DecodeImpl(env: *RuntimeEnv, args: []const Value) Value {
     return Value{ .bytes = buf };
 }
 
-pub fn dateTimeNowImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .int = 0 }; }
-pub fn dateTimeFormatImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
-pub fn dateTimeParseImpl(env: *RuntimeEnv, args: []const Value) Value { _ = env; _ = args; return Value{ .nil = {} }; }
+pub fn dateTimeNowImpl(env: *RuntimeEnv, args: []const Value) Value { return datetime_fmt.nowImpl(env, args); }
+pub fn dateTimeFormatImpl(env: *RuntimeEnv, args: []const Value) Value { return datetime_fmt.formatImpl(env, args); }
+pub fn dateTimeParseImpl(env: *RuntimeEnv, args: []const Value) Value { return datetime_fmt.parseImpl(env, args); }
 
 pub fn jsonFromStringImpl(env: *RuntimeEnv, args: []const Value) Value {
     if (args.len < 1 or args[0] != .string) return Value{ .nil = {} };

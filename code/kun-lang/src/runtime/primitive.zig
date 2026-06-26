@@ -161,7 +161,7 @@ pub fn buildPrimitiveTable(comptime int_t: TypeId, comptime string_t: TypeId, co
         .{ .module = "Base64", .name = "encode", .fn_ptr = crypto.base64EncodeImpl, .arg_count = 1, .return_type = string_t, .is_polymorphic = false, .is_effect = false },
         .{ .module = "Base64", .name = "decode", .fn_ptr = crypto.base64DecodeImpl, .arg_count = 1, .return_type = bytes_t, .is_polymorphic = false, .is_effect = false },
 
-        .{ .module = "DateTime", .name = "now", .fn_ptr = crypto.dateTimeNowImpl, .arg_count = 0, .return_type = int_t, .is_polymorphic = false, .is_effect = false },
+        .{ .module = "DateTime", .name = "now", .fn_ptr = crypto.dateTimeNowImpl, .arg_count = 0, .return_type = int_t, .is_polymorphic = false, .is_effect = true },
         .{ .module = "DateTime", .name = "format", .fn_ptr = crypto.dateTimeFormatImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
         .{ .module = "DateTime", .name = "parse", .fn_ptr = crypto.dateTimeParseImpl, .arg_count = 2, .return_type = unit_t, .is_polymorphic = false, .is_effect = false },
 
