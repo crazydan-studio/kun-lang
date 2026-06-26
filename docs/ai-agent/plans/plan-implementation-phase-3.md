@@ -229,7 +229,7 @@ map: MapRepr,
 set: SetRepr,
 stream: *StreamNode,     // tagged union 指针（见 Step 6）
 command: CommandPayload,
-regex: *const RegexHandle, // 推迟实现，保留占位
+regex: *const regex.Regex, // 推迟实现，改用 zig-regex
 decimal: struct { mantissa: i64, exponent: i32 },
 datetime: i64,           // Int newtype
 adt: struct { tag: u8, payload: [*]u8 },  // 对齐 system-baseline.md ADTRepr C ABI

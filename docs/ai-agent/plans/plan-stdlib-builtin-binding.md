@@ -115,7 +115,7 @@ import M
 | `String` | `length`、`slice` | `(++)`、`contains`、`startsWith`、`endsWith`、`split`、`join`、`trim`、`toUpper`、`toLower`、`replace`、`replaceAll`、`toString` | `length` 需直接读取 `Slice.len`；`slice` 需直接操作指针 |
 | `Bytes` | 无 | `fromHex`、`toHex`、`fromString`、`toString` | |
 | `Char` | 无 | `of`、`fromInt`、`isDigit`、`isAlpha`、`isUpper`、`isLower`、`isWhitespace`、`isControl`、`toUpper`、`toLower`、`toInt` | 字符分类依赖 Unicode 码表查找，但可用纯 Kun 模式匹配实现 |
-| `Regex` | `isMatch`、`firstMatch`、`allMatches`、`replace`、`replaceAll`、`split` | `fromString` | 正则引擎本身是 C 库（PCRE2/regexec），必须 Primitive |
+| `Regex` | `isMatch`、`firstMatch`、`allMatches`、`replace`、`replaceAll`、`split` | `fromString` | 正则引擎本身是第三方 Zig 库（zig-regex），必须 Primitive |
 | `Function` | 无 | `identity`、`always`、`<\|`、`\|>`、`<<`、`>>` | |
 | `List` | `length`、`head`、`last`、`get`、`append`、`reverse`、`sort`、`slice`、`take`、`drop` | `map`、`filter`、`filterMap`、`fold`、`reduce`、`iter`、`all`、`any` | 结构操作需直接操作 `Array.length`/`ptr`；高阶函数可用 Kun 表达 |
 | `Map` | `get`、`keys`、`values`、`size`、`insert`、`remove` | `update`、`fromList`、`toList`、`merge` | 哈希表操作需直接操作桶数组 |

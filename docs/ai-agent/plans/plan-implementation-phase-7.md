@@ -130,7 +130,7 @@ pub const LoadedModule = struct {
 
 | 类别 | 模块 | 状态 | 验证 |
 |------|------|------|------|
-| Primitive 已就绪 | IO, File, Env, Process, Cmd, Stream, List, Map, Set, String, Bytes, Hash, Base64, Parser.JSON, DateTime, Regex, Validator | 已实现（DateTime/Regex/Validator 有 Primitive 绑定，独立引擎推迟 v1.1） | lex→parse→typecheck 全流水线 |
+| Primitive 已就绪 | IO, File, Env, Process, Cmd, Stream, List, Map, Set, String, Bytes, Hash, Base64, Parser.JSON, DateTime, Regex, Validator | 已实现（DateTime/Regex/Validator 有 Primitive 绑定，regex 使用 zig-regex 引擎） | lex→parse→typecheck 全流水线 |
 | 未实现 | Cli (v0.3), Task (v0.4), Random (v0.3) | 无 Primitive 绑定 | lex→parse→回退失败→报 ModuleNotFound |
 | 项目本地模块 | Deployer, Verifier, Canary, Notifier, Builder, Tester, Dockerizer, Reporter | 存在于 `lib/` | lex→parse→ModuleResolver.load→typecheck |
 | 类型级 | CommandError, Duration, Result, Path | ADT/内置类型，非模块 | typecheck 通过（类型环境内置） |
@@ -155,7 +155,7 @@ zig build
 |------|------|------|
 | `eval.zig` range_literal | 创建空 StreamNode，忽略 from/to 值 | **Phase 7 修复** |
 | `eval.zig` pipe_reverse / compose / compose_reverse | `@panic("unimplemented")` | **Phase 7 修复** |
-| `eval.zig` regex_literal | `@panic("regex engine not yet implemented")` | 推迟 v1.1 |
+| `eval.zig` regex_literal | `@panic("regex engine not yet implemented")` | 推迟 v1.1（改用 zig-regex） |
 | `eval.zig` range 模式匹配 | `@panic("unimplemented: range")` | 推迟 v0.2 |
 | 内存泄漏 | 确认 0 泄漏（当前已 0） | — |
 | 文档同步 | 更新 project-context、feature-inventory、codebase-map | — |
@@ -196,7 +196,7 @@ Step 1→2 严格串行。Step 4 与 Step 2-3 无代码冲突（修改 eval.zig 
 | Landlock/seccomp/rlimit | 安全子系统 | v0.5 |
 | `Duration`/`Int`/`Float`/`Char` 模块 Primitive 绑定 | 标准库扩展 | v0.2 |
 | `String`/`List`/`Map`/`Set` PureKun 函数 | .kun 标准库文件 | v0.2 |
-| Regex 引擎 + Validator 完整实现 | 专用引擎 | v0.2 |
+| Regex 引擎 + Validator 完整实现 | zig-regex | v0.2 |
 | DateTime 格式化引擎 | 专用引擎 | v0.2 |
 | Cli 模块 / Parser.Record | 编译期代码展开 | v0.3 |
 | 等递归类型 | TypeEnv 别名集合 | v0.3 |
