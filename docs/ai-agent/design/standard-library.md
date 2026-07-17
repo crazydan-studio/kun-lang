@@ -2,13 +2,159 @@
 
 ## 设计定位
 
-标准库提供用语言自身表达的实用类型和函数。不同于 `type-system.md` 中编译器固有关联的基础类型，标准库的类型可用 ADT 或 newtype 在语言层面定义，不要求编译器做特殊处理。
+标准库提供用语言自身表达的实用类型和函数。不同于 `type-system.md` 中编译器固有关联的基础类型，标准库的类型可用 `alias`/`type` 在语言层面定义，不要求编译器做特殊处理。
+
+**基础效应分层实现**（新设计总则 §1.2.7）：
+
+- **签名在标准库（Kun）**：内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）以普通 `effect` 声明形式在标准库中定义，与用户效应形式完全一致
+- **handler 实现在编译器源码（Zig）**：内置效应的默认 handler 在编译器源码中实现，编译进 `kun` 二进制，用户不可见、不可改
+- **签名与实现彻底分离**：用户层统一查看 `effect` 声明，编译器加载标准库时校验每个操作在 Zig 注册表有对应实现
+
+用户不可定义内置效应的默认 handler，但可在 `main`/`test*` 内用自定义 handler 包装（通过 `continue` 委托默认 Zig 实现）。
 
 所有标准库模块中的函数均需显式导入方可使用（除 `Function` 模块名称始终缺省可用、`Nil` 变体始终缺省可用外）。
+
+### 模块系统规则
+
+1. **默认可见性**：无 `export` 的绑定私有，仅 `export` 列出的符号公开
+2. **Re-export**：`export` 列出的符号无需本模块定义，可来自 `import`
+3. **不支持 wildcard 导入**（避免冲突与隐式）：`import DB.*` 编译错误
+4. **导入冲突需别名解决**：`import DB (query as dbQuery)`
+5. **模块选择性导入与全名引用**：`import DB (query, execute)`，支持直接用 `query` 或全名引用 `DB.query`
+6. **模块别名 + 选择性导入**：`import DB as D (query, execute)`
 
 ### 约定：`of` 构造函数
 
 标准库中 `Xxx.of` 形式的构造函数由编译器保证转换安全——调用者以字面量（或编译期已知值）调用时在编译期校验合法性；运行时传入非法值时**抛出 panic**。需要处理不确定来源数据的场景应使用 `Xxx.fromString` / `Xxx.fromInt` 等返回 `Result` 的安全构造。
+
+### 文档注释规范
+
+文档注释采用**多行 `//`**，支持 **Markdown 语法**。紧邻声明（`type`/函数/`effect`/`extern`/`export`）上方，由 `kun doc` 提取生成文档。
+
+```kun
+// 计算两数之和
+//
+// # 参数
+// - `x`: 第一个数
+// - `y`: 第二个数
+//
+// # 示例
+// ```kun
+// add 1 2  // 3
+// ```
+//
+// # 注意
+// 溢出时 panic（Debug 模式）。
+add : Int -> Int -> Int
+add = \x y -> x + y
+```
+
+支持 Markdown 子集：标题、行内代码、代码块、列表、加粗、斜体、链接、交叉引用 `[[Module.func]]`、引用。规则：
+
+1. 文档注释必须紧邻声明（中间无空行）
+2. 连续 `//` 行视为同一文档注释块
+3. 遇到非 `//` 行或空行，文档注释块结束
+4. `kun doc` 提取文档注释生成 Markdown 文档
+5. 行尾注释（代码后 `//`）不视为文档注释
+
+## 内置效应（标准库签名）
+
+7 个内置效应在标准库中以普通 `effect` 声明形式定义。这 7 个效应名为**编译器保留名**，用户不可定义同名 `effect`。
+
+| 效应 | 含义 | 触发来源 |
+|---|---|---|
+| `IO` | 控制台 IO | `IO.println`/`IO.readln` |
+| `File` | 文件系统 | `File.read`/`File.write` |
+| `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
+| `Random` | CSPRNG | `Random.int`/`Random.bytes` |
+| `DateTime` | 系统时间 | `DateTime.now`/`DateTime.sleep` |
+| `Signal` | 信号处理 | `Signal.on` |
+| `FFI` | 外部 C 库调用 | `FFI.call`（由 `extern` 块默认 handler 委托） |
+
+### 内置效应声明（标准库源码）
+
+```kun
+// <runtime>/lib/kun/IO.kun
+export (IO)
+
+effect IO =
+  { println : String -> Unit
+  , readln  : Unit -> String
+  , eprintln : String -> Unit
+  }
+
+// <runtime>/lib/kun/File.kun
+export (File)
+
+effect File =
+  { read        : Path -> Result String IOError
+  , write       : Path -> String -> Result Unit IOError
+  , remove      : Path -> Result Unit IOError
+  , exists      : Path -> Bool
+  , createTemp  : Unit -> Result Path IOError
+  }
+
+// <runtime>/lib/kun/Cmd.kun
+export (Cmd, pipe, cmd)
+
+effect Cmd =
+  { exec     : Command -> Unit
+  , execSafe : Command -> Result (Stream String) CommandError
+  , stream   : Command -> Stream String
+  , which    : String -> ?Path
+  }
+
+// <runtime>/lib/kun/FFI.kun
+export (FFI, FfiBuffer, alloc, toBytes, toString)
+
+effect FFI =
+  { call : String -> String -> List FfiValue -> FfiValue
+  }
+```
+
+`Random`/`DateTime`/`Signal` 效应的签名在对应模块文档中给出。
+
+### Handler 实现（编译器源码内）
+
+内置效应的默认 handler 在编译器源码（Zig）中实现，编译进 `kun` 二进制：
+
+```zig
+// src/builtin_handlers.zig（编译进 kun 二进制）
+fn io_println(env: *Env, args: []const Value) -> Value {
+  std.debug.print("{s}\n", .{args[0].string});
+  return .unit;
+}
+fn ffi_call(env: *Env, args: []const Value) -> Value {
+  // dlopen/dlsym + C ABI 调用
+  ...
+}
+
+// 内置 handler 注册表（编译期生成，加载标准库时校验完整性）
+const builtin_handler_table = std.ComptimeStringMap(HandlerEntry, .{
+  .{ "IO.println", .{ .fn_ptr = io_println, .is_effect = true } },
+  .{ "FFI.call", .{ .fn_ptr = ffi_call, .is_effect = true } },
+  // ...
+});
+```
+
+**签名与实现的绑定**：编译器加载标准库 `effect IO` 时，校验每个操作在注册表有对应 Zig 实现，缺失则编译错误。
+
+**用户自定义 handler 包装内置效应**：
+
+```kun
+// 用户可在 main 内 handle 内置效应，用 continue 委托默认 Zig 实现
+loggingIO : Handler {IO} a ! {IO}
+loggingIO =
+  handler IO of
+    println msg ->
+      let
+        IO.eprintln f"[log] {msg}"
+        result = continue (IO.println msg)   // 委托内置 io_println
+      in
+        result
+```
+
+详见 [代数效应系统](syntax.md#代数效应系统) 的内置效应章节。
 
 ## `Int` — 整数操作
 
@@ -50,6 +196,62 @@ toFloat : Int -> Float
 toString : Int -> String
 ```
 
+#### 位运算（系统脚本场景：权限位掩码、信号位、flag 组合）
+
+```kun
+// [PureKun] 按位与
+(&)   : Int -> Int -> Int
+
+// [PureKun] 按位或
+(|)   : Int -> Int -> Int
+
+// [PureKun] 按位异或
+(^)   : Int -> Int -> Int
+
+// [PureKun] 按位取反
+not     : Int -> Int
+
+// [PureKun] 左移
+shl     : Int -> Int -> Int
+
+// [PureKun] 右移（算术）
+shr     : Int -> Int -> Int
+
+// [PureKun] 右移（逻辑）
+ushr    : Int -> Int -> Int
+```
+
+#### 位操作工具
+
+```kun
+// [PureKun] 位计数
+popCount : Int -> Int
+
+// [PureKun] 前导零
+leadingZeros : Int -> Int
+
+// [PureKun] 后续零
+trailingZeros : Int -> Int
+```
+
+**位运算优先级**（从高到低）：
+
+| 优先级 | 运算符 | 说明 |
+|---|---|---|
+| 1 | `shl`/`shr`/`ushr` | 移位 |
+| 2 | `&` | 按位与 |
+| 3 | `^` | 按位异或 |
+| 4 | `\|` | 按位或 |
+
+**结合性**：均为左结合。
+
+```kun
+// 优先级示例
+a & b | c       // 等价 (a & b) | c
+a ^ b & c       // 等价 a ^ (b & c)
+a shl 2 | b     // 等价 (a shl 2) | b
+```
+
 ### 示例
 
 ```kun
@@ -62,6 +264,14 @@ p = Int.pow 2 10         // → 1024
 c = Int.clamp 50 0 100   // → 50
 x = Int.fromString "42"   // → Ok 42
 y = Int.toFloat 7          // → 7.0
+
+// 位运算：文件权限
+mode = 0o644
+mode1 = mode | 0o100    // 添加 owner execute
+mode2 = mode1 & 0o777  // 掩码
+
+// 信号位掩码
+sigMask = (1 shl 2) | (1 shl 15)   // SIGINT | SIGTERM
 ```
 
 ## `Float` — 浮点操作与数学函数
@@ -193,7 +403,9 @@ Float.round 3.7                         // → 4.0
 Float.clamp 1.5 0.0 1.0                 // → 1.0
 
 // 容差比较
-Float.approxEqual 1e-10 (0.1 + 0.2) 0.3    // → true
+// 签名：Float -> Float -> Float -> Bool，参数顺序为 a b epsilon
+// 语义：|a - b| < epsilon
+Float.approxEqual (0.1 + 0.2) 0.3 1e-10    // → true
 
 // 类型互转
 val = Float.fromString "2.5"            // → Ok 2.5
@@ -283,7 +495,7 @@ toString : a -> String
 ```
 
 `toString` 是编译器层面的泛型函数。其分发策略为：
-1. 若类型定义了 `toString` 函数（显式实现或标准库 newtype 提供），则调用该类型的 `toString`
+1. 若类型定义了 `toString` 函数（显式实现或标准库 `type` 单变体 ADT 提供），则调用该类型的 `toString`
 2. 其他所有类型（编译器内置基础类型、标准库 ADT、用户自定义 ADT/Record/Tuple）均由编译器自动生成缺省表示
 3. 自动生成的路径标注为 `#[auto]`——若类型同时定义了显式 `toString`，显式定义优先
 
@@ -603,11 +815,23 @@ toString : Signal -> String
 
 ```kun
 // [Primitive] 注册信号处理函数——收到信号时执行回调并传递信号值；前一个处理器被替换 [推迟 v1.0]
-on : Signal -> (Signal -> Unit)! -> Unit
+on : Signal -> (Signal -> Unit ! e) -> Unit ! {Signal, e}
+```
+
+`Signal` 是内置效应（保留名），其签名在标准库以 `effect` 声明形式定义：
+
+```kun
+// <runtime>/lib/kun/Signal.kun
+export (Signal)
+
+effect Signal =
+  { on : Signal -> (Signal -> Unit ! e) -> Unit ! {Signal, e}
+  , ...
+  }
 ```
 
 - `on` 注册信号处理函数，收到信号时执行并传递信号值；前一个处理器被替换
-- 回调**必须为 `do` 块**
+- 回调可为任意效应函数，效应集通过 `e` 传播
 - `Signal.on` 仅可在可执行脚本（无 `export` 声明的 `.kun` 文件）中使用，**库模块禁止调用**
 
 信号处理采用 **signalfd** 机制（Linux 3.8+），并非在 OS 信号上下文中直接执行 Kun 代码。
@@ -616,16 +840,20 @@ on : Signal -> (Signal -> Unit)! -> Unit
 
 ```kun
 // 仅可执行脚本中可用
-handleTerminate : -> Unit
-handleTerminate = \ ->
-  do
+handleTerminate : Unit -> Unit ! {Signal, IO}
+handleTerminate = \_ ->
+  let
     Signal.on
       SIGTERM
       (\sig ->
-        do
+        let
           IO.println "received SIGTERM, shutting down..."
           Process.exit 0
+        in
+          ()
       )
+  in
+    ()
 ```
 
 > **Errno 集成**：POSIX 系统调用错误码（`ENOENT`、`EACCES`、`EPERM` 等）内置于 `IOError` 的运行时实现中，不做为独立模块暴露给用户。需要访问原始错误码的场景通过 `IOError` 的 `Other String` 变体返回描述信息。
@@ -656,8 +884,8 @@ show : IOError -> String
 #### 示例
 
 ```kun
-do
-  case File.readString p"/nonexistent" of
+let
+  case File.read p"/nonexistent" of
     Ok _ -> IO.println "ok"
     Err e ->
       case e of
@@ -673,7 +901,7 @@ do
 
 #### 定位
 
-命令执行阶段的语义化错误类型。`Cmd.<bin>?` 和 `Cmd.pipe?` 返回 `Result a CommandError`。
+命令执行阶段的语义化错误类型。`Cmd.execSafe` 和 `pipe` + `Cmd.execSafe` 返回 `Result a CommandError`。
 
 #### API
 
@@ -695,14 +923,18 @@ show : CommandError -> String
 - `Timeout` — 命令执行超时（由 `Cmd.timeout` 触发），含超时时长和原始命令值
 - `PipeFailed` 包含管道链中按序的命令名列表和失败位置
 
-> **嵌套限制**：`Cmd.pipe` 链中若 `andThen` 或 `orElse` 产生嵌套 `PipeFailed`（内层 `error` 字段为 `CommandError`，其中含另一个 `PipeFailed`），嵌套深度上限为 16。超出时 panic 并返回最外层 `PipeFailed`，内层错误信息通过 stderr `warn` 日志输出。
+> **嵌套限制**：`pipe` 链中若 `andThen` 或 `orElse` 产生嵌套 `PipeFailed`（内层 `error` 字段为 `CommandError`，其中含另一个 `PipeFailed`），嵌套深度上限为 16。超出时 panic 并返回最外层 `PipeFailed`，内层错误信息通过 stderr `warn` 日志输出。
 - `show : CommandError -> String` 返回格式化的错误描述字符串
 
 #### 示例
 
 ```kun
-do
-  case Cmd.grep? { pattern = "ERROR" } p"/var/log/app.log" of
+let
+  result =
+    cmd grep { pattern = "ERROR" } [ p"/var/log/app.log" ]
+      |> Cmd.execSafe
+
+  case result of
     Ok stream -> ...
     Err err ->
       case err of
@@ -712,13 +944,15 @@ do
           IO.println f"command not found: {cmd}"
         _ ->
           IO.println "other error"
+in
+  ()
 ```
 
 ### `DateTime`
 
 #### 定位
 
-绝对时间点，Unix 纪元以来的纳秒数（i64），以 newtype 形式定义。
+绝对时间点，Unix 纪元以来的纳秒数（i64），以单变体 ADT 形式定义。
 
 ```kun
 type DateTime = DateTime Int
@@ -769,7 +1003,10 @@ second : DateTime -> Int
 toString : DateTime -> String
 
 // [Primitive] 获取当前系统时间
-now : -> DateTime
+now : Unit -> DateTime ! {DateTime}
+
+// [Primitive] 阻塞等待指定时长 [推迟 v0.2]
+sleep : Duration -> Unit ! {DateTime}
 
 // [PureKun] DateTime + Duration = DateTime
 (+) : DateTime -> Duration -> DateTime
@@ -792,7 +1029,7 @@ after : DateTime -> DateTime -> Bool
 ```kun
 import DateTime
 
-do
+let
   now = DateTime.now
   past = DateTime.fromUnixSecs 1700000000
   elapsed = now - past
@@ -803,6 +1040,8 @@ do
 
   dt = DateTime.of 1728000000000000    // 纳秒构造
   year = DateTime.year dt              // → 1970
+in
+  ()
 ```
 
 ### `Duration`
@@ -1157,12 +1396,12 @@ filter : (a -> Bool) -> ?a -> ?a
 - `isSome` — 检查可选值是否为非 `Nil`（即存在 `Some` 值）
 - `filter` — 在值存在且满足谓词时保留值，否则返回 `Nil`
 
-`?T` 为 `Nilable T` 的语法糖。`?T` 与 `Nilable T` 在类型系统中完全等价。`??` / `?.` 在语法分析阶段脱糖为 `case` 表达式。`import Nilable` 不影响这些语法。
+`?T` 为 `Nilable T` 的语法糖，二者在类型系统中完全等价。`??T`（嵌套 Nilable，如 `?(?Int)`）为编译错误（详见类型系统 §2.5）。对 `?T` 的解包采用 `case ... of Some x -> ...; Nil -> ...` 模式匹配或 `Nilable.withDefault`/`Nilable.map` 等组合子，**不存在** `??`/`?.` 等值级运算符。`import Nilable` 仅影响模块函数的可用性，不影响 `?T` 语法。
 
 ### 示例
 
 ```kun
-import Nil
+import Nilable
 import Map
 import Int
 import Result
@@ -1255,7 +1494,7 @@ fold      : (b -> a -> b) -> b -> List a -> b
 // [PureKun] 无初始值的折叠，空列表返回 Nil
 reduce    : (a -> a -> a) -> List a -> ?a
 // [PureKun] 遍历每个元素并调用效应回调
-iter      : (a -> Unit)! -> List a -> Unit
+iter      : (a -> Unit ! e) -> List a -> Unit ! e
 // [Primitive] 拼接两个列表
 append    : List a -> List a -> List a
 // [Primitive] 反转列表
@@ -1315,17 +1554,17 @@ groupBy : (a -> k) -> List a -> Map k (List a)
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素
 - `fold` 为左折叠，`fold (+) 0 [1, 2, 3]` → `6`
 - `reduce` 为无初始值的折叠，以首个元素作为起始累加器，空列表返回 `Nil`
-- `iter` 遍历每个元素并调用回调。签名为 `(a -> Unit)! -> List a -> Unit`——`!` 标注回调**必须是**效应函数（含 `do` 块或效应命名空间函数），不可传入纯函数。`List.iter` 表达式本身必须在 `do` 块中调用（因为声明了 `!` 参数）
+- `iter` 遍历每个元素并调用回调。签名为 `(a -> Unit ! e) -> List a -> Unit ! e`——回调效应集通过单效应变量 `e` 传播到 `List.iter` 调用方。回调可为任意效应函数（含内置效应如 `IO`/`File` 等），调用 `List.iter` 的上下文必须能容纳这些效应。
 
-> **回调纯函数约束**：除 `iter` 外，`List` 模块的所有高阶函数（`map`、`filter`、`filterMap`、`fold`、`reduce`、`all`、`any`、`take`、`drop`）的回调参数**必须为纯函数**。这些操作的语义是「从 A 计算出 B」的纯变换，不应掺杂副作用。`List.iter` 的回调必须为**效应函数**（签名标注 `(a -> Unit)!`），用于逐元素执行副作用。
+> **回调纯函数约束**：除 `iter` 外，`List` 模块的所有高阶函数（`map`、`filter`、`filterMap`、`fold`、`reduce`、`all`、`any`、`take`、`drop`）的回调参数**必须为纯函数**（即 `! {}`）。这些操作的语义是「从 A 计算出 B」的纯变换，不应掺杂副作用。`List.iter` 的回调可为任意效应函数（签名标注 `(a -> Unit ! e)`），用于逐元素执行副作用。
 
 当回调是 `Cmd.*` 调用时，每次循环独立 fork 子进程（fork ~0.1ms + exec ~0.3ms ≈ ~0.5ms/次）。按规模选择策略：
 
 | 批量规模 | 方案 | 示例 |
 |---------|------|------|
-| < 50 项 | `List.iter` + `Cmd.*` 直接遍历 | `List.iter (\f -> do Cmd.gzip {} f.path) files` |
-| 50-500 项 | 批处理——`Cmd.xargs` 或 `Cmd.withStdin` 注入列表 | `Cmd.xargs { P = "4" } "gzip" \|> Cmd.withStdin fileList` |
-| > 500 项 | `Cmd.pipe` 流式 + 并行（`Task.spawn`） | 并发度过低时用 `xargs -P`，大文件走 `File.readBytes` 流式管道 |
+| < 50 项 | `List.iter` + `cmd` 字面量直接遍历 | `List.iter (\f -> cmd gzip {} [ f.path ] |> Cmd.exec) files` |
+| 50-500 项 | 批处理——`Cmd.withStdin` 注入列表 | `cmd xargs { P = "4" } [ "gzip" ] \|> Cmd.withStdin fileList` |
+| > 500 项 | `pipe` 流式 + 并行（`Task.spawn`） | 并发度过低时用 `xargs -P`，大文件走 `File.readBytes` 流式管道 |
 
 ### 示例
 
@@ -1337,19 +1576,36 @@ double = List.map (\x -> x * 2) nums           // → [2, 4, 6, 8, 10]
 evens = List.filter (\x -> x % 2 == 0) nums    // → [2, 4]
 sum   = List.fold (\acc x -> acc + x) 0 nums   // → 15
 
-// do 块中批量副作用
-do
+// let in 块中批量副作用
+let
   staleFiles = [p"/tmp/a.log", p"/tmp/b.log"]
-  List.iter (\p -> do File.remove p) staleFiles
+  List.iter (\p ->
+    let
+      File.remove p
+    in
+      ()
+  ) staleFiles
+in
+  ()
 ```
 
 ## `Map` — 映射表操作
 
 ### 定位
 
-`Map` 模块提供不可变字典的查询和变换操作。Map 的键类型必须可哈希（`Int`、`String`、`Bool`、`Char`、`Path` 等编译器内置可哈希类型及 `Duration`）。Kun 当前不提供用户自定义类型的哈希接口——使用非内置可哈希类型作为 Map 键将在编译期报错。
+`Map` 模块提供不可变字典的查询和变换操作。Map 的键类型仅限**内置可哈希类型**：`Int`/`String`/`Bool`/`Char`/`Path`/`Duration`。这是无 typeclass 的临时方案，避免了运行时哈希崩溃。
 
-> 哈希约束的编译期检查：编译器对 `Map k v` 类型构造中的 `k` 执行硬编码类型白名单检查（`Int`/`String`/`Bool`/`Char`/`Path`/`Duration`），非白名单类型在类型检查阶段报错。这是无类型类的临时方案，避免了运行时哈希崩溃，符合"所有类型安全检查在编译期完成"的原则。后续可引入 `Hashable` 类型类以支持用户自定义哈希。
+> **哈希约束的编译期检查**：编译器对 `Map k v` 类型构造中的 `k` 执行硬编码类型白名单检查，非白名单类型在类型检查阶段报错。
+>
+> **自定义类型作键**：用户自定义类型作键时，用 `Map.fromHashFn` 传入哈希函数：
+>
+> ```kun
+> // 用户自定义哈希
+> users : Map Int User
+> users = Map.fromHashFn (\(UserId i) -> i) Map.empty
+> ```
+>
+> 不引入 typeclass，用运行时哈希函数替代。
 
 需显式导入：
 
@@ -1405,7 +1661,7 @@ difference : Map k v -> Map k v -> Map k v
 ```
 
 - `insert` 覆写已有键的值
-- `update` 对已有值应用变换函数，键不存在时不操作。变换函数必须为纯函数——逐个元素执行副作用应遍历 `List (k, v)` 并在 `do` 块中使用 `List.iter`
+- `update` 对已有值应用变换函数，键不存在时不操作。变换函数必须为纯函数——逐个元素执行副作用应遍历 `List (k, v)` 并在 `let in` 块中使用 `List.iter`
 - `merge` 并集合并，右侧覆盖左侧的相同键
 
 ### 示例
@@ -1495,6 +1751,64 @@ Set.contains 2 s                        // → true
 Set.insert 3 s                          // → #[1, 2, 3]（幂等）
 Set.union s #[3, 4, 5]                  // → #[1, 2, 3, 4, 5]
 Set.toList (Set.fromList [1, 2, 2, 3])  // → [1, 2, 3]（去重）
+```
+
+## `Equal` — 深比较
+
+### 定位
+
+`Equal` 模块提供容器类型的深比较函数。Kun 的 `==` 运算符采用**结构浅比较**（不递归嵌套容器/ADT），如需深比较，使用 `Equal` 模块显式递归。
+
+需显式导入：
+
+```kun
+import Equal
+```
+
+### API
+
+```kun
+// [PureKun] List 深比较——元素比较函数由调用方提供
+equal : (a -> a -> Bool) -> List a -> List a -> Bool
+
+// [PureKun] Map 深比较——键与值的比较函数由调用方提供
+equal : (k -> k -> Bool) -> (v -> v -> Bool) -> Map k v -> Map k v -> Bool
+
+// [PureKun] Set 深比较——元素比较函数由调用方提供
+equal : (a -> a -> Bool) -> Set a -> Set a -> Bool
+```
+
+> **`==` 浅比较 vs `Equal.equal` 深比较**：
+>
+> | 类型 | `==` 行为 |
+> |---|---|
+> | `Int`/`Bool`/`Char`/`Duration` | 值比较 |
+> | `Float` | 值比较；`NaN == NaN` → `false`（IEEE 754） |
+> | `String`/`Bytes`/`Path` | 内容比较（首层） |
+> | `List`/`Map`/`Set` | **引用比较**（不递归元素） |
+> | `Record`/`Tuple` | **引用比较**（不递归字段） |
+> | ADT | **引用比较**（不比较 tag 与 payload） |
+>
+> 容器/复合类型的深比较需通过 `Equal.equal` 显式递归。
+
+### 示例
+
+```kun
+import Equal
+
+// List 深比较——元素用 == 浅比较
+Equal.equal (==) [1, 2] [1, 2]                          // → true
+
+// List 嵌套深比较
+Equal.equal (Equal.equal (==)) [[1], [2]] [[1], [2]]    // → true
+
+// Map 深比较
+m1 = Map.fromList [("a", 1), ("b", 2)]
+m2 = Map.fromList [("a", 1), ("b", 2)]
+Equal.equal (==) (==) m1 m2                              // → true
+
+// Set 深比较
+Equal.equal (==) (Set.fromList [1, 2]) (Set.fromList [1, 2])  // → true
 ```
 
 ## `Result` — 错误处理组合子
@@ -1600,10 +1914,12 @@ Cli.option "port" 'p' "Server port"
   |> Cli.withValidator (Validator.range 1 65535)
 
 // 独立使用
-do
+let
   case Validator.range 1 100 50 of
     Ok v  -> IO.println f"valid: {v}"
     Err e -> IO.println e
+in
+  ()
 ```
 
 ## `Cli` — 命令行参数解析
@@ -1696,21 +2012,23 @@ parseConfig =
         ]
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         IO.println f"building {cfg.source} with {cfg.jobs} jobs"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 ## `Random` — 随机数
 
 ### 定位
 
-提供密码学安全的伪随机数生成器。所有函数均为效应函数，**只能在 `do` 块中调用**。
+提供密码学安全的伪随机数生成器。所有函数均为效应函数，**只能在 `let in` 块中调用**。
 
 需显式导入：
 
@@ -1722,16 +2040,16 @@ import Random
 
 ```kun
 // [Primitive] 生成随机整数  // [推迟 v0.3]
-int : Int -> Int -> Int
+int : Int -> Int -> Int ! {Random}
 
 // [Primitive] 生成随机字节  // [推迟 v0.3]
-bytes : Int -> Bytes
+bytes : Int -> Bytes ! {Random}
 
 // [Primitive] 生成随机浮点数  // [推迟 v0.3]
-float : Float -> Float -> Float
+float : Float -> Float -> Float ! {Random}
 
 // [Primitive] 随机打乱列表  // [推迟 v0.3]
-shuffle : List a -> List a
+shuffle : List a -> List a ! {Random}
 ```
 
 ### 示例
@@ -1739,10 +2057,12 @@ shuffle : List a -> List a
 ```kun
 import Random
 
-do
+let
   n = Random.int 1 100
   f = Random.float 0.0 1.0
   s = Random.shuffle [1, 2, 3, 4, 5]
+in
+  ()
 ```
 
 语义场景：唯一 ID 生成、端口选择、测试数据、负载分配。
@@ -1859,7 +2179,7 @@ parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 toList : Stream a -> List a
 
 // [Primitive] 遍历每个元素
-iter : (a -> Unit)! -> Stream a -> Unit
+iter : (a -> Unit ! e) -> Stream a -> Unit ! e
 
 // [Primitive] 折叠
 fold : (b -> a -> b) -> b -> Stream a -> b
@@ -1888,11 +2208,11 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 | `Stream.map` / `Stream.filter` / `Stream.take` / `Stream.drop` / `Stream.takeWhile` / `Stream.dropWhile` / `Stream.flatMap` / `Stream.append` / `Stream.zip` / `Stream.scan` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` | **纯** | 惰性变换，不触发 IO |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
-| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit)!` 回调，自身为效应函数（必须在 `do` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在 `do` 外使用 |
-| `Stream.string` / `Stream.bytes` | **终端**（非纯流为效应） | 消费 Stream 并收集为 `String`/`Bytes`；纯 Stream（`fromList`/`range`）可在 `do` 外使用；命令输出 Stream 须在 `do` 块内调用（驱动 pipe 读取为效应操作） |
+| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit ! e)` 回调，自身效应集为 `e`（可在 `let in` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在纯上下文使用 |
+| `Stream.string` / `Stream.bytes` | **终端**（非纯流为效应） | 消费 Stream 并收集为 `String`/`Bytes`；纯 Stream（`fromList`/`range`）可在纯上下文使用；命令输出 Stream 须在 `let in` 块内调用（驱动 pipe 读取为效应操作） |
 | `Stream.fromList` | **纯** | 从纯 List 构造，无 IO 绑定 |
 
-> **回调纯函数约束**：`Stream.map`、`Stream.filter`、`Stream.take`、`Stream.parseMap`、`Stream.parseMapKeep` 的回调参数**必须为纯函数**。这些是惰性变换，不应掺杂副作用。`Stream.iter` 的回调必须为**效应函数**（签名标注 `(a -> Unit)!`），用于逐元素执行副作用。
+> **回调纯函数约束**：`Stream.map`、`Stream.filter`、`Stream.take`、`Stream.parseMap`、`Stream.parseMapKeep` 的回调参数**必须为纯函数**（`! {}`）。这些是惰性变换，不应掺杂副作用。`Stream.iter` 的回调可为任意效应函数（签名标注 `(a -> Unit ! e)`），用于逐元素执行副作用。
 
 ### 示例
 
@@ -1906,19 +2226,76 @@ Stream.range 0 100
   |> Stream.toList                    // → [0, 2, 4, 6, 8]
 
 // IO 消费
-do
-  Cmd.cat p"/var/log/syslog"
+let
+  cmd cat {} [ p"/var/log/syslog" ]
+    |> Cmd.stream
     |> Stream.lines
     |> Stream.filterMap Result.ok
     |> Stream.filter (String.contains "ERROR")
     |> Stream.iter IO.println
+in
+  ()
 ```
+
+## `Lazy` — 显式惰性
+
+### 定位
+
+`Lazy` 是显式惰性特区（与 `Stream` 同属求值策略例外）。Kun 默认立即求值，`let in` 绑定立即触发；当且仅当需要延迟某段计算到引用时才执行（memoize 一次）时，使用 `Lazy` 显式构造 thunk。`Lazy` 不绑定任何效应——`lazy` 构造 thunk 不触发计算，`force` 求值时按 thunk 内部表达式效应上下文执行。
+
+需显式导入：
+
+```kun
+import Lazy (Lazy, lazy, force)
+```
+
+### API
+
+```kun
+// [Primitive] 构造 thunk（延迟计算，不立即求值）
+// 接收一个 Unit -> a 的函数，返回未求值的 Lazy a
+lazy : (Unit -> a) -> Lazy a
+
+// [Primitive] 强制求值（memoize：首次调用执行 thunk，后续调用返回缓存结果）
+force : Lazy a -> a
+```
+
+- `lazy` 不立即执行传入函数——它把函数封装为 thunk（与立即求值的 `let in` 形成对比）
+- `force` 首次调用时执行 thunk 内的计算并缓存结果；后续调用直接返回缓存值（memoize 一次）
+- `Lazy a` 的 `a` 可为任意类型（含效应结果类型），但 `force` 的求值行为取决于 thunk 表达式自身的效应上下文——若 thunk 内含效应操作，调用 `force` 的位置须在可消解该效应的 `let in`/`handle with` 上下文中
+
+### 示例
+
+```kun
+import Lazy (Lazy, lazy, force)
+
+// 显式惰性
+let
+  x = lazy (\_ -> expensiveCalc unused)    // thunk，未计算
+  y = cheapCalc
+in
+  if unused then y else force x            // 引用时才计算
+```
+
+```kun
+import Lazy (lazy, force)
+
+// memoize 一次：昂贵计算仅执行一次
+let
+  thunk = lazy (\_ -> expensiveCompute 42)
+  a = force thunk      // 首次：执行 expensiveCompute 42
+  b = force thunk      // 后续：直接返回缓存
+in
+  a + b                // 等价于 (expensiveCompute 42) * 2
+```
+
+语义场景：条件性求值（分支未走的昂贵计算跳过）、memoize（昂贵结果多次复用）、与 `Stream` 互补的「单值惰性」需求。
 
 ## `IO` — 控制台 IO
 
 ### 定位
 
-控制台输入输出操作。所有函数均为效应函数，**只能在 `do` 块中调用**。
+控制台输入输出操作。所有函数均为 `IO` 效应操作，产生 `! {IO}`，必须在 `let in` 块中调用（或由 `main`/`test*` 的 `handle with` 消解）。
 
 需显式导入：
 
@@ -1930,34 +2307,34 @@ import IO
 
 ```kun
 // [Primitive] 输出字符串到 stdout（无换行）
-print : String -> Unit
+print : String -> Unit ! {IO}
 
 // [Primitive] 输出字符串到 stdout（自动换行）
-println : String -> Unit
+println : String -> Unit ! {IO}
 
 // [Primitive] 从 stdin 读取一行
-readln : -> String
+readln : -> String ! {IO}
 
 // [Primitive] 输出到标准错误（stderr）
-eprint : String -> Unit
+eprint : String -> Unit ! {IO}
 
 // [Primitive] 输出到标准错误并换行
-eprintln : String -> Unit
+eprintln : String -> Unit ! {IO}
 
 // [Primitive] 从标准输入读取原始字节
-readBytes : Int -> Result Bytes IOError
+readBytes : Int -> Result Bytes IOError ! {IO}
 
 // [Primitive] 读取标准输入全部内容为字符串
-readAll : -> String
+readAll : -> String ! {IO}
 
 // [Primitive] 读取标准输入全部内容为原始字节
-readAllBytes : -> Bytes
+readAllBytes : -> Bytes ! {IO}
 
 // [Primitive] 标准输出是否连接到终端
-isTerminal : Bool
+isTerminal : Bool ! {IO}
 
 // [Primitive] 强制刷新标准输出缓冲区
-flush : -> Unit
+flush : -> Unit ! {IO}
 ```
 
 ### 示例
@@ -1965,25 +2342,29 @@ flush : -> Unit
 ```kun
 import IO
 
-do
+let
   IO.print "Enter name: "
   name = IO.readln
   IO.println f"hello, {name}"
+in
+  ()
 
 // 管道模式：读取全部 stdin
-do
+let
   content = IO.readAll
   IO.println f"received {String.length content} bytes"
 
   data = IO.readAllBytes
   IO.println f"binary: {Bytes.length data} bytes"
+in
+  ()
 ```
 
 ## `Env` — 环境变量
 
 ### 定位
 
-进程环境变量的读写操作。所有函数均为效应函数。
+进程环境变量的读写操作。所有函数均为效应操作。
 
 需显式导入：
 
@@ -1995,13 +2376,13 @@ import Env
 
 ```kun
 // [Primitive] 读取环境变量，不存在返回 Nil
-getenv : String -> ?String
+getenv : String -> ?String ! {Env}
 
 // [Primitive] 列举所有环境变量
-list : Map String String
+list : Map String String ! {Env}
 
 // [Primitive] 检查环境变量是否存在
-contains : String -> Bool
+contains : String -> Bool ! {Env}
 ```
 
 ### 示例
@@ -2009,9 +2390,11 @@ contains : String -> Bool
 ```kun
 import Env
 
-do
+let
   level = Env.getenv "KUN_LOG_LEVEL" |> Nilable.withDefault "info"
   IO.println f"log level: {level}"
+in
+  ()
 ```
 
 ## `File` — 文件操作（进程内 syscall）
@@ -2030,81 +2413,85 @@ import File
 
 ```kun
 // [Primitive] 列出目录内容
-list : Path -> Result (List Path) IOError
+list : Path -> Result (List Path) IOError ! {File}
 
 // [Primitive] 创建目录
-mkdir : Path -> Result Unit IOError
+mkdir : Path -> Result Unit IOError ! {File}
 
 // [Primitive] 递归创建目录树（等价于 mkdir -p）
-mkdirAll : Path -> Result Unit IOError
+mkdirAll : Path -> Result Unit IOError ! {File}
 
-// [Primitive] 读取文件为字符串
-// 注：`File.exists` 已移除——`File.stat p |> Result.isOk` 等价，且更高效（单次 stat 同时获取元数据）
-readString : Path -> Result String IOError
+// [Primitive] 读取文件为字符串（对应 `File.read` 效应操作）
+read : Path -> Result String IOError ! {File}
 
-// [Primitive] 读取文件为 Bytes 流
-readBytes : Path -> Result (Stream Bytes) IOError
+// [Primitive] 读取文件为 Bytes 流（内部复用 `File.read` 效应操作）
+readBytes : Path -> Result (Stream Bytes) IOError ! {File}
 
-// [Primitive] 写入字符串到文件
-writeString : Path -> String -> Result Unit IOError
+// [Primitive] 写入字符串到文件（对应 `File.write` 效应操作）
+write : Path -> String -> Result Unit IOError ! {File}
 
-// [Primitive] 写入 Bytes 流到文件
-writeBytes : Path -> Stream Bytes -> Result Unit IOError
+// [Primitive] 写入 Bytes 流到文件（内部复用 `File.write` 效应操作）
+writeBytes : Path -> Stream Bytes -> Result Unit IOError ! {File}
+
+// [Primitive] 检查路径是否存在（对应 `File.exists` 效应操作，纯查询不返回 Result）
+exists : Path -> Bool ! {File}
 
 // [Primitive] 获取文件元数据
-stat : Path -> Result Stat IOError
+stat : Path -> Result Stat IOError ! {File}
 
 // [Primitive] 创建/更新时间戳
-touch : Path -> Result Unit IOError
+touch : Path -> Result Unit IOError ! {File}
 
-// [Primitive] 删除文件
-remove : Path -> Result Unit IOError
+// [Primitive] 删除文件或空目录（对应 `File.remove` 效应操作）
+remove : Path -> Result Unit IOError ! {File}
 
 // [Primitive] 删除目录
-removeDir : Path -> Result Unit IOError
-
-// [Primitive] 创建临时文件，脚本退出时自动清理，返回路径
-createTempFile : -> Result Path IOError
-
-// [Primitive] 创建临时目录，脚本退出时自动清理，返回路径
-createTempDir : -> Result Path IOError
-
-// [Primitive] 复制文件/目录
-copy : Path -> Path -> Result Unit IOError
-
-// [Primitive] 移动/重命名文件
-rename : Path -> Path -> Result Unit IOError
-
-// [Primitive] — 需要 opendir/readdir/closedir 系统调用；glob 遍历的路径受 Landlock 规则约束——仅返回 Landlock 允许路径内的匹配项
-glob : String -> Path -> Result (List Path) IOError
-
-// [Primitive] 追加字符串到文件末尾
-appendString : Path -> String -> Result Unit IOError
-
-// [Primitive] 追加二进制数据到文件末尾
-appendBytes : Path -> Bytes -> Result Unit IOError
-
-// [Primitive] 以字符流形式逐行读取文件
-readLines : Path -> Stream (Result String IOError)
-
-// [Primitive] 递归遍历目录
-walkDir : Path -> Stream Path
-
-// [Primitive] 获取当前工作目录（脚本启动时冻结）
-currentDir : Path
+removeDir : Path -> Result Unit IOError ! {File}
 
 // [Primitive] 递归删除目录及其内容
-removeAll : Path -> Result Unit IOError
+removeAll : Path -> Result Unit IOError ! {File}
+
+// [Primitive] 创建临时文件（对应 `File.createTemp` 效应操作），脚本退出时自动清理，返回路径
+createTemp : Unit -> Result Path IOError ! {File}
+
+// [Primitive] 创建临时目录（内部复用 `File.createTemp` 效应操作），脚本退出时自动清理，返回路径
+createTempDir : Unit -> Result Path IOError ! {File}
+
+// [Primitive] 复制文件/目录
+copy : Path -> Path -> Result Unit IOError ! {File}
+
+// [Primitive] 移动/重命名文件
+rename : Path -> Path -> Result Unit IOError ! {File}
+
+// [Primitive] — 需要 opendir/readdir/closedir 系统调用；glob 遍历的路径受 Landlock 规则约束——仅返回 Landlock 允许路径内的匹配项
+glob : String -> Path -> Result (List Path) IOError ! {File}
+
+// [Primitive] 追加字符串到文件末尾（内部复用 `File.write` 效应操作）
+appendString : Path -> String -> Result Unit IOError ! {File}
+
+// [Primitive] 追加二进制数据到文件末尾
+appendBytes : Path -> Bytes -> Result Unit IOError ! {File}
+
+// [Primitive] 以字符流形式逐行读取文件
+readLines : Path -> Stream (Result String IOError) ! {File}
+
+// [Primitive] 递归遍历目录
+walkDir : Path -> Stream Path ! {File}
+
+// [Primitive] 获取当前工作目录（脚本启动时冻结）
+currentDir : Path ! {File}
 
 // [Primitive] 用户主目录路径
-homeDir : Path
+homeDir : Path ! {File}
 
 // [Primitive] 系统临时目录路径
-tempDir : Path
+tempDir : Path ! {File}
 
 // [Primitive] 原子写入——写入临时文件后 rename
-atomicWriteString : Path -> String -> Result Unit IOError
+atomicWriteString : Path -> String -> Result Unit IOError ! {File}
 ```
+
+> **效应操作与函数名的对应关系**：`File` 模块函数中，`read`/`write`/`remove`/`exists`/`createTemp` 直接对应内置 `effect File = { read, write, remove, exists, createTemp }` 的五个效应操作（命名一一对应）。其余函数（`readBytes`/`writeBytes`/`appendString`/`appendBytes`/`readLines`/`list`/`mkdir`/`stat`/`touch`/`copy`/`rename`/`glob`/`walkDir`/`removeDir`/`removeAll`/`createTempDir`/`currentDir`/`homeDir`/`tempDir`/`atomicWriteString`）为标准库额外提供的文件操作，全部触发 `File` 效应（内部最终调用上述五个原语之一或同源 syscall），调用者需在 `let in` 块内使用。
 
 #### 关联类型
 
@@ -2175,25 +2562,25 @@ type Stat =
 - `isFile : Stat -> Bool` — 等价于 `s.type == Regular`
 - `isSymlink : Stat -> Bool` — 等价于 `s.type == SymbolicLink`
 
-> 注：`File.isDir`/`File.isFile`/`File.isSymlink` 已移除——通过 `File.stat` 获取 `Stat` 记录后使用上述纯访问器即可，避免多次 stat 系统调用。`File.exists` 同理：`File.stat p |> Result.isOk`。
+> 注：`File.isDir`/`File.isFile`/`File.isSymlink` 已移除——通过 `File.stat` 获取 `Stat` 记录后使用上述纯访问器即可，避免多次 stat 系统调用。`File.exists` 已恢复为模块函数（对应 `effect File` 的 `exists` 效应操作）。
 
 - `owner`/`group` 为数字 ID（`Uid`/`Gid`），源于 `stat` 系统调用的原始返回值
 - `device` 仅当 `type` 为 `CharDevice` 或 `BlockDevice` 时有值，其余文件类型为 `Nil`
 
-> **MVP 已知限制 — 阻塞型文件**：`readString` 和 `readBytes` 通过 `read(2)` 系统调用实现，在 FIFO（命名管道）、socket、字符设备等阻塞型文件上会无限期阻塞直到对端写入或连接。MVP 不提供超时参数。
+> **MVP 已知限制 — 阻塞型文件**：`File.read` 和 `File.readBytes` 通过 `read(2)` 系统调用实现，在 FIFO（命名管道）、socket、字符设备等阻塞型文件上会无限期阻塞直到对端写入或连接。MVP 不提供超时参数。
 >
-> 未来方案（v1.1 候选）：为 `readString` 和 `readBytes` 增加可选的 `Duration` 超时参数。
+> 未来方案（v1.1 候选）：为 `File.read` 和 `File.readBytes` 增加可选的 `Duration` 超时参数。
 >
-> 临时规避：将阻塞读取放入 `Cmd.cat?` 子进程并用 `Cmd.timeout` 包裹——子进程超时后 `Cmd.timeout` 返回 `Err`，父进程不受影响。
+> 临时规避：将阻塞读取放入 `cmd cat` 子进程并用 `Cmd.timeout` 包裹——子进程超时后 `Cmd.execSafe` 返回 `Err`，父进程不受影响。
 
 ### 示例
 
 ```kun
 import File
 
-do
+let
   // 读取文件
-  case File.readString p"/etc/hostname" of
+  case File.read p"/etc/hostname" of
     Ok content ->
       IO.println f"hostname: {content}"
     Err _ ->
@@ -2204,36 +2591,45 @@ do
     Ok entries ->
       entries
         |> List.filter (\p -> Path.fileName p |> String.endsWith ".log")
-        |> List.iter (\p -> do IO.println (Path.toString p))
+        |> List.iter (\p ->
+          let
+            IO.println (Path.toString p)
+          in
+            ()
+        )
     Err _ ->
       IO.println "cannot list directory"
 
   // 创建临时文件
-  case File.createTempFile of
+  case File.createTemp () of
     Ok tmp ->
       defer (File.remove tmp)
-      File.writeString tmp "content"
+      File.write tmp "content"
       IO.println f"wrote to {tmp}"
     Err _ ->
       IO.println "failed to create temp file"
+in
+  ()
 ```
 
 ### 已移除函数
 
 | 函数 | 替代方案 |
 |------|---------|
-| `File.exists` | `File.stat path \|> Result.isOk` |
 | `File.isDir` / `File.isFile` / `File.isSymlink` | `File.stat path` 后使用 `s.type == Directory` / `Regular` / `SymbolicLink` |
 | `File.changeDir` | 按命令使用 `Cmd.withWorkDir` |
 | `Path.cwd` | `File.currentDir` |
-| `File.chmod` / `File.chown` | 通过 `Cmd.chmod` / `Cmd.chown` 子进程调用 |
-| `File.symlink` / `File.readlink` | 通过 `Cmd.ln` / `Cmd.readlink` 子进程调用 |
+| `File.chmod` / `File.chown` | 通过 `cmd chmod` / `cmd chown` 子进程调用 |
+| `File.symlink` / `File.readlink` | 通过 `cmd ln` / `cmd readlink` 子进程调用 |
+| `File.readString` / `File.writeString` / `File.createTempFile`（旧名） | 重命名为 `File.read` / `File.write` / `File.createTemp`（2026.07.15 与 `effect File` 操作名对齐） |
 
 ## `Cmd` — Command 工具与命令调用
 
 ### 定位
 
-`Cmd` 模块提供类型化 OS 命令调用。所有函数按执行时机分为纯操作（构造和修饰 Command 值）与效应操作（立即执行）。
+`Cmd` 模块提供类型化 OS 命令调用。`Cmd` 是内置保留效应（详见 [内置效应](#内置效应标准库签名)），其签名在标准库中以 `effect` 声明，handler 实现在编译器源码（Zig）中。
+
+所有函数按执行时机分为纯操作（构造和修饰 Command 值）与效应操作（立即执行）。
 
 需显式导入：
 
@@ -2243,26 +2639,21 @@ import Cmd
 
 ### API
 
-#### Command 构造（编译器内置语法）
+#### Command 构造（`cmd` 字面量语法）
 
 ```kun
-// <bin> 为动态命令名——Cmd.ls、Cmd.git、Cmd["ntfs-3g"] 等均为合法形式
-// [编译器内置语法] Cmd.<bin> 构造 Command 值
-// [编译器内置语法] Cmd.<bin>? → Result (Stream String) CommandError（≡ Cmd.execSafe）
-// [编译器内置语法] Cmd.<bin>! → Unit（≡ Cmd.exec，失败 panic）
+// [编译器内置语法] cmd <命令> <子命令>* <选项>? <位置参数>?
+// 构造 SimpleCommand 值，纯操作
 ```
+
+完整语法、选项映射规则、示例见 [OS 命令调用机制](command-system.md)。
 
 #### OS 管道
 
 ```kun
-// [PureKun] 将多个 Command 连接为 OS 管道链（纯操作，延迟执行）
+// [PureKun] 将多个 Command 连接为 OS 管道链（构造 Pipe 变体，纯操作）
+// 字面量空列表 [] → 编译错误；列表超过 16 个命令 → 编译错误
 pipe : List Command -> Command
-
-// [Primitive] 同上，立即执行，失败返回 Err
-pipe? : List Command -> Result (Stream String) CommandError
-
-// [Primitive] 同上，立即执行，失败 panic（等价 Cmd.exec (Cmd.pipe [...])）
-pipe! : List Command -> Unit
 ```
 
 #### 修饰函数（纯操作，接收并返回 Command）
@@ -2271,13 +2662,13 @@ pipe! : List Command -> Unit
 // [PureKun] 添加环境变量到子进程
 withEnv : Map String String -> Command -> Command
 
-// [PureKun] 追加原始 argv token（用于不适合 camelCase 自动映射的 flag）
-withRawOpt : String -> ?String -> Command -> Command
-
 // [PureKun] 注入 stdin（字符串模式）
 withStdin : String -> Command -> Command
 // [PureKun] 注入 stdin（流式模式，适用于大体积输入）
 withStdin : Stream Bytes -> Command -> Command
+
+// [PureKun] 从文件路径注入 stdin
+withStdinFile : Path -> Command -> Command
 
 // [PureKun] 将 stderr 合并到 stdout 流
 mergeStderr : Command -> Command
@@ -2285,11 +2676,11 @@ mergeStderr : Command -> Command
 // [PureKun] 指定子进程工作目录（fork 后、exec 前 chdir）
 withWorkDir : Path -> Command -> Command
 
-// [PureKun] 指定子进程执行用户（需 OS 级权限）
-withRunAs : String -> Command -> Command  // [推迟 v1.0]
+// [PureKun] 指定子进程执行用户（需 OS 级权限）  // [推迟 v1.0]
+withRunAs : String -> Command -> Command
 
-// [PureKun] 从文件路径注入 stdin
-withStdinFile : Path -> Command -> Command
+// [PureKun] 关闭 -- 分隔符自动插入
+withoutDash : Command -> Command
 ```
 
 > **withStdin 重载消歧**：编译器通过第一参数的类型（`String` vs `Stream Bytes`）在调用点进行消歧，不依赖传统函数重载。HM 推断根据上下文确定调用哪一个签名。
@@ -2304,35 +2695,40 @@ andThen : Command -> Command -> Command
 orElse : Command -> Command -> Command
 ```
 
-#### 立即执行（效应函数）
+#### 超时与重试（修饰函数，纯操作）
+
+```kun
+// [PureKun] 设置超时（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）  // [推迟 v1.0]
+timeout : Duration -> Command -> Command
+
+// [PureKun] 设置重试（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）  // [推迟 v1.0]
+retry : Int -> Duration -> Command -> Command
+```
+
+#### Cmd 效应操作（立即执行，产生 `! {Cmd}`）
 
 ```kun
 // [Primitive] 执行 Command，失败 panic——stdout 被静默丢弃（仅副作用）
-exec : Command -> Unit
+exec : Command -> Unit ! {Cmd}
 
 // [Primitive] 执行 Command 的安全变体——失败返回 Err，stdout 通过 Stream String 消费
-execSafe : Command -> Result (Stream String) CommandError
+execSafe : Command -> Result (Stream String) CommandError ! {Cmd}
 
-// [Primitive] 超时执行，过期返回 Err（立即 fork）
-timeout : Duration -> Command -> Result (Stream String) CommandError  // [推迟 v1.0]
-
-// [Primitive] 重试 n 次执行，每次失败后等待 interval（立即 fork）
-retry : Int -> Duration -> Command -> Result (Stream String) CommandError  // [推迟 v1.0]
+// [Primitive] 执行 Command，返回 Stream——失败 panic
+stream : Command -> Stream String ! {Cmd}
 
 // [Primitive] PATH 查找命令位置，不可执行/未找到返回 Nil
-which : String -> ?Path
+which : String -> ?Path ! {Cmd}
 ```
 
 #### 效应分类
 
 | 操作 | 类别 | 说明 |
 |------|------|------|
-| `Cmd.<bin>` | **纯** | 构造 Command 值，不执行 |
-| `Cmd.pipe` / `Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withRawOpt` / `Cmd.mergeStderr` / `Cmd.withWorkDir` / `Cmd.withRunAs` / `Cmd.withStdinFile` | **纯** | 修饰函数，接收并返回 Command |
-| `Cmd.andThen` / `Cmd.orElse` | **纯** | 短路条件组合，返回 Command |
-| `Cmd.<bin>?` / `Cmd.<bin>!` / `Cmd.pipe?` / `Cmd.pipe!` | **效应** | 立即执行，`?` 返回 Result，`!` 失败 panic |
-| `Cmd.exec` / `Cmd.execSafe` / `Cmd.timeout` / `Cmd.retry` | **效应** | 立即执行 |
-| `Cmd.which` | **效应** | PATH 查找（需文件系统访问） |
+| `cmd ...` 字面量 | **纯** | 构造 Command 值，不执行 |
+| `pipe` / `withEnv` / `withStdin` / `withStdinFile` / `mergeStderr` / `withWorkDir` / `withRunAs` / `withoutDash` / `timeout` / `retry` | **纯** | 修饰函数，接收并返回 Command |
+| `andThen` / `orElse` | **纯** | 短路条件组合，返回 Command |
+| `exec` / `execSafe` / `stream` / `which` | **效应** | 立即执行（`! {Cmd}`） |
 
 > 完整语法、执行模型、选项映射及示例见 [OS 命令调用机制](command-system.md)。
 
@@ -2342,20 +2738,30 @@ which : String -> ?Path
 import Cmd
 
 // 构造 Command（纯操作，可在外层使用）
-c = Cmd.ls { long = true, all = true } p"/tmp"
-  |> Cmd.withWorkDir p"/home"
-  |> Cmd.mergeStderr
+c =
+  cmd ls { long = true, all = true } [ p"/tmp" ]
+    |> Cmd.withWorkDir p"/home"
+    |> Cmd.mergeStderr
 
-do
-  // 管道隐式执行
-  Cmd.ls {} p"/var/log"
-    |> Stream.lines
-    |> Stream.iter IO.println
+let
+  // 管道显式执行（错误处理）
+  result =
+    pipe
+      [ cmd ps { a } []
+      , cmd grep { pattern = "nginx" } []
+      ]
+      |> Cmd.execSafe
 
-  // 立即执行 + 断言（! 后缀）——失败 panic
-  Cmd.mkdir! { p = true } p"/tmp/build"
+  case result of
+    Ok stream ->
+      stream |> Stream.iter IO.println
+    Err e -> IO.println (CommandError.show e)
 
-  // 显式执行
+  // 显式执行（panic 失败）
+  cmd mkdir { p = true } [ "/tmp/build" ]
+    |> Cmd.exec
+
+  // 显式执行已构造的 Command
   Cmd.exec c
 
   // 安全执行（execSafe）——失败返回 Err
@@ -2363,15 +2769,364 @@ do
     Ok stream -> Stream.iter IO.println stream
     Err e -> IO.println (CommandError.show e)
 
-  // 立即执行 + 错误处理（? 后缀）——等价 Cmd.execSafe
-  case Cmd.ls? p"/nonexistent" of
-    Ok stream -> ...
-    Err e -> IO.println (CommandError.show e)
-
   // 短路条件
-  Cmd.git.clone {} "https://..."
-    |> Cmd.andThen (Cmd.make {} "-C" "repo")
+  cmd git clone {} [ "https://..." ]
+    |> Cmd.andThen (cmd make {} [ "-C", "repo" ])
     |> Cmd.exec
+in
+  ()
+```
+
+## `FFI` — 外部 C 库调用
+
+### 定位
+
+`FFI` 是内置保留效应，所有 C 库调用最终产生 `! {FFI}`，受 `--allow-ffi` 运行时控制。
+
+`FFI` 采用**分层归属**设计：
+
+- **底层 `FFI` 效应**：内置保留效应，所有 C 库调用最终产生 `! {FFI}`
+- **上层库效应**：每个 `extern` 块自动产生独立效应（如 `Libc`/`Curl`），可独立 handle/mock
+- **自动桥接**：`extern` 块的默认 handler 自动生成，调用 `FFI.call`，用户无需手写桥接
+- **仅 Linux 支持**：FFI 不做跨平台，专注 Linux `.so`/`dlopen`，不支持 Windows/macOS
+
+需显式导入：
+
+```kun
+import FFI
+```
+
+### `extern` 块语法
+
+```kun
+extern <EffectName> from "<lib>" =
+  { <func1> : <signature>
+  , <func2> : <signature>
+  , ...
+  }
+```
+
+与 `effect`/`type` 形式一致：`<keyword> <Name> [修饰] = { <fields> }`。`from "lib"` 是必要修饰（库绑定）。
+
+**库加载规则**（仅 Linux）：
+
+- `<lib>` 为基础名，运行时按 Linux 规则查找：`lib<lib>.so` → `lib<lib>.so.X` → `<lib>.so`
+- 搜索路径：`LD_LIBRARY_PATH` → `/lib` → `/usr/lib` → `/usr/local/lib`
+- 加载方式：`dlopen(lib, RTLD_LAZY)`，首次调用时加载，结果缓存
+- 非 Linux 平台：`extern` 声明编译错误（FFI 不跨平台）
+
+### `extern` 块的语义
+
+一个 `extern` 块自动完成三层：
+
+1. **效应声明**：自动生成 `effect Libc = { strlen : ..., fopen : ..., ... }`
+2. **库绑定**：记录 `Libc` 效应关联库 `"libc"`
+3. **默认 handler**：编译器自动生成，每个操作调用 `FFI.call`，产生 `! {FFI}`
+
+### 语法细节规则
+
+1. 库名必须字符串字面量，不可用变量：
+
+   ```kun
+   extern Libc from libVar = { ... }        // ❌ 编译错误
+   extern Libc from "libc" = { ... }        // ✅ 合法
+   ```
+
+2. `extern` 块不可嵌套：
+
+   ```kun
+   extern Outer from "liba" =
+     { extern Inner from "libb" = { ... } }  // ❌ 编译错误
+   ```
+
+3. 签名不可含效应标注（效应隐含为库名）：
+
+   ```kun
+   extern Libc from "libc" =
+     { strlen : String -> Int ! {Libc} }     // ❌ 编译错误
+     { strlen : String -> Int }              // ✅ 合法
+   ```
+
+4. `extern` 块内至少一个函数：
+
+   ```kun
+   extern Empty from "libc" = {}             // ❌ 编译错误
+   ```
+
+5. 同一效应名不可重复声明（与 `effect` 共享命名空间）：
+
+   ```kun
+   effect Libc = { customOp : String -> String }
+   extern Libc from "libc" = { strlen : ... }   // ❌ 编译错误：重复声明
+   ```
+
+### 调用形式
+
+```kun
+<EffectName>.<func> <args>
+```
+
+调用产生 `! {<EffectName>}`，**无需 `unsafe`**（效应名已标注 FFI 来源，签名保证类型安全）：
+
+```kun
+let
+  len = Libc.strlen "hello"           // ! {Libc}，无 unsafe
+  fp = Libc.fopen "/etc" "r"          // ! {Libc}
+  n = Libc.fread buf 1 1024 fp        // ! {Libc}
+  Libc.fclose fp                      // ! {Libc}
+in
+  n
+```
+
+### `FFI.call` 与 `unsafe`
+
+`FFI.call` 是直接调用 C 的底层接口，**类型擦除**（`List FfiValue -> FfiValue`），需 `unsafe`：
+
+```kun
+// 直接调用 FFI.call，需 unsafe（罕见，用户通常用 extern 块）
+let
+  len = unsafe (FFI.call "libc" "strlen" [StringVal "hello"]) |> ffiToInt
+in
+  len
+```
+
+**`unsafe` 的归属**：
+
+| 调用形式 | 需 `unsafe` | 理由 |
+|---|---|---|
+| `Libc.strlen "hello"`（extern 块函数） | ❌ | 效应名标注风险，签名类型安全 |
+| `FFI.call "libc" "strlen" [...]`（直接调用） | ✅ | 类型擦除，绕过类型安全 |
+| `Opaque`/`FfiBuffer` 不安全操作 | ✅ | 绕过类型安全 |
+
+常规 FFI 调用经 `extern` 块，不需 `unsafe`。`unsafe` 仅用于直接 `FFI.call` 等罕见场景。
+
+### `FfiValue` 类型
+
+```kun
+type FfiValue =
+  IntVal Int
+  | FloatVal Float
+  | BoolVal Bool
+  | StringVal String
+  | BytesVal Bytes
+  | PathVal Path
+  | OpaqueVal (Opaque Any)     // 完全不透明
+  | BufferVal FfiBuffer           // FFI 内存缓冲区
+  | UnitVal
+```
+
+`Opaque Any` 表示完全不透明的指针（`Any` 为内置占位类型，仅用于 `Opaque` 的完全未知场景）。
+
+解构函数（由编译器内置，extern 块默认 handler 使用）：
+
+```kun
+ffiToInt    : FfiValue -> Int
+ffiToFloat  : FfiValue -> Float
+ffiToBool   : FfiValue -> Bool
+ffiToString : FfiValue -> String
+ffiToBytes  : FfiValue -> Bytes
+ffiToPath   : FfiValue -> Path
+ffiToOpaque : FfiValue -> Opaque a
+ffiToUnit   : FfiValue -> Unit
+```
+
+### `Opaque` 类型
+
+不透明指针，Kun 不可解引用，仅传递给其他 FFI 函数：
+
+```kun
+type Opaque a    // a 是指向的类型，Opaque 表示完全未知
+```
+
+`Opaque a` 的 `a` 是**幻影类型**（phantom type）：
+
+- `Opaque File` 与 `Opaque Curl` 是**不同类型**，编译期区分
+- 运行时均为 `void*`，无运行时开销
+- 不可解引用、不可算术，仅传递给其他 FFI 函数
+- 类型参数 `a` 用于编译期类型安全，防止不同库的句柄误传
+
+用于 C 库返回的句柄（`FILE*`/`curl*`/`sqlite3*` 等），由专门的 FFI 函数释放（如 `fclose`/`curl_easy_cleanup`）。需手动释放的 `Opaque`，用 `defer` 配合释放函数保证释放。
+
+### `FfiBuffer` 与 FFI 内存管理
+
+`Ffi.alloc` 申请的内存绑定到**所在 `let in` 块**的生命周期，块结束（正常或 panic）自动释放：
+
+```kun
+let
+  buf = Ffi.alloc 4096              // FFI 内存，绑定此 let in 块
+  n = Libc.fread buf 1 4096 handle  // 使用 buf
+  content = Ffi.toBytes buf n       // 拷贝到 Kun Bytes（可逃逸）
+in
+  content
+// 块结束，buf 自动释放（无需手动 free）
+```
+
+**`FfiBuffer` 不逃逸（编译器内置规则）**：
+
+`FfiBuffer` 是编译器内置的特殊类型，其不逃逸规则由**编译器硬编码**强制，不采用属性标注形式。
+
+**编译器内置规则**：
+
+1. `FfiBuffer` 类型的值绑定到**所在 `let in` 块**
+2. 不可作为 `let in` 块的返回值（`in` 后表达式）
+3. 不可赋值给外层 `let in` 块的绑定
+4. 可作为参数传递给同块内的函数（但函数不可返回它）
+5. 可通过 `Ffi.toBytes`/`Ffi.toString` 拷贝为普通类型后逃逸
+
+```kun
+// ✅ 合法：拷贝后逃逸
+let
+  buf = Ffi.alloc 1024
+  content = Ffi.toBytes buf 1024    // content : Bytes（普通类型）
+in
+  content                           // 合法：content 非 FfiBuffer
+
+// ❌ 编译错误：FfiBuffer 不可逃逸
+let
+  buf = Ffi.alloc 1024
+in
+  buf                               // 错误：FfiBuffer 不可作为返回值
+
+// ❌ 编译错误：FfiBuffer 不可赋值给外层
+let
+  outer =                           // 外层绑定
+    let
+      inner = Ffi.alloc 1024        // inner : FfiBuffer（内层）
+    in
+      inner                         // 错误：FfiBuffer 不可逃逸到外层
+in
+  ...
+```
+
+### API 汇总
+
+```kun
+// 内置效应（保留名）
+effect FFI =
+  { call : String -> String -> List FfiValue -> FfiValue
+  }
+
+// FfiValue 类型
+type FfiValue =
+  IntVal Int | FloatVal Float | BoolVal Bool | StringVal String
+  | BytesVal Bytes | PathVal Path | OpaqueVal (Opaque Any) | BufferVal FfiBuffer | UnitVal
+
+// Opaque 不透明指针
+type Opaque a
+
+// FfiBuffer（编译器内置不逃逸类型）
+type FfiBuffer
+
+// FFI 内存管理
+alloc     : Int -> FfiBuffer                       // 申请 FFI 内存
+toBytes   : FfiBuffer -> Int -> Bytes              // 拷贝为 Bytes（可逃逸）
+toString  : FfiBuffer -> Int -> String             // 拷贝为 String（可逃逸）
+
+// 解构函数
+ffiToInt    : FfiValue -> Int
+ffiToFloat  : FfiValue -> Float
+ffiToBool   : FfiValue -> Bool
+ffiToString : FfiValue -> String
+ffiToBytes  : FfiValue -> Bytes
+ffiToPath   : FfiValue -> Path
+ffiToOpaque : FfiValue -> Opaque a
+ffiToUnit   : FfiValue -> Unit
+```
+
+### 复杂 C 类型支持范围
+
+MVP 仅支持：
+
+- 基础类型：`Int`/`Float`/`Bool`/`String`/`Bytes`/`Path`/`Unit`
+- `Opaque a`：不透明指针
+- `?T`：可选（NULL 表示 Nil）
+- `List T`：数组（自动转 `T*` + 长度）
+
+MVP 不支持：
+
+- C struct 按值传递（用 `Opaque` 包装 + FFI 函数访问字段）
+- C union（不支持）
+- 函数指针/回调（v1.0+ 考虑）
+- 变参函数（不支持）
+
+### 效应流向
+
+**默认场景**（用户不 handle 库效应）：
+
+```
+Libc.strlen "hello" ! {Libc}
+  → 冒泡到 main
+  → 运行时自动注入 defaultLibcHandler
+  → defaultLibcHandler 调用 FFI.call，产生 ! {FFI}
+  → FFI 冒泡到 main
+  → 运行时默认 FFI handler（Zig ffi_call）消解，需 --allow-ffi
+```
+
+**自定义 handler 场景**（main 内包装）：
+
+```kun
+loggingLibc : Handler {Libc} a ! {IO, Libc}
+loggingLibc = handler Libc of
+  strlen s ->
+    let
+      IO.println f"strlen({s})"
+      result = continue (Libc.strlen s)   // 委托默认 Libc handler
+    in
+      result
+  ...
+```
+
+### 完整 FFI 示例
+
+```kun
+// Libc.kun
+export (Libc)
+
+extern Libc from "libc" =
+  { strlen : String -> Int
+  , fopen : String -> String -> ?(Opaque File)
+  , fclose : Opaque File -> Int
+  , fread : FfiBuffer -> Int -> Int -> Opaque File -> Int
+  }
+
+// FileReader.kun
+export (readFileContent)
+import Libc (Libc)
+import Ffi (Ffi, FfiBuffer, alloc, toString)
+
+readFileContent : Path -> Result String String ! {Libc}
+readFileContent = \path ->
+  let
+    fp = Libc.fopen (Path.toString path) "r"
+  in
+    case fp of
+      Nil -> Err "open failed"
+      Some handle ->
+        let
+          defer (Libc.fclose handle)
+
+          buf = Ffi.alloc 4096
+          n = Libc.fread buf 1 4096 handle
+          content = Ffi.toString buf n
+        in
+          Ok content
+
+// main.kun
+import FileReader (readFileContent)
+
+main : List String -> Unit ! {Libc, IO}
+main = \args ->
+  let
+    result = readFileContent (Path.fromString "/etc/hostname")
+
+    case result of
+      Ok content -> IO.println content
+      Err e -> IO.println e
+  in
+    ()
+  // Libc 冒泡，运行时注入默认 Libc handler
+  // 默认 handler 调用 FFI.call，产生 FFI
+  // FFI 冒泡，运行时默认消解（需 --allow-ffi）
 ```
 
 ## `Process` — 进程控制
@@ -2391,25 +3146,22 @@ import Process
 ```kun
 // [Primitive] 以指定退出码终止进程
 // 若 n 超出 0..255 范围，运行时 panic（纯运行时错误 → 退出码 1）
-exit : Int -> Unit
+exit : Int -> Unit ! {Process}
 
 // [Primitive] 获取当前进程 ID
-pid : -> Pid
+pid : -> Pid ! {Process}
 
 // [Primitive] 获取当前进程的实时用户 ID
-uid : -> Int
+uid : -> Int ! {Process}
 
 // [Primitive] 获取当前进程的实时组 ID
-gid : -> Int
+gid : -> Int ! {Process}
 
 // [Primitive] — 可向任意 PID 发送信号；实际效果取决于 OS 级权限（CAP_KILL 或同 UID）；无沙箱模式下可影响系统服务
-kill : Signal -> Pid -> Result Unit IOError
+kill : Signal -> Pid -> Result Unit IOError ! {Process}
 
 // [Primitive] 等待子进程——返回 ?ExitCode（无子进程时返回 Nil）
-wait : -> ?ExitCode
-
-// [Primitive] 阻塞等待指定时长
-sleep : Duration -> Unit
+wait : -> ?ExitCode ! {Process}
 
 
 ```
@@ -2470,23 +3222,28 @@ toString : ExitCode -> String
 
 ```kun
 import Process
+import DateTime
 
-do
+let
   currentPid = Process.pid                     // → Process.Pid.of <当前进程 ID>
   IO.println f"pid: {Process.Pid.toInt currentPid}"
 
-  Process.sleep 5s                             // 等待 5 秒
+  DateTime.sleep 5s                            // 等待 5 秒（sleep 归属 DateTime 效应）
   Process.exit 0                               // 正常退出
+in
+  ()
 ```
 
 ```kun
 import Process
 
-do
+let
   // 向进程发送信号
   case Process.kill SIGTERM targetPid of
     Ok _  -> IO.println "signal sent"
     Err _ -> IO.println "permission denied"
+in
+  ()
 ```
 
 ## `Hash` — 哈希函数
@@ -2523,22 +3280,26 @@ md5Hex : Bytes -> String
 ```kun
 import Hash
 
-do
+let
   case File.readBytes p"/path/to/file" of
     Ok data ->
       hash = Hash.sha256Hex (Stream.bytes data)
       IO.println f"SHA-256: {hash}"
     Err _ ->
       IO.println "read failed"
+in
+  ()
 
 // 大文件流式哈希
-do
+let
   case File.readBytes p"/path/to/large.iso" of
     Ok stream ->
       hash = Hash.sha256Stream stream
       IO.println f"SHA-256: {Bytes.toHex hash}"
     Err _ ->
       IO.println "read failed"
+in
+  ()
 ```
 
 ## `Base64` — Base64 编解码
@@ -2579,7 +3340,7 @@ raw = Base64.decode "aGVsbG8="  // → Ok (Bytes.fromString "hello")
 
 ### 定位
 
-`Task` 模块提供并发命令执行能力，解决批量命令场景中 `List.iter` + `Cmd.*` 串行 fork 的性能瓶颈。所有函数均为效应函数。
+`Task` 模块提供并发命令执行能力，解决批量命令场景中 `List.iter` + `cmd` 串行 fork 的性能瓶颈。所有函数均为效应函数（`! {Cmd}`）。
 
 需显式导入：
 
@@ -2591,16 +3352,16 @@ import Task
 
 ```kun
 // [Primitive] 并发执行命令列表，最大并行数为 n  [推迟 v0.4]
-spawn : Int -> List Command -> Stream (Result (Stream String) CommandError)
+spawn : Int -> List Command -> Stream (Result (Stream String) CommandError) ! {Cmd}
 
 // [Primitive] 等待所有 Task 完成，收集结果  [推迟 v0.4]
-all : Stream (Result a e) -> List (Result a e)
+all : Stream (Result a e) -> List (Result a e) ! {Cmd}
 ```
 
 - `spawn n cmds` 并发 fork 最多 `n` 个子进程，返回结果流（按完成顺序，非提交顺序）
 - `all` 消费结果流，等待全部子进程退出后收集为 List
 - 子进程仍受 `seccomp + rlimit` 约束，沙箱策略与单命令一致
-- `Cmd.timeout`/`Cmd.retry` 是立即执行函数（返回 `Result`），**不可与 `Task.spawn` 组合**——`spawn` 需要 `List Command`（未执行）。批量超时控制通过 `Task.spawn` 的并发度参数间接实现：并发度限制 + 子进程各自的 rlimit CPU 限制 (`--cpu-limit`) 提供超时兜底
+- `Cmd.timeout`/`Cmd.retry` 是修饰函数（返回 `Command`），**可与 `Task.spawn` 组合**——`spawn` 接收带 `timeout`/`retry` 字段的 `Command`，由内部执行触发。批量超时控制也可通过并发度参数间接实现
 
 #### 运行时模型
 
@@ -2613,17 +3374,21 @@ all : Stream (Result a e) -> List (Result a e)
 ```kun
 import Task
 
-do
+let
   files = [p"/tmp/a.log", p"/tmp/b.log", p"/tmp/c.log"]
-  cmds  = List.map (\f -> Cmd.gzip {} f) files
+  cmds  = List.map (\f -> cmd gzip {} [ f ]) files
   Task.spawn 4 cmds
     |> Task.all
     |> List.iter (\r ->
-      do
+      let
         case r of
           Ok _  -> IO.println "ok"
           Err e -> IO.println f"failed: {CommandError.show e}"
+      in
+        ()
     )
+in
+  ()
 ```
 
 ## `Parser` — 编译期类型安全解析
@@ -2671,13 +3436,15 @@ toString   : JsonValue -> Result String String
 ```kun
 import Parser.JSON
 
-do
+let
   case Parser.JSON.fromString "{\"name\":\"Kun\",\"version\":1}" of
     Ok (JsonObject obj) ->
       case Map.get "name" obj of
         JsonString name -> IO.println f"name: {name}"
         _               -> IO.println "bad type"
     Err msg -> IO.println f"parse error: {msg}"
+in
+  ()
 ```
 
 ### `Parser.Record`
@@ -2731,10 +3498,10 @@ import Parser.Record
 
 type Config = { host : String, port : Int, debug : Bool }
 
-main : List String -> Unit
+main : List String -> Unit ! {File, IO}
 main = \_ ->
-  do
-    raw = File.readString p"/etc/app/config.json"
+  let
+    raw = File.read p"/etc/app/config.json"
     case raw of
       Ok text ->
         parsed : Result Config String
@@ -2746,15 +3513,25 @@ main = \_ ->
             IO.println f"parse error: {msg}"
       Err _ ->
         IO.println "failed to read config"
+  in
+    ()
 ```
 
-## `Test` — 测试断言
+## `Test` — 测试断言与结果
 
 ### 定位
 
-`Test` 模块提供基础测试断言函数，用于编写自测试 Kun 脚本。`kun test` 子命令发现并执行测试文件，收集断言失败报告。所有断言函数在失败时通过 panic 报告错误（含文件名、行号、期望值、实际值），由测试运行器捕获。
+`Test` 模块提供测试专用断言函数 `assert` 与测试结果类型 `TestResult`。`kun test` 子命令收集所有 `test*` 函数，执行每个测试，捕获 panic 转为 `Fail`，汇总 `Pass`/`Fail`/`Skip` 统计。
 
-> **推迟至 v1.2**：Test 模块在 MVP（v0.1）中仅提供类型签名作为设计参考，不实现。`kun test` 子命令同样推迟 v1.2。在 v1.2 前，Kun 脚本的验证通过直接运行脚本并检查退出码（`Cmd.<bin>?` 返回 `Result`）完成。
+`assert` 失败时通过 panic 报告错误（含位置信息：文件名:行号:列号），由测试运行器捕获。
+
+> **测试函数识别规则**：
+> 1. 函数名以 `test` 开头（大小写敏感，`Test`/`TEST` 不算）
+> 2. 签名为 `Unit -> Unit` 或 `Unit -> TestResult`
+> 3. 可含效应（如 `! {IO}`），由 `kun test` 运行器消解
+> 4. 不可接受非 `Unit` 参数（测试无参数输入，用闭包捕获）
+
+> **推迟至 v1.2**：`Test` 模块与 `kun test` 子命令在 MVP（v0.1）中推迟实现。在 v1.2 前，Kun 脚本的验证通过直接运行脚本并检查退出码完成。
 
 需显式导入：
 
@@ -2765,39 +3542,49 @@ import Test
 ### API
 
 ```kun
-// 断言两个值相等 — 效应函数（返回 Unit）
-equal : a -> a -> String -> Unit
+// 断言条件为 true — 测试专用，仅在 test* 函数内可用
+// 失败时 panic，含位置信息（文件:行:列）
+// 成功时返回 Unit
+assert : Bool -> Unit
 
-// 断言条件为 true — 效应函数（返回 Unit）
-ok : Bool -> String -> Unit
-
-// 断言不相等 — 效应函数（返回 Unit）
-notEqual : a -> a -> Unit
-
-// 断言近似相等（浮点容差：epsilon a b → |a - b| < epsilon）— 效应函数（返回 Unit）
-approxEqual : Float -> Float -> Float -> Unit
-
-// 断言结果为 Ok — 效应函数（返回 Unit）
-isOk : Result a e -> String -> Unit
-
-// 断言结果为 Err — 效应函数（返回 Unit）
-isErr : Result a e -> String -> Unit
-
-// 断言值非 Nil — 效应函数（返回 Unit）
-isSome : ?a -> String -> Unit
-
-// 断言值为 Nil — 效应函数（返回 Unit）
-isNil : ?a -> Unit
-
-// 断言 thunk 执行时 panic — 效应函数（返回 Unit）
-panics : (-> a) -> String -> Unit
+// 测试结果类型
+type TestResult =
+  Pass
+  | Fail String      // 失败原因
+  | Skip String      // 跳过原因
 ```
 
-- `equal expected actual message`：`expected == actual` 通过，否则 panic 并报告差异
-- `ok condition message`：`condition` 为 `true` 通过，否则 panic
-- 全部 9 个 Test 模块函数均返回 `Unit`，为效应函数——纯函数返回 `Unit` 违反类型系统规则。调用须在 `do` 上下文中
-- `isOk`/`isErr`/`isSome` 仅做断言检查，不提取值——值提取通过后续 `case` 模式匹配完成
-- `panics thunk message`：`thunk` 为 `-> a` 纯函数，若 `thunk ()` 触发 panic 则通过，正常返回则 panic（"expected panic"）。`panics` 仅接受纯函数 thunk（无 `do` 块或效应命名空间调用）
+测试函数返回值：
+
+- `Unit`：简单测试，失败靠 `assert` panic
+- `TestResult`：显式返回结果，支持 `Pass`/`Fail`/`Skip`
+
+```kun
+// 简单测试（assert 风格）
+testFoo : Unit -> Unit ! {IO}
+testFoo = \ ->
+  let
+    result = compute 42
+    assert (result == 42)
+  in
+    ()
+
+// 显式结果测试
+testBar : Unit -> TestResult ! {IO}
+testBar = \ ->
+  let
+    result = compute 42
+  in
+    if result == 42
+    then Pass
+    else Fail f"expected 42, got {result}"
+```
+
+### `kun test` 运行器行为
+
+- 收集所有 `test*` 函数
+- 执行每个测试，捕获 panic 转为 `Fail`
+- 汇总 `Pass`/`Fail`/`Skip` 统计
 
 ### 示例
 
@@ -2805,21 +3592,129 @@ panics : (-> a) -> String -> Unit
 import Test
 
 // 测试脚本（tests/test-example.kun）
-main : List String -> Unit
-main = \_ ->
-  do
-    Test.equal 4 (2 + 2) "basic arithmetic"
-    Test.ok (List.length [1, 2, 3] == 3) "list length"
-    Test.equal Nil (List.head []) "head of empty list returns Nil"
-    Test.isNil (List.head []) "head of empty list is Nil"
+testBasic : Unit -> Unit ! {IO}
+testBasic = \ ->
+  let
+    assert (4 == 2 + 2)
+    assert (List.length [1, 2, 3] == 3)
+    assert (List.head [] == Nil)
     IO.println "all tests passed"
+  in
+    ()
+
+testExplicit : Unit -> TestResult ! {IO}
+testExplicit = \ ->
+  let
+    result = compute 42
+  in
+    if result == 42
+    then Pass
+    else Fail f"expected 42, got {result}"
 ```
 
 测试文件约定：
+
 - 测试文件放置在 `tests/` 目录下
 - 文件名遵循 `test-*.kun` 模式
-- 入口函数签名为 `main : List String -> Unit`
-- `kun test` 自动发现并运行所有测试文件，报告通过/失败统计
+- 测试函数以 `test` 前缀命名，签名为 `Unit -> Unit` 或 `Unit -> TestResult`
+- `kun test` 自动发现并运行所有 `test*` 函数，报告 `Pass`/`Fail`/`Skip` 统计
+
+
+## 录制/回放
+
+### 定位
+
+录制 handler 包装默认 handler，记录每次效应调用的输入输出与时间戳。回放 handler 按时间戳顺序从录制读取结果，不实际执行副作用。**按时间戳录制/回放**：录制记录带时间戳，回放按时间戳顺序消费，支持时间相关的确定性复现。
+
+### 录制格式（JSON Lines，每行一次调用）
+
+```json
+{"ts":"2026-07-15T10:30:00.123Z","seq":1,"eff":"Libc","op":"strlen","args":["hello"],"result":5}
+{"ts":"2026-07-15T10:30:00.456Z","seq":2,"eff":"IO","op":"println","args":["done"],"result":null}
+{"ts":"2026-07-15T10:30:01.789Z","seq":3,"eff":"File","op":"read","args":["/etc/hosts"],"result":"Ok(...)"}
+```
+
+字段：
+
+- `ts`：时间戳（ISO 8601，毫秒精度）
+- `seq`：调用序号（单调递增，回放校验）
+- `eff`：效应名
+- `op`：操作名
+- `args`：参数（序列化）
+- `result`：结果（序列化，`null` 表示 `Unit`）
+
+### API
+
+```kun
+// 录制：包装默认 handler，记录指定效应的调用
+recordHandler : Path -> List Effect -> Handler e a ! {File}
+recordHandler = \logPath effects -> ...
+
+// 回放：按时间戳顺序从录制读取，不执行副作用
+replayHandler : Path -> Handler e a ! {File}
+replayHandler = \logPath -> ...
+```
+
+### 使用示例
+
+```kun
+// 生产录制
+main : List String -> Unit ! {Libc, File, IO}
+main = \args ->
+  handle
+    let
+      result = readFileContent (Path.fromString "/etc/hostname")
+
+      case result of
+        Ok content -> IO.println content
+        Err e -> IO.println e
+    in
+      ()
+  with
+    recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
+
+// 测试回放（确定性复现）
+testReplay : Unit -> Unit ! {File}
+testReplay = \_ ->
+  handle
+    let
+      result = readFileContent (Path.fromString "/etc/hostname")
+
+      case result of
+        Ok content -> IO.println content
+        Err e -> IO.println e
+    in
+      ()
+  with
+    replayHandler p"/trace/session-001.jsonl"
+  // 效应调用从录制读取，不实际执行
+  // 业务代码执行路径与生产一致，确定性复现
+```
+
+### 回放的确定性保证
+
+- **时间戳顺序**：回放按 `ts` 顺序消费录制记录
+- **序号校验**：回放时 `seq` 不匹配则报错（业务逻辑变化）
+- **非确定性消除**：`DateTime`/`Random` 等非确定性效应的录制结果在回放时固定，消除非确定性
+
+### 匹配规则与限制
+
+| 项目 | 说明 |
+|---|---|
+| 匹配规则 | 按 `eff` + `op` 字符串匹配，按 `seq` 校验调用顺序 |
+| 重命名敏感 | 效应重命名导致回放失败，需重新录制 |
+| 序列化要求 | 效应参数/结果必须可序列化（含闭包的值不支持） |
+| 顺序敏感 | 业务逻辑微调即导致 `seq` 不匹配 |
+| 体积 | 长时间执行的录制文件可能很大 |
+| FFI 录制 | FFI 调用可录制（`FFI.call` 的参数/结果），但 C 内部状态不可录制 |
+| 版本兼容 | 录制文件不含版本信息，跨版本回放不保证兼容 |
+
+### 录制/回放的价值
+
+1. **确定性复现**：生产 bug 可在测试中确定性复现
+2. **时间相关测试**：`DateTime`/`Random` 等非确定性效应可被录制固定
+3. **回归测试**：录制作为测试 fixture，业务逻辑变化时检测行为偏差
+4. **调试**：录制文件可离线分析，无需重现场景
 
 
 ## 导入一览
@@ -2831,37 +3726,40 @@ main = \_ ->
 | `Bytes` | `import Bytes` | 二进制数据操作 |
 | `Char` | `import Char` | 字符分类与转换 |
 | `Decimal` | `import Decimal` | 精确十进制数值 |
-| `Int` | `import Int` | 整数操作、幂运算、钳制及互转 |
+| `Int` | `import Int` | 整数操作、幂运算、钳制、位运算及互转 |
 | `Float` | `import Float` | 浮点操作、数学函数、常量及互转 |
 | `String` | `import String` | 字符串操作及类型互转（`toString` 为编译器级泛型） |
 | `Regex` | `import Regex` | 正则匹配与替换 |
 | `Hash` | `import Hash` | 哈希函数（SHA-256） |
 | `Base64` | `import Base64` | Base64 编解码 |
 | `List` | `import List` | 列表操作 |
-| `Map` | `import Map` | 映射表操作 |
+| `Map` | `import Map` | 映射表操作（含 `fromHashFn`） |
 | `Set` | `import Set` | 集合操作 |
 | `Result` | `import Result` | 错误处理组合子 |
+| `Equal` | `import Equal` | 深比较（`List.equal`/`Map.equal`/`Set.equal`） |
 | `Cli` | `import Cli` | 命令行参数解析（类型驱动，auto --help，子命令） |
 | `Random` | `import Random` | 随机数与洗牌 |
 | `Stream` | `import Stream` | 惰性序列 |
+| `Lazy` | `import Lazy (Lazy, lazy, force)` | 显式惰性特区（`lazy`/`force`，memoize 一次） |
 | `Validator` | `import Validator` | 校验函数（`oneOf`/`range`/`nonEmpty`/`regex`），供 `Cli.withValidator` 等使用 |
-| `IO` | `import IO` | 控制台 IO |
+| `IO` | `import IO` | 控制台 IO（内置效应） |
 | `Env` | `import Env` | 环境变量 |
-| `File` | `import File` | 文件操作及关联类型（`File.Type`/`File.Mode`/`File.Stat`） |
-| `Cmd` | `import Cmd` | 命令调用 |
+| `File` | `import File` | 文件操作及关联类型（`File.read`/`write`/`remove`/`exists`/`createTemp` 对应 `effect File` 操作；`File.Type`/`File.Mode`/`File.Stat`，内置效应） |
+| `Cmd` | `import Cmd` | 命令调用（内置效应，`cmd` 字面量语法） |
 | `Task` | `import Task` | 并发命令执行（`spawn`/`all`） |
 | `Process` | `import Process` | 进程控制（`exit`/`pid`/`uid`/`gid`/`kill`/`wait`/`sleep`）及关联类型（`Process.Pid`/`Process.ExitCode`） |
 | `Duration` | `import Duration` | 时间段操作 |
 | `Path` | `import Path` | 路径操作函数（类型标注无需导入） |
-| `Signal` | `import Signal` | 信号枚举与注册 |
+| `Signal` | `import Signal` | 信号枚举与注册（内置效应） |
+| `DateTime` | `import DateTime` | 时间点操作（`format`/`parse`/`year` 等，内置效应） |
 | `IOError` | `import IOError` | 系统调用结构化错误 |
 | `CommandError` | `import CommandError` | 命令执行语义化错误 |
-| `DateTime` | `import DateTime` | 时间点操作（`format`/`parse`/`year` 等） |
 | `Uid` | `import Uid` | 用户 ID 操作 |
 | `Gid` | `import Gid` | 组 ID 操作 |
+| `FFI` | `import FFI` | FFI 内置效应与 `FfiBuffer`/`Ffi.alloc`/`Ffi.toBytes`/`Ffi.toString` |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
-| `Test` | `import Test` | 测试断言（`equal`/`ok`/`panics`） |
+| `Test` | `import Test` | 测试断言（`assert`）与 `TestResult` |
 
 ## 推迟特性一览
 
@@ -2884,6 +3782,7 @@ main = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.15 | 重构为代数效应与命令系统设计：新增「内置效应」章节（IO/File/Cmd/Random/DateTime/Signal/FFI），签名在标准库以 `effect` 声明，handler 在编译器源码（Zig）实现；新增 `FFI` 模块（`extern` 块、`FfiValue`/`FfiBuffer`/`Opaque`、`Ffi.alloc`/`toBytes`/`toString`，仅 Linux）；新增 `Equal` 模块（`List.equal`/`Map.equal`/`Set.equal` 深比较）；新增 `Int` 位运算（`(&)`/`(|)`/`(^)`/`not`/`shl`/`shr`/`ushr`/`popCount`/`leadingZeros`/`trailingZeros`）+ 优先级（shl/shr > & > ^ > \|，左结合）；新增 `Map.fromHashFn` 自定义哈希；新增「录制/回放」章节（`recordHandler`/`replayHandler`，JSON Lines 格式，按时间戳）；重构 `Test` 模块为 `assert : Bool -> Unit` + `type TestResult = Pass \| Fail String \| Skip String`，`test*` 函数识别规则；`Float.approxEqual` 参数顺序修正为 `a b epsilon`；新增文档注释规范（多行 `//` + Markdown，`kun doc` 提取）；新增模块系统规则（默认私有、`export`/re-export、无 wildcard、别名）；所有示例改用 `let in`（废弃 `do`/`do in`）、显式 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`（废弃 `?`/`!` 后缀、`|>` 隐式触发、`Cmd.<bin>` 语法、`Cmd.withRawOpt`、`Cmd.pipe?`/`Cmd.pipe!`）；`List.iter`/`Stream.iter`/`Signal.on` 签名改用单效应变量 `e`（`(a -> Unit ! e) -> ... ! e`） |
 | 2026.06.20 | Round 12 聚焦审计：Task API 行补充 `[推迟 v0.5]` 行内标注 |
 | 2026.06.19 | Test 模块全部 9 个断言统一为效应函数，均返回 Unit：`isOk`/`isErr`/`isSome` 签名改为 `-> String -> Unit`（纯断言，不提取值） |
 | 2026.06.19 | Test 模块断言分类修正（单一表达式范式配套）：`equal`/`ok`/`notEqual`/`approxEqual`/`isNil`/`panics` 从 `[PureKun]` 改为效应函数（返回 `Unit` 的纯函数违反类型系统规则）；新增效应断言调用须在 `do` 上下文中的说明 |
@@ -2904,6 +3803,6 @@ main = \_ ->
 | 2026.06.14 | `List.iter`/`Stream.iter`/`Signal.on` 签名新增 `(a -> b)!` 效应回调标注——回调必须是效应函数；新增 `Cmd.exec : Command -> Unit` 显式执行；Stream IO 消费示例更新 |
 | 2026.06.13 | 示例代码语法合规修复；新增 `Regex`/`Duration`/`Set`/`Task` 模块；`Map` API 签名泛化（`k`/`v`）；`List` 新增 `sort`/`slice`/`take`/`drop`/`all`/`any`；`Process` 新增 `kill`/`wait`；`File` 新增 `glob`；`Regex` 新增 `fromString` |
 | 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |
-| 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 newtype 形式，定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
-| 2026.06.10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` newtype；`Signal.on` 移至 `Signal` 模块 |
+| 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 `type` 单变体 ADT 形式（旧文档写作 "newtype"，2026.07.15 后统一为 `type` 单变体 ADT），定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
+| 2026.06.10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` 单变体 ADT（旧文档写作 "newtype"，2026.07.15 后统一为 `type` 单变体 ADT）；`Signal.on` 移至 `Signal` 模块 |
 | 2026.05.27 | MVP 基础标准库类型设计定型 |
