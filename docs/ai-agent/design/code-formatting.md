@@ -152,6 +152,64 @@ sumCoordinates = \{x, y} -> x + y
 firstThree = \[a, b, c] -> a + b + c
 ```
 
+## 类型标注与值绑定：同行或分离
+
+类型标注与值定义可写在一行（`name : Type = expr`）或分两行（`name : Type` 后接 `name = expr`），二者语义等价。`kun fmt` 按以下规则选择形式：
+
+**优先同行**（短类型 + 单表达式 + 行宽未超）：
+
+```kun
+x : Int = 5
+name : String = "alice"
+identity : a -> a = \x -> x
+add : Int -> Int -> Int = \x y -> x + y
+isEmpty : List a -> Bool = \xs -> List.length xs == 0
+```
+
+**优先分两行**（任一条件成立）：
+
+- 类型签名超过 60 字符
+- 函数体使用 `let in` 包裹（多语句效应函数体）
+- 函数体多行（如 `case` 表达式）
+
+```kun
+// 类型签名长 → 分两行
+fetchUser : UserId -> Result User ! {DB, Log}
+fetchUser = \uid -> ...
+
+// 函数体用 let in 包裹 → 分两行
+deploy : Config -> Unit ! {Cmd, IO}
+deploy = \cfg ->
+  let
+    IO.println "deploying..."
+    cmd rsync { archive = true } [ cfg.source, cfg.target ] |> Cmd.exec
+  in
+    ()
+
+// 零参效应函数体用 let in 包裹 → 分两行
+currentTime : String ! {DateTime}
+currentTime = \ ->
+  let
+    now = DateTime.now!
+  in
+    case DateTime.format "HH:mm:ss" now of
+      Ok s  -> s
+      Err _ -> "??:??:??"
+```
+
+**`let in` 块内的同行标注**：`let in` 块内的绑定同样支持同行标注，便于短绑定的类型说明：
+
+```kun
+let
+  x : Int = 5
+  y : String = "hello"
+  z : ?Path = Nil
+in
+  ...
+```
+
+`kun fmt` 默认对 `let in` 块内短绑定使用同行形式（标注可选，无标注时直接 `name = expr`）。
+
 ## 控制流
 
 ### `case`
