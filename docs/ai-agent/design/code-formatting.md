@@ -229,12 +229,12 @@ processed =
 
 > `case ... of` 内嵌 `let in` 的 `let` 缩进为 +4（从外层 `case` 算），其内部 body 语句再缩进 +2。
 
-模式守卫使用 `when`：
+模式守卫使用 `if`：
 
 ```kun
 case n of
   0 -> "zero"
-  m when m > 0 -> "positive"
+  m if m > 0 -> "positive"
   _ -> "negative"
 ```
 
@@ -261,11 +261,11 @@ case level of
     "danger"
 ```
 
-含有 `when` 守卫时，`when` 放在最后一个子模式之后：
+含有 `if` 守卫时，`if` 放在最后一个子模式之后：
 
 ```kun
 case color of
-  Red | Blue when darkMode -> "dark accent"
+  Red | Blue if darkMode -> "dark accent"
   Red | Blue               -> "accent"
   Green                    -> "secondary"
 ```
