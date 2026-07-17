@@ -467,16 +467,18 @@ Error: argument group 'config-source' allows at most one of: --global, --local
 }
 ```
 
-对已有 spec 追加子命令时，使用 Map 更新语法结合 `??`：
+对已有 spec 追加子命令时，使用 Map 更新语法结合 `Nilable.withDefault`：
 
 ```kun
+import Nilable
+
 // 在管道中逐个子命令追加
 parentSpec
-  |> \s -> { s | subs = #{ s.subs ?? #{} | "push" = pushSpec } }
-  |> \s -> { s | subs = #{ s.subs ?? #{} | "status" = statusSpec } }
+  |> \s -> { s | subs = #{ Nilable.withDefault #{} s.subs | "push" = pushSpec } }
+  |> \s -> { s | subs = #{ Nilable.withDefault #{} s.subs | "status" = statusSpec } }
 ```
 
-`??` 是 Nil 合并操作符——当 `s.subs` 为 `Nil` 时返回空 Map `#{}`，否则返回已有 Map。Map 字面量 `#{}` 和更新语法 `#{ old | key = val }` 是语言内置语法，无需`import Map`。
+`Nilable.withDefault` 提供 Nil 缺省值——当 `s.subs` 为 `Nil` 时返回空 Map `#{}`，否则返回已有 Map。Map 字面量 `#{}` 和更新语法 `#{ old | key = val }` 是语言内置语法，无需 `import Map`。`Nilable` 模块需显式导入。
 
 #### 调度规则
 
@@ -511,16 +513,18 @@ parentSpec
 子命令分发采用嵌套 `case` 模式。对于子命令较多的应用，可通过辅助函数减少嵌套深度：
 
 ```kun
-// 使用 Nil 合并链（??）配合 Result 组合
-handleSubCmd : DeployConfig -> Unit
+// 使用 case 模式配合 Result 组合
+handleSubCmd : DeployConfig -> Unit ! {IO}
 handleSubCmd = \cfg ->
-  do
+  let
     case cfg.push of
       Nil ->
         case cfg.status of
           Nil -> IO.println "No subcommand"
           s   -> IO.println f"Status: short={s.short}"
       p -> IO.println f"Pushing to {p.remote}/{p.branch}"
+  in
+    ()
 ```
 
 当子命令数量超过 3 时，建议抽取独立的处理函数，将嵌套 `case` 限制在分发层，业务逻辑放在各自处理函数中。
@@ -604,14 +608,16 @@ parseConfig =
         ]
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         IO.println f"building {cfg.source} with {cfg.jobs} jobs"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 自动 `--help` 输出：
@@ -690,9 +696,9 @@ parseConfig =
     , subs = #{ "push" = pushSpec, "status" = statusSpec }
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         case cfg.push of
@@ -703,6 +709,8 @@ main = \raw ->
           p -> IO.println f"Pushing to {p.remote}/{p.branch}"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 自动 `--help` 输出：
@@ -764,14 +772,16 @@ parseConfig =
         ]
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         IO.println f"watching {cfg.path} at verbosity level {cfg.verbose}"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 ```bash
@@ -802,9 +812,9 @@ parseConfig =
     , subs = #{ "push" = pushSpec, "status" = statusSpec }
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         case cfg.target of
@@ -818,6 +828,8 @@ main = \raw ->
           t -> IO.println f"Target: {t}"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 ```bash
@@ -1024,14 +1036,16 @@ parseConfig =
         ]
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         IO.println f"host={cfg.host}, level={cfg.logLevel}, port={cfg.port}"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 违规时：
@@ -1070,14 +1084,16 @@ parseConfig =
         ]
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         IO.println f"verbose={cfg.verbose}, color={cfg.color}, port={cfg.port}"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 自动 `--help` 输出：
@@ -1125,14 +1141,16 @@ parseConfig =
         ]
     }
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \raw ->
-  do
+  let
     case parseConfig raw of
       Ok cfg ->
         IO.println f"host={cfg.host}, port={cfg.port}, debug={cfg.debug}"
       Err err ->
         IO.println (Cli.show err)
+  in
+    ()
 ```
 
 自动 `--help` 输出：
@@ -1308,7 +1326,7 @@ parseConfig =
 `CliError` 为和类型，支持模式匹配实现程序化处理。使用 `Cli.show` 获取人类可读描述：
 
 ```kun
-do
+let
   case parseConfig raw of
     Ok cfg -> ...
     Err (Cli.UnknownOption { option = "verbse", suggestion = "verbose" }) ->
@@ -1319,6 +1337,8 @@ do
       IO.println "env var PORT has invalid value"
     Err err ->
       IO.println (Cli.show err)
+in
+  ()
 ```
 
 完整错误输出示例：
@@ -1357,6 +1377,39 @@ Try 'build.kun --help' for more information.
 
 `--help`/`-h` 始终自动可用，不可禁用。`--version`/`-V` 同样自动可用。出现解析错误时自动提示 `--help`。
 
+## `kun test` 运行器
+
+`kun test` 子命令收集并执行 `tests/` 目录下的测试文件，发现 `test*` 函数并执行。
+
+### 测试函数识别规则
+
+1. 函数名以 `test` 开头（大小写敏感，`Test`/`TEST` 不算）
+2. 签名为 `Unit -> Unit` 或 `Unit -> TestResult`
+3. 可含效应（如 `! {IO}`），由 `kun test` 运行器消解
+4. 不可接受非 `Unit` 参数（测试无参数输入，用闭包捕获）
+
+```kun
+// ✅ 合法测试函数
+testFoo : Unit -> Unit ! {IO}
+testFoo = \_ -> ...
+
+testUserService : Unit -> TestResult ! {IO}
+testUserService = \_ -> ...
+
+// ❌ 非法
+myTest : Unit -> Unit ! {IO}              // 非 test 开头
+testFoo : Int -> Unit                     // 接受非 Unit 参数
+testFoo : Unit -> Int                     // 返回非 Unit/TestResult
+```
+
+### 运行行为
+
+- 收集所有 `test*` 函数
+- 执行每个测试，捕获 panic 转为 `Fail`
+- 汇总 `Pass`/`Fail`/`Skip` 统计
+
+`TestResult` 类型与 `assert` 函数定义见 [标准库 Test 模块](standard-library.md#test-测试断言与结果)。
+
 ## 与 CLI 二进制的关系
 
 `Cli` 模块的 spec 模型（`CliSpec`、`CliArg`、`CliMeta`、`CliError`）同时也是 `kun` 和 `kun-shell` 二进制自身参数解析的数据模型。解析引擎（token 分片、选项匹配、子命令调度、帮助生成、错误报告）实现为 `libkunlang.so` 中的 Zig 库：
@@ -1366,10 +1419,27 @@ Try 'build.kun --help' for more information.
 
 三者共享 spec 模型与解析算法，避免重复实现。`kun` 和 `kun-shell` 的 CLI 参数解析设计分别见 [`kun-cli-tool.md`](kun-cli-tool.md) 和 [`kun-shell.md`](kun-shell.md)。
 
+### `--allow-ffi` 与 FFI 效应边界
+
+当脚本通过 `extern` 块声明 FFI 调用、或直接调用 `FFI.call` 时，FFI 效应会沿调用链冒泡到 `main`。默认情况下 `kun` 拒绝 FFI 效应到达 `main`——只有显式启用 `--allow-ffi` 后才放行：
+
+```bash
+# 默认拒绝 FFI（防御性策略，避免误执行不可信 C 调用）
+kun run script.kun                       # 若 script 触发 FFI → 退出码 126
+
+# 显式启用 FFI
+kun run --allow-ffi script.kun           # FFI 效应放行，由运行时默认 FFI handler 消解
+```
+
+- `kun test` 运行器同样适用：测试函数若触发 FFI 效应，需通过 `kun test --allow-ffi` 启用
+- `--allow-ffi` 仅控制 FFI 效应的运行时放行；编译期 `extern` 块语法检查、`FfiBuffer` 不逃逸规则、`Opaque` 幻影类型等四层防护始终生效，不受此开关影响
+- 完整安全模型与四层防护机制详见 [`kun-cli-tool.md` 的安全控制章节](kun-cli-tool.md#安全控制)
+
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.15 | 代数效应与命令系统设计配套更新：所有示例改用 `let in`（废弃 `do`/`do in`）；`main` 函数签名添加效应集标注（`! {IO}` 等）；新增「`kun test` 运行器」章节（`test*` 函数识别规则、`TestResult`、`Pass`/`Fail`/`Skip` 汇总）；新增「`--allow-ffi` 与 FFI 效应边界」章节（FFI 效应到达 `main` 需显式启用 `--allow-ffi`，未启用退出码 126）；移除 `??` Nil 合并运算符用法，改用 `Nilable.withDefault`/`case ... of Some/Nil` 模式匹配 |
 | 2026.06.14 | 新增「与 CLI 二进制的关系」章节，明确 spec 模型与解析引擎的共享策略 |
 | 2026.06.13 | 定位描述调整：明确 Cli 依赖编译器编译期反射 API |
 | 2026.06.10 | 架构重设计：Cli 模块设计定型 |

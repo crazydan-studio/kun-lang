@@ -52,9 +52,9 @@ Int -> Int -> Int
 >>> :edit /tmp/hello.kun
 // 打开编辑器，编写内容后保存：
 
-main : List String -> Unit
+main : List String -> Unit ! {IO}
 main = \_ ->
-  do
+  let
     IO.println "Hello Kun Shell"
 
 >>> :run /tmp/hello.kun
@@ -303,5 +303,6 @@ Kun Shell 的求值引擎依赖 `libkunlang.so` 的 Arena 分配策略，但 REP
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.15 | 代数效应与命令系统设计配套更新：脚本示例改用 `let in`（废弃 `do`），`main` 签名添加效应集标注；Kun Shell 仍保持 [推迟 v2.0] 状态不变 |
 | 2026.06.18 | 实现推迟至 v2.0，设计文档增加推迟横幅标注 |
 | 2026.06.13 | Kun Shell 初始设计：替代 REPL，SQLite 日志存储、DuckDB 可替换引擎、函数收藏、AST 哈希唯一引用 |
