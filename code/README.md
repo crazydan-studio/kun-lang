@@ -5,12 +5,15 @@
 ```
 code/
 ├── README.md          # 本文件
-├── kun-lang/          # 核心语言：编译器 + 运行时 + CLI（产出 kun + libkunlang.so）
-├── kun-shell/         # 交互式环境（产出 kun-shell，依赖 libkunlang.so）
-└── kun-lsp/           # Language Server Protocol 实现（产出 kun-lsp，依赖 libkunlang.so）
+├── examples/          # Kun 语言示例脚本
+├── kun-shell/         # 交互式环境（规划中，依赖 libkunlang.so）
+└── kun-lsp/           # Language Server Protocol 实现（规划中，依赖 libkunlang.so）
 ```
 
-## 模块关系
+> 注：`kun-lang/`（核心语言：编译器 + 运行时 + CLI）的实现已撤销，相关代码已移除。
+> 其设计文档仍保留在 `docs/ai-agent/design/` 与 `docs/ai-agent/architecture/` 中。
+
+## 模块关系（设计）
 
 ```
 ┌─────────────┐
@@ -25,31 +28,6 @@ code/
 ```
 
 `kun-lang` 产出动态链接库 `libkunlang.so`，供 `kun-shell` 和 `kun-lsp` 链接使用。三者共享同一解释器核心——词法分析、语法分析、类型检查、效应检查、求值引擎不重复实现。
-
-## 技术栈
-
-| 维度 | 选择 |
-|------|------|
-| 宿主语言 | Zig 0.17.0-dev |
-| 构建系统 | Zig Build System（`build.zig`） |
-| 目标平台 | Linux (x86_64) |
-| 产物格式 | ELF 可执行文件 + ELF 共享库 |
-
-## 构建
-
-```bash
-cd code/kun-lang && zig build          # 构建 kun + libkunlang.so
-cd code/kun-shell && zig build         # 构建 kun-shell
-cd code/kun-lsp && zig build           # 构建 kun-lsp
-```
-
-## 测试
-
-```bash
-cd code/kun-lang && zig build test     # 运行核心库单元测试
-cd code/kun-shell && zig build test
-cd code/kun-lsp && zig build test
-```
 
 ## 相关文档
 

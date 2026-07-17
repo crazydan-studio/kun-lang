@@ -28,8 +28,3 @@
 | [第 12 轮聚焦审计](audit-round12-focused.md) | 边缘区域专项审计 | 2026-06-20 |
 | [第 13 轮边缘审计](audit-round13-edge.md) | 边缘场景审计 | 2026-06-21 |
 | [第 14 轮终审扫尾](audit-round14-final-sweep.md) | 终审扫尾 | 2026-06-21 |
-| [Phase 2 计划第 1 轮审计](audit-plan-phase2-round1.md) | Phase 2 计划审计 R1（18 项） | 2026-06-21 |
-| [Phase 2 计划第 2–3 轮审计](audit-plan-phase2-round2-3.md) | Phase 2 计划审计 R2–R3（12 项） | 2026-06-21 |
-| [Phase 2 计划第 5–6 轮审计](audit-plan-phase2-round5-6.md) | Phase 2 计划审计 R5–R6（8 项） | 2026-06-21 |
-| [Phase 2 计划第 7–8 轮审计](audit-plan-phase2-round7-8.md) | Phase 2 计划审计 R7–R8（7 项） | 2026-06-21 |
-| [Phase 2 计划第 9–10 轮审计](audit-plan-phase2-round9-10.md) | Phase 2 计划审计 R9–R10（6 项） | 2026-06-21 |

@@ -26,11 +26,3 @@
 | [语法全面调整](plan-syntax-overhaul.md) | 20 项语法变更、15 个文件同步 | 已完成 |
 | [标准库内置函数绑定机制设计](plan-stdlib-builtin-binding.md) | Primitive 函数表、模块绑定规则、安全防护、逐函数实现类别标注 | 已完成 |
 | [错误消息国际化（i18n）子系统设计](plan-i18n.md) | msgid 体系、.po 管理、构建时代码生成、locale 检测、消息格式化 API | 已完成 |
-| [首阶段实现 — 骨架 + Lexer + Parser + AST](plan-implementation-phase-1.md) | build.zig + 词法分析器 + AST + 语法分析器 + CLI dump-ast | 已完成 |
-| [Phase 2 — 类型检查器 + 运行时求值器 MVP](plan-implementation-phase-2.md) | HM 类型推断 + 效应检查 + 模式穷举 + 标记 switch 求值器 | 已完成 |
-| [Phase 3 — 标准库基础 + 效应检查补齐 + 错误消息完整化](plan-implementation-phase-3.md) | Primitive 表 + 14 TypeError + typeName/generalize + 效应检查 18 项 + Value 扩展 + StreamNode + map/set eval + Cmd ident + 模式穷举 | 已完成 |
-| [Phase 4 — 效应检查完成 + 命令系统 + HM 完备化](plan-implementation-phase-4.md) | PrimitiveTable 管道 + 效应接线 + i18n + cmd.zig + TypedExpr 补全 | 已完成 |
-| [Phase 5 — 标准库 Primitives 补全 + Stream 函数体](plan-implementation-phase-5.md) | 106 Primitive stub→real + StreamNode 构造器/消费者 + 类型环境签名注册 | 已完成 |
-| [Phase 6 — 效应检查完备 + 语法补齐 + 数据结构 + 质量加固](plan-implementation-phase-6.md) | Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 接线、Stream.iter/fold、File 25 函数、JSON、质量加固 | 已完成 |
-| [Phase 7 — 模块系统 + --run 端到端 + 收官](plan-implementation-phase-7.md) | ModuleResolver 四级搜索、递归加载、循环检测、--run 接入、eval.zig stub 修复 | 已完成 |
-| [Phase 8 — Nilable ADT + 标准库扩展（v0.2）](plan-implementation-phase-8.md) | Nilable 公开 ADT（kw_nil 移除、?T 解析、Some 模式）、Regex 引擎（zig-regex）、DateTime 格式化、Duration/Int/Float/Char/Nilable 模块、i18n kmsg/format 分层、nil_to_non_nilable 移除、nil_literal AST 移除 | 已完成 |

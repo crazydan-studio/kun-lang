@@ -10,8 +10,6 @@
 
 | 文件 | 主题 | 日期 |
 |------|------|------|
-| [Phase 1 双代理审计循环](log-2026-06-20-audit-phase-1.md) | 两轮 Agent A/B 审计 → 68 测试全通过零泄漏 | 2026-06-20 |
-| [首阶段 Zig 代码实现](log-2026-06-20-implementation-phase-1.md) | build.zig + Lexer + Parser + AST + CLI dump-ast | 2026-06-20 |
 | [单一表达式范式全面定稿](log-2026-06-19-single-expression-paradigm.md) | 单一表达式范式设计讨论、文档重写、示例迁移 | 2026-06-19 |
 | [设计审计修复](log-2026-06-02-design-audit-fixes.md) | 设计审计第 3-5 轮修复 | 2026-06-02 |
 | [CDF 编译期代码生成定稿](log-2026-06-03-cdf-code-generation.md) | CDF→Kun 编译期代码生成 | 2026-06-03 |
@@ -20,4 +18,3 @@
 | [全面审计修复 + 语法检查](log-2026-06-06-comprehensive-audit-syntax-fixes.md) | 全面审计 + 语法检查 | 2026-06-06 |
 | [架构评审与全面修复](log-2026-06-07-comprehensive-review-and-fixes.md) | 架构评审与全面修复 | 2026-06-07 |
 | [架构重设计与标准库重组讨论](log-2026-06-11-design-discussions.md) | 架构重设计执行 + 设计讨论 | 2026-06-11 |
-| [Phase 8 实施](log-2026-06-26-phase-8-implementation.md) | Nilable ADT + 标准库扩展 + zig-regex + i18n 重构 | 2026-06-26 |
