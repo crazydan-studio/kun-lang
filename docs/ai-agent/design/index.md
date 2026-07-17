@@ -13,7 +13,7 @@
 | [code-formatting.md](code-formatting.md) | 代码格式化规范 |
 | [cli.md](cli.md) | `Cli` 模块详细设计（命令行参数解析） |
 | [feature-inventory.md](feature-inventory.md) | 功能清单与实现状态 |
-| [command-system.md](command-system.md) | OS 命令调用机制（Cmd.&lt;bin&gt; 语法、camelCase 映射、执行模型、管道、修饰函数） |
+| [command-system.md](command-system.md) | OS 命令调用机制（`cmd` 字面量四段式、显式执行三入口、管道、修饰函数） |
 | [kun-cli-tool.md](kun-cli-tool.md) | `kun` CLI 工具（子命令、安全控制参数、脚本入口、Kun Shell [推迟 v2.0]） |
 | [kun-shell.md](kun-shell.md) | Kun Shell 交互式环境（SQLite 日志存储、函数收藏、AST 哈希） [推迟 v2.0] |
 
@@ -22,14 +22,15 @@
 ## 设计原则
 
 - **类型安全**：所有操作在编译期进行类型检查，消除运行时类型错误
-- **表达式导向**：所有语句均为表达式，具有返回值
+- **表达式导向**：所有语句均为表达式，具有返回值（块表达式范式）
 - **不可变优先**：数据默认不可变，需要变更时通过显式机制
-- **错误显式化**：通过和类型（如 `Result`、`?T`）显式表达所有可能的失败；`Cmd.<bin>?` 返回 `Result`，默认 panic
-- **求值策略**：管道和高阶函数默认严格求值；`let` 绑定延迟求值；`Stream` 惰性
+- **错误显式化**：通过和类型（如 `Result`、`?T`）显式表达所有可能的失败；`Cmd.execSafe` 返回 `Result`，`Cmd.exec`/`Cmd.stream` 失败 panic
+- **求值策略**：`let in` 立即求值；`Lazy`/`Stream` 显式惰性特区；`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 显式执行，无 `?`/`!` 后缀
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.15 | 代数效应与命令系统设计配套更新：`cmd` 字面量四段式、显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）；`let in` 立即求值、`Lazy`/`Stream` 显式惰性特区；`effect`/`handler`/`handle with` 代数效应系统；`extern` 块 FFI 与 `--allow-ffi` 安全控制 |
 | 2026.06.13 | 求值策略措辞修正；示例代码语法合规审计与修复 |
 | 2026.06.10 | 架构重设计：应用层设计文档定型 |
