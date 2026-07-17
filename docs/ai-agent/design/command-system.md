@@ -6,7 +6,7 @@ Kun 通过 `cmd` 字面量构造 `Command` 值，通过显式执行函数（`Cmd
 
 > **设计原则**（详见 [语法设计](syntax.md) 与新设计总则）：
 > - **Command 是 ADT**：`Command` 是普通代数数据类型，`cmd` 字面量是构造 `Command` 的语法糖，无解析器魔法
-> - **显式执行**：所有 Command 执行必须显式调用执行函数，**无 `?`/`!` 后缀糖**，**无 `|>` 隐式触发**
+> - **显式执行**：所有 Command 执行必须显式调用执行函数，**无 Command 的 `?`/`!` 后缀糖**（注：零参函数执行的 `!` 后缀是独立特性，见[语法设计零参效应函数类型](type-system.md#零参效应函数类型-t-e)），**无 `|>` 隐式触发**
 > - **`|>` 回归纯管道**：`|>` 统一类型为 `a -> (a -> b) -> b`，对 Command 与 Stream 一视同仁，无双重语义
 > - **入口级 handle**：`Cmd` 是内置效应（保留名），其默认 handler 在编译器源码（Zig）中实现，编译进 `kun` 二进制
 
@@ -234,7 +234,7 @@ cmd echo {} [ "hello", "world" ] |> Cmd.withoutDash
 
 ### 显式执行原则
 
-**所有 Command 执行必须显式调用执行函数**，无 `?`/`!` 后缀糖，无 `|>` 隐式触发。
+**所有 Command 执行必须显式调用执行函数**，无 Command 的 `?`/`!` 后缀糖（注：零参函数执行的 `!` 后缀是独立特性，见[类型系统 - 零参效应函数类型](type-system.md#零参效应函数类型-t-e)），无 `|>` 隐式触发。
 
 理由：
 
@@ -750,6 +750,7 @@ in
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 三项设计调整澄清：Command 的 `?`/`!` 后缀糖已废弃（`c?` → `Cmd.execSafe c`，`c!` → `Cmd.exec c`）；零参函数执行的 `!` 后缀是独立特性（见[类型系统 - 零参效应函数类型](type-system.md#零参效应函数类型-t-e)），二者非同一概念。`effect Cmd` 操作记录（`exec`/`execSafe`/`stream`/`which`）均为带参操作，无零参 op 需调整 |
 | 2026.07.15 | 重构为代数效应与命令系统设计：Command 改为 ADT（`Simple`/`Pipe`），引入 `cmd` 字面量四段式语法（命令/子命令/选项/位置参数），选项支持标识符键（自动映射）与字符串键（原样）；显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）+ `Cmd.which`；引入纯函数 `pipe`（替代 `Cmd.pipe?`/`Cmd.pipe!`，最多 16 层，字面量空列表编译错误）；修饰函数新增 `Cmd.withoutDash`（关闭 `--`），`Cmd.withStdin` 添加死锁预防策略；废弃 `Cmd.<bin>` 语法、`Cmd["..."]` 转义、`Cmd.withRawOpt`、`?`/`!` 后缀、`|>` 隐式触发；废弃 `do`/`do in` 改用 `let in` |
 | 2026.06.18 | API 精简：`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`（与 `Cmd.<bin>?` 对齐）；移除 `stdoutToString`/`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
 | 2026.06.15 | 审计修复三轮：参数转义/execve 语义文档化；0 字节管道输出行为；空 pipe 列表编译期报错；Cmd.which PATH 搜索细节；Cmd.timeout kill 流程；Cmd.retry 边界值处理 |

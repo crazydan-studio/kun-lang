@@ -216,7 +216,7 @@
 | `extern` 块 | ✅ 设计定型 | `extern <Name> from "lib" = { func : sig, ... }` |
 | `assert` | ✅ 设计定型 | `Bool -> Unit`，仅 `test*` 可用，失败 panic |
 | `TestResult` | ✅ 设计定型 | `Pass`/`Fail String`/`Skip String` |
-| `test*` 函数 | ✅ 设计定型 | `test` 前缀命名，`Unit -> Unit` 或 `Unit -> TestResult`，可含效应，由 `kun test` 运行器消解 |
+| `test*` 函数 | ✅ 设计定型 | `test` 前缀命名，零参效应函数 `Unit ! {E}` 或 `TestResult ! {E}`，由 `kun test` 运行器消解 |
 | List 解构与展开 | ✅ 设计定型 | `[a, ..rest]`、`[..la, 0, ..lb]` |
 | 模式匹配 | ✅ 设计定型 | 穷举、守卫、嵌套、解构、or 模式 |
 | 解构赋值 | ✅ 设计定型 | 元组/Record/List |
@@ -268,6 +268,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——签名 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`（无 `->` 前缀），`effect`/`extern` 操作记录 `Unit -> T` 改为 `T`，调用加 `!` 后缀（`Name!`），裸名为函数引用，`!` 后缀与已废弃的 Command 断言执行 `!` 是不同特性；`test*` 函数签名从 `Unit -> Unit/TestResult ! {E}` 改为零参效应函数 `Unit ! {E}` / `TestResult ! {E}`（功能清单第 17/28/45/58 行同步更新）（2）守卫子句改用 `if`（移除 `when` 关键字）（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
 | 2026.07.15 | 代数效应与命令系统重设计：新增 7 内置效应（IO/File/Cmd/Random/DateTime/Signal/FFI）、`effect`/`handler`/`handle with` 系统、`extern` FFI 块（仅 Linux，`--allow-ffi`）、`cmd` 字面量四段式、显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）、录制/回放（JSON Lines 按时间戳）、`alias`/`type` 分离（结构 vs 名义等价，不做 tag 擦除）、`==` 浅比较 + `Equal` 模块深比较、Nilable 简化（禁止嵌套 `??T`）、立即求值 + `Lazy`/`Stream` 显式惰性、统一 `let in`（废弃 `do`/`do in`，Unit 返回可省略 `in`）、`defer` 绑定 `let in` 块、`continue`/`abort` 控制流原语、`assert`/`TestResult`、`Int` 位运算、文档注释规范、模块系统规则（默认私有/re-export/无 wildcard/别名）、panic 退出码规则、递归类型深度上限 256（`KUN_MAX_TYPE_DEPTH`）、Let 泛化值限制；废弃 `?`/`!` 后缀、`Cmd.<bin>`/`Cmd.pipe?`/`Cmd.pipe!`/`Cmd.withRawOpt`、`Newtype`、Nilable 隐式包装、效应回调标记 `!` 旧式、`EffectFn`/`Fn` 区分、`let` 延迟求值、`do`/`let` 互斥 |
 | 2026.06.25 | 模块系统实现状态更新（四级搜索路径实现、--run 端到端） |
 | 2026.06.18 | Kun Shell 添加 [推迟 v2.0] 标注：设计已定型，实现在 v2.0 前不启动 |

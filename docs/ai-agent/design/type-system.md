@@ -105,38 +105,58 @@ fetchUser = \uid -> ...
 - `! {}` 函数体内 `let in` 不可含效应语句
 - `! E`（E 非空）函数体内可调用任意函数（效应并入 E）
 
-### 零参函数类型 `-> T`
+### 零参效应函数类型 `T ! {E}`
 
-零参函数类型 `-> T` 表示不接受任何参数、返回类型 `T` 的函数：
+零参效应函数声明为 `Name : RetType ! {Effects}`——结果类型直接跟在 `:` 后，**无 `->` / `Unit ->` 前缀**。`! {E}` 存在且无 `->` 即标识零参效应函数：
 
 ```kun
--> DateTime          // 零参函数，返回 DateTime
--> Result Path Error  // 零参函数，返回 Result
+now : DateTime ! {DateTime}             // 零参效应函数，返回 DateTime
+createTemp : Result Path IOError ! {File} // 零参效应函数，返回 Result
 ```
 
 规则：
 
-- `-> T` 与 `a -> T` 是**不同元数的函数类型**——HM 合一时元数必须相同，否则合一失败
-- 零参函数**仅允许用于效应函数**（函数体含效应调用）。纯零参函数退化为常量，应使用 `let` 绑定（type-system.md 扩展规则，新设计文档未明确禁止）
-- 纯函数返回类型不可为 `Unit`——返回 `Unit` 的纯计算无输出也无副作用，退化为无操作（no-op），编译期报错。效应函数可返回 `Unit`（type-system.md 扩展规则，新设计文档未明确禁止；`assert : Bool -> Unit` 是测试专用例外，由 `test*` 函数上下文消解 panic 行为）
-- 对应的 Lambda 语法为 `\ -> expr`
-- 调用零参函数时裸名即为调用：`DateTime.now`（不可传参）
+- 零参效应函数的类型为 `T ! {E}`（无 `->`）；带参函数类型为 `A -> T ! {E}`，二者元数不同——HM 合一时元数必须相同，否则合一失败
+- 零参函数**仅允许用于效应函数**（函数体含效应调用）。纯零参函数退化为常量，应使用 `let` 绑定
+- 纯函数返回类型不可为 `Unit`——返回 `Unit` 的纯计算无输出也无副作用，退化为无操作（no-op），编译期报错。效应函数可返回 `Unit`（`assert : Bool -> Unit` 是测试专用例外，由 `test*` 函数上下文消解 panic 行为）
+- 对应的 Lambda 语法为 `\ -> expr`（无参数占位符，无 `_`）
+- **调用约定**：`Name!` 后缀执行零参函数（如 `DateTime.now!`）；`Name`（无 `!`）为函数引用，可作为一等值传递给高阶函数（参数类型为 `T ! {E}` 时接收零参效应函数引用）
+- **带参函数的柯里化调用**：参数完整时正常执行；参数不完整时返回柯里化形式（仍是函数值，不执行）
+- **`!` 后缀语义**：`!` 为后缀执行运算符，优先级高于函数应用，仅作用于零参函数。**此 `!` 与已废弃的 Command 断言执行 `!`（旧 `c!` → 现 `Cmd.exec c`）是不同的特性**——后者已废弃，前者是新的零参函数执行运算符
+- **零参函数类型作参数须括号化**：当零参效应函数类型作为参数时需用括号包裹，如 `runThunk : (Unit ! {IO}) -> Unit ! {IO}` 的参数为零参回调（接收一个零参效应函数引用，体内 `f!` 执行）
 
 ```kun
-now : -> DateTime ! {DateTime}
+now : DateTime ! {DateTime}
 now = \ ->
   let
-    t = DateTime.now
+    t = DateTime.now!
   in
     t
 
-getPid : -> Pid ! {Process}
+getPid : Pid ! {Process}
 getPid = \ ->
   let
-    p = Process.pid
+    p = Process.pid!
   in
     p
+
+// 函数引用：将零参函数作为值传递给高阶函数
+runAll : List (Unit ! {IO}) -> Unit ! {IO}
+runAll = \fs -> List.iter (\f -> f!) fs
 ```
+
+> **「零参效应函数」与「取 `Unit` 的纯函数」的区分**：二者形式不同，须严格区分：
+>
+> | 形式 | 类型 | 元数 | 用途 | 调用 |
+> |------|------|------|------|------|
+> | 零参效应函数 | `T ! {E}`（无 `->`，有 `! {E}`） | 0 | 表示无输入但含效应的计算 | `Name!` |
+> | 取 `Unit` 的纯函数 | `Unit -> T`（有 `->`，无 `! {E}`） | 1 | 显式 thunk 标记（如 `Lazy.lazy` 接收的延迟求值体） | `f ()` |
+>
+> 判别准则：**有 `! {E}` 且无 `->` 即零参效应函数；有 `->` 即带参函数（无论参数是否为 `Unit`）**。零参效应函数用 `!` 后缀执行，不能用 `()` 调用；取 `Unit` 的纯函数用 `f ()` 应用，不能用 `!` 后缀。
+>
+> **关于 `Lazy.lazy : (Unit -> a) -> Lazy a`**：此处参数 `Unit -> a` 是 **1 参纯函数**（有 `->`，无 `! {E}`），**不是零参函数**——它显式接收 `Unit` 占位以标记 thunk（延迟求值的封装体）。`Lazy` 是求值策略例外特区（与 `Stream` 同），需要 1 参纯函数类型作为 thunk 标记，故不适用"零参函数仅允许用于效应函数"的规则。
+>
+> 纯零参函数（无 `->` 且无 `! {E}`）会退化为常量，应使用 `let` 绑定——故 `Unit -> T`（纯）总是意味着"1 参函数取 `Unit`"，不存在歧义。
 
 ## Nilable 类型（`Nilable a` / `?T`）
 
@@ -398,7 +418,7 @@ users = Map.fromHashFn (\(UserId i) -> i) Map.empty
 
 #### `Command`
 
-`type Command = Simple SimpleCommand | Pipe (List Command)` ADT，由 `cmd` 字面量构造（纯操作）。`Command` 为编译器内置类型，执行通过 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 显式触发，无 `?`/`!` 后缀糖，无 `|>` 隐式触发。
+`type Command = Simple SimpleCommand | Pipe (List Command)` ADT，由 `cmd` 字面量构造（纯操作）。`Command` 为编译器内置类型，执行通过 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 显式触发，无 Command 的 `?`/`!` 后缀糖（注：零参函数执行的 `!` 后缀是独立特性，见[零参效应函数类型](#零参效应函数类型-t-e)），无 `|>` 隐式触发。
 
 ## 相等比较（`==`）语义
 
@@ -811,7 +831,7 @@ export (IO)
 
 effect IO =
   { println : String -> Unit
-  , readln  : Unit -> String
+  , readln  : String
   , eprintln : String -> Unit
   }
 
@@ -823,7 +843,7 @@ effect File =
   , write       : Path -> String -> Result Unit IOError
   , remove      : Path -> Result Unit IOError
   , exists      : Path -> Bool
-  , createTemp  : Unit -> Result Path IOError
+  , createTemp  : Result Path IOError
   }
 
 // <runtime>/lib/kun/Cmd.kun
@@ -1204,22 +1224,22 @@ with
 **测试函数识别规则**：
 
 1. 函数名以 `test` 开头（大小写敏感，`Test`/`TEST` 不算）
-2. 签名为 `Unit -> Unit` 或 `Unit -> TestResult`
+2. 签名为零参效应函数 `Unit ! {E}` 或 `TestResult ! {E}`（无 `->` 前缀）
 3. 可含效应（如 `! {IO}`），由 `kun test` 运行器消解
-4. 不可接受非 Unit 参数（测试无参数输入，用闭包捕获）
+4. 不可接受参数（测试无参数输入，用闭包捕获）
 
 ```kun
 // ✅ 合法测试函数
-testFoo : Unit -> Unit ! {IO}
+testFoo : Unit ! {IO}
 testFoo = \ -> ...
 
-testUserService : Unit -> TestResult ! {IO}
+testUserService : TestResult ! {IO}
 testUserService = \ -> ...
 
 // ❌ 非法
-myTest : Unit -> Unit ! {IO}              // 非 test 开头
-testFoo : Int -> Unit             // 接受非 Unit 参数
-testFoo : Unit -> Int             // 返回非 Unit/TestResult
+myTest : Unit ! {IO}              // 非 test 开头
+testFoo : Int -> Unit             // 接受参数（应为零参）；且无 `!` 即纯函数返回 Unit，违反 no-op 规则
+testFoo : Int                     // 返回非 Unit/TestResult
 ```
 
 **业务函数的效应流向**：业务函数声明效应 → 冒泡到调用者 → 最终到 `main`/`test*` → 入口函数内 `handle` 消解。
@@ -1245,7 +1265,7 @@ with
 测试函数示例：
 
 ```kun
-testFetchUser : Unit -> Unit ! {IO}
+testFetchUser : Unit ! {IO}
 testFetchUser = \ ->
   handle
     let
@@ -1417,7 +1437,7 @@ extern Libc from "libc" =
 export (Curl)
 
 extern Curl from "libcurl" =
-  { easy_init : Unit -> ?(Opaque Curl)
+  { easy_init : ?(Opaque Curl)
   , easy_setopt : Opaque Curl -> Int -> String -> Int
   , easy_perform : Opaque Curl -> Int
   , easy_cleanup : Opaque Curl -> Unit
@@ -1691,7 +1711,7 @@ mockLibc = handler Libc of
   fopen _ _ -> Nil
   ...
 
-testStrlen : Unit -> Unit ! {IO}
+testStrlen : Unit ! {IO}
 testStrlen = \ ->
   handle
     let
@@ -2103,6 +2123,7 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——签名 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`（无 `->`/`Unit ->`），`effect`/`extern` 操作记录中 `Unit -> T` 改为 `T`，调用加 `!` 后缀（`Name!`），裸名 `Name` 为函数引用，`!` 后缀与已废弃的 Command 断言执行 `!` 是不同特性；（2）守卫子句改用 `if`（移除 `when` 关键字）；（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
 | 2026.07.15 | 代数效应与命令系统重设计：函数类型改为 `<param> -> <result> ! <effectSet>`；新增 7 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）；新增 `effect`/`handler`/`handle with` 代数效应系统（限入口、`continue`/`abort` 二选一、效应多态单变量 `e`）；新增 `extern` FFI 块（仅 Linux，分层归属，`FfiBuffer` 不逃逸，`Opaque` 幻影类型，防欺骗四层）；Nilable 简化（**禁止嵌套 `??T`**，移除隐式包装/操作符脱糖/Record 字段 Nil 填充）；新增 `alias`/`type` 分离（结构 vs 名义等价，**不做 tag 擦除**，移除 `Newtype` 概念）；新增 `==` 浅比较 + `Equal` 模块深比较 + Map 键哈希规则；新增递归类型深度上限 256（`KUN_MAX_TYPE_DEPTH`）；新增 `Int` 位运算 + 优先级；新增 Let 泛化值限制；新增效应集合一规则与有序性；新增 `Handler` 类型与组合（`>>`）；新增多效应 handler 操作名限定；新增 `Stream` 消费检查规则；新增错误消息（Nested Nilable / Unhandled User Effect / Unhandled Library Effect 等）；种类系统新增 `Effect`/`EffectSet` |
 | 2026.06.19 | 效应检查规则全面扩展（单一表达式范式配套） |
 | 2026.06.18 | Cmd API 精简；Nilable 隐式包装规则文档化；Regex 修饰符作用域默认行为说明补全 |

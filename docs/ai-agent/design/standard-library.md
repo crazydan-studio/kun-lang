@@ -79,7 +79,7 @@ export (IO)
 
 effect IO =
   { println : String -> Unit
-  , readln  : Unit -> String
+  , readln  : String
   , eprintln : String -> Unit
   }
 
@@ -91,7 +91,7 @@ effect File =
   , write       : Path -> String -> Result Unit IOError
   , remove      : Path -> Result Unit IOError
   , exists      : Path -> Bool
-  , createTemp  : Unit -> Result Path IOError
+  , createTemp  : Result Path IOError
   }
 
 // <runtime>/lib/kun/Cmd.kun
@@ -840,8 +840,8 @@ effect Signal =
 
 ```kun
 // 仅可执行脚本中可用
-handleTerminate : Unit -> Unit ! {Signal, IO}
-handleTerminate = \_ ->
+handleTerminate : Unit ! {Signal, IO}
+handleTerminate = \ ->
   let
     Signal.on
       SIGTERM
@@ -1003,7 +1003,7 @@ second : DateTime -> Int
 toString : DateTime -> String
 
 // [Primitive] 获取当前系统时间
-now : Unit -> DateTime ! {DateTime}
+now : DateTime ! {DateTime}
 
 // [Primitive] 阻塞等待指定时长 [推迟 v0.2]
 sleep : Duration -> Unit ! {DateTime}
@@ -1030,7 +1030,7 @@ after : DateTime -> DateTime -> Bool
 import DateTime
 
 let
-  now = DateTime.now
+  now = DateTime.now!
   past = DateTime.fromUnixSecs 1700000000
   elapsed = now - past
 
@@ -2313,7 +2313,7 @@ print : String -> Unit ! {IO}
 println : String -> Unit ! {IO}
 
 // [Primitive] 从 stdin 读取一行
-readln : -> String ! {IO}
+readln : String ! {IO}
 
 // [Primitive] 输出到标准错误（stderr）
 eprint : String -> Unit ! {IO}
@@ -2325,16 +2325,16 @@ eprintln : String -> Unit ! {IO}
 readBytes : Int -> Result Bytes IOError ! {IO}
 
 // [Primitive] 读取标准输入全部内容为字符串
-readAll : -> String ! {IO}
+readAll : String ! {IO}
 
 // [Primitive] 读取标准输入全部内容为原始字节
-readAllBytes : -> Bytes ! {IO}
+readAllBytes : Bytes ! {IO}
 
 // [Primitive] 标准输出是否连接到终端
 isTerminal : Bool ! {IO}
 
 // [Primitive] 强制刷新标准输出缓冲区
-flush : -> Unit ! {IO}
+flush : Unit ! {IO}
 ```
 
 ### 示例
@@ -2344,17 +2344,17 @@ import IO
 
 let
   IO.print "Enter name: "
-  name = IO.readln
+  name = IO.readln!
   IO.println f"hello, {name}"
 in
   ()
 
 // 管道模式：读取全部 stdin
 let
-  content = IO.readAll
+  content = IO.readAll!
   IO.println f"received {String.length content} bytes"
 
-  data = IO.readAllBytes
+  data = IO.readAllBytes!
   IO.println f"binary: {Bytes.length data} bytes"
 in
   ()
@@ -2452,10 +2452,10 @@ removeDir : Path -> Result Unit IOError ! {File}
 removeAll : Path -> Result Unit IOError ! {File}
 
 // [Primitive] 创建临时文件（对应 `File.createTemp` 效应操作），脚本退出时自动清理，返回路径
-createTemp : Unit -> Result Path IOError ! {File}
+createTemp : Result Path IOError ! {File}
 
 // [Primitive] 创建临时目录（内部复用 `File.createTemp` 效应操作），脚本退出时自动清理，返回路径
-createTempDir : Unit -> Result Path IOError ! {File}
+createTempDir : Result Path IOError ! {File}
 
 // [Primitive] 复制文件/目录
 copy : Path -> Path -> Result Unit IOError ! {File}
@@ -2601,7 +2601,7 @@ let
       IO.println "cannot list directory"
 
   // 创建临时文件
-  case File.createTemp () of
+  case File.createTemp! of
     Ok tmp ->
       defer (File.remove tmp)
       File.write tmp "content"
@@ -3149,19 +3149,19 @@ import Process
 exit : Int -> Unit ! {Process}
 
 // [Primitive] 获取当前进程 ID
-pid : -> Pid ! {Process}
+pid : Pid ! {Process}
 
 // [Primitive] 获取当前进程的实时用户 ID
-uid : -> Int ! {Process}
+uid : Int ! {Process}
 
 // [Primitive] 获取当前进程的实时组 ID
-gid : -> Int ! {Process}
+gid : Int ! {Process}
 
 // [Primitive] — 可向任意 PID 发送信号；实际效果取决于 OS 级权限（CAP_KILL 或同 UID）；无沙箱模式下可影响系统服务
 kill : Signal -> Pid -> Result Unit IOError ! {Process}
 
 // [Primitive] 等待子进程——返回 ?ExitCode（无子进程时返回 Nil）
-wait : -> ?ExitCode ! {Process}
+wait : ?ExitCode ! {Process}
 
 
 ```
@@ -3225,7 +3225,7 @@ import Process
 import DateTime
 
 let
-  currentPid = Process.pid                     // → Process.Pid.of <当前进程 ID>
+  currentPid = Process.pid!                     // → Process.Pid.of <当前进程 ID>
   IO.println f"pid: {Process.Pid.toInt currentPid}"
 
   DateTime.sleep 5s                            // 等待 5 秒（sleep 归属 DateTime 效应）
@@ -3527,9 +3527,9 @@ main = \_ ->
 
 > **测试函数识别规则**：
 > 1. 函数名以 `test` 开头（大小写敏感，`Test`/`TEST` 不算）
-> 2. 签名为 `Unit -> Unit` 或 `Unit -> TestResult`
+> 2. 签名为零参效应函数 `Unit ! {E}` 或 `TestResult ! {E}`（无 `->` 前缀）
 > 3. 可含效应（如 `! {IO}`），由 `kun test` 运行器消解
-> 4. 不可接受非 `Unit` 参数（测试无参数输入，用闭包捕获）
+> 4. 不可接受参数（测试无参数输入，用闭包捕获）
 
 > **推迟至 v1.2**：`Test` 模块与 `kun test` 子命令在 MVP（v0.1）中推迟实现。在 v1.2 前，Kun 脚本的验证通过直接运行脚本并检查退出码完成。
 
@@ -3561,7 +3561,7 @@ type TestResult =
 
 ```kun
 // 简单测试（assert 风格）
-testFoo : Unit -> Unit ! {IO}
+testFoo : Unit ! {IO}
 testFoo = \ ->
   let
     result = compute 42
@@ -3570,7 +3570,7 @@ testFoo = \ ->
     ()
 
 // 显式结果测试
-testBar : Unit -> TestResult ! {IO}
+testBar : TestResult ! {IO}
 testBar = \ ->
   let
     result = compute 42
@@ -3592,7 +3592,7 @@ testBar = \ ->
 import Test
 
 // 测试脚本（tests/test-example.kun）
-testBasic : Unit -> Unit ! {IO}
+testBasic : Unit ! {IO}
 testBasic = \ ->
   let
     assert (4 == 2 + 2)
@@ -3602,7 +3602,7 @@ testBasic = \ ->
   in
     ()
 
-testExplicit : Unit -> TestResult ! {IO}
+testExplicit : TestResult ! {IO}
 testExplicit = \ ->
   let
     result = compute 42
@@ -3616,7 +3616,7 @@ testExplicit = \ ->
 
 - 测试文件放置在 `tests/` 目录下
 - 文件名遵循 `test-*.kun` 模式
-- 测试函数以 `test` 前缀命名，签名为 `Unit -> Unit` 或 `Unit -> TestResult`
+- 测试函数以 `test` 前缀命名，签名为零参效应函数 `Unit ! {E}` 或 `TestResult ! {E}`
 - `kun test` 自动发现并运行所有 `test*` 函数，报告 `Pass`/`Fail`/`Skip` 统计
 
 
@@ -3674,8 +3674,8 @@ main = \args ->
     recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
 
 // 测试回放（确定性复现）
-testReplay : Unit -> Unit ! {File}
-testReplay = \_ ->
+testReplay : Unit ! {File}
+testReplay = \ ->
   handle
     let
       result = readFileContent (Path.fromString "/etc/hostname")
@@ -3782,6 +3782,7 @@ testReplay = \_ ->
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`IO.readln`/`IO.readAll`/`IO.readAllBytes`/`IO.flush`/`File.createTemp`/`File.createTempDir`/`DateTime.now`/`Process.pid`/`Process.uid`/`Process.gid`/`Process.wait` 等签名从 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`，`effect`/`extern` 操作记录中 `IO.readln`/`File.createTemp`/`Curl.easy_init` 等从 `Unit -> T` 改为 `T`，示例调用加 `!` 后缀；测试函数签名从 `Unit -> Unit/TestResult ! {E}` 改为 `Unit ! {E}` / `TestResult ! {E}`（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行 |
 | 2026.07.15 | 重构为代数效应与命令系统设计：新增「内置效应」章节（IO/File/Cmd/Random/DateTime/Signal/FFI），签名在标准库以 `effect` 声明，handler 在编译器源码（Zig）实现；新增 `FFI` 模块（`extern` 块、`FfiValue`/`FfiBuffer`/`Opaque`、`Ffi.alloc`/`toBytes`/`toString`，仅 Linux）；新增 `Equal` 模块（`List.equal`/`Map.equal`/`Set.equal` 深比较）；新增 `Int` 位运算（`(&)`/`(|)`/`(^)`/`not`/`shl`/`shr`/`ushr`/`popCount`/`leadingZeros`/`trailingZeros`）+ 优先级（shl/shr > & > ^ > \|，左结合）；新增 `Map.fromHashFn` 自定义哈希；新增「录制/回放」章节（`recordHandler`/`replayHandler`，JSON Lines 格式，按时间戳）；重构 `Test` 模块为 `assert : Bool -> Unit` + `type TestResult = Pass \| Fail String \| Skip String`，`test*` 函数识别规则；`Float.approxEqual` 参数顺序修正为 `a b epsilon`；新增文档注释规范（多行 `//` + Markdown，`kun doc` 提取）；新增模块系统规则（默认私有、`export`/re-export、无 wildcard、别名）；所有示例改用 `let in`（废弃 `do`/`do in`）、显式 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`（废弃 `?`/`!` 后缀、`|>` 隐式触发、`Cmd.<bin>` 语法、`Cmd.withRawOpt`、`Cmd.pipe?`/`Cmd.pipe!`）；`List.iter`/`Stream.iter`/`Signal.on` 签名改用单效应变量 `e`（`(a -> Unit ! e) -> ... ! e`） |
 | 2026.06.20 | Round 12 聚焦审计：Task API 行补充 `[推迟 v0.5]` 行内标注 |
 | 2026.06.19 | Test 模块全部 9 个断言统一为效应函数，均返回 Unit：`isOk`/`isErr`/`isSome` 签名改为 `-> String -> Unit`（纯断言，不提取值） |

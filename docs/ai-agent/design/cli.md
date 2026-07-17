@@ -1384,22 +1384,22 @@ Try 'build.kun --help' for more information.
 ### 测试函数识别规则
 
 1. 函数名以 `test` 开头（大小写敏感，`Test`/`TEST` 不算）
-2. 签名为 `Unit -> Unit` 或 `Unit -> TestResult`
+2. 签名为零参效应函数 `Unit ! {E}` 或 `TestResult ! {E}`（无 `->` 前缀）
 3. 可含效应（如 `! {IO}`），由 `kun test` 运行器消解
-4. 不可接受非 `Unit` 参数（测试无参数输入，用闭包捕获）
+4. 不可接受参数（测试无参数输入，用闭包捕获）
 
 ```kun
 // ✅ 合法测试函数
-testFoo : Unit -> Unit ! {IO}
-testFoo = \_ -> ...
+testFoo : Unit ! {IO}
+testFoo = \ -> ...
 
-testUserService : Unit -> TestResult ! {IO}
-testUserService = \_ -> ...
+testUserService : TestResult ! {IO}
+testUserService = \ -> ...
 
 // ❌ 非法
-myTest : Unit -> Unit ! {IO}              // 非 test 开头
-testFoo : Int -> Unit                     // 接受非 Unit 参数
-testFoo : Unit -> Int                     // 返回非 Unit/TestResult
+myTest : Unit ! {IO}              // 非 test 开头
+testFoo : Int -> Unit             // 接受参数（应为零参）；且无 `!` 即纯函数返回 Unit，违反 no-op 规则
+testFoo : Int                     // 返回非 Unit/TestResult
 ```
 
 ### 运行行为
@@ -1439,6 +1439,7 @@ kun run --allow-ffi script.kun           # FFI 效应放行，由运行时默认
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`test*` 函数识别规则中签名从 `Unit -> Unit` / `Unit -> TestResult` 改为零参效应函数 `Unit ! {E}` / `TestResult ! {E}`（无 `->` 前缀）；示例 `testFoo`/`testUserService` 等签名同步更新（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
 | 2026.07.15 | 代数效应与命令系统设计配套更新：所有示例改用 `let in`（废弃 `do`/`do in`）；`main` 函数签名添加效应集标注（`! {IO}` 等）；新增「`kun test` 运行器」章节（`test*` 函数识别规则、`TestResult`、`Pass`/`Fail`/`Skip` 汇总）；新增「`--allow-ffi` 与 FFI 效应边界」章节（FFI 效应到达 `main` 需显式启用 `--allow-ffi`，未启用退出码 126）；移除 `??` Nil 合并运算符用法，改用 `Nilable.withDefault`/`case ... of Some/Nil` 模式匹配 |
 | 2026.06.14 | 新增「与 CLI 二进制的关系」章节，明确 spec 模型与解析引擎的共享策略 |
 | 2026.06.13 | 定位描述调整：明确 Cli 依赖编译器编译期反射 API |
