@@ -70,7 +70,7 @@ Kun 将副作用视为**类型层的效应集**——函数类型显式标注效
 
 ### `handle with` 限入口
 
-业务函数只声明效应不消解，效应冒泡到 `main`/`test*`，入口函数内通过 `handle <expr> with <handler>` 集中消解：
+业务函数只声明效应不消解，效应冒泡到 `main`/`Test.body`，入口级上下文内通过 `handle <expr> with <handler>` 集中消解（`Test.body` 由 `kun test` 运行器提供入口级上下文，详见 [单元测试设计](testing.md)）：
 
 ```kun
 // 业务函数：声明效应，不消解
@@ -100,7 +100,7 @@ main = \args ->
   // 剩余 {Cmd, IO} 冒泡到 main，运行时自动注入默认 Zig handler
 ```
 
-未消解的用户效应冒泡到 `main`/`test*` 时编译错误；内置效应运行时自动注入默认 Zig handler。`FFI` 效应到达 `main` 时运行时检查 `--allow-ffi`。
+未消解的用户效应冒泡到 `main`/`Test.body` 时编译错误；内置效应运行时自动注入默认 Zig handler。`FFI` 效应到达 `main` 时运行时检查 `--allow-ffi`。
 
 ### `continue`/`abort` 二选一
 
@@ -245,18 +245,22 @@ main = \args ->
   with
     recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
 
-// 测试回放（确定性复现）
-testReplay : Unit ! {File}
-testReplay = \ ->
-  handle
-    let
-      result = readFileContent (Path.fromString "/etc/hostname")
-    in
-      case result of
-        Ok content -> IO.println content
-        Err e -> IO.println e
-  with
-    replayHandler p"/trace/session-001.jsonl"
+// 测试回放（确定性复现，作为 Test 值）
+testReplay : Test =
+  Test
+    { name = "replay readFileContent"
+    , body = \ ->
+        handle
+          let
+            result = readFileContent (Path.fromString "/etc/hostname")
+          in
+            case result of
+              Ok content -> IO.println content
+              Err e -> IO.println e
+        with
+          replayHandler p"/trace/session-001.jsonl"
+    , with = Nil
+    }
 ```
 
 录制格式为 JSON Lines，每行一次调用，字段含 `ts`（时间戳）/`seq`（序号）/`eff`/`op`/`args`/`result`。详见 [标准库](standard-library.md#录制回放)。
@@ -267,7 +271,7 @@ testReplay = \ ->
 
 **效应安全模型**：
 
-- 用户效应（`DB`/`Log` 等）必须 `handle` 消解，未消解冒泡到 `main`/`test*` 编译错误
+- 用户效应（`DB`/`Log` 等）必须 `handle` 消解，未消解冒泡到 `main`/`Test.body` 编译错误
 - 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`）运行时自动注入默认 Zig handler
 - `FFI` 效应冒泡到 `main` 时运行时检查 `--allow-ffi`，未启用则拒绝执行
 - 用户无法通过命名、定义、handler 等手段绕过 FFI 安全检查（保留名 + 硬编码 + 命名空间隔离 + 运行时检查）
@@ -312,6 +316,7 @@ let
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 单元测试系统重设计：跨文档一致性更新——`handle with` 限入口小节从 `main`/`test*` 改为 `main`/`Test.body`（2 处）；安全模型小节同步更新（1 处）；录制/回放章节 `testReplay` 示例从 `testReplay : Unit ! {File}` + `test*` 函数形式改为 `testReplay : Test = Test { name, body, with }` 的 `Test` 类型值形式；详见 [单元测试设计](testing.md) |
 | 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`testReplay` 等测试函数签名从 `Unit -> Unit ! {File}` 改为 `Unit ! {File}`，定义从 `\_ ->` 改为 `\ ->`；`File.createTemp ()` 调用改为 `File.createTemp!`（无参调用）；"无 `?`/`!` 后缀糖"措辞更新为"无 Command 的 `?`/`!` 后缀糖（零参函数执行的 `!` 后缀是独立特性）"（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行形式 |
 | 2026.07.15 | 代数效应与命令系统重设计：新增代数效应系统（7 内置效应 + `effect`/`handler`/`handle with`，限入口）、FFI 系统（`extern` 块，仅 Linux，`--allow-ffi`，`FfiBuffer` 不逃逸）、录制/回放（JSON Lines 按时间戳）、`cmd` 字面量四段式、显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）、`alias`/`type` 分离、`==` 浅比较、Nilable 简化（禁止嵌套）、立即求值 + `Lazy`/`Stream` 显式惰性、统一 `let in`（废弃 `do`/`do in`）、`defer` 绑定 `let in`、panic 退出码规则、模块系统规则（默认私有/re-export/无 wildcard/别名）；废弃 `?`/`!` 后缀、`Cmd.<bin>`、`Newtype`、`do`/`do in`、"单一表达式范式"更名为"块表达式" |
 | 2026.06.19 | 单一表达式范式概述更新：语法设计章节新增范式简介；defer 示例更新（分支退出时执行而非外层 `let in` 块退出时） |
