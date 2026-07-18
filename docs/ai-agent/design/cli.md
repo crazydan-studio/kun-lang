@@ -1379,36 +1379,91 @@ Try 'build.kun --help' for more information.
 
 ## `kun test` 运行器
 
-`kun test` 子命令收集并执行 `tests/` 目录下的测试文件，发现 `test*` 函数并执行。
+`kun test` 子命令扫描 `lib/` 目录下所有 `*_test.kun` 文件（递归），将每个文件作为独立模块加载，依据编译期类型信息收集所有**导出的 `Test` 类型值**并执行。
 
-### 测试函数识别规则
+> 测试系统的完整设计（`Test` 类型 Record、`Test` 效应、`testHandler`、执行模型、并行隔离、生命周期、报告格式）详见 [单元测试设计](testing.md)。本节仅描述 `kun test` 命令行为与 CLI 选项。
 
-1. 函数名以 `test` 开头（大小写敏感，`Test`/`TEST` 不算）
-2. 签名为零参效应函数 `Unit ! {E}` 或 `TestResult ! {E}`（无 `->` 前缀）
-3. 可含效应（如 `! {IO}`），由 `kun test` 运行器消解
-4. 不可接受参数（测试无参数输入，用闭包捕获）
+### 测试用例识别规则
+
+1. 文件命名：`<module>_test.kun`，与被测模块同目录共置（如 `lib/List.kun` 对应 `lib/List_test.kun`）；不识别 `tests/` 目录、不识别 `test-*.kun` 命名
+2. 用例载体：`Test` 类型值（`type Test = Test { name, description, timeout, body, with }`），而非 `test*` 前缀函数
+3. 收集规则：仅 `export` 列表中的 `Test` 类型值会被收集执行；未导出的 `Test` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
+4. `body` 字段：零参效应函数 `Unit ! {Test, e}`，`!` 后缀调用（`test.body!`）触发执行；效应集必须含 `Test`，可选含用户效应 `e`
 
 ```kun
-// ✅ 合法测试函数
-testFoo : Unit ! {IO}
-testFoo = \ -> ...
+// lib/List_test.kun
+import List (reverse)
+import Test (Test, Test(..), assert)
 
-testUserService : TestResult ! {IO}
-testUserService = \ -> ...
+export (testReverse)   // ← 仅导出的 Test 值才会被运行
 
-// ❌ 非法
-myTest : Unit ! {IO}              // 非 test 开头
-testFoo : Int -> Unit             // 接受参数（应为零参）；且无 `!` 即纯函数返回 Unit，违反 no-op 规则
-testFoo : Int                     // 返回非 Unit/TestResult
+testReverse : Test =
+  Test
+    { name = "reverse preserves elements"
+    , description = Some "reverse returns elements in opposite order"
+    , timeout = Some 5s
+    , body = \ ->
+        let
+          result = reverse [1, 2, 3]
+          assert (result == [3, 2, 1])
+        in
+          ()
+    , with = Nil
+    }
 ```
 
-### 运行行为
+### 命令选项
 
-- 收集所有 `test*` 函数
-- 执行每个测试，捕获 panic 转为 `Fail`
-- 汇总 `Pass`/`Fail`/`Skip` 统计
+```bash
+kun test                              # 运行 lib/ 下所有 *_test.kun
+kun test lib/List_test.kun            # 运行指定测试文件
+kun test lib/                         # 运行目录下所有 *_test.kun
+kun test --filter "reverse"           # 按 Test.name 过滤（glob 模式）
+kun test --timeout 10s                # 单测试超时（默认 30s）
+kun test --parallel 4                 # 并行度（默认 = CPU 核心数）
+kun test --fail-fast                  # 首个失败后停止
+kun test --report json                # 输出格式：text（默认）/ json
+kun test --allow-ffi                  # 允许测试体使用 FFI（与 `kun run` 同语义）
+```
 
-`TestResult` 类型与 `assert` 函数定义见 [标准库 Test 模块](standard-library.md#test-测试断言与结果)。
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `--filter <pattern>` | 无 | glob 模式匹配 `Test.name`，跨所有 `*_test.kun` 模块 |
+| `--timeout <duration>` | `30s` | 单测试超时上限；`Test.timeout` 字段可覆盖 |
+| `--parallel <n>` | CPU 核心数 | 并行执行度；`1` 表示串行 |
+| `--fail-fast` | 关闭 | 首个 `Fail` 后停止未启动的测试 |
+| `--report <format>` | `text` | 报告格式：`text`（人类可读）/ `json`（结构化） |
+| `--allow-ffi` | 关闭 | 测试体触发 FFI 效应时放行（与 `kun run --allow-ffi` 同语义） |
+
+### 并行执行与隔离
+
+`--parallel <n>`（默认 = CPU 核心数）控制并发度。每个 `Test` 在独立的 `handle with` 上下文中执行，三层隔离保障绝对安全：
+
+1. **不可变语义**：Kun 数据默认不可变，`List`/`Map`/`Set`/`Record` 等无共享可变状态
+2. **Handler 隔离**：每个 `Test` 通过 `with` 字段携带独立 handler 实例（mock handler 提供确定性、无副作用行为）
+3. **每测试沙箱**：`File` 重定向独立临时目录、`IO` 输出捕获到独立缓冲区、`Cmd` 在独立沙箱中执行、`Random` 独立 PRNG 种子、`DateTime` 可注入固定时间
+
+### 超时与生命周期
+
+- 单测试超时优先级：`Test.timeout` > `--timeout`（默认 30s）
+- 超时触发后运行器销毁测试 arena，释放所有资源（子进程、临时文件、内存），标记 `Fail "timeout after <duration>"`
+- `--fail-fast`：首个 `Fail` 后停止所有未启动的测试；已启动的测试运行至完成或超时
+- 无 `beforeAll`/`afterAll`/`beforeEach`/`afterEach` 隐式全局钩子；Setup/teardown 通过 `defer` 显式表达（`defer` 在 `Test` 效应 `abort` 路径下也会执行），效应隔离通过 `Test.with` 字段 + handler 组合（`>>`）
+
+### 退出码
+
+| 退出码 | 含义 |
+|--------|------|
+| 0 | 所有测试 `Pass` 或 `Skip`（无 `Fail`） |
+| 1 | 至少一个测试 `Fail` |
+| 2 | 用法错误（无效 CLI 参数、`*_test.kun` 文件未找到、类型检查失败） |
+
+### 测试报告
+
+- **text**（默认）：按模块分组，含 `✓`/`✗`/`-` 状态、耗时、失败原因
+- **json**（`--report json`）：结构化 JSON，适合 CI/CD 集成
+
+`Test` 类型、`Test` 效应（`assert`/`fail`/`skip`）、`testHandler`、`TestResult` 的完整定义见 [标准库 Test 模块](standard-library.md#test-测试断言与结果)。
 
 ## 与 CLI 二进制的关系
 
@@ -1431,7 +1486,7 @@ kun run script.kun                       # 若 script 触发 FFI → 退出码 1
 kun run --allow-ffi script.kun           # FFI 效应放行，由运行时默认 FFI handler 消解
 ```
 
-- `kun test` 运行器同样适用：测试函数若触发 FFI 效应，需通过 `kun test --allow-ffi` 启用
+- `kun test` 运行器同样适用：`Test.body` 内若触发 FFI 效应，需通过 `kun test --allow-ffi` 启用（详见上文「`kun test` 运行器」章节）
 - `--allow-ffi` 仅控制 FFI 效应的运行时放行；编译期 `extern` 块语法检查、`FfiBuffer` 不逃逸规则、`Opaque` 幻影类型等四层防护始终生效，不受此开关影响
 - 完整安全模型与四层防护机制详见 [`kun-cli-tool.md` 的安全控制章节](kun-cli-tool.md#安全控制)
 
@@ -1439,6 +1494,7 @@ kun run --allow-ffi script.kun           # FFI 效应放行，由运行时默认
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 单元测试系统重设计：`kun test` 运行器章节全面重写——用例载体从 `test*` 前缀函数改为导出的 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`）；文件约定从 `tests/` 目录改为 `lib/` 下 `*_test.kun` 同目录共置；`assert`/`fail`/`skip` 改为 `Test` 效应操作（`abort` 终止，不再 panic）；新增 `--filter`/`--timeout`/`--parallel`/`--fail-fast`/`--report` 五个命令选项；新增并行执行三层隔离（不可变 + handler 隔离 + 每测试沙箱）、超时与 `defer` 生命周期、退出码、text/json 报告格式小节；`--allow-ffi` 注记同步更新引用 `Test.body`；详见 [单元测试设计](testing.md) |
 | 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`test*` 函数识别规则中签名从 `Unit -> Unit` / `Unit -> TestResult` 改为零参效应函数 `Unit ! {E}` / `TestResult ! {E}`（无 `->` 前缀）；示例 `testFoo`/`testUserService` 等签名同步更新（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
 | 2026.07.15 | 代数效应与命令系统设计配套更新：所有示例改用 `let in`（废弃 `do`/`do in`）；`main` 函数签名添加效应集标注（`! {IO}` 等）；新增「`kun test` 运行器」章节（`test*` 函数识别规则、`TestResult`、`Pass`/`Fail`/`Skip` 汇总）；新增「`--allow-ffi` 与 FFI 效应边界」章节（FFI 效应到达 `main` 需显式启用 `--allow-ffi`，未启用退出码 126）；移除 `??` Nil 合并运算符用法，改用 `Nilable.withDefault`/`case ... of Some/Nil` 模式匹配 |
 | 2026.06.14 | 新增「与 CLI 二进制的关系」章节，明确 spec 模型与解析引擎的共享策略 |
