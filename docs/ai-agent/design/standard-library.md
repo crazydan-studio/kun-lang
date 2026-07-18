@@ -10,7 +10,7 @@
 - **handler 实现在编译器源码（Zig）**：内置效应的默认 handler 在编译器源码中实现，编译进 `kun` 二进制，用户不可见、不可改
 - **签名与实现彻底分离**：用户层统一查看 `effect` 声明，编译器加载标准库时校验每个操作在 Zig 注册表有对应实现
 
-用户不可定义内置效应的默认 handler，但可在 `main`/`Test.body` 内用自定义 handler 包装（通过 `continue` 委托默认 Zig 实现）。
+用户不可定义内置效应的默认 handler，但可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认 Zig 实现）。
 
 所有标准库模块中的函数均需显式导入方可使用（除 `Function` 模块名称始终缺省可用、`Nil` 变体始终缺省可用外）。
 
@@ -2295,7 +2295,7 @@ in
 
 ### 定位
 
-控制台输入输出操作。所有函数均为 `IO` 效应操作，产生 `! {IO}`，必须在 `let in` 块中调用（或由 `main`/`Test.body` 的 `handle with` 消解）。
+控制台输入输出操作。所有函数均为 `IO` 效应操作，产生 `! {IO}`，必须在 `let in` 块中调用（或由 `main`/`TestCase.body` 的 `handle with` 消解）。
 
 需显式导入：
 
@@ -3521,14 +3521,22 @@ main = \_ ->
 
 ### 定位
 
-`Test` 模块提供单元测试的核心抽象：`Test` 类型（测试用例载体）、`Test` 效应（`assert`/`fail`/`skip` 三个操作）、`testHandler`（运行器内置 handler）、`TestResult`（测试结果类型）。
+`Test` 模块同时承载**效应声明**与**测试用例构造工具**，提供单元测试的核心抽象：
 
-`kun test` 子命令扫描 `lib/` 下所有 `*_test.kun` 文件（递归），收集 `export` 列表中的 `Test` 类型值并执行。`assert`/`fail`/`skip` 通过 `Test` 效应的 `abort` 终止测试（不再使用 panic），由 `testHandler` 消解为 `TestResult`。
+- **`TestCase` 类型**——测试用例 Record（`type TestCase = TestCase { name, description, timeout, body, with }`）
+- **`Test` 效应**——`assert`/`fail`/`skip` 三个操作（通过 `abort` 终止测试，不使用 panic）
+- **`testHandler`**——运行器内置 handler（消解 `Test` 效应为 `TestResult`）
+- **`TestResult` 类型**——测试结果（`Pass`/`Fail String`/`Skip String`）
+- **`test` 构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式函数**——便捷构造 `TestCase`
+
+> **`Test` 名称的三重指代**：`Test` 既是**效应名**（`! {Test, e}`），也是**模块名**（`Test.with`/`Test.timeout`/`Test.describe`/`assert`）；类型则命名为 `TestCase`。三者靠类型/值命名空间分离 + 全名/选择性导入消歧（详见 [效应与模块同名](../discussions/discussion-zig-host-and-effect-module-namespacing.md)）。
+
+`kun test` 子命令扫描 `lib/` 下所有 `*_test.kun` 文件（递归），收集 `export` 列表中的 `TestCase` 类型值并执行。`assert`/`fail`/`skip` 通过 `Test` 效应的 `abort` 终止测试（不再使用 panic），由 `testHandler` 消解为 `TestResult`。
 
 > **测试用例识别规则**：
 > 1. 文件命名：`<module>_test.kun`，与被测模块同目录共置（如 `lib/List.kun` 对应 `lib/List_test.kun`）；不识别 `tests/` 目录、不识别 `test-*.kun` 命名
-> 2. 用例载体：导出的 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`），而非 `test*` 前缀函数
-> 3. 收集规则：仅 `export` 列表中的 `Test` 类型值会被收集执行；未导出的 `Test` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
+> 2. 用例载体：导出的 `TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`），而非 `test*` 前缀函数
+> 3. 收集规则：仅 `export` 列表中的 `TestCase` 类型值会被收集执行；未导出的 `TestCase` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
 > 4. `body` 字段：零参效应函数 `Unit ! {Test, e}`，效应集必须含 `Test`，可选含用户效应 `e`
 
 > **推迟至 v1.2**：`Test` 模块与 `kun test` 子命令在 MVP（v0.1）中推迟实现。在 v1.2 前，Kun 脚本的验证通过直接运行脚本并检查退出码完成。
@@ -3538,15 +3546,16 @@ main = \_ ->
 需显式导入：
 
 ```kun
-import Test (Test, Test(..), assert, fail, skip)
+import Test (Test, TestCase, test, assert, fail, skip)
+// Test.with / Test.timeout / Test.describe 全名使用（无需选择性导入）
 ```
 
 ### API
 
 ```kun
 // 测试用例类型（Record）
-type Test =
-  Test
+type TestCase =
+  TestCase
     { name : String                              // 测试名，用于 --filter 匹配与报告显示
     , description : ?String                      // 可选详细描述（仅文档化，不参与匹配）
     , timeout : ?Duration                        // 可选单测试超时，覆盖 --timeout 默认值
@@ -3571,73 +3580,78 @@ type TestResult =
 // 运行器内置 handler（与 IO/File 等内置效应默认 handler 同级）
 // 消解 Test 效应为 TestResult，产生 IO 效应（写报告）
 testHandler : Handler {Test} TestResult ! {IO}
+
+// 便捷构造器：以 name + body 构造 TestCase，其余字段填默认值
+//   description = Nil, timeout = Nil, with = Nil
+test : String -> (Unit ! {Test, e}) -> TestCase
+
+// 链式字段设置（纯函数，返回新 TestCase，支持 |> 管道）
+Test.with     : Handler {e} Unit ! {r} -> TestCase -> TestCase   // 设置 with 字段
+Test.timeout  : Duration -> TestCase -> TestCase                 // 设置 timeout 字段
+Test.describe : String -> TestCase -> TestCase                   // 设置 description 字段
 ```
 
 **关键语义**：
 
-- `assert`/`fail`/`skip` 是 `Test` 效应的操作，可在**任何效应集含 `Test` 的函数**中使用（不限 `Test.body`）；通过 `abort` 终止当前测试——**没有 panic 黑魔法**，与普通 handler 的 `abort` 语义完全一致
+- `assert`/`fail`/`skip` 是 `Test` 效应的操作，可在**任何效应集含 `Test` 的函数**中使用（不限 `TestCase.body`）；通过 `abort` 终止当前测试——**没有 panic 黑魔法**，与普通 handler 的 `abort` 语义完全一致
 - `Test` 是**标准库效应**（非保留名）；`testHandler` 是 `kun` 二进制内置 handler（运行器提供）
-- `Test.with` 字段：声明式效应隔离——可选 handler 消解 `body` 的用户效应 `e`；多个用户效应通过 `>>` 组合为单一 handler；`Nil` 表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解）
+- `TestCase.with` 字段：声明式效应隔离——可选 handler 消解 `body` 的用户效应 `e`；多个用户效应通过 `>>` 组合为单一 handler；`Nil` 表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解）
 - `TestResult` 仅由 `testHandler` 产出：`Pass` 对应 `body` 正常返回，`Fail`/`Skip` 对应 `Test` 效应的 `abort`
+- `test` + `Test.with`/`Test.timeout`/`Test.describe` 与 `TestCase { ... }` 字面量构造**等价**，前者更简洁、可组合，后者适合一次设置全部字段
 
 ### 测试用例示例
 
 ```kun
 // lib/List_test.kun
 import List (reverse)
-import Test (Test, Test(..), assert)
+import Test (Test, TestCase, test, assert)
 
 export (testReverse)
 
-testReverse : Test =
-  Test
-    { name = "reverse preserves elements"
-    , description = Some "reverse returns elements in opposite order"
-    , timeout = Some 5s
-    , body = \ ->
-        let
-          result = reverse [1, 2, 3]
-          assert (result == [3, 2, 1])
-        in
-          ()
-    , with = Nil
-    }
+testReverse : TestCase =
+  test "reverse preserves elements" (\ ->
+    let
+      result = reverse [1, 2, 3]
+      assert (result == [3, 2, 1])
+    in
+      ()
+  )
+  |> Test.describe "reverse returns elements in opposite order"
+  |> Test.timeout 5s
 ```
 
 ```kun
 // lib/UserService_test.kun
 import UserService (fetchUser)
 import User (UserId)
-import Test (Test, Test(..), assert, fail)
+import Test (Test, TestCase, test, assert, fail)
 import DB.Mock (mockDbHandler)
 import Log.Mock (mockLogHandler)
 
 export (testFetchUser)
 
-testFetchUser : Test =
-  Test
-    { name = "fetchUser returns user"
-    , description = Some "Uses mock DB and Log handlers"
-    , timeout = Some 10s
-    , body = \ ->
-        let
-          result = fetchUser (UserId "1")
-          case result of
-            Ok user -> assert (user.name == "alice")
-            Err _ -> fail "expected Ok, got Err"
-        in
-          ()
-    , with = Some (mockDbHandler >> mockLogHandler)
-    //        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    //        DB/Log 被消解为确定性 mock 行为，剩余 IO 由沙箱消解
-    }
+testFetchUser : TestCase =
+  test "fetchUser returns user" (\ ->
+    let
+      result = fetchUser (UserId "1")
+      case result of
+        Ok user -> assert (user.name == "alice")
+        Err _ -> fail "expected Ok, got Err"
+    in
+      ()
+  )
+  |> Test.describe "Uses mock DB and Log handlers"
+  |> Test.with (mockDbHandler >> mockLogHandler)
+  //  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  //  DB/Log 被消解为确定性 mock 行为，剩余 IO 由沙箱消解
+  |> Test.timeout 10s
 ```
 
 ### `kun test` 运行器行为
 
-- 扫描 `lib/` 下所有 `*_test.kun` 文件（递归），收集 `export` 列表中的 `Test` 类型值
-- 对每个 `Test` 值：包装 `body!` → 用 `Test.with` 消解用户效应 → 用 `testHandler` 消解 `Test` 效应 → 产出 `TestResult`
-- 支持 `--filter`（glob 匹配 `Test.name`）/`--timeout`（单测试超时，默认 30s）/`--parallel`（并行度，默认 CPU 核心数）/`--fail-fast`（失败即停）/`--report text|json` 选项
+- 扫描 `lib/` 下所有 `*_test.kun` 文件（递归），收集 `export` 列表中的 `TestCase` 类型值
+- 对每个 `TestCase` 值：包装 `body!` → 用 `TestCase.with` 消解用户效应 → 用 `testHandler` 消解 `Test` 效应 → 产出 `TestResult`
+- 支持 `--filter`（glob 匹配 `TestCase.name`）/`--timeout`（单测试超时，默认 30s）/`--parallel`（并行度，默认 CPU 核心数）/`--fail-fast`（失败即停）/`--report text|json` 选项
 - 并行执行三层隔离：不可变语义 + handler 隔离（每测试独立 `with` handler）+ 每测试沙箱（File 临时目录、IO 捕获、Cmd 沙箱、Random 独立种子、DateTime 可注入）
 - 无 `beforeAll`/`afterAll`/`beforeEach`/`afterEach` 隐式全局钩子；Setup/teardown 通过 `defer`（在 `Test` 效应 `abort` 路径下也会执行）+ handler 组合显式表达
 
@@ -3645,7 +3659,7 @@ testFetchUser : Test =
 
 - 测试文件与被测模块同目录共置，命名 `<module>_test.kun`（如 `lib/List.kun` 对应 `lib/List_test.kun`）
 - 每个 `_test.kun` 文件本身是一个模块，模块名按目录路径推导（`lib/List_test.kun` → 模块 `List_test`）
-- 仅 `export` 列表中的 `Test` 类型值会被收集执行；未导出的 `Test` 类型绑定视为辅助构造（fixture、参数化模板）
+- 仅 `export` 列表中的 `TestCase` 类型值会被收集执行；未导出的 `TestCase` 类型绑定视为辅助构造（fixture、参数化模板）
 - 不另设 `tests/` 目录、不识别 `test-*.kun` 命名
 
 > **旧 `test*` 前缀函数与 panic 版 `assert` 已废弃**（2026.07.16）：测试用例不再以 `test` 前缀命名 + 签名过滤识别；旧的 `assert : Bool -> Unit`（panic 失败）替换为 `Test` 效应的 `assert` 操作（abort 失败）。详见 [单元测试设计 - 与现有设计的关系](testing.md#与现有设计的关系)。
@@ -3704,24 +3718,21 @@ main = \args ->
   with
     recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
 
-// 测试回放（确定性复现）——测试用例为导出的 Test 类型值
-testReplay : Test =
-  Test
-    { name = "replay readFileContent"
-    , body = \ ->
-        handle
-          let
-            result = readFileContent (Path.fromString "/etc/hostname")
-          in
-            case result of
-              Ok content -> IO.println content
-              Err e -> IO.println e
-        with
-          replayHandler p"/trace/session-001.jsonl"
-        // 效应调用从录制读取，不实际执行
-        // 业务代码执行路径与生产一致，确定性复现
-    , with = Nil
-    }
+// 测试回放（确定性复现）——测试用例为导出的 TestCase 类型值
+testReplay : TestCase =
+  test "replay readFileContent" (\ ->
+    handle
+      let
+        result = readFileContent (Path.fromString "/etc/hostname")
+      in
+        case result of
+          Ok content -> IO.println content
+          Err e -> IO.println e
+    with
+      replayHandler p"/trace/session-001.jsonl"
+    // 效应调用从录制读取，不实际执行
+    // 业务代码执行路径与生产一致，确定性复现
+  )
 ```
 
 ### 回放的确定性保证
@@ -3792,7 +3803,7 @@ testReplay : Test =
 | `FFI` | `import FFI` | FFI 内置效应与 `FfiBuffer`/`Ffi.alloc`/`Ffi.toBytes`/`Ffi.toString` |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
-| `Test` | `import Test (Test, Test(..), assert, fail, skip)` | 测试用例类型（`Test` Record）、`Test` 效应（`assert`/`fail`/`skip`）、`testHandler`、`TestResult` |
+| `Test` | `import Test (Test, TestCase, test, assert, fail, skip)` | `TestCase` 类型（测试用例 Record）、`Test` 效应（`assert`/`fail`/`skip`）、`testHandler`、`TestResult`、`test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式函数 |
 
 ## 推迟特性一览
 
@@ -3815,7 +3826,8 @@ testReplay : Test =
 
 | 版本 | 变更 |
 |------|------|
-| 2026.07.16 | 单元测试系统重设计：`Test` 模块章节全面重写——从 `assert : Bool -> Unit`（panic 失败）+ `TestResult` 改为 `type Test = Test { name, description, timeout, body, with }`（Record）+ `effect Test = { assert, fail, skip }`（abort 失败）+ `testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；导入语句从 `import Test` 改为 `import Test (Test, Test(..), assert, fail, skip)`；`assert` 不再是 panic 函数，是 `Test` 效应操作；`TestResult` 仅由 `testHandler` 产出；`kun test` 运行器行为从“收集 `test*` 函数 + 捕获 panic”改为“扫描 `lib/*_test.kun` + 收集导出的 `Test` 值 + 包装/body/with/testHandler 四步执行”；示例改为 `lib/List_test.kun`/`lib/UserService_test.kun` 的 `Test` 类型值；测试文件约定从 `tests/` 目录 + `test-*.kun` 改为 `<module>_test.kun` 同目录共置；模块分类表 `Test` 行重写；内置效应章节与 `IO` 模块定位段中 `main`/`test*` 措辞改为 `main`/`Test.body`；录制/回放章节 `testReplay` 示例同步迁移为 `Test` 类型值；详见 [单元测试设计](testing.md) |
+| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test : String -> (Unit ! {Test, e}) -> TestCase` 便捷构造器（默认 `description`/`timeout`/`with` 均为 `Nil`）与 `Test.with`/`Test.timeout`/`Test.describe` 三个纯函数链式 `|>` 调用；导入语句从 `import Test (Test, Test(..), assert, fail, skip)` 改为 `import Test (Test, TestCase, test, assert, fail, skip)`；所有示例从 `Test { name, body, with }` 字面量改为 `test "..." (\ -> ...) |> Test.with ... |> Test.timeout ...` 链式形式；字段引用 `Test` 类型 `body` 字段/`Test.with` 改为 `TestCase.body`（字段）/`Test.with`（模块函数）；`effect Test`/`testHandler`/`TestResult` 不变；录制/回放章节 `testReplay` 示例同步迁移；模块分类表 `Test` 行更新；详见 [单元测试设计](testing.md) |
+| 2026.07.16 | 单元测试系统重设计：`Test` 模块章节全面重写——从 `assert : Bool -> Unit`（panic 失败）+ `TestResult` 改为 `type Test = Test { name, description, timeout, body, with }`（Record）+ `effect Test = { assert, fail, skip }`（abort 失败）+ `testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；导入语句从 `import Test` 改为 `import Test (Test, Test(..), assert, fail, skip)`；`assert` 不再是 panic 函数，是 `Test` 效应操作；`TestResult` 仅由 `testHandler` 产出；`kun test` 运行器行为从“收集 `test*` 函数 + 捕获 panic”改为“扫描 `lib/*_test.kun` + 收集导出的 `Test` 值 + 包装/body/with/testHandler 四步执行”；示例改为 `lib/List_test.kun`/`lib/UserService_test.kun` 的 `Test` 类型值；测试文件约定从 `tests/` 目录 + `test-*.kun` 改为 `<module>_test.kun` 同目录共置；模块分类表 `Test` 行重写；内置效应章节与 `IO` 模块定位段中 `main`/`test*` 措辞改为 `main`/`Test` 类型 `body` 字段；录制/回放章节 `testReplay` 示例同步迁移为 `Test` 类型值；详见 [单元测试设计](testing.md) |
 | 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`IO.readln`/`IO.readAll`/`IO.readAllBytes`/`IO.flush`/`File.createTemp`/`File.createTempDir`/`DateTime.now`/`Process.pid`/`Process.uid`/`Process.gid`/`Process.wait` 等签名从 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`，`effect`/`extern` 操作记录中 `IO.readln`/`File.createTemp`/`Curl.easy_init` 等从 `Unit -> T` 改为 `T`，示例调用加 `!` 后缀；测试函数签名从 `Unit -> Unit/TestResult ! {E}` 改为 `Unit ! {E}` / `TestResult ! {E}`（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行 |
 | 2026.07.15 | 重构为代数效应与命令系统设计：新增「内置效应」章节（IO/File/Cmd/Random/DateTime/Signal/FFI），签名在标准库以 `effect` 声明，handler 在编译器源码（Zig）实现；新增 `FFI` 模块（`extern` 块、`FfiValue`/`FfiBuffer`/`Opaque`、`Ffi.alloc`/`toBytes`/`toString`，仅 Linux）；新增 `Equal` 模块（`List.equal`/`Map.equal`/`Set.equal` 深比较）；新增 `Int` 位运算（`(&)`/`(|)`/`(^)`/`not`/`shl`/`shr`/`ushr`/`popCount`/`leadingZeros`/`trailingZeros`）+ 优先级（shl/shr > & > ^ > \|，左结合）；新增 `Map.fromHashFn` 自定义哈希；新增「录制/回放」章节（`recordHandler`/`replayHandler`，JSON Lines 格式，按时间戳）；重构 `Test` 模块为 `assert : Bool -> Unit` + `type TestResult = Pass \| Fail String \| Skip String`，`test*` 函数识别规则；`Float.approxEqual` 参数顺序修正为 `a b epsilon`；新增文档注释规范（多行 `//` + Markdown，`kun doc` 提取）；新增模块系统规则（默认私有、`export`/re-export、无 wildcard、别名）；所有示例改用 `let in`（废弃 `do`/`do in`）、显式 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`（废弃 `?`/`!` 后缀、`|>` 隐式触发、`Cmd.<bin>` 语法、`Cmd.withRawOpt`、`Cmd.pipe?`/`Cmd.pipe!`）；`List.iter`/`Stream.iter`/`Signal.on` 签名改用单效应变量 `e`（`(a -> Unit ! e) -> ... ! e`） |
 | 2026.06.20 | Round 12 聚焦审计：Task API 行补充 `[推迟 v0.5]` 行内标注 |
