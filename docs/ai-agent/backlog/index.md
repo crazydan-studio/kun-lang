@@ -12,7 +12,7 @@
 | P1 | 命令函数系统设计 | — | `docs/ai-agent/design/command-system.md` | — | `done` | `plan-first` | 无 | 2026-06-04 |
 | P1 | 安全模型设计 | — | `docs/ai-agent/design/command-system.md`（安全模型已并入命令系统设计） | — | `done` | `plan-first` | 无 | 2026-05-31 |
 | P1 | 标准库类型设计 | — | `docs/ai-agent/design/standard-library.md` | — | `done` | `implement` | 无 | 2026-05-30 |
-| **P1** | **Kun Shell 设计** | — | [`docs/ai-agent/design/kun-shell.md`](/ai-agent/design/kun-shell) | — | `done` | `plan-first` | 实现推迟 v2.0，设计已完成 | 2026-06-18 |
+| **P1** | **Kun Shell 设计** | — | [`docs/ai-agent/design/kun-shell.md`](/ai-agent/design/kun-shell) | — | `done` | `plan-first` | 设计已完成 | 2026-06-18 |
 
 
 ## 状态流转
