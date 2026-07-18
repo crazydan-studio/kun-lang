@@ -6,9 +6,9 @@
 |---|---|
 | 项目名称 | Kun（鲲） |
 | 项目类型 | 编程语言设计与实现 |
-| 当前版本 | 0.1.0（Phase 7-8 全部完成，708 测试通过，全部审计缺陷修复） |
+| 当前版本 | 0.1.0（设计阶段，代码实现已撤销待重写） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
-| 里程碑 | 架构重设计完成，语言设计定型，Phase 1-8 全部完成；标准库 95% 真实实现，效应检查完备，Parser 语法补齐，模块系统搜索路径实现，--run 端到端可执行，kw_nil 关键字移除，zig-regex 引擎集成，i18n kmsg/format 命名插值 |
+| 里程碑 | 代数效应与命令系统重设计完成，语言设计定型中；`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），待设计完全稳定后基于新设计重新实现 |
 | 宿主语言 | Zig（锁定 0.16.0 稳定版，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.16.0.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
@@ -17,12 +17,12 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 标准库扩展已基本完成，待下一阶段规划 |
+| 活跃需求 | 语言设计稳定化（代数效应 / 命令系统 / 测试系统 / 沙箱等重设计落地） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
-| 活跃计划 | Phase 8 已完成，待下一阶段规划 |
-| 最近完成 | Phase 8：Nilable 公开 ADT（kw_nil 移除、`?T` 解析、`Some` 模式）、标准库扩展（Nilable/Duration/Int/Float/Char/Validator 模块）、zig-regex 引擎集成（isMatch/replace/firstMatch）、DateTime 格式化引擎、i18n kmsg/format 分层（26 条 zh_CN 翻译）、nil_to_non_nilable 错误移除、nil_literal 从 AST 完全移除（708 测试，零泄漏） |
-| 推迟项 | 沙箱（Landlock/seccomp/rlimit）；Kun Shell；等递归类型；Cli 模块 + Parser.Record；Validator PureKun 实现（.kun 文件）；String/List/Map/Set PureKun 函数（.kun 文件） |
-| AI 自治级别 | `implement` |
+| 活跃计划 | 无活跃实现计划（设计稳定后重新实现） |
+| 最近完成 | `code/kun-lang/` 实现撤销（commit `559180a`，设计大改动导致旧实现不可维护）；代数效应与命令系统重设计（`effect`/`handler`/`handle with`、`cmd` 字面量、显式执行、`TestCase` 测试系统、沙箱加固等）；设计与架构文档同步重写；`.kun` 示例与 README 迁移到新语法 |
+| 推迟项 | 沙箱（Landlock/seccomp/rlimit，设计已定型）；Kun Shell（未来版本）；等递归类型；Cli 模块 + Parser.Record；String/List/Map/Set PureKun 实现 |
+| AI 自治级别 | `plan-first`（设计阶段，设计文档变更需先审后实施） |
 | 阻塞项 | 无 |
 
 ## 技术基线
@@ -44,49 +44,40 @@
 | 构建文档 | `cd docs && pnpm build` |
 | 本地预览 | `cd docs && pnpm dev` |
 | 检查 Markdown 语法 | `cd docs && pnpm lint` |
-| 单元测试 | `cd code/kun-lang && zig build test` |
-| 解析验证 | `cd code/kun-lang && zig build dump-ast -- <file.kun>` |
+
+> **注**：`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），不再有 `zig build test` / `zig build dump-ast` 等命令。待设计完全稳定后基于新设计重新实现时，再补充验证命令。
 
 ## 最近任务路由
 
+> **注**：2026-06-20 至 2026-06-26 的实现期任务（Phase 1-8）已随 `code/kun-lang/` 撤销一并清理（commit `559180a`），其历史路由条目不再保留于本表。下方仅保留撤销后的设计期路由，以及撤销前的设计阶段关键节点（用于追溯设计演进）。
+
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
-| 2026-06-24 | Phase 6 全面审计 + 缺陷修复（28/37）：walkDir UAF、中置 spread、effect 变体、streamRange step、write 错误检查、envList 泄漏、whichImpl PATH、jsonToString map、record_update 类型、.error_ 合一、cmdPipe arg_count、checkDoInResult 代换、compose 错误消息、stream 帧泄漏、ternary 优先级等 | 审计+修复 | ✅ 全部 owner docs | ✅ - | `implement` |
-| 2026-06-24 | Phase 6 Steps 4-7 完成：Stream.iter/fold（eval_fn 注入）、File 25 函数全真实（copy/rename/removeAll/atomicWrite/walkDir/glob/statx 等）、JSON(std.json)、质量加固（span/内存泄漏/narrowType/docs） | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
-| 2026-06-24 | Phase 6 Steps 1-3：Map/Set 哈希表 + Parser 语法补齐 + 效应检查器接线 + Stream/Command 消费检查体 | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
-| 2026-06-24 | Phase 5 实施（Steps 6-8）：Stream 新注册 + 加密/编码/解析/日期 + 构建通过 | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
-| 2026-06-24 | Phase 5 实施（Steps 3-5）：基础 syscall stub→real + IO/Env/Process 扩展 + 数据结构（List/Map/Set/String/Bytes） | 实现 | ✅ 全部 owner docs | ✅ - | `implement` |
-| 2026-06-24 | 测试规范重构：35→8 tests（列表+循环模式）+ conventions.md 新增测试编写规范 | 重构+文档 | ✅ conventions | ✅ writing-conventions | `implement` |
-| 2026-06-24 | Primitive 模块拆分：1099 行单文件 → 6 文件（5 子模块 + 聚合）→ 迁移至子目录 primitive/ | 重构 | ✅ zig-patterns | ✅ - | `implement` |
-| 2026-06-24 | Phase 5 实施（Steps 1-2）+ 前置架构修复（A1-A4, R2, F9-F11）+ 29 轮计划审计 | 实现+审计 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `plan-first` |
-| 2026-06-23 | Phase 5 计划编写：标准库 Primitives 补全（106 函数）+ Stream 函数体 + StreamNode 构造器/消费者 + 类型环境签名注册 | 计划 | ✅ 全部 owner docs | ✅ plan-audit（待执行） | `plan-first` |
-| 2026-06-23 | Phase 4 实现 + 计划审计（18 轮 52 项修复）+ Phase 1-3 深度审计修复（44 项缺陷）+ 双代理测试审计（314→545 测试 7 轮收敛）+ i18n 重构 | 实现+审计 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
-| 2026-06-22 | Phase 3 实现：Primitive 函数表 + 效应识别迁移 + 14 TypeError + recursive typeName + generalize()/freshInstance + 18 项效应检查 + Value 9 变体 + StreamNode + map/set eval + Cmd ident + 模式穷举升级 | 实现 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
-| 2026-06-22 | Phase 3 计划 23 轮审计（77 项修复）+ 双代理测试审计（+59 测试 → 306 全通过）+ 3 轮实现审计（修复 20 项） | 审计+测试 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit、multi-dim | `implement` |
-| 2026-06-21 | Phase 2 实现：类型检查器 + 运行时求值器 + 12 测试文件（229 测试全通过）；效应识别方案 C；构建打包脚本 | 实现 | ✅ 全部 owner docs | ✅ plan-audit、closure-audit | `implement` |
-| 2026-06-21 | Phase 2 计划 15 轮审计（67 项修复）+ 5 份审计记录 + 活跃文档同步 | 审计+文档 | ✅ 全部 owner docs | ✅ plan-audit、document-audit | `implement` |
-| 2026-06-20 | 第 8 轮审计修复：skipTypeAnn 停止消费 ident（修复跨行类型标注+函数定义） | 审计+修复 | ✅ syntax、zig-patterns | ✅ plan-audit | `implement` |
-| 2026-06-20 | 文档元审计（第7轮）：同步 backlog/导航/版本历史 | 文档 | ✅ - | ✅ writing-conventions | `implement` |
-| 2026-06-20 | 第 6 轮审计：移除死函数 exprSpan + typed.zig 接入编译 | 清理 | ✅ - | ✅ closure-audit | `implement` |
-| 2026-06-20 | 第 5 轮深度审计修复：大写进制前缀/MapSet/联合变体/双行函数/case终结 | 审计+修复 | ✅ syntax、zig-patterns | ✅ plan-audit | `implement` |
-| 2026-06-20 | 第 4 轮构建修复：dump-ast cwd | 修复 | ✅ - | ✅ - | `implement` |
-| 2026-06-20 | 第 3 轮审计修复：export 语法/??语义/优先级表全对齐 | 审计+修复 | ✅ syntax、type-system | ✅ plan-audit | `implement` |
-| 2026-06-20 | 双代理审计循环（第2轮源码实现审计）→ 修复 P0×3+P1×6：整数前缀/??/字符串转义/? token/Duration 溢出等 | 审计+修复 | ✅ syntax、type-system、zig-patterns | ✅ plan-audit | `implement` |
-| 2026-06-20 | 双代理审计循环（第1轮测试审计）→ 测试从 51 增至 68，零泄漏 | 审计+修复 | ✅ syntax、system-baseline、zig-patterns | ✅ plan-audit、closure-audit | `plan-first` → `implement` |
-| 2026-06-20 | 首阶段 Zig 代码实现 — build.zig + Lexer + AST + Parser + CLI dump-ast | 实现 | ✅ system-baseline、syntax、module-boundaries、zig-patterns | ✅ writing-conventions、plan-audit | `plan-first` → `implement` |
-| 2026-06-20 | 首阶段实现计划（骨架 + Lexer + Parser + AST）编写 | 计划 | ✅ system-baseline、module-boundaries、syntax、zig-patterns | ✅ writing-conventions | `plan-first` |
-| 2026-06-19 | 块表达式（原"单一表达式范式"）全面定稿——设计讨论、7 份文档重写、跨文档一致性修复、Test 模块效应分类修正、9 示例文件迁移 | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
-| 2026-06-17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`→`Stat` 纯访问器）；示例修复（Verifier.kun `let in`、Builder.kun+Dockerizer.kun `File.stat` 适配） | 设计+修复 | ✅ standard-library、syntax、examples | ✅ writing-conventions | `implement` |
-| 2026-06-16 | 标准库模块必要性分析与精简（移除 5 模块 + 19 函数、新增 4 项 P0、跨 14 文件传播） | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions、closure-audit | `implement` |
-| 2026-06-15 | Zig 0.13 → 0.16 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
-| 2026-06-15 | 错误消息国际化（i18n）子系统设计——msgid 体系、.po 文件管理、构建时代码生成、运行时 locale 检测、消息格式化 API | 设计 | ✅ system-baseline、module-boundaries、type-system、i18n | ✅ writing-conventions | `plan-first`（先计划后实施） |
-| 2026-06-15 | 标准库内置函数绑定机制设计——Primitive 函数表结构、模块加载绑定规则、安全防护（防同名覆盖/防篡改）、逐函数实现类别标注 | 设计 | ✅ system-baseline、module-boundaries、standard-library | ✅ writing-conventions | `plan-first`（先计划后实施） |
-| 2026-06-13 | 八轮跨文档一致性审计（52+ 项修复）；REPL → Kun Shell 独立文档；kun doc/--trace 设计；类型检查算法补充；libkunlang.so 共享库架构 | 设计+审计 | ✅ 全部 owner docs | ✅ document-audit、closure-audit | `implement` |
-| 2026-06-10 | 架构重设计——架构/设计/示例文档全面重写 | 设计+重构 | ✅ 全部 owner docs | ✅ document-audit-prompt、closure-audit-prompt | `plan-first` → `implement`（先审后实施） |
-| 2026-06-07 | AGENTS.md 完整性修订（补齐全目录索引 + 跨文档一致性修复 10 项） | 文档+修复 | ✅ AGENTS.md、context/、process/、skills/ | ✅ writing-conventions、closure-audit | `implement` 直接执行 |
-| 2026-06-07 | 架构与设计文档全面分析评审（12 份文档/5500 行交叉分析） | 分析+审计 | ✅ system-baseline、type-system、syntax | ✅ document-audit、multi-dimensional-audit | `implement` 直接执行 |
-| 2026-06-07 | 示例代码未定义函数修复 + Path 模块文档化 | 修复 | ✅ syntax、standard-library、examples | ✅ writing-conventions | `implement` 直接执行 |
-| 2026-06-07 | 目录索引完整性检查补齐（5 个目录/16 项） | 文档 | ✅ 全部 index.md | ✅ writing-conventions | `implement` 直接执行 |
+| 2026-07-18 | 活跃文档冲突与不一致审计 + 修复（13 项问题：Zig 版本统一 / `Process` 效应声明 / `newtype` 术语清理 / 5 失效锚点 / 安全参数补全 等） | 审计+修复 | ✅ 全部 owner docs | ✅ document-audit、closure-audit | `implement` |
+| 2026-07-18 | `.kun` 示例与 README 迁移到新语法（cmd 字面量 / `let in` / 效应集 `! {E}` / 零参效应函数 `!` 后缀 / `pipe` 纯函数 / 显式执行 / `|>` 纯管道）——15 文件 | 重构 | ✅ syntax、command-system、standard-library、examples | ✅ writing-conventions | `implement` |
+| 2026-07-18 | `Process.sleep` 从 DateTime 模块移回 Process 模块（设计纠错） | 重构 | ✅ standard-library、examples | ✅ writing-conventions | `implement` |
+| 2026-07-18 | 恢复 `docs/ai-agent/logs/` 目录与索引（撤销期间误删恢复 + 跨文档一致性修复） | 文档 | ✅ logs/index | ✅ writing-conventions | `implement` |
+| 2026-07-18 | 清理：移除版本历史与推迟标注，更新 git author 为 AI 码农 | 清理 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
+| 2026-07-18 | `Test.body` → `TestCase.body` 跨文档同步重命名（入口级 `handle with` 目标） | 重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
+| 2026-07-18 | `Test` 类型 → `TestCase` Record 重命名 + 新增 `Test` 模块（`test` / `Test.with` / `Test.timeout` / `Test.describe`） | 重构 | ✅ type-system、syntax、standard-library、testing | ✅ writing-conventions | `implement` |
+| 2026-07-18 | `handle with` 入口级从 `main` / `test*` 改为 `main` / `TestCase.body` | 重构 | ✅ type-system、syntax、testing | ✅ writing-conventions | `implement` |
+| 2026-07-18 | 现有设计文档同步单元测试系统——`Test` 类型值替代 `test*` 函数 | 重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
+| 2026-07-18 | 单元测试系统设计——`Test` 类型值、`_test.kun` 约定、handler 隔离、无黑魔法 | 设计 | ✅ type-system、syntax、standard-library、testing | ✅ writing-conventions | `plan-first` |
+| 2026-07-18 | `--audit` JSON 审计记录选项新增（CI / 合规场景追溯） | 设计 | ✅ kun-cli-tool、system-baseline | ✅ writing-conventions | `implement` |
+| 2026-07-18 | 沙箱加固——参考 Z-Jail 补齐防御缺口（capabilities drop / fd scrub / dumpable / `CLONE_NEWIPC`） | 重构 | ✅ system-baseline、kun-cli-tool | ✅ writing-conventions | `implement` |
+| 2026-07-18 | 效应与模块同名消歧规则新增（如 `Cmd` 既是效应又是模块） | 设计 | ✅ type-system、syntax、standard-library | ✅ writing-conventions | `implement` |
+| 2026-07-18 | Zig 0.16.0 稳定版锁定（替换原 0.17.0-dev） | 配置+文档 | ✅ zig-patterns、system-baseline | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 零参效应函数约定——声明 `T ! {E}`、调用 `Name!`、区分 `Command !` | 重构 | ✅ type-system、syntax、standard-library | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 类型标注与值绑定支持同行形式 `name : Type = expr` | 设计 | ✅ syntax、type-system | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 守卫子句改用 `if` 关键字，移除 `when` | 重构 | ✅ syntax、type-system | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 设计目录索引更新——文件说明与设计原则同步新设计 | 文档 | ✅ design/index | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 工具链与格式化规范更新——`let in` / `--allow-ffi` / `kun test` / 块表达式格式 | 文档 | ✅ kun-cli-tool、code-formatting | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 应用概览与功能清单更新——效应系统 / FFI / 录制回放概览、功能状态刷新 | 文档 | ✅ app-overview、feature-inventory | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 标准库重设计——7 个内置效应 + `Process` 标准库效应 / `extern` FFI 模块 / Int 位运算 / 录制 / 回放 | 重构 | ✅ standard-library、type-system | ✅ writing-conventions | `plan-first` |
+| 2026-07-17 | 命令系统重设计——`Command` ADT / `cmd` 字面量 / 显式执行三入口 | 重构 | ✅ command-system、syntax、standard-library | ✅ writing-conventions | `plan-first` |
+| 2026-07-17 | 语法重设计——块表达式 / `let in` 统一 / `effect`/`handler`/`handle` / `cmd` 字面量 | 重构 | ✅ syntax | ✅ writing-conventions | `plan-first` |
+| 2026-07-17 | 类型系统重设计——`alias`/`type` 分离 / `==` 浅比较 / 代数效应类型 | 重构 | ✅ type-system | ✅ writing-conventions | `plan-first` |
+| 2026-07-17 | **code/kun-lang/ 实现撤销（commit `559180a`）** —— 设计大改动（代数效应 / 命令系统 / `alias`/`type` 分离 / TestCase 测试系统等）导致旧实现不可维护；删除全部源码 + 清理实现相关 logs/plans/audits；保留设计文档；更新 `code/README.md` | 撤销 | ✅ - | ✅ closure-audit | `plan-first` → `research-only` |
 
 ## AI 阻塞条件
 
