@@ -102,6 +102,7 @@ src/
 | `docs/ai-agent/input/` | 原始需求输入记录 |
 | `docs/ai-agent/discussions/` | 设计讨论记录 |
 | `docs/ai-agent/lessons/` | 经验教训与违规记录 |
+| `docs/ai-agent/logs/` | 开发日志 |
 | `docs/ai-agent/testing/` | 测试记录与基线值 |
 | `docs/ai-agent/bugs/` | Bug 修复笔记 |
 | `docs/ai-agent/references/` | 实现指南、维护检查清单、文档命名规范 |

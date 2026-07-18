@@ -60,6 +60,7 @@
 | `docs/ai-agent/audits/` | 审计记录、审计执行指南 | 实施前/实施后的审计环节 |
 | `docs/ai-agent/lessons/` | 经验教训与违规记录 | 遇到已记录过的错误模式时 |
 | `docs/ai-agent/examples/` | 语法使用综合示例 | 理解语法设计意图、验证一致性时 |
+| `docs/ai-agent/logs/` | 开发日志 | 追溯近期工作时 |
 | `docs/ai-agent/backlog/` | 待办事项与状态流转 | 了解未完成工作项时 |
 | `docs/ai-agent/testing/` | 测试记录与基线值 | 测试实施前后 |
 | `docs/ai-agent/bugs/` | Bug 修复笔记 | 遇到已知 Bug 模式时 |

@@ -25,5 +25,5 @@
 
 ### 过程文档
 
-- `docs/ai-agent/plans/`、`docs/ai-agent/audits/` — 按时间组织
+- `docs/ai-agent/plans/`、`docs/ai-agent/logs/`、`docs/ai-agent/audits/` — 按时间组织
 - 过程文档不需要保持最新，但应完整保留历史记录
