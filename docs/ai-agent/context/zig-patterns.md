@@ -2,14 +2,16 @@
 
 > 本文件记录 Kun 项目实现中 Zig 语言的惯用模式、注意事项和最佳实践，供 LLM 代码生成时参考。
 >
-> **最后更新**：2026.06.15，基于 Zig 0.17.0-dev。
+> **最后更新**：2026.07.16，基于 Zig 0.16.0（稳定版）。
 
 ## 版本
 
-- **Zig 版本**：0.17.0-dev（版本包位于 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`）
+- **Zig 版本**：**0.16.0（已发布稳定版）**，作为 Kun 宿主语言。锁定稳定版而非 dev 版，避免 API 频繁变动；Kun 所需核心能力（Arena、FFI/dlopen、fork-exec、Landlock/seccomp 沙箱、tagged union、comptime、I/O Interface、Juicy Main）在 0.16.0 均已具备并稳定。
+  - 官方文档：https://ziglang.org/documentation/0.16.0/
+  - 版本包位于 `/opt/ai-agent/tools/zig-x86_64-linux-0.16.0.tar.xz`
 - **构建系统**：`build.zig`
 
-### 0.13 → 0.17 关键变更摘要
+### 0.13 → 0.16 关键变更摘要
 
 | 类别 | 变更 |
 |------|------|
@@ -80,7 +82,7 @@ test "example" {
 ### 通用分配器初始化
 
 ```zig
-// 0.17 使用 decl literal 初始化
+// 0.16 使用 decl literal 初始化
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 defer _ = gpa.deinit();
 const allocator = gpa.allocator();
@@ -92,7 +94,7 @@ const allocator = gpa.allocator();
 // ❌ 旧方式
 var list: std.ArrayListUnmanaged(u32) = .{};
 
-// ✅ 0.17 使用 .empty decl literal
+// ✅ 0.16 使用 .empty decl literal
 var list: std.ArrayListUnmanaged(u32) = .empty;
 defer list.deinit(allocator);
 ```
@@ -208,7 +210,7 @@ fn installLandlock(rules: []const LandlockRule) !void {
 
 ### 直接系统调用（无 libc）
 
-Zig 0.17 继续支持通过 `syscall` 函数直接调用 Linux 系统调用，无需内联汇编：
+Zig 0.16 继续支持通过 `syscall` 函数直接调用 Linux 系统调用，无需内联汇编：
 
 ```zig
 const linux = std.os.linux;
@@ -238,7 +240,7 @@ exe.root_module.addImport("c", translate_c.createModule());
 
 ## Comptime 编译期代码
 
-### 类型反射（0.17 字段名）
+### 类型反射（0.16 字段名）
 
 `std.builtin.Type` 字段在 0.14 起全部为小写：
 
@@ -259,7 +261,7 @@ fn FieldType(comptime T: type, comptime name: []const u8) type {
 // ❌ 0.13 方式
 const U8 = @Type(.{ .Int = .{ .signedness = .unsigned, .bits = 8 } });
 
-// ✅ 0.17 方式
+// ✅ 0.16 方式
 const U8 = @Int(.unsigned, 8);
 
 // 结构体类型构造
@@ -475,6 +477,7 @@ std.log.debug("in {s}:{d}", .{ src.file, src.line });
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 锁定 Zig 0.16.0（已发布稳定版）作为 Kun 宿主语言：版本声明从 0.17.0-dev 改为 0.16.0；补充官方文档链接与版本包路径；代码注释中 0.17 特性引用统一为 0.16（这些特性在 0.16.0 已落地）；更新 0.13→0.16 变更摘要标题。锁定稳定版而非 dev 版，避免 API 频繁变动；Kun 所需核心能力（Arena、FFI/dlopen、fork-exec、Landlock/seccomp 沙箱、tagged union、comptime、I/O Interface、Juicy Main）在 0.16.0 均已具备并稳定 |
 | 2026.06.25 | 内存管理重写（Arena 唯一策略、禁止 page_allocator、禁止单独 free、测试 Arena 模式）；新增格式化陷阱（{} vs {f}） |
 | 2026.06.15 | 全面更新至 Zig 0.17.0-dev：类型反射字段小写、@Type 移除使用独立内置函数、@cImport 废弃、I/O as Interface、标记 switch/@branchHint、构建系统变更、Unmanaged 容器 .empty 初始化、文件系统 API 更新 |
 | 2026.06.10 | 初始版本，基于 Zig 0.13.0 |
