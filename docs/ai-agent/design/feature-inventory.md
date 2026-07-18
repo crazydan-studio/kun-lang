@@ -31,13 +31,13 @@
 | 内置效应 | ✅ 设计定型 | 7 个：`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`；保留名，用户不可重名定义 |
 | `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }`；签名在标准库（Kun），handler 实现在编译器源码（Zig） |
 | `handler` 声明 | ✅ 设计定型 | case of 风格 `<name> = handler <Effect> of <op> <args> -> <impl>`；类型 `Handler {e} a ! {handlerEffects}` |
-| `handle with` 表达式 | ✅ 设计定型 | **仅 `main`/`Test.body` 内可用**；`handle <expr> with <handler>`；handler 组合 `h1 >> h2`（`Test.body` 由 `kun test` 运行器在入口级上下文执行，详见 [单元测试设计](testing.md)） |
+| `handle with` 表达式 | ✅ 设计定型 | **仅 `main`/`TestCase.body` 内可用**；`handle <expr> with <handler>`；handler 组合 `h1 >> h2`（`TestCase.body` 由 `kun test` 运行器在入口级上下文执行，详见 [单元测试设计](testing.md)） |
 | `continue` 委托 | ✅ 设计定型 | 控制流原语，委托外层/默认 handler；每分支恰好一次；不可多次调用；不可作值传递；不可嵌套 lambda |
 | `abort` 提前终止 | ✅ 设计定型 | 控制流原语，提前终止 handler；返回值须匹配 handler 产出类型；与 `continue` 二选一 |
 | 效应多态 | ✅ 设计定型 | 单效应变量 `e`，调用时实例化；`map : (a -> b ! e) -> List a -> List b ! e` |
 | Let 泛化值限制 | ✅ 设计定型 | 语法值（lambda/字面量/ADT 构造）泛化类型与效应变量；函数应用/效应调用不泛化 |
 | HM 效应集合一 | ✅ 设计定型 | `! e ~ ! IO` 成立（`e := {IO}`）；`! e ~ ! {IO, e}` occurs check 失败 |
-| 强制消解 | ✅ 设计定型 | 用户效应必须 `handle`；内置效应运行时自动注入默认 Zig handler；未消解用户效应冒泡到 `main`/`Test.body` 编译错误 |
+| 强制消解 | ✅ 设计定型 | 用户效应必须 `handle`；内置效应运行时自动注入默认 Zig handler；未消解用户效应冒泡到 `main`/`TestCase.body` 编译错误 |
 | 多效应 handler | ✅ 设计定型 | `handler {DB, Log} of DB.query q -> ...`；操作名必须限定（`DB.query`）避免歧义 |
 | Mock Handler | ✅ 设计定型 | 测试用，每效应可独立 mock；`continue` 委托默认或不调用 `continue` 直接返回 |
 | Stream 消费检查 | ✅ 设计定型 | 单 `let in` 块强制消费；跨块传递视为已消费；`case`/`if` 各分支均需消费；`defer` 不计入 |
@@ -142,7 +142,7 @@
 | Float | ✅ 设计定型 | 浮点绝对值/取整/三角/指数对数/幂/常量/类型互转/`approxEqual`，Math 已并入 Float |
 | Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
 | Lazy | ✅ 设计定型 | 显式惰性特区：`Lazy.lazy : (Unit -> a) -> Lazy a`；`Lazy.force : Lazy a -> a`（memoize） |
-| Test | ✅ 设计定型 [推迟 v1.2] | `type Test = Test { name, description, timeout, body, with }`（测试用例 Record）；`effect Test = { assert, fail, skip }`（`abort` 终止，不再 panic）；`testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；`TestResult`（Pass/Fail/Skip）。详见 [单元测试设计](testing.md) |
+| Test | ✅ 设计定型 [推迟 v1.2] | `type TestCase = TestCase { name, description, timeout, body, with }`（测试用例 Record）；`effect Test = { assert, fail, skip }`（`abort` 终止，不再 panic）；`testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；`TestResult`（Pass/Fail/Skip）；`Test` 模块函数——`test : String -> (Unit ! {Test, e}) -> TestCase` 便捷构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 设置字段。详见 [单元测试设计](testing.md) |
 
 > **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型，但不在 MVP（v0.1.0）范围。Cli 和 Parser.Record 均推迟到 v0.3 实施，届时编译期内省基础设施（基于 Zig comptime + @typeInfo）与二者同时实现。
 
@@ -211,13 +211,13 @@
 | `defer` | ✅ 设计定型 | 绑定最近 `let in` 块，LIFO，panic 时执行 |
 | `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }` |
 | `handler` 声明 | ✅ 设计定型 | case of 风格 `<name> = handler <Effect> of <op> <args> -> <impl>` |
-| `handle with` 表达式 | ✅ 设计定型 | 仅 `main`/`Test.body` 内可用 |
+| `handle with` 表达式 | ✅ 设计定型 | 仅 `main`/`TestCase.body` 内可用 |
 | `continue` / `abort` | ✅ 设计定型 | 控制流原语，每 handler 分支二选一 |
 | `extern` 块 | ✅ 设计定型 | `extern <Name> from "lib" = { func : sig, ... }` |
 | `assert` | ✅ 设计定型 | `Test` 效应操作 `Bool -> Unit ! {Test}`（需 `import Test`）；`cond=false` → `abort (Fail "assertion failed")`；可在任何效应集含 `Test` 的函数中使用 |
 | `TestResult` | ✅ 设计定型 | `Pass`/`Fail String`/`Skip String`（仅由 `testHandler` 产出） |
-| `Test` 类型值 | ✅ 设计定型 [推迟 v1.2] | `type Test = Test { name, description, timeout, body, with }` Record；`<module>_test.kun` 同目录共置；`export` 列表中的 `Test` 值被 `kun test` 收集 |
-| `kun test` 命令 | ✅ 设计定型 [推迟 v1.2] | 扫描 `lib/*_test.kun`，收集导出的 `Test` 值；`--filter` glob 匹配 `Test.name`/`--timeout`/`--parallel`/`--fail-fast`/`--report text\|json` |
+| `Test` 类型值 | ✅ 设计定型 [推迟 v1.2] | `type TestCase = TestCase { name, description, timeout, body, with }` Record；`<module>_test.kun` 同目录共置；`export` 列表中的 `TestCase` 值被 `kun test` 收集；`test` 构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式构造 |
+| `kun test` 命令 | ✅ 设计定型 [推迟 v1.2] | 扫描 `lib/*_test.kun`，收集导出的 `TestCase` 值；`--filter` glob 匹配 `TestCase.name`/`--timeout`/`--parallel`/`--fail-fast`/`--report text\|json` |
 | List 解构与展开 | ✅ 设计定型 | `[a, ..rest]`、`[..la, 0, ..lb]` |
 | 模式匹配 | ✅ 设计定型 | 穷举、守卫、嵌套、解构、or 模式 |
 | 解构赋值 | ✅ 设计定型 | 元组/Record/List |
@@ -264,16 +264,17 @@
 | `Std` 模块 | ❌ 已移除 | `File.currentDir` + `Cmd.withWorkDir` 替代 |
 | `Nat` 类型 | ❌ 已移除 | `Int` + 运行时范围检查替代 |
 | 扩展积类型 `{ Base \| field : T }` | ❌ 已移除 | Record 类型需精确静态匹配 |
-| `test*` 前缀函数 | ❌ 已废弃（2026.07.16） | `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`） |
+| `test*` 前缀函数 | ❌ 已废弃（2026.07.16） | `TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`） |
 | `tests/` 目录 + `test-*.kun` 命名 | ❌ 已废弃（2026.07.16） | `<module>_test.kun` 同目录共置 |
 | `assert : Bool -> Unit`（panic 版） | ❌ 已废弃（2026.07.16） | `Test` 效应的 `assert` 操作（`abort` 失败，不再 panic） |
-| `beforeAll`/`afterAll`/`beforeEach`/`afterEach` 隐式钩子 | ❌ 已废弃（2026.07.16） | `defer` + handler 组合（`Test.with` 字段） |
+| `beforeAll`/`afterAll`/`beforeEach`/`afterEach` 隐式钩子 | ❌ 已废弃（2026.07.16） | `defer` + handler 组合（`Test.with` 模块函数设置 `TestCase.with` 字段） |
 
 ## 版本历史
 
 | 版本 | 变更 |
 |------|------|
-| 2026.07.16 | 单元测试系统重设计：`handle with` 表达式行从 `main`/`test*` 改为 `main`/`Test.body`；强制消解行同步更新；`TestResult` 行补充「仅由 `testHandler` 产出」说明；`Test` 标准库模块行重写（`type Test` Record + `effect Test` + `testHandler`）；`assert`/`TestResult`/`test*` 函数行替换为 `assert`（`Test` 效应操作）/`TestResult`（`testHandler` 产出）/`Test` 类型值/`kun test` 命令 4 行；语法与工具区 `handle with`/`assert`/`TestResult` 行同步更新；新增「已废弃」表 4 行（`test*` 前缀函数/`tests/` 目录 + `test-*.kun` 命名/`assert : Bool -> Unit` panic 版/`before*`/`after*` 钩子）；详见 [单元测试设计](testing.md) |
+| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 调用；`handle with` 表达式行从 `main`/`Test` 类型 `body` 字段 改为 `main`/`TestCase.body`；强制消解行同步更新；`Test` 标准库模块行重写（增加 `test` 构造器 + `Test.with`/`Test.timeout`/`Test.describe`）；`Test` 类型值行同步重写；`kun test` 命令行从 `Test` 值改为 `TestCase` 值；已废弃表 2 行同步更新；详见 [单元测试设计](testing.md) |
+| 2026.07.16 | 单元测试系统重设计：`handle with` 表达式行从 `main`/`test*` 改为 `main`/`Test` 类型 `body` 字段；强制消解行同步更新；`TestResult` 行补充「仅由 `testHandler` 产出」说明；`Test` 标准库模块行重写（`type Test` Record + `effect Test` + `testHandler`）；`assert`/`TestResult`/`test*` 函数行替换为 `assert`（`Test` 效应操作）/`TestResult`（`testHandler` 产出）/`Test` 类型值/`kun test` 命令 4 行；语法与工具区 `handle with`/`assert`/`TestResult` 行同步更新；新增「已废弃」表 4 行（`test*` 前缀函数/`tests/` 目录 + `test-*.kun` 命名/`assert : Bool -> Unit` panic 版/`before*`/`after*` 钩子）；详见 [单元测试设计](testing.md) |
 | 2026.07.16 | 三项设计调整：（1）零参效应函数约定——签名 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`（无 `->` 前缀），`effect`/`extern` 操作记录 `Unit -> T` 改为 `T`，调用加 `!` 后缀（`Name!`），裸名为函数引用，`!` 后缀与已废弃的 Command 断言执行 `!` 是不同特性；`test*` 函数签名从 `Unit -> Unit/TestResult ! {E}` 改为零参效应函数 `Unit ! {E}` / `TestResult ! {E}`（功能清单第 17/28/45/58 行同步更新）（2）守卫子句改用 `if`（移除 `when` 关键字）（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
 | 2026.07.15 | 代数效应与命令系统重设计：新增 7 内置效应（IO/File/Cmd/Random/DateTime/Signal/FFI）、`effect`/`handler`/`handle with` 系统、`extern` FFI 块（仅 Linux，`--allow-ffi`）、`cmd` 字面量四段式、显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）、录制/回放（JSON Lines 按时间戳）、`alias`/`type` 分离（结构 vs 名义等价，不做 tag 擦除）、`==` 浅比较 + `Equal` 模块深比较、Nilable 简化（禁止嵌套 `??T`）、立即求值 + `Lazy`/`Stream` 显式惰性、统一 `let in`（废弃 `do`/`do in`，Unit 返回可省略 `in`）、`defer` 绑定 `let in` 块、`continue`/`abort` 控制流原语、`assert`/`TestResult`、`Int` 位运算、文档注释规范、模块系统规则（默认私有/re-export/无 wildcard/别名）、panic 退出码规则、递归类型深度上限 256（`KUN_MAX_TYPE_DEPTH`）、Let 泛化值限制；废弃 `?`/`!` 后缀、`Cmd.<bin>`/`Cmd.pipe?`/`Cmd.pipe!`/`Cmd.withRawOpt`、`Newtype`、Nilable 隐式包装、效应回调标记 `!` 旧式、`EffectFn`/`Fn` 区分、`let` 延迟求值、`do`/`let` 互斥 |
 | 2026.06.25 | 模块系统实现状态更新（四级搜索路径实现、--run 端到端） |

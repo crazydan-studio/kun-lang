@@ -613,7 +613,7 @@ effect Cmd =
   }
 ```
 
-**handler 实现**在编译器源码（Zig）中，编译进 `kun` 二进制，用户不可见、不可改。用户可在 `main`/`Test.body` 内用自定义 handler 包装（通过 `continue` 委托默认 Zig 实现）。
+**handler 实现**在编译器源码（Zig）中，编译进 `kun` 二进制，用户不可见、不可改。用户可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认 Zig 实现）。
 
 ```kun
 // 用户在 main 内 handle Cmd，用 continue 委托默认实现
@@ -750,7 +750,8 @@ in
 
 | 版本 | 变更 |
 |------|------|
-| 2026.07.16 | 单元测试系统重设计：跨文档一致性更新——内置 Cmd handler 章节中 `main`/`test*` 措辞改为 `main`/`Test.body`；详见 [单元测试设计](testing.md) |
+| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 调用；跨文档一致性更新——内置 Cmd handler 章节中 `main`/`Test` 类型 `body` 字段 措辞改为 `main`/`TestCase.body`；详见 [单元测试设计](testing.md) |
+| 2026.07.16 | 单元测试系统重设计：跨文档一致性更新——内置 Cmd handler 章节中 `main`/`test*` 措辞改为 `main`/`Test` 类型 `body` 字段；详见 [单元测试设计](testing.md) |
 | 2026.07.16 | 三项设计调整澄清：Command 的 `?`/`!` 后缀糖已废弃（`c?` → `Cmd.execSafe c`，`c!` → `Cmd.exec c`）；零参函数执行的 `!` 后缀是独立特性（见[类型系统 - 零参效应函数类型](type-system.md#零参效应函数类型-t-e)），二者非同一概念。`effect Cmd` 操作记录（`exec`/`execSafe`/`stream`/`which`）均为带参操作，无零参 op 需调整 |
 | 2026.07.15 | 重构为代数效应与命令系统设计：Command 改为 ADT（`Simple`/`Pipe`），引入 `cmd` 字面量四段式语法（命令/子命令/选项/位置参数），选项支持标识符键（自动映射）与字符串键（原样）；显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）+ `Cmd.which`；引入纯函数 `pipe`（替代 `Cmd.pipe?`/`Cmd.pipe!`，最多 16 层，字面量空列表编译错误）；修饰函数新增 `Cmd.withoutDash`（关闭 `--`），`Cmd.withStdin` 添加死锁预防策略；废弃 `Cmd.<bin>` 语法、`Cmd["..."]` 转义、`Cmd.withRawOpt`、`?`/`!` 后缀、`|>` 隐式触发；废弃 `do`/`do in` 改用 `let in` |
 | 2026.06.18 | API 精简：`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`（与 `Cmd.<bin>?` 对齐）；移除 `stdoutToString`/`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |

@@ -1056,7 +1056,7 @@ Handler : EffectSet -> Type -> Type
 
 ### 内置效应 Handler
 
-内置效应的 handler 实现于编译器源码（Zig），编译进 `kun` 二进制。用户不可定义内置效应的默认 handler，但可在 `main`/`Test.body` 内用自定义 handler 包装（通过 `continue` 委托默认）。`Test` 标准库效应的默认 handler `testHandler` 同样由运行器内置（与 IO/File 等内置效应默认 handler 同级），详见 [单元测试设计](testing.md)。
+内置效应的 handler 实现于编译器源码（Zig），编译进 `kun` 二进制。用户不可定义内置效应的默认 handler，但可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认）。`Test` 标准库效应的默认 handler `testHandler` 同样由运行器内置（与 IO/File 等内置效应默认 handler 同级），详见 [单元测试设计](testing.md)。
 
 内置 handler 注册表在编译期生成，加载标准库 `effect` 声明时校验完整性。
 
@@ -1204,7 +1204,7 @@ composedHandler =
 
 ### `handle` 表达式（限入口函数）
 
-**`handle with` 仅在 `main` 函数与 `Test` 值的 `body` 字段内可用**，业务函数不可使用。
+**`handle with` 仅在 `main` 函数与 `TestCase` 值的 `body` 字段内可用**，业务函数不可使用。
 
 ```kun
 handle
@@ -1218,41 +1218,38 @@ with
 | 上下文 | 可用 `handle` | 说明 |
 |---|---|---|
 | `main` | ✅ | 程序入口 |
-| `Test.body` | ✅ | `Test` 类型值的 `body` 字段，由 `kun test` 运行器在入口级上下文执行（详见 [单元测试设计](testing.md)） |
+| `TestCase.body` | ✅ | `TestCase` 类型值的 `body` 字段，由 `kun test` 运行器在入口级上下文执行（详见 [单元测试设计](testing.md)） |
 | 其他业务函数 | ❌ | 只声明效应，不消解 |
 
-**识别机制**：`main` 函数名 + `Test` 类型值的 `body` 字段（运行器提供入口级上下文）。编译器对 `main` 与 `Test.body` 统一处理，允许其内 `handle`。
+**识别机制**：`main` 函数名 + `TestCase` 类型值的 `body` 字段（运行器提供入口级上下文）。编译器对 `main` 与 `TestCase.body` 统一处理，允许其内 `handle`。
 
 **测试用例识别规则**：
 
 1. 文件命名：`<module>_test.kun`，与被测模块同目录共置（如 `lib/List.kun` 对应 `lib/List_test.kun`）；不识别 `tests/` 目录、不识别 `test-*.kun` 命名
-2. 用例载体：导出的 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`），而非 `test*` 前缀函数
-3. 收集规则：仅 `export` 列表中的 `Test` 类型值会被收集执行；未导出的 `Test` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
+2. 用例载体：导出的 `TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`），而非 `test*` 前缀函数
+3. 收集规则：仅 `export` 列表中的 `TestCase` 类型值会被收集执行；未导出的 `TestCase` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
 4. `body` 字段：零参效应函数 `Unit ! {Test, e}`，效应集必须含 `Test`，可选含用户效应 `e`
 
 ```kun
 // lib/List_test.kun
 import List (reverse)
-import Test (Test, Test(..), assert)
+import Test (Test, TestCase, test, assert)
 
-export (testReverse)   // ← 仅导出的 Test 值才会被运行
+export (testReverse)   // ← 仅导出的 TestCase 值才会被运行
 
-testReverse : Test =
-  Test
-    { name = "reverse preserves elements"
-    , body = \ ->
-        let
-          result = reverse [1, 2, 3]
-          assert (result == [3, 2, 1])
-        in
-          ()
-    , with = Nil
-    }
+testReverse : TestCase =
+  test "reverse preserves elements" (\ ->
+    let
+      result = reverse [1, 2, 3]
+      assert (result == [3, 2, 1])
+    in
+      ()
+  )
 ```
 
-> `Test` 类型、`Test` 效应、`testHandler`、`Test.with` 字段的完整定义见 [标准库 Test 模块](standard-library.md#test-测试断言与结果)；完整测试设计见 [单元测试设计](testing.md)。
+> `TestCase` 类型、`Test` 效应、`testHandler`、`Test` 模块（`test`/`Test.with`/`Test.timeout`/`Test.describe`）的完整定义见 [标准库 Test 模块](standard-library.md#test-测试断言与结果)；完整测试设计见 [单元测试设计](testing.md)。
 
-**业务函数的效应流向**：业务函数声明效应 → 冒泡到调用者 → 最终到 `main`（或 `Test.body`）→ 入口级上下文内 `handle` 消解。
+**业务函数的效应流向**：业务函数声明效应 → 冒泡到调用者 → 最终到 `main`（或 `TestCase.body`）→ 入口级上下文内 `handle` 消解。
 
 **未消解效应的处理**：
 
@@ -1272,26 +1269,24 @@ with
   postgreHandler >> journaldLog
 ```
 
-测试用例示例（`Test.with` 字段声明式消解用户效应）：
+测试用例示例（`Test.with` 模块函数声明式消解用户效应）：
 
 ```kun
 // lib/UserService_test.kun
-testFetchUser : Test =
-  Test
-    { name = "fetchUser returns user"
-    , body = \ ->
-        let
-          result = fetchUser (UserId "1")
-          case result of
-            Ok user -> assert (user.name == "alice")
-            Err _ -> fail "expected Ok, got Err"
-        in
-          ()
-    , with = Some (mockDbHandler >> mockLogHandler)
-    }
+testFetchUser : TestCase =
+  test "fetchUser returns user" (\ ->
+    let
+      result = fetchUser (UserId "1")
+      case result of
+        Ok user -> assert (user.name == "alice")
+        Err _ -> fail "expected Ok, got Err"
+    in
+      ()
+  )
+  |> Test.with (mockDbHandler >> mockLogHandler)
 ```
 
-> `kun test` 运行器在入口级上下文执行 `Test.body`：包装 `body!` → 用 `Test.with` 消解用户效应 → 用 `testHandler` 消解 `Test` 效应 → 产出 `TestResult`。因此 `body` 内可使用 `handle with`（与 `main` 同级）。
+> `kun test` 运行器在入口级上下文执行 `TestCase.body`：包装 `body!` → 用 `TestCase.with` 消解用户效应 → 用 `testHandler` 消解 `Test` 效应 → 产出 `TestResult`。因此 `body` 内可使用 `handle with`（与 `main` 同级）。
 
 ### Handler 效应变换
 
@@ -1323,9 +1318,9 @@ composedHandler =
 
 1. **编译期效应集追踪**：每个函数效应集由编译器推导
 2. **调用经分发表**：效应调用 `X.op` 编译为分发表查找
-3. **用户效应必须 handle**：未消解的用户效应冒泡到 `main`/`Test.body`，编译错误
+3. **用户效应必须 handle**：未消解的用户效应冒泡到 `main`/`TestCase.body`，编译错误
 4. **内置效应有默认**：未消解的内置效应运行时自动注入默认 Zig handler
-5. **入口级 handle 限制**：`handle with` 仅 `main`/`Test.body` 可用，业务函数不可中途消解
+5. **入口级 handle 限制**：`handle with` 仅 `main`/`TestCase.body` 可用，业务函数不可中途消解
 
 ### `main` 边界与效应集校验
 
@@ -1727,20 +1722,18 @@ mockLibc = handler Libc of
   ...
 
 // lib/Libc_test.kun
-testStrlen : Test =
-  Test
-    { name = "strlen returns length"
-    , body = \ ->
-        let
-          len = Libc.strlen "hello"
-          assert (len == 5)
-        in
-          ()
-    , with = Some mockLibc    // Libc 被 mock，无 FFI 产生
-    }
+testStrlen : TestCase =
+  test "strlen returns length" (\ ->
+    let
+      len = Libc.strlen "hello"
+      assert (len == 5)
+    in
+      ()
+  )
+  |> Test.with mockLibc    // Libc 被 mock，无 FFI 产生
 ```
 
-测试中 `Libc` 被 mock，不触发真实 C 调用，可独立验证业务逻辑。Mock handler 通过 `Test.with` 字段注入（声明式效应隔离），详见 [单元测试设计](testing.md)。
+测试中 `Libc` 被 mock，不触发真实 C 调用，可独立验证业务逻辑。Mock handler 通过 `Test.with` 模块函数注入（声明式效应隔离，设置 `TestCase.with` 字段），详见 [单元测试设计](testing.md)。
 
 ### FFI 防欺骗机制
 
@@ -2140,7 +2133,8 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 
 | 版本 | 变更 |
 |------|------|
-| 2026.07.16 | 单元测试系统重设计：`handle` 表达式章节入口级上下文从 `main`/`test*` 改为 `main`/`Test.body`（表格、识别机制、效应流向同步更新）；测试用例识别规则从 `test*` 前缀函数改为导出的 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`，文件约定 `<module>_test.kun`）；纯函数返回 `Unit` 例外说明从 `assert : Bool -> Unit`（panic）改为 `Test` 效应的 `assert : Bool -> Unit ! {Test}`（由 `testHandler` 消解）；内置效应 Handler 章节补充 `testHandler` 引用；Mock Handler 示例路径从 `test/` 改为 `lib/`；Mock 场景示例从 `testStrlen : Unit ! {IO}` + `handle with` 改为 `testStrlen : Test` + `Test.with` 字段；强制性保证 5 条措辞从 `main`/`test*` 改为 `main`/`Test.body`；测试基础架构交叉引用补充 `testing.md`；详见 [单元测试设计](testing.md) |
+| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 调用；导入语句从 `import Test (Test, Test(..), assert, fail, skip)` 改为 `import Test (Test, TestCase, test, assert, fail, skip)`；`handle` 表达式章节入口级上下文表 `Test` 类型 `body` 字段 改为 `TestCase.body`，识别机制与强制性保证 5 条同步更新；Mock 场景示例从 `Test { name, body, with }` 字面量改为 `test "..." (...) |> Test.with ...` 链式形式；`effect Test`/`testHandler`/`TestResult` 不变 |
+| 2026.07.16 | 单元测试系统重设计：`handle` 表达式章节入口级上下文从 `main`/`test*` 改为 `main`/`Test` 类型 `body` 字段（表格、识别机制、效应流向同步更新）；测试用例识别规则从 `test*` 前缀函数改为导出的 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`，文件约定 `<module>_test.kun`）；纯函数返回 `Unit` 例外说明从 `assert : Bool -> Unit`（panic）改为 `Test` 效应的 `assert : Bool -> Unit ! {Test}`（由 `testHandler` 消解）；内置效应 Handler 章节补充 `testHandler` 引用；Mock Handler 示例路径从 `test/` 改为 `lib/`；Mock 场景示例从 `testStrlen : Unit ! {IO}` + `handle with` 改为 `testStrlen : Test` + `Test.with` 字段；强制性保证 5 条措辞从 `main`/`test*` 改为 `main`/`Test` 类型 `body` 字段；测试基础架构交叉引用补充 `testing.md`；详见 [单元测试设计](testing.md) |
 | 2026.07.16 | 三项设计调整：（1）零参效应函数约定——签名 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`（无 `->`/`Unit ->`），`effect`/`extern` 操作记录中 `Unit -> T` 改为 `T`，调用加 `!` 后缀（`Name!`），裸名 `Name` 为函数引用，`!` 后缀与已废弃的 Command 断言执行 `!` 是不同特性；（2）守卫子句改用 `if`（移除 `when` 关键字）；（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
 | 2026.07.16 | 内置效应章节补充「效应名与模块名同名」说明：效应名属类型命名空间、模块名属值命名空间，同名合法；交叉引用语法设计的同名消歧规则 |
 | 2026.07.15 | 代数效应与命令系统重设计：函数类型改为 `<param> -> <result> ! <effectSet>`；新增 7 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）；新增 `effect`/`handler`/`handle with` 代数效应系统（限入口、`continue`/`abort` 二选一、效应多态单变量 `e`）；新增 `extern` FFI 块（仅 Linux，分层归属，`FfiBuffer` 不逃逸，`Opaque` 幻影类型，防欺骗四层）；Nilable 简化（**禁止嵌套 `??T`**，移除隐式包装/操作符脱糖/Record 字段 Nil 填充）；新增 `alias`/`type` 分离（结构 vs 名义等价，**不做 tag 擦除**，移除 `Newtype` 概念）；新增 `==` 浅比较 + `Equal` 模块深比较 + Map 键哈希规则；新增递归类型深度上限 256（`KUN_MAX_TYPE_DEPTH`）；新增 `Int` 位运算 + 优先级；新增 Let 泛化值限制；新增效应集合一规则与有序性；新增 `Handler` 类型与组合（`>>`）；新增多效应 handler 操作名限定；新增 `Stream` 消费检查规则；新增错误消息（Nested Nilable / Unhandled User Effect / Unhandled Library Effect 等）；种类系统新增 `Effect`/`EffectSet` |
