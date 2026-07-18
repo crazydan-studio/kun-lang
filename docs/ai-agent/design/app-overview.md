@@ -62,7 +62,7 @@ Kun 将副作用视为**类型层的效应集**——函数类型显式标注效
 | `File` | 文件系统 | `File.read`/`File.write` |
 | `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
 | `Random` | CSPRNG | `Random.int`/`Random.bytes` |
-| `DateTime` | 系统时间 | `DateTime.now`/`DateTime.sleep` |
+| `DateTime` | 系统时间 | `DateTime.now` |
 | `Signal` | 信号处理 | `Signal.on` |
 | `FFI` | 外部 C 库调用 | `FFI.call`（由 `extern` 块默认 handler 委托） |
 

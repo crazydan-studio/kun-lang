@@ -70,7 +70,7 @@ k8s-deploy/
 | `List.iter` 效应回调 | `Canary.kun` |
 | `List.zip` / `List.map` | `build.kun`（跨场景） |
 | `Stream.string` 消费输出 | `Deployer.kun` |
-| `DateTime.sleep`（替代 `Process.sleep`） | `Canary.kun` / `Verifier.kun` |
+| `Process.sleep` | `Canary.kun` / `Verifier.kun` |
 | f-string | 全模块 |
 
 ### 模块系统

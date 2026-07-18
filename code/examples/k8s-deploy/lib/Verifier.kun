@@ -11,6 +11,7 @@ export
 import String
 import Duration
 import DateTime
+import Process
 import Cmd
 import Int
 import CommandError
@@ -68,7 +69,7 @@ checkOnce = \endpoint ->
         )
       Err e -> Err e
 
-checkEndpoint : HealthCheck -> HealthStatus ! {Cmd, DateTime}
+checkEndpoint : HealthCheck -> HealthStatus ! {Cmd, DateTime, Process}
 checkEndpoint = \hc ->
   let
     started = DateTime.now!
@@ -99,7 +100,7 @@ evaluateCode = \code elapsed expected ->
           , reason = f"expected {exp}, got {code}"
           }
 
-retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus ! {Cmd, DateTime}
+retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus ! {Cmd, DateTime, Process}
 retryLoop = \attempt started hc ->
   let
     elapsed = DateTime.now! - started
@@ -127,11 +128,11 @@ retryLoop = \attempt started hc ->
               Healthy { responseTime = elapsed2, statusCode = code, body = "" }
             else
               let
-                DateTime.sleep hc.interval
+                Process.sleep hc.interval
               in
                 retryLoop (attempt + 1) started hc
         Err _ ->
           let
-            DateTime.sleep hc.interval
+            Process.sleep hc.interval
           in
             retryLoop (attempt + 1) started hc

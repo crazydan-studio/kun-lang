@@ -11,7 +11,7 @@ export
 
 import List
 import Duration
-import DateTime
+import Process
 import Cmd
 import IO
 import CommandError
@@ -61,7 +61,7 @@ generateSteps = \start end step ->
       }
     )
 
-gradualShift : CanaryConfig -> List CanaryStep ! {IO, Cmd, DateTime}
+gradualShift : CanaryConfig -> List CanaryStep ! {IO, Cmd, Process}
 gradualShift = \cfg ->
   let
     steps = generateSteps cfg.startPercent cfg.endPercent cfg.stepSize
@@ -74,7 +74,7 @@ gradualShift = \cfg ->
           case setTrafficWeight cfg.namespace cfg.service step.percent of
             Ok _ ->
               IO.println f"    ✓ Traffic shifted to {step.percent}%"
-              DateTime.sleep cfg.stepInterval
+              Process.sleep cfg.stepInterval
             Err err ->
               IO.eprintln f"    ✗ Failed to shift traffic: {CommandError.show err}"
         in

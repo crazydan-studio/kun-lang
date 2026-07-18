@@ -67,7 +67,7 @@ add = \x y -> x + y
 | `File` | 文件系统 | `File.read`/`File.write` |
 | `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
 | `Random` | CSPRNG | `Random.int`/`Random.bytes` |
-| `DateTime` | 系统时间 | `DateTime.now`/`DateTime.sleep` |
+| `DateTime` | 系统时间 | `DateTime.now` |
 | `Signal` | 信号处理 | `Signal.on` |
 | `FFI` | 外部 C 库调用 | `FFI.call`（由 `extern` 块默认 handler 委托） |
 
@@ -1004,9 +1004,6 @@ toString : DateTime -> String
 
 // [Primitive] 获取当前系统时间
 now : DateTime ! {DateTime}
-
-// [Primitive] 阻塞等待指定时长
-sleep : Duration -> Unit ! {DateTime}
 
 // [PureKun] DateTime + Duration = DateTime
 (+) : DateTime -> Duration -> DateTime
@@ -3163,6 +3160,9 @@ kill : Signal -> Pid -> Result Unit IOError ! {Process}
 // [Primitive] 等待子进程——返回 ?ExitCode（无子进程时返回 Nil）
 wait : ?ExitCode ! {Process}
 
+// [Primitive] 阻塞等待指定时长
+sleep : Duration -> Unit ! {Process}
+
 
 ```
 
@@ -3222,13 +3222,12 @@ toString : ExitCode -> String
 
 ```kun
 import Process
-import DateTime
 
 let
   currentPid = Process.pid!                     // → Process.Pid.of <当前进程 ID>
   IO.println f"pid: {Process.Pid.toInt currentPid}"
 
-  DateTime.sleep 5s                            // 等待 5 秒（sleep 归属 DateTime 效应）
+  Process.sleep 5s                            // 等待 5 秒（sleep 归属 Process 效应）
   Process.exit 0                               // 正常退出
 in
   ()
