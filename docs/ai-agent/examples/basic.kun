@@ -93,34 +93,37 @@ filterUsers = \minAge users ->
     |> List.filter (\u -> u.age >= minAge)
     |> List.map (\u -> u.name)
 
-// 效应函数：do in 返回值
-getCurrentTime : -> String
+// 零参效应函数：DateTime.now! 调用
+getCurrentTime : String ! {DateTime}
 getCurrentTime = \ ->
-  do
-    now = DateTime.now
+  let
+    now = DateTime.now!
   in
     case DateTime.format "yyyy-MM-dd HH:mm:ss" now of
       Ok s  -> s
       Err _ -> "unknown"
 
-// 效应函数：Cmd 调用 + Stream 管道
-processLog : Path -> Unit
+// 效应函数：块表达式 let in 返回 Unit
+processLog : Path -> Unit ! {Cmd, IO}
 processLog = \path ->
-  do
+  let
     entries =
-      Cmd.cat path
+      cmd cat {} [ path ]
+        |> Cmd.stream
         |> Stream.lines
         |> Stream.filterMap Result.ok
         |> Stream.filter (String.contains "ERROR")
         |> Stream.take 100
         |> Stream.toList
     IO.println f"found {List.length entries} errors"
+  in
+    ()
 
-// 效应函数：do in + Cmd ? 后缀
-countErrors : Path -> Int
+// 效应函数：let in + cmd.execSafe 显式执行
+countErrors : Path -> Int ! {Cmd}
 countErrors = \path ->
-  do
-    result = Cmd.grep? { pattern = "ERROR" } path
+  let
+    result = cmd grep { pattern = "ERROR" } [ path ] |> Cmd.execSafe
   in
     case result of
       Ok stream ->

@@ -41,13 +41,13 @@ type DockerConfig =
   , dockerfile: ?Path
   }
 
-generateTag : String -> String -> String
+generateTag : String -> String -> String ! {Cmd, DateTime}
 generateTag = \serviceName registry ->
-  do
-    now = DateTime.now
+  let
+    now = DateTime.now!
 
     commitHash =
-      case Cmd.git? { C = "." } "rev-parse" "--short" "HEAD" of
+      case cmd git rev-parse { C = "." } [ "--short", "HEAD" ] |> Cmd.execSafe of
         Ok output ->
           Stream.string output |> String.trim
         Err _ ->
@@ -61,12 +61,12 @@ generateTag = \serviceName registry ->
 
 buildImage : String -> Path -> Command
 buildImage = \tag contextDir ->
-  Cmd.docker { t = tag } "build" (Path.toString contextDir)
+  cmd docker build { t = tag } [ Path.toString contextDir ]
     |> Cmd.withWorkDir contextDir
 
-buildAndPush : String -> DockerConfig -> Path -> ImageResult
+buildAndPush : String -> DockerConfig -> Path -> ImageResult ! {IO, Cmd, DateTime, File}
 buildAndPush = \serviceName cfg contextDir ->
-  do
+  let
     IO.println f"  [docker] {serviceName}"
 
     tag = generateTag serviceName cfg.registry
@@ -78,10 +78,10 @@ buildAndPush = \serviceName cfg contextDir ->
   in
     case File.stat dockerfilePath of
       Ok _ ->
-        do
+        let
           res =
-            Cmd.docker { t = tag } "build" (Path.toString contextDir)
-              |> Cmd.andThen (Cmd.docker {} "push" tag)
+            cmd docker build { t = tag } [ Path.toString contextDir ]
+              |> Cmd.andThen (cmd docker push {} [ tag ])
               |> Cmd.execSafe
         in
           case res of
@@ -92,11 +92,11 @@ buildAndPush = \serviceName cfg contextDir ->
       Err _ ->
         ImageSkipped { service = serviceName, reason = "Dockerfile not found" }
 
-inspectImage : String -> String -> ImageResult
+inspectImage : String -> String -> ImageResult ! {Cmd}
 inspectImage = \serviceName tag ->
-  do
+  let
     imageId =
-      case Cmd.docker? { format = "{{.ID}}" } "inspect" tag of
+      case cmd docker inspect { format = "{{.ID}}" } [ tag ] |> Cmd.execSafe of
         Ok output ->
           Stream.string output
             |> String.trim
@@ -105,7 +105,7 @@ inspectImage = \serviceName tag ->
           "<unknown>"
 
     sizeStr =
-      case Cmd.docker? { format = "{{.Size}}" } "inspect" tag of
+      case cmd docker inspect { format = "{{.Size}}" } [ tag ] |> Cmd.execSafe of
         Ok output ->
           Stream.string output |> String.trim
         Err _ ->

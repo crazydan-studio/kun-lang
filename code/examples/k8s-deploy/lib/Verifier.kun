@@ -11,7 +11,6 @@ export
 import String
 import Duration
 import DateTime
-import Process
 import Cmd
 import Int
 import CommandError
@@ -45,20 +44,21 @@ type HealthCheck =
   , timeout   : Duration
   }
 
-checkOnce : String -> Result (Int, Duration) CommandError
+checkOnce : String -> Result (Int, Duration) CommandError ! {Cmd, DateTime}
 checkOnce = \endpoint ->
-  do
-    started = DateTime.now
+  let
+    started = DateTime.now!
     result =
-      endpoint
-        |> Cmd.curl?
-            { silent   = true
-            , maxTime  = "5"
-            , output   = "/dev/null"
-            , writeOut = "%{http_code}"
-            }
+      cmd curl
+        { silent   = true
+        , maxTime  = "5"
+        , output   = "/dev/null"
+        , writeOut = "%{http_code}"
+        }
+        [ endpoint ]
+        |> Cmd.execSafe
         |> Result.map Stream.string
-    elapsed = DateTime.now - started
+    elapsed = DateTime.now! - started
   in
     case result of
       Ok s ->
@@ -68,10 +68,10 @@ checkOnce = \endpoint ->
         )
       Err e -> Err e
 
-checkEndpoint : HealthCheck -> HealthStatus
+checkEndpoint : HealthCheck -> HealthStatus ! {Cmd, DateTime}
 checkEndpoint = \hc ->
-  do
-    started = DateTime.now
+  let
+    started = DateTime.now!
   in
     case checkOnce hc.endpoint of
       Ok (code, elapsed) ->
@@ -99,10 +99,10 @@ evaluateCode = \code elapsed expected ->
           , reason = f"expected {exp}, got {code}"
           }
 
-retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus
+retryLoop : Int -> DateTime -> HealthCheck -> HealthStatus ! {Cmd, DateTime}
 retryLoop = \attempt started hc ->
-  do
-    elapsed = DateTime.now - started
+  let
+    elapsed = DateTime.now! - started
   in
     if elapsed >= hc.timeout then
       Timeout { waited = hc.timeout }
@@ -115,7 +115,7 @@ retryLoop = \attempt started hc ->
     else
       case checkOnce hc.endpoint of
         Ok (code, elapsed2) ->
-          do
+          let
             okCode =
               case hc.expect of
                 Nil ->
@@ -126,12 +126,12 @@ retryLoop = \attempt started hc ->
             if okCode then
               Healthy { responseTime = elapsed2, statusCode = code, body = "" }
             else
-              do
-                Process.sleep hc.interval
+              let
+                DateTime.sleep hc.interval
               in
                 retryLoop (attempt + 1) started hc
         Err _ ->
-          do
-            Process.sleep hc.interval
+          let
+            DateTime.sleep hc.interval
           in
             retryLoop (attempt + 1) started hc

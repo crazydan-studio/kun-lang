@@ -59,17 +59,17 @@ buildCommand = \svc ->
   in
     case svc.language of
       "go" ->
-        Cmd.go { C = Path.toString svc.dir } "build" "-o" (Path.toString binary)
+        cmd go build { C = Path.toString svc.dir } [ "-o", Path.toString binary ]
           |> Cmd.withWorkDir svc.dir
           |> Cmd.mergeStderr
 
       "js" ->
         let
           installCmd =
-            Cmd.npm {} "install"
+            cmd npm install {} []
               |> Cmd.withWorkDir svc.dir
           buildCmd =
-            Cmd.npm {} "run" "build"
+            cmd npm run build {} []
               |> Cmd.withWorkDir svc.dir
         in
           installCmd
@@ -77,16 +77,16 @@ buildCommand = \svc ->
             |> Cmd.mergeStderr
 
       _ ->
-        Cmd.echo {} "Skipped: unknown language"
+        cmd echo {} [ "Skipped: unknown language" ]
 
-buildService : Service -> BuildResult
+buildService : Service -> BuildResult ! {IO, Cmd, DateTime, File}
 buildService = \svc ->
-  do
+  let
     IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
 
-    start    = DateTime.now
-    result   = Cmd.pipe? [buildCommand svc]
-    elapsed  = DateTime.now - start
+    start    = DateTime.now!
+    result   = pipe [buildCommand svc] |> Cmd.execSafe
+    elapsed  = DateTime.now! - start
 
     checksum = computeChecksum (buildArtifactPath svc)
   in
@@ -115,9 +115,9 @@ toBuildResult = \svc elapsed checksum result ->
         , exitCode = extractExitCode err
         }
 
-computeChecksum : Path -> String
+computeChecksum : Path -> String ! {File}
 computeChecksum = \path ->
-  do
+  let
     result =
       case File.readBytes path of
         Ok stream ->
@@ -137,13 +137,15 @@ extractExitCode = \err ->
     _ ->
       -1
 
-buildAll : List Service -> Int -> List BuildResult
+buildAll : List Service -> Int -> List BuildResult ! {IO, Cmd}
 buildAll = \svcs maxParallel ->
-  do
+  let
     List.iter
       (\svc ->
-        do
+        let
           IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
+        in
+          ()
       )
       svcs
 
@@ -158,9 +160,9 @@ buildAll = \svcs maxParallel ->
           result
       )
 
-detectServices : Path -> List Service
+detectServices : Path -> List Service ! {File}
 detectServices = \root ->
-  do
+  let
     entries =
       case File.list root of
         Ok es -> es
@@ -168,9 +170,9 @@ detectServices = \root ->
   in
     scanServices entries root
 
-detectLanguage : Path -> String
+detectLanguage : Path -> String ! {File}
 detectLanguage = \dir ->
-  do
+  let
     goStat   = File.stat (Path.join dir "go.mod")
     pkgStat  = File.stat (Path.join dir "package.json")
   in
@@ -179,21 +181,21 @@ detectLanguage = \dir ->
       (_, Ok _)   -> "js"
       _           -> "unknown"
 
-scanServices : List Path -> Path -> List Service
+scanServices : List Path -> Path -> List Service ! {File}
 scanServices = \entries root ->
-  do
+  let
     results =
       case entries of
         [] -> []
         [entry, ..rest] ->
-          do
+          let
             fullPath = root ++ entry
           in
             case File.stat fullPath of
               Ok s ->
                 case s.type of
                   Directory ->
-                    do
+                    let
                       lang = detectLanguage fullPath
                     in
                       if lang != "unknown" then

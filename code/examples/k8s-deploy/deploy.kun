@@ -84,29 +84,31 @@ parseConfig =
 // 发送通知
 // -------------------------------------------------------
 
-sendEvent : Config -> String -> N.NotifyLevel -> Duration -> Unit
+sendEvent : Config -> String -> N.NotifyLevel -> Duration -> Unit ! {IO, Cmd, DateTime}
 sendEvent = \cfg phase level elapsed ->
-  do
+  let
     event =
       { service   = cfg.deployment
-        , version   = cfg.image
-        , phase     = phase
-        , level     = level
-        , message   = f"{phase}"
-        , timestamp = DateTime.now
-        , duration  = Nil
-        }
+      , version   = cfg.image
+      , phase     = phase
+      , level     = level
+      , message   = f"{phase}"
+      , timestamp = DateTime.now!
+      , duration  = Nil
+      }
 
     N.notify cfg.webhookUrl event
+  in
+    ()
 
 // -------------------------------------------------------
 // 主部署流程
 // -------------------------------------------------------
 
-main : List String -> Unit
+main : List String -> Unit ! {IO, Cmd, DateTime, Process}
 main = \rawArgs ->
-  do
-    started = DateTime.now
+  let
+    started = DateTime.now!
 
     IO.println ""
     IO.println (String.repeat 60 "=")
@@ -136,7 +138,7 @@ main = \rawArgs ->
           Ok _ ->
             case D.setImage cfg.namespace cfg.deployment "app" cfg.image of
               Ok _ ->
-                sendEvent cfg "staging" N.Info (DateTime.now - started)
+                sendEvent cfg "staging" N.Info (DateTime.now! - started)
 
                 canaryPhase cfg started
               Err err ->
@@ -148,14 +150,16 @@ main = \rawArgs ->
       Err err ->
         IO.eprintln (Cli.show err)
         Process.exit 1
+  in
+    ()
 
 // -------------------------------------------------------
 // Phase 2: Canary 灰度
 // -------------------------------------------------------
 
-canaryPhase : Config -> DateTime -> Unit
+canaryPhase : Config -> DateTime -> Unit ! {IO, Cmd, DateTime, Process}
 canaryPhase = \cfg started ->
-  do
+  let
     IO.println ""
     IO.println f"  [2/4] CANARY ({cfg.canaryPercent}% → 100%)"
     IO.println (String.repeat 40 "-")
@@ -174,17 +178,19 @@ canaryPhase = \cfg started ->
     steps = C.gradualShift canaryCfg
 
     IO.println f"  Canary rollout: {List.length steps} steps completed"
-    sendEvent cfg "canary" N.Info (DateTime.now - started)
+    sendEvent cfg "canary" N.Info (DateTime.now! - started)
 
     fullRolloutPhase cfg started
+  in
+    ()
 
 // -------------------------------------------------------
 // Phase 3: Full Rollout
 // -------------------------------------------------------
 
-fullRolloutPhase : Config -> DateTime -> Unit
+fullRolloutPhase : Config -> DateTime -> Unit ! {IO, Cmd, DateTime, Process}
 fullRolloutPhase = \cfg started ->
-  do
+  let
     IO.println ""
     IO.println "  [3/4] FULL ROLLOUT"
     IO.println (String.repeat 40 "-")
@@ -192,22 +198,24 @@ fullRolloutPhase = \cfg started ->
     case D.rolloutStatus cfg.namespace cfg.deployment cfg.timeout of
       Ok _ ->
         IO.println "  ✓ Rollout complete"
-        sendEvent cfg "rollout" N.Success (DateTime.now - started)
+        sendEvent cfg "rollout" N.Success (DateTime.now! - started)
 
         healthCheckPhase cfg started
       Err err ->
         IO.eprintln f"  ✗ Rollout failed: {CommandError.show err}"
-        sendEvent cfg "rollout" N.Failure (DateTime.now - started)
+        sendEvent cfg "rollout" N.Failure (DateTime.now! - started)
 
         executeRollback cfg started
+  in
+    ()
 
 // -------------------------------------------------------
 // Phase 4: 健康检查
 // -------------------------------------------------------
 
-healthCheckPhase : Config -> DateTime -> Unit
+healthCheckPhase : Config -> DateTime -> Unit ! {IO, Cmd, DateTime, Process}
 healthCheckPhase = \cfg started ->
-  do
+  let
     IO.println ""
     IO.println "  [4/4] HEALTH CHECK"
     IO.println (String.repeat 40 "-")
@@ -225,7 +233,7 @@ healthCheckPhase = \cfg started ->
 
     case healthStatus of
       V.Healthy { responseTime, statusCode } ->
-        totalDuration = DateTime.now - started
+        totalDuration = DateTime.now! - started
 
         IO.println f"  ✓ Healthy — HTTP {statusCode} in {Duration.toMillis responseTime}ms"
         sendEvent cfg "healthy" N.Success totalDuration
@@ -235,37 +243,41 @@ healthCheckPhase = \cfg started ->
         Process.exit 0
       V.Degraded { statusCode, reason } ->
         IO.eprintln f"  ⚠ Degraded — HTTP {statusCode}: {reason}"
-        sendEvent cfg "healthy" N.Warning (DateTime.now - started)
+        sendEvent cfg "healthy" N.Warning (DateTime.now! - started)
 
         IO.println "\n  == Deployment completed with warnings =="
         Process.exit 0
       V.Unreachable { error, attempts } ->
         IO.eprintln f"  ✗ Unreachable after {attempts} attempts: {error}"
-        sendEvent cfg "healthy" N.Failure (DateTime.now - started)
+        sendEvent cfg "healthy" N.Failure (DateTime.now! - started)
 
         executeRollback cfg started
       V.Timeout { waited } ->
         IO.eprintln f"  ✗ Health check timed out after {Duration.toSeconds waited}s"
-        sendEvent cfg "healthy" N.Failure (DateTime.now - started)
+        sendEvent cfg "healthy" N.Failure (DateTime.now! - started)
 
         executeRollback cfg started
+  in
+    ()
 
 // -------------------------------------------------------
 // 自动回滚
 // -------------------------------------------------------
 
-executeRollback : Config -> DateTime -> Unit
+executeRollback : Config -> DateTime -> Unit ! {IO, Cmd, DateTime, Process}
 executeRollback = \cfg started ->
-  do
+  let
     IO.println ""
     IO.println "  !!! ROLLBACK !!!"
 
     case D.rollbackDeployment cfg.namespace cfg.deployment "0" of
       Ok _ ->
         IO.println "  ✓ Rollback complete"
-        sendEvent cfg "rollback" N.Rollback (DateTime.now - started)
+        sendEvent cfg "rollback" N.Rollback (DateTime.now! - started)
 
         Process.exit 2
       Err err ->
         IO.eprintln f"  ✗ Rollback failed: {CommandError.show err}"
         Process.exit 3
+  in
+    ()

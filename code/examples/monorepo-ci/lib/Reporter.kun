@@ -225,9 +225,9 @@ generateReport = \buildResults testResults imageResults started elapsed ->
 // 效应函数：将报告写入文件
 // -------------------------------------------------------
 
-writeReport : BuildReport -> Path -> Result Path IOError
+writeReport : BuildReport -> Path -> Result Path IOError ! {IO, File}
 writeReport = \report outputPath ->
-  do
+  let
     summary =
       summarySection
         "Build"
@@ -244,12 +244,12 @@ writeReport = \report outputPath ->
   in
     case File.atomicWriteString outputPath content of
       Ok _ ->
-        do
+        let
           IO.println f"Report written to {Path.toString outputPath}"
         in
           Ok outputPath
       Err e ->
-        do
+        let
           IO.eprintln f"Failed to write report: {IOError.show e}"
         in
           Err e

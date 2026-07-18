@@ -11,7 +11,7 @@ export
 
 import List
 import Duration
-import Process
+import DateTime
 import Cmd
 import IO
 import CommandError
@@ -36,9 +36,9 @@ type CanaryStep =
   , canary  : Int
   }
 
-setTrafficWeight : String -> String -> Int -> Result (Stream String) CommandError
+setTrafficWeight : String -> String -> Int -> Result (Stream String) CommandError ! {Cmd}
 setTrafficWeight = \namespace svcName canaryPercent ->
-  do
+  let
     stableWeight = 100 - canaryPercent
     trafficSpec : { spec : { traffic : { canary : Int, stable : Int } } }
     trafficSpec = { spec = { traffic = { canary = canaryPercent, stable = stableWeight } } }
@@ -47,9 +47,8 @@ setTrafficWeight = \namespace svcName canaryPercent ->
         Ok s  -> s
         Err _ -> "{}"
   in
-    Cmd.kubectl? { n = namespace }
-      "patch" "service" svcName
-      "--type=merge" "-p" patchData
+    cmd kubectl patch service { n = namespace } [ svcName, "--type=merge", "-p", patchData ]
+      |> Cmd.execSafe
 
 generateSteps : Int -> Int -> Int -> List CanaryStep
 generateSteps = \start end step ->
@@ -62,22 +61,24 @@ generateSteps = \start end step ->
       }
     )
 
-gradualShift : CanaryConfig -> List CanaryStep
+gradualShift : CanaryConfig -> List CanaryStep ! {IO, Cmd, DateTime}
 gradualShift = \cfg ->
-  do
+  let
     steps = generateSteps cfg.startPercent cfg.endPercent cfg.stepSize
 
     steps
       |> List.iter (\step ->
-        do
+        let
           IO.println f"  [canary] Adjusting traffic: canary={step.percent}% stable={step.stable}%"
 
           case setTrafficWeight cfg.namespace cfg.service step.percent of
             Ok _ ->
               IO.println f"    ✓ Traffic shifted to {step.percent}%"
-              Process.sleep cfg.stepInterval
+              DateTime.sleep cfg.stepInterval
             Err err ->
               IO.eprintln f"    ✗ Failed to shift traffic: {CommandError.show err}"
+        in
+          ()
       )
   in
     steps

@@ -31,37 +31,36 @@ type DeployPhase
   | Done
   | Failed { phase : String, reason : String }
 
-applyManifest : Path -> String -> Result (Stream String) CommandError
+applyManifest : Path -> String -> Result (Stream String) CommandError ! {IO, Cmd}
 applyManifest = \manifestPath namespace ->
-  do
+  let
     IO.println f"  [kubectl] Applying manifest: {Path.toString manifestPath}"
   in
-    Cmd.kubectl? { n = namespace }
-      "apply" "-f" (Path.toString manifestPath)
+    cmd kubectl apply { n = namespace } [ "-f", Path.toString manifestPath ]
+      |> Cmd.execSafe
 
-setImage : String -> String -> String -> String -> Result (Stream String) CommandError
+setImage : String -> String -> String -> String -> Result (Stream String) CommandError ! {IO, Cmd}
 setImage = \namespace deployment container image ->
-  do
+  let
     IO.println f"  [kubectl] Setting image: {deployment}/{container} = {image}"
   in
-    Cmd.kubectl? { n = namespace }
-      "set" "image" f"deployment/{deployment}"
-      f"{container}={image}"
+    cmd kubectl set image { n = namespace } [ f"deployment/{deployment}", f"{container}={image}" ]
+      |> Cmd.execSafe
 
-rolloutStatus : String -> String -> Duration -> Result (Stream String) CommandError
+rolloutStatus : String -> String -> Duration -> Result (Stream String) CommandError ! {IO, Cmd}
 rolloutStatus = \namespace deployment timeout ->
-  do
+  let
     IO.println f"  [kubectl] Waiting for rollout ({Duration.toSeconds timeout}s)..."
   in
-    Cmd.kubectl? { n = namespace, timeout = f"{Duration.toSeconds timeout}s" }
-      "rollout" "status" f"deployment/{deployment}"
+    cmd kubectl rollout status { n = namespace, timeout = f"{Duration.toSeconds timeout}s" } [ f"deployment/{deployment}" ]
+      |> Cmd.execSafe
 
-getPodNames : String -> String -> String -> List String
+getPodNames : String -> String -> String -> List String ! {Cmd}
 getPodNames = \namespace deployment labelSelector ->
-  do
+  let
     result =
-      Cmd.kubectl? { n = namespace, l = labelSelector }
-        "get" "pods" "-o" "name"
+      cmd kubectl get pods { n = namespace, l = labelSelector } [ "-o", "name" ]
+        |> Cmd.execSafe
   in
     case result of
       Ok output ->
@@ -72,13 +71,12 @@ getPodNames = \namespace deployment labelSelector ->
       Err _ ->
         []
 
-getServiceEndpoint : String -> String -> String -> ?String
+getServiceEndpoint : String -> String -> String -> ?String ! {Cmd}
 getServiceEndpoint = \namespace svcName port ->
-  do
+  let
     result =
-      Cmd.kubectl? { n = namespace }
-        "get" "svc" svcName
-        "-o" f"jsonpath=\{.status.loadBalancer.ingress[0].ip}:{port}"
+      cmd kubectl get svc { n = namespace } [ svcName, "-o", f"jsonpath=\{.status.loadBalancer.ingress[0].ip}:{port}" ]
+        |> Cmd.execSafe
 
     trimmed =
       case result of
@@ -90,11 +88,10 @@ getServiceEndpoint = \namespace svcName port ->
     else
       Nil
 
-rollbackDeployment : String -> String -> String -> Result (Stream String) CommandError
+rollbackDeployment : String -> String -> String -> Result (Stream String) CommandError ! {IO, Cmd}
 rollbackDeployment = \namespace deployment toRevision ->
-  do
+  let
     IO.eprintln f"  [ROLLBACK] {namespace}/{deployment} → revision {toRevision}"
   in
-    Cmd.kubectl? { n = namespace }
-      "rollout" "undo" f"deployment/{deployment}"
-      f"--to-revision={toRevision}"
+    cmd kubectl rollout undo { n = namespace } [ f"deployment/{deployment}", f"--to-revision={toRevision}" ]
+      |> Cmd.execSafe

@@ -48,21 +48,21 @@ testCommand : TestSuite -> Command
 testCommand = \suite ->
   case suite.language of
     "go" ->
-      Cmd.go { C = Path.toString suite.dir } "test" "./..."
+      cmd go test { C = Path.toString suite.dir } [ "./..." ]
     "js" ->
-      Cmd.npm { prefix = Path.toString suite.dir } "test"
+      cmd npm test { prefix = Path.toString suite.dir } []
     _ ->
-      Cmd.echo {} "no tests"
+      cmd echo {} [ "no tests" ]
 
-runSuite : TestSuite -> TestResult
+runSuite : TestSuite -> TestResult ! {IO, Cmd, DateTime}
 runSuite = \suite ->
-  do
+  let
     IO.println f"  [test] {suite.name} ({suite.language})"
 
-    start   = DateTime.now
-    result  = Cmd.pipe? [testCommand suite]
+    start   = DateTime.now!
+    result  = pipe [testCommand suite] |> Cmd.execSafe
 
-    elapsed = DateTime.now - start
+    elapsed = DateTime.now! - start
   in
     case result of
       Ok output ->
@@ -78,7 +78,7 @@ runSuite = \suite ->
 
 countTestCases : Stream String -> Int
 countTestCases = \output ->
-  do
+  let
     collected = Stream.string output
     lines     = String.split "\n" collected
   in
@@ -89,9 +89,9 @@ countTestCases = \output ->
       )
       |> List.length
 
-runTests : List TestSuite -> Int -> List TestResult
+runTests : List TestSuite -> Int -> List TestResult ! {Cmd}
 runTests = \suites maxParallel ->
-  do
+  let
     cmds = List.map testCommand suites
 
     raw   = Task.spawn maxParallel cmds |> Task.all
@@ -102,7 +102,7 @@ runTests = \suites maxParallel ->
 
 collectResults : List (TestSuite, Result (Stream String) CommandError) -> List TestResult -> List TestResult
 collectResults = \pairs acc ->
-  do
+  let
     results =
       case pairs of
         [] ->
@@ -110,7 +110,7 @@ collectResults = \pairs acc ->
         [pair, ..rest] ->
           case pair of
             (suite, Ok output) ->
-              do
+              let
                 cases = countTestCases output
               in
                 collectResults

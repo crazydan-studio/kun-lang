@@ -39,9 +39,10 @@ k8s-deploy/
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
-| `do` 块多层嵌套 | `deploy.kun` | 3 层 `case ... of Ok _ → do ...` 嵌套编排 |
-| 效应回调标注 | `Canary.kun` | `List.iter` 接受效应回调 `(\step -> do ...)` |
-| 纯函数分离 | `Notifier.kun` | `formatMessage` 纯 → `notifySlack`/`notifyConsole` 效应 |
+| `let in` 块多层嵌套 | `deploy.kun` | 3 层 `case ... of Ok _ → let ... in ()` 嵌套编排 |
+| 效应集标注 | 各 `lib/*.kun` | `applyManifest : Path -> String -> Result (Stream String) CommandError ! {IO, Cmd}` |
+| 零参效应函数 `!` 调用 | `deploy.kun` | `DateTime.now!`（启动时间）、`getCurrentTime!` |
+| 纯函数分离 | `Notifier.kun` | `formatMessage`（纯，`! {}`）→ `notifySlack`/`notifyConsole`（效应，`! {Cmd}`/`! {IO}`） |
 
 ### 并发与状态机
 
@@ -55,9 +56,10 @@ k8s-deploy/
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
-| `Cmd.kubectl?` | `Deployer.kun` | apply / set image / rollout status |
-| `Cmd.curl` + `Cmd.execSafe` | `Verifier.kun` / `Notifier.kun` | HTTP 健康检查 + Webhook 通知 |
-| 带 `--` 参数 | `Deployer.kun` | `--to-revision=` 特殊 flag |
+| `cmd kubectl ... \|> Cmd.execSafe` | `Deployer.kun` | apply / set image / rollout status / undo |
+| `cmd curl ... \|> Cmd.execSafe` | `Verifier.kun` / `Notifier.kun` | HTTP 健康检查 + Webhook 通知 |
+| 子命令分段 | `Deployer.kun` | `cmd kubectl rollout status { n = namespace, ... } [ ... ]` |
+| 字符串位置参数 | `Deployer.kun` | `[ "-f", path ]`、`[ "--to-revision=..." ]` 原样追加 |
 
 ### 标准库标识
 
@@ -68,6 +70,7 @@ k8s-deploy/
 | `List.iter` 效应回调 | `Canary.kun` |
 | `List.zip` / `List.map` | `build.kun`（跨场景） |
 | `Stream.string` 消费输出 | `Deployer.kun` |
+| `DateTime.sleep`（替代 `Process.sleep`） | `Canary.kun` / `Verifier.kun` |
 | f-string | 全模块 |
 
 ### 模块系统
@@ -93,8 +96,8 @@ k8s-deploy/
 
 | 问题 | 说明 |
 |------|------|
-| 无内置 HTTP 客户端 | 健康检查和 Webhook 通过 `Cmd.curl` 完成 |
-| `Cmd.timeout` 未实现（v1.0） | kubectl rollout 超时依赖 `--timeout` flag |
-| `Signal.on` 未实现（v1.0） | 无法处理 SIGTERM/SIGINT |
+| 无内置 HTTP 客户端 | 健康检查和 Webhook 通过 `cmd curl` 完成 |
+| `Cmd.timeout` 未实现 | kubectl rollout 超时依赖 `--timeout` flag |
+| `Signal.on` 未实现 | 无法处理 SIGTERM/SIGINT |
 | canary 流量实际机制 | 依赖 Service Mesh，`setTrafficWeight` 为简化示意 |
-| JSON 构造手动拼接 | `Parser.JSON.toString`（v1.0）可用后将消除手动字符串拼接 |
+| JSON 构造手动拼接 | `Parser.JSON.toString` 可用后将消除手动字符串拼接 |

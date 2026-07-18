@@ -34,15 +34,16 @@ monorepo-ci/
 | Record 类型 | `build.kun` | `type BuildConfig = { rootPath : Path, registry : String, ... }` |
 | Result 错误处理 | `Dockerizer.kun` | `case buildResult of Ok _ -> ... \| Err err -> ...` 嵌套匹配 |
 | Optional ?T | `build.kun` | `services : ?String` 逗号分隔的服务名列表 |
-| 纯/效应分离 | `Reporter.kun` | `generateReport` 纯计算 vs `writeReport` 效应写入 |
+| 纯/效应分离 | `Reporter.kun` | `generateReport` 纯计算（`! {}`）vs `writeReport` 效应写入（`! {IO, File}`） |
 
 ### 效应系统
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
-| `do` 块顺序执行 | `build.kun` | 4 个 Phase 依次：构建→测试→Docker→报告 |
-| 效应函数自动推断 | `Builder.kun` | `computeChecksum` / `detectServices` / `detectLanguage` 含 `do` 块，编译器自动标记 EffectFn |
-| 纯函数 | `Reporter.kun` | `generateReport` 接收数据 → 返回 String，无效应调用 |
+| `let in` 块顺序执行 | `build.kun` | 4 个 Phase 依次：构建→测试→Docker→报告 |
+| 效应集推导 | `Builder.kun` | `computeChecksum` / `detectServices` / `detectLanguage` 含 `File.*` 调用，编译器推导为 `! {File}` |
+| 零参效应函数 `!` 调用 | `Builder.kun` / `Dockerizer.kun` | `DateTime.now!`（构建开始/结束时间） |
+| 纯函数 | `Reporter.kun` | `generateReport` 接收数据 → 返回 `BuildReport`，无效应调用（`! {}`） |
 
 ### 模式匹配
 
@@ -56,16 +57,17 @@ monorepo-ci/
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
-| `Cmd.<bin>` 构造 | `Builder.kun` | `Cmd.go { C = ..., o = ... }` 构造 Command |
-| `Cmd.<bin>?` 安全执行 | `Dockerizer.kun` | `Cmd.docker? { t = tag } "build" ...` |
+| `cmd` 字面量构造 | `Builder.kun` | `cmd go build { C = ... } [ "-o", binary ]` 构造 Command |
+| `cmd ... \|> Cmd.execSafe` 安全执行 | `Dockerizer.kun` | `cmd docker build { t = tag } [ contextDir ] \|> Cmd.andThen (cmd docker push {} [ tag ]) \|> Cmd.execSafe` |
 | `Cmd.andThen` | `Builder.kun` | `installCmd \|> Cmd.andThen buildCmd` |
-| `Cmd.mergeStderr` | `Builder.kun` | `Cmd.go { ... } \|> Cmd.mergeStderr` |
+| `Cmd.mergeStderr` | `Builder.kun` | `cmd go build { ... } [ ... ] \|> Cmd.mergeStderr` |
+| `pipe` 纯函数 + 显式执行 | `Builder.kun` / `Tester.kun` | `pipe [buildCommand svc] \|> Cmd.execSafe` |
 
 ### 并发
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
-| `Task.spawn` + `Task.all` | `Builder.kun` / `Tester.kun` / `build.kun` | 并行构建/测试/Docker 批量执行 |
+| `Task.spawn` + `Task.all` | `Builder.kun` / `Tester.kun` / `build.kun` | 并行构建/测试/Docker 批量执行（`! {Cmd}` 效应） |
 
 ### 函数式编程
 
@@ -83,7 +85,7 @@ monorepo-ci/
 | 特性 | 位置 |
 |------|------|
 | `String.repeat` | `Reporter.kun`（分隔线） |
-| `DateTime.now` + `Duration` 算术 | `Builder.kun`（构建耗时） |
+| `DateTime.now!` + `Duration` 算术 | `Builder.kun`（构建耗时） |
 | `Hash.sha256Stream` / `Bytes.toHex` | `Builder.kun`（产物校验） |
 | `File.atomicWriteString` | `Reporter.kun`（原子写入） |
 | `Validator` + `Cli.withValidator` | `build.kun`（并行度范围校验） |
@@ -104,7 +106,7 @@ monorepo-ci/
 |------|:--:|
 | Go 服务构建 | ✅ |
 | JS 服务构建 | ✅ |
-| 并行构建（Task.spawn v0.5） | ✅ |
+| 并行构建（Task.spawn） | ✅ |
 | 测试执行（Task.spawn 并行） | ✅ |
 | Docker 镜像构建 + 推送 | ✅ |
 | 镜像标签生成（时间戳 + git hash） | ✅ |
@@ -115,5 +117,5 @@ monorepo-ci/
 
 | 问题 | 说明 |
 |------|------|
-| `Task.spawn` 未实现（v0.5） | 代码使用 `Task.spawn` / `Task.all` API，运行时需 v0.5 支持 |
-| `Cli.show` 未实现（v0.5） | CLI 错误格式化需 v0.5 |
+| `Task.spawn` 未实现 | 代码使用 `Task.spawn` / `Task.all` API，运行时需提供并发执行支持 |
+| `Cli.show` 未实现 | CLI 错误格式化需标准库扩展 |

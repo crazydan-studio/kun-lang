@@ -83,9 +83,9 @@ toTestSuites =
     }
   )
 
-main : List String -> Unit
+main : List String -> Unit ! {IO, Cmd, DateTime, Process, File}
 main = \rawArgs ->
-  do
+  let
     IO.println ""
     IO.println (String.repeat 60 "=")
     IO.println "  Monorepo CI/CD Pipeline"
@@ -94,7 +94,7 @@ main = \rawArgs ->
 
     case parseConfig rawArgs of
       Ok cfg ->
-        started   = DateTime.now
+        started   = DateTime.now!
         allSvcs   = B.detectServices cfg.rootPath
         services  = filterByNames allSvcs cfg.services
 
@@ -127,12 +127,12 @@ main = \rawArgs ->
         // -------------------------------------------------
         testResults =
           if cfg.skipTests then
-            do
+            let
               IO.println "\n  Tests skipped (--skip-tests)"
             in
               []
           else
-            do
+            let
               IO.println ""
               IO.println "  TEST PHASE"
               IO.println (String.repeat 40 "-")
@@ -185,7 +185,7 @@ main = \rawArgs ->
         // -------------------------------------------------
         // Phase 4: 报告
         // -------------------------------------------------
-        elapsed = DateTime.now - started
+        elapsed = DateTime.now! - started
         IO.println ""
         IO.println "  REPORT"
         IO.println (String.repeat 40 "-")
@@ -219,3 +219,5 @@ main = \rawArgs ->
       Err err ->
         IO.eprintln (Cli.show err)
         Process.exit 1
+  in
+    ()

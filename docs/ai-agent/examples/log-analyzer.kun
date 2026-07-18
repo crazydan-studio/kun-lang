@@ -20,25 +20,26 @@ parseLine = \line ->
     _ ->
       Err f"invalid line: {line}"
 
-getCurrentTime : -> String
+getCurrentTime : String ! {DateTime}
 getCurrentTime = \ ->
-  do
-    now = DateTime.now
+  let
+    now = DateTime.now!
   in
     case DateTime.format "HH:mm:ss" now of
       Ok s  -> s
       Err _ -> "??:??:??"
 
-main : List String -> Unit
+main : List String -> Unit ! {IO, Cmd, DateTime}
 main = \args ->
-  do
+  let
     logPath =
       case args of
         [path] -> Path.fromString path
         _      -> p"/var/log/syslog"
 
     lines =
-      Cmd.cat logPath
+      cmd cat {} [ logPath ]
+        |> Cmd.stream
         |> Stream.lines
         |> Stream.filterMap Result.ok
         |> Stream.parseMap parseLine
@@ -48,10 +49,14 @@ main = \args ->
       lines
         |> List.filter (\e -> e.level == "ERROR")
 
-    IO.println f"found {List.length errors} errors at {getCurrentTime}"
+    IO.println f"found {List.length errors} errors at {getCurrentTime!}"
     List.iter
       (\entry ->
-        do
+        let
           IO.println f"[{entry.timestamp}] {entry.message}"
+        in
+          ()
       )
       errors
+  in
+    ()
