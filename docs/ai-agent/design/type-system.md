@@ -809,6 +809,8 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 **保留名**：以上 7 个效应名为编译器保留名，用户不可定义同名 `effect`。防伪造机制见 [FFI 防欺骗](#ffi-防欺骗机制)。
 
+> **效应名与模块名同名**：7 个内置效应名与对应标准库模块同名（如 `IO` 效应与 `IO` 模块、`Cmd` 效应与 `Cmd` 模块）。效应名属类型命名空间（出现在 `! {E}`、`Handler {E}` 等类型位置），模块名属值命名空间（出现在 `import`、`Module.func` 等值位置），二者语法位置不重叠，同名合法。效应操作（如 `Cmd.exec`）必须全名调用且不可裸名导入，模块纯函数（如 `Cmd.withEnv`）可选择性导入裸名；详见 [语法设计 - 效应与模块同名](syntax.md#效应与模块同名)。
+
 ### 效应声明语法
 
 ```kun
@@ -847,7 +849,7 @@ effect File =
   }
 
 // <runtime>/lib/kun/Cmd.kun
-export (Cmd, pipe, cmd)
+export (Cmd, pipe, cmd, withEnv, withStdin, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
 
 effect Cmd =
   { exec     : Command -> Unit
@@ -2124,6 +2126,7 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 | 版本 | 变更 |
 |------|------|
 | 2026.07.16 | 三项设计调整：（1）零参效应函数约定——签名 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`（无 `->`/`Unit ->`），`effect`/`extern` 操作记录中 `Unit -> T` 改为 `T`，调用加 `!` 后缀（`Name!`），裸名 `Name` 为函数引用，`!` 后缀与已废弃的 Command 断言执行 `!` 是不同特性；（2）守卫子句改用 `if`（移除 `when` 关键字）；（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
+| 2026.07.16 | 内置效应章节补充「效应名与模块名同名」说明：效应名属类型命名空间、模块名属值命名空间，同名合法；交叉引用语法设计的同名消歧规则 |
 | 2026.07.15 | 代数效应与命令系统重设计：函数类型改为 `<param> -> <result> ! <effectSet>`；新增 7 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）；新增 `effect`/`handler`/`handle with` 代数效应系统（限入口、`continue`/`abort` 二选一、效应多态单变量 `e`）；新增 `extern` FFI 块（仅 Linux，分层归属，`FfiBuffer` 不逃逸，`Opaque` 幻影类型，防欺骗四层）；Nilable 简化（**禁止嵌套 `??T`**，移除隐式包装/操作符脱糖/Record 字段 Nil 填充）；新增 `alias`/`type` 分离（结构 vs 名义等价，**不做 tag 擦除**，移除 `Newtype` 概念）；新增 `==` 浅比较 + `Equal` 模块深比较 + Map 键哈希规则；新增递归类型深度上限 256（`KUN_MAX_TYPE_DEPTH`）；新增 `Int` 位运算 + 优先级；新增 Let 泛化值限制；新增效应集合一规则与有序性；新增 `Handler` 类型与组合（`>>`）；新增多效应 handler 操作名限定；新增 `Stream` 消费检查规则；新增错误消息（Nested Nilable / Unhandled User Effect / Unhandled Library Effect 等）；种类系统新增 `Effect`/`EffectSet` |
 | 2026.06.19 | 效应检查规则全面扩展（单一表达式范式配套） |
 | 2026.06.18 | Cmd API 精简；Nilable 隐式包装规则文档化；Regex 修饰符作用域默认行为说明补全 |

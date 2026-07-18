@@ -603,7 +603,7 @@ in
 
 ```kun
 // <runtime>/lib/kun/Cmd.kun
-export (Cmd, pipe, cmd)
+export (Cmd, pipe, cmd, withEnv, withStdin, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
 
 effect Cmd =
   { exec     : Command -> Unit
