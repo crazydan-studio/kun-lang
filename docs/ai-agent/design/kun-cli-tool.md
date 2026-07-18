@@ -96,7 +96,7 @@ kun --trace=full script.kun       # 打印完整调用栈
 
 ## 脚本入口
 
-`.kun` 脚本通过 `main` 函数作为执行入口。`main` 函数与 `Test` 值的 `body` 字段是入口级上下文，允许使用 `handle with` 消解效应（业务函数不可使用，详见 [代数效应系统](syntax.md#代数效应系统)）。
+`.kun` 脚本通过 `main` 函数作为执行入口。`main` 函数与 `Test` 值的 `body` 字段是入口级上下文，允许使用 `handle with` 消解效应（业务函数不可使用，详见 [类型系统 - 内置效应](type-system.md#内置效应)）。
 
 ```kun
 main : List String -> Unit ! {IO, File, Cmd, ...}
@@ -311,7 +311,7 @@ main = \raw ->
 | 2 | 用法错误（无效 CLI 参数、文件未找到） |
 | 126 | 安全拒绝——脚本请求的操作被安全沙箱阻止（含未启用 `--allow-ffi` 但 FFI 效应到达 `main`） |
 
-panic 退出码传播规则见 [语法设计 panic 语义](syntax.md#panic-语义)。
+panic 退出码传播规则见 [应用概览 - panic 退出码规则](app-overview.md#panic-退出码规则)。
 
 ### 使用示例
 

@@ -301,7 +301,7 @@ sigMask = (1 shl 2) | (1 shl 15)   // SIGINT | SIGTERM
 #### `Float`
 
 - IEEE 754 双精度浮点数（f64）。与 `Int` 混合运算需显式转换
-- 操作函数及容差比较见 [`Float` 模块](standard-library.md#float-浮点操作)
+- 操作函数及容差比较见 [`Float` 模块](standard-library.md#float-浮点操作与数学函数)
 - `Float.approxEqual` 签名 `Float -> Float -> Float -> Bool`，语义 `|a - b| < epsilon`，参数顺序为 `a b epsilon`
 
 ```kun

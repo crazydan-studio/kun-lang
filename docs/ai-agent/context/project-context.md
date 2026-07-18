@@ -9,7 +9,7 @@
 | 当前版本 | 0.1.0（Phase 7-8 全部完成，708 测试通过，全部审计缺陷修复） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
 | 里程碑 | 架构重设计完成，语言设计定型，Phase 1-8 全部完成；标准库 95% 真实实现，效应检查完备，Parser 语法补齐，模块系统搜索路径实现，--run 端到端可执行，kw_nil 关键字移除，zig-regex 引擎集成，i18n kmsg/format 命名插值 |
-| 宿主语言 | Zig（锁定 0.17.0-dev，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.17.0-dev.387+31f157d80.tar.xz`） |
+| 宿主语言 | Zig（锁定 0.16.0 稳定版，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.16.0.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
 
@@ -29,7 +29,7 @@
 
 | 层 | 技术栈 |
 |---|---|
-| 语言实现 | Zig 0.17.0-dev（宿主语言，版本锁定，版本包 `/opt/ai-agent/tools/`） |
+| 语言实现 | Zig 0.16.0（宿主语言，版本锁定，版本包 `/opt/ai-agent/tools/`） |
 | 运行时 | fork-exec + pipe 捕获 stdout/stderr |
 | 二进制产物 | `kun`（脚本执行器）+ `libkunlang.so`（共享解释器核心）；`kun-shell`（交互式环境，未来版本） |
 | 安全模型 | CLI 参数（`--allow-path`/`--allow-net`）+ Landlock + mount namespace 兜底 + seccomp + rlimit |
@@ -78,7 +78,7 @@
 | 2026-06-19 | 块表达式（原"单一表达式范式"）全面定稿——设计讨论、7 份文档重写、跨文档一致性修复、Test 模块效应分类修正、9 示例文件迁移 | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
 | 2026-06-17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`→`Stat` 纯访问器）；示例修复（Verifier.kun `let in`、Builder.kun+Dockerizer.kun `File.stat` 适配） | 设计+修复 | ✅ standard-library、syntax、examples | ✅ writing-conventions | `implement` |
 | 2026-06-16 | 标准库模块必要性分析与精简（移除 5 模块 + 19 函数、新增 4 项 P0、跨 14 文件传播） | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions、closure-audit | `implement` |
-| 2026-06-15 | Zig 0.13 → 0.17 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
+| 2026-06-15 | Zig 0.13 → 0.16 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
 | 2026-06-15 | 错误消息国际化（i18n）子系统设计——msgid 体系、.po 文件管理、构建时代码生成、运行时 locale 检测、消息格式化 API | 设计 | ✅ system-baseline、module-boundaries、type-system、i18n | ✅ writing-conventions | `plan-first`（先计划后实施） |
 | 2026-06-15 | 标准库内置函数绑定机制设计——Primitive 函数表结构、模块加载绑定规则、安全防护（防同名覆盖/防篡改）、逐函数实现类别标注 | 设计 | ✅ system-baseline、module-boundaries、standard-library | ✅ writing-conventions | `plan-first`（先计划后实施） |
 | 2026-06-13 | 八轮跨文档一致性审计（52+ 项修复）；REPL → Kun Shell 独立文档；kun doc/--trace 设计；类型检查算法补充；libkunlang.so 共享库架构 | 设计+审计 | ✅ 全部 owner docs | ✅ document-audit、closure-audit | `implement` |

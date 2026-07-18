@@ -360,7 +360,7 @@ kun test --allow-ffi                  # 允许测试体使用 FFI（与 `kun run
 | `--parallel <n>` | CPU 核心数 | 并行执行度；`1` 表示串行 |
 | `--fail-fast` | 关闭 | 首个 `Fail` 后停止未启动的测试 |
 | `--report <format>` | `text` | 报告格式：`text`（人类可读）/ `json`（结构化） |
-| `--allow-ffi` | 关闭 | 测试体触发 FFI 效应时放行（与 `kun run --allow-ffi` 同语义，详见 [`kun` CLI 工具 - 安全控制](kun-cli-tool.md#安全控制-实现推迟-v02)） |
+| `--allow-ffi` | 关闭 | 测试体触发 FFI 效应时放行（与 `kun run --allow-ffi` 同语义，详见 [`kun` CLI 工具 - 安全控制](kun-cli-tool.md#安全控制)） |
 
 ### 退出码
 

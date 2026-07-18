@@ -154,7 +154,7 @@ loggingIO =
         result
 ```
 
-详见 [代数效应系统](syntax.md#代数效应系统) 的内置效应章节。
+详见 [类型系统 - 内置效应](type-system.md#内置效应) 的内置效应章节。
 
 ## `Int` — 整数操作
 
@@ -3130,7 +3130,19 @@ main = \args ->
 
 ### 定位
 
-当前进程的控制操作。所有函数均为效应函数。
+当前进程的控制操作。所有函数均为效应函数。`Process` 是**标准库效应**（非 7 个内置效应之一），其默认 handler 由 `kun` 二进制运行时提供（与 IO/File 等内置效应默认 handler 同级），用户不可定义同名 `effect`。
+
+```kun
+effect Process =
+  { exit : Int -> Unit
+  , pid : Pid
+  , uid : Int
+  , gid : Int
+  , kill : Signal -> Pid -> Result Unit IOError
+  , wait : ?ExitCode
+  , sleep : Duration -> Unit
+  }
+```
 
 需显式导入：
 

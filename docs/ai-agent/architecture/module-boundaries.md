@@ -32,7 +32,7 @@ kun-lang/
 │   ├── pipe 纯函数（OS 管道链组合）
 │   └── Cmd.which（PATH 查找）
 ├── 安全子系统
-│   ├── 安全参数定义（--allow-path、--allow-net、--no-sandbox、--force、--env=、--cpu-limit、--mem-limit）—— 解析由 CLI 参数解析引擎完成
+│   ├── 安全参数定义（--allow-path、--allow-net、--allow-ffi、--no-sandbox、--force、--env=、--cpu-limit、--mem-limit、--audit）—— 解析由 CLI 参数解析引擎完成
 │   ├── Landlock 文件控制（5.13+）/ 网络控制（6.7+）首选
 │   ├── Mount namespace 兜底隔离（内核 3.8+）
 │   ├── seccomp-BPF 系统调用过滤（最低降级，per 子进程 fork 后安装）

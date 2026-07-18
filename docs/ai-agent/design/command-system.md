@@ -599,7 +599,7 @@ in
 
 ## `Cmd` 效应与标准库
 
-`Cmd` 是内置保留效应，其签名在标准库以普通 `effect` 声明（详见 [标准库设计](standard-library.md#cmd-命令调用)）：
+`Cmd` 是内置保留效应，其签名在标准库以普通 `effect` 声明（详见 [标准库设计](standard-library.md#cmd-command-工具与命令调用)）：
 
 ```kun
 // <runtime>/lib/kun/Cmd.kun
@@ -742,7 +742,7 @@ in
 
 ## 与标准库的关系
 
-- [标准库 `Cmd` 模块](standard-library.md#cmd-命令调用)：Cmd 效应签名声明与导入说明
+- [标准库 `Cmd` 模块](standard-library.md#cmd-command-工具与命令调用)：Cmd 效应签名声明与导入说明
 - [系统基线](../architecture/system-baseline.md#命令调用机制)：描述 fork-exec 运行时**实现机制**（系统契约、安全层、内存管理）
 - 本文档：定义命令调用的**语法、语义、API 签名与使用机制**
 
