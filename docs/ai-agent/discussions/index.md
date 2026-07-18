@@ -22,3 +22,4 @@
 | [String 操作与 Path 模块函数归属](discussion-string-path-typing.md) | String 操作均为类型函数（String.xxx），Path 模块包含 join/parent/fileName/extension | 2026-06-07 |
 | [Zig 0.16.0 宿主语言与效应/模块同名消歧](discussion-zig-host-and-effect-module-namespacing.md) | Zig 0.16.0（稳定版）作为宿主语言可行性确认；效应与模块同名（如 Cmd）靠类型/值命名空间分离 + 效应操作必须全名调用消歧 | 2026-07-16 |
 | [Z-Jail 沙箱加固参考分析](discussion-z-jail-sandbox-hardening.md) | 参考 Z-Jail 分层防御补齐沙箱缺口：capabilities 显式清零、fd 清理、PR_SET_DUMPABLE=0、IPC namespace、JSON 审计；不采纳 seccomp 白名单/强制 pivot_root/Truthimatics | 2026-07-16 |
+| [单元测试系统设计](discussion-unit-testing-design.md) | Test 类型值、_test.kun 约定、Test 效应（assert/fail/skip abort）、handler 隔离、kun test --filter/--timeout/--parallel、无 before*/after* 钩子 | 2026-07-16 |

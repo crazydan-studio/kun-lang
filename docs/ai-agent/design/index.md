@@ -16,6 +16,7 @@
 | [command-system.md](command-system.md) | OS 命令调用机制（`cmd` 字面量四段式、显式执行三入口、管道、修饰函数） |
 | [kun-cli-tool.md](kun-cli-tool.md) | `kun` CLI 工具（子命令、安全控制参数、脚本入口、Kun Shell [推迟 v2.0]） |
 | [kun-shell.md](kun-shell.md) | Kun Shell 交互式环境（SQLite 日志存储、函数收藏、AST 哈希） [推迟 v2.0] |
+| [testing.md](testing.md) | 单元测试设计（`Test` 类型、`_test.kun` 约定、`kun test` 命令、handler 隔离） |
 
 > 已废弃的历史设计文档已归档至 [`archive/deprecated/`](../archive/deprecated/) 目录。包括：安全角色与权限模型（`with caps`）、供应链安全、命令函数系统（`.cmd.kun` + Builder API）、命令签名系统（CDF）、能力映射指南。
 
@@ -31,6 +32,7 @@
 
 | 版本 | 变更 |
 |------|------|
+| 2026.07.16 | 单元测试系统重设计：文件列表新增 `testing.md`（单元测试设计——`Test` 类型值、`_test.kun` 约定、`kun test` 命令、`Test` 效应、handler 隔离）；详见 [单元测试设计](testing.md) |
 | 2026.07.16 | 三项设计调整：（1）零参效应函数约定——签名 `T ! {E}`（无 `->`），调用 `Name!`，"无 `?`/`!` 后缀"措辞澄清为"无 Command 的 `?`/`!` 后缀（零参函数执行的 `!` 后缀是独立特性）"（2）守卫子句改用 `if`（移除 `when` 关键字）（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
 | 2026.07.15 | 代数效应与命令系统设计配套更新：`cmd` 字面量四段式、显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）；`let in` 立即求值、`Lazy`/`Stream` 显式惰性特区；`effect`/`handler`/`handle with` 代数效应系统；`extern` 块 FFI 与 `--allow-ffi` 安全控制 |
 | 2026.06.13 | 求值策略措辞修正；示例代码语法合规审计与修复 |
