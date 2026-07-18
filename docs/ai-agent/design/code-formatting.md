@@ -1102,13 +1102,3 @@ main = \_ ->
     ()
 ```
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——示例 `currentTime` 等零参函数签名从 `Unit -> T ! {E}` 改为 `T ! {E}`，定义从 `\_ ->` 改为 `\ ->`，调用加 `!` 后缀（如 `DateTime.now!`、`currentTime!`，不再用 `()`）（2）模式守卫关键字 `when` 改为 `if`（"含有 `if` 守卫时" 等说明同步更新）（3）新增「类型标注与值绑定：同行或分离」章节，规定 `kun fmt` 优先同行（短类型 + 单表达式 + 行宽未超）、分两行（长类型 / `let in` 包裹体 / 多行体） |
-| 2026.07.15 | 块表达式范式配套更新（"单一表达式"更名为"块表达式"）：缩进表移除 `do`/`do in` 条目、新增 `let in` body、`handle with`、`handler of`、`cmd` 字面量参数条目；效应函数体改为 `let in` 包裹（废弃 `do`/`do in`，返回 `Unit` 可省略 `in`）；`case`/`if` 分支按 unbound/bound 区分格式（unbound 隐式块不需包裹、bound 多语句须 `let in` 包裹）；新增 `handle with` 表达式格式、`effect`/`extern`/`handler` 声明格式、`continue`/`abort` 格式；`cmd` 字面量调用格式（单行/多行/字符串命令名/`|>` 链接）；`pipe` 替代 `Cmd.pipe`/`Cmd.pipe?`；废弃 `Cmd.<bin>` 语法、`Cmd["..."]` 转义、`Cmd.withRawOpt`、`?`/`!` 后缀 |
-| 2026.06.19 | 单一表达式范式配套更新：缩进表新增 `let in` body、`do in` body、branch 内嵌 `do`/`let` 条目；函数定义按效应/纯函数分离格式说明（效应函数必须 `do`/`do in`、纯函数体单一表达式可省略 `let in`）；`case`/`if` 分支按 unbound/bound 区分格式（unbound 隐式 `do` 不需包裹、bound 多语句须 `do in`/`let in` 包裹）；`let in` 新增空 body 编译错误说明；`do`/`do in` 新增空 body 约束和互斥说明；分支体格式章节重写（移除"继承效应上下文"、新增 unbound/bound 分支格式、defer 在 unbound 分支中的格式）（注：此条目为旧规则记录，2026.07.15 重设计后 `do`/`do in` 已废弃，统一为 `let in`，详见 2026.07.15 条目） |
-| 2026.06.18 | 新增 Or 模式格式化规则——短模式同行、长模式换行缩进、`when` 守卫位置 |
-| 2026.06.13 | 代码块标签修正；零参效应 Lambda 示例补充 `do` 块（注：`do` 块已废弃，2026.07.15 后改用 `let in`） |
-| 2026.06.10 | 代码格式化规范初始定义 |

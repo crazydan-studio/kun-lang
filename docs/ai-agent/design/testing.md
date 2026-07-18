@@ -535,9 +535,3 @@ kun test --fail-fast --timeout 5s
 
 > 详见 [讨论记录 - 单元测试设计](../discussions/discussion-unit-testing-design.md)。
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（同名消歧，类型/值命名空间分离）；新增 `Test` 模块函数——`test : String -> (Unit ! {Test, e}) -> TestCase` 便捷构造器（默认 `description`/`timeout`/`with` 均为 `Nil`），`Test.with : Handler {e} Unit ! {r} -> TestCase -> TestCase`、`Test.timeout : Duration -> TestCase -> TestCase`、`Test.describe : String -> TestCase -> TestCase` 三个纯函数链式 `|>` 调用（设置对应字段，返回新 `TestCase`）；导入语句从 `import Test (Test, Test(..), assert, fail, skip)` 改为 `import Test (Test, TestCase, test, assert, fail, skip)`（`Test.with`/`Test.timeout`/`Test.describe` 全名使用）；所有示例从 `Test { name, body, with }` 字面量改为 `test "..." (\ -> ...) |> Test.with ... |> Test.timeout ...` 链式形式；字段引用 `Test` 类型 `body` 字段/`Test.with`/`Test.timeout` 改为 `TestCase.body`（字段）/`Test.with`/`Test.timeout`（模块函数）；`effect Test`/`testHandler`/`TestResult` 不变 |
-| 2026.07.16 | 单元测试系统重设计：替换 `test*` 前缀函数为 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`）；测试文件约定改为 `<module>_test.kun` 同目录共置（废弃 `tests/` 目录与 `test-*.kun` 命名）；`assert`/`fail`/`skip` 改为 `Test` 效应操作（`effect Test = { assert, fail, skip }`），通过 `abort` 终止测试（不再 panic）；新增 `testHandler` 运行器内置 handler；新增 `Test.with` 字段指定用户效应 handler；废弃 `beforeAll`/`afterAll`/`beforeEach`/`afterEach` 隐式钩子，改用 `defer` + handler 组合；`kun test` 新增 `--filter`/`--timeout`/`--parallel`/`--fail-fast`/`--report` 选项；新增 text/json 双格式报告；明确并行执行三层隔离保障（不可变 + handler 隔离 + 每测试沙箱）；入口级 `handle with` 限制扩展为 `main` 与 `Test` 类型 `body` 字段（替换 `test*` 函数措辞）；新建本文档 |

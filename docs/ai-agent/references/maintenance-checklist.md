@@ -13,7 +13,6 @@
 - [ ] 更新功能清单状态
 - [ ] 归档当前版本文档到 `docs/ai-agent/archive/<version>/`
 - [ ] 更新项目版本号（`project-context.md` 中的 `x.y.z`）
-- [ ] 更新各修改文档的版本历史（`yyyy.MM.dd` 日期）
 
 ## 文档健康检查
 

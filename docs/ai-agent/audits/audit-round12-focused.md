@@ -127,8 +127,3 @@ all : Stream (Result a e) -> List (Result a e)
 2. **log-analyzer.kun 缺少 `import Result`** — `Result.ok` 调用导致运行时编译错误
 3. **Task API 缺失 `[推迟 v0.5]` 行内标注** — 与推迟特性表不一致，降低 API 文档自解释性
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.06.20 | 初版。注：H1 `Cmd.cat {}` 经核实为误报（省略规则已在 Round 9 M4 中正式文档化），不纳入修复清单 |

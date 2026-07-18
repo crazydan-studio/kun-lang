@@ -307,18 +307,5 @@ let
 - **选择性导入 + 全名引用**：`import DB (query, execute)` 后可直接用 `query` 或全名 `DB.query`
 - **模块别名 + 选择性导入**：`import DB as D (query, execute)`
 - `effect`/`extern` 效应名通过 `export (DB)` 导出，不支持单独导出效应操作
-- Kun Shell 交互式环境 **[推迟 v2.0]**
+- Kun Shell 交互式环境（未来版本）
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 调用；跨文档一致性更新——`handle with` 限入口小节从 `main`/`Test` 类型 `body` 字段 改为 `main`/`TestCase.body`（2 处）；安全模型小节同步更新（1 处）；录制/回放章节 `testReplay` 示例从 `testReplay : Test = Test { name, body, with }` 改为 `testReplay : TestCase = test "..." (\ -> handle ... with replayHandler ...)` 链式形式；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 单元测试系统重设计：跨文档一致性更新——`handle with` 限入口小节从 `main`/`test*` 改为 `main`/`Test` 类型 `body` 字段（2 处）；安全模型小节同步更新（1 处）；录制/回放章节 `testReplay` 示例从 `testReplay : Unit ! {File}` + `test*` 函数形式改为 `testReplay : Test = Test { name, body, with }` 的 `Test` 类型值形式；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`testReplay` 等测试函数签名从 `Unit -> Unit ! {File}` 改为 `Unit ! {File}`，定义从 `\_ ->` 改为 `\ ->`；`File.createTemp ()` 调用改为 `File.createTemp!`（无参调用）；"无 `?`/`!` 后缀糖"措辞更新为"无 Command 的 `?`/`!` 后缀糖（零参函数执行的 `!` 后缀是独立特性）"（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行形式 |
-| 2026.07.15 | 代数效应与命令系统重设计：新增代数效应系统（7 内置效应 + `effect`/`handler`/`handle with`，限入口）、FFI 系统（`extern` 块，仅 Linux，`--allow-ffi`，`FfiBuffer` 不逃逸）、录制/回放（JSON Lines 按时间戳）、`cmd` 字面量四段式、显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）、`alias`/`type` 分离、`==` 浅比较、Nilable 简化（禁止嵌套）、立即求值 + `Lazy`/`Stream` 显式惰性、统一 `let in`（废弃 `do`/`do in`）、`defer` 绑定 `let in`、panic 退出码规则、模块系统规则（默认私有/re-export/无 wildcard/别名）；废弃 `?`/`!` 后缀、`Cmd.<bin>`、`Newtype`、`do`/`do in`、"单一表达式范式"更名为"块表达式" |
-| 2026.06.19 | 单一表达式范式概述更新：语法设计章节新增范式简介；defer 示例更新（分支退出时执行而非外层 `let in` 块退出时） |
-| 2026.06.18 | Kun Shell 交互式环境标注 [推迟 v2.0] |
-| 2026.06.16 | 命令调用描述更新：Command 执行模型同步（`Cmd.exec` 显式执行替代 `do` 块隐式执行），修复 defer 示例中未消费 Command |
-| 2026.06.13 | 求值策略标题修正；User/Group 参考更正为 Uid/Gid |
-| 2026.06.10 | 架构重设计：应用概览与核心概念定义 |

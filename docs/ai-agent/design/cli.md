@@ -576,7 +576,7 @@ handleSubCmd = \cfg ->
 
 ## 示例
 
-> **注意**：`Cli.parse` 和 `Cli.show` 标注为 [推迟 v0.3]，以下示例展示 v0.3 版本的功能设计。在 MVP v0.1 中，`Cli` 模块仅提供声明器（`flag`/`option`/`count`/`arg`）和修饰器（`withDefault`/`withRequires`/`withNegation`/`withEnvVar`/`withValidator`），`parse`/`show` 函数因依赖编译期代码展开设施而暂不可用。
+> **注意**：`Cli.parse` 和 `Cli.show` 依赖编译期代码展开设施，以下示例展示完整功能设计。当前 `Cli` 模块仅提供声明器（`flag`/`option`/`count`/`arg`）和修饰器（`withDefault`/`withRequires`/`withNegation`/`withEnvVar`/`withValidator`），`parse`/`show` 函数暂不可用。
 
 ### 1. 基本用法
 
@@ -1487,14 +1487,3 @@ kun run --allow-ffi script.kun           # FFI 效应放行，由运行时默认
 - `--allow-ffi` 仅控制 FFI 效应的运行时放行；编译期 `extern` 块语法检查、`FfiBuffer` 不逃逸规则、`Opaque` 幻影类型等四层防护始终生效，不受此开关影响
 - 完整安全模型与四层防护机制详见 [`kun-cli-tool.md` 的安全控制章节](kun-cli-tool.md#安全控制)
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 调用；导入语句从 `import Test (Test, Test(..), assert, fail, skip)` 改为 `import Test (Test, TestCase, test, assert, fail, skip)`；`kun test` 运行器章节示例从 `Test { name, body, with }` 字面量改为 `test "..." (\ -> ...) |> Test.with ... |> Test.timeout ...` 链式形式；`Test.name`/`Test.timeout`/`Test` 类型 `body` 字段 字段引用改为 `TestCase.name`/`TestCase.timeout`/`TestCase.body`（字段，后两者由 `Test.timeout`/`Test.with` 模块函数设置）；`effect Test`/`testHandler`/`TestResult` 不变 |
-| 2026.07.16 | 单元测试系统重设计：`kun test` 运行器章节全面重写——用例载体从 `test*` 前缀函数改为导出的 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`）；文件约定从 `tests/` 目录改为 `lib/` 下 `*_test.kun` 同目录共置；`assert`/`fail`/`skip` 改为 `Test` 效应操作（`abort` 终止，不再 panic）；新增 `--filter`/`--timeout`/`--parallel`/`--fail-fast`/`--report` 五个命令选项；新增并行执行三层隔离（不可变 + handler 隔离 + 每测试沙箱）、超时与 `defer` 生命周期、退出码、text/json 报告格式小节；`--allow-ffi` 注记同步更新引用 `Test` 类型 `body` 字段；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`test*` 函数识别规则中签名从 `Unit -> Unit` / `Unit -> TestResult` 改为零参效应函数 `Unit ! {E}` / `TestResult ! {E}`（无 `->` 前缀）；示例 `testFoo`/`testUserService` 等签名同步更新（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
-| 2026.07.15 | 代数效应与命令系统设计配套更新：所有示例改用 `let in`（废弃 `do`/`do in`）；`main` 函数签名添加效应集标注（`! {IO}` 等）；新增「`kun test` 运行器」章节（`test*` 函数识别规则、`TestResult`、`Pass`/`Fail`/`Skip` 汇总）；新增「`--allow-ffi` 与 FFI 效应边界」章节（FFI 效应到达 `main` 需显式启用 `--allow-ffi`，未启用退出码 126）；移除 `??` Nil 合并运算符用法，改用 `Nilable.withDefault`/`case ... of Some/Nil` 模式匹配 |
-| 2026.06.14 | 新增「与 CLI 二进制的关系」章节，明确 spec 模型与解析引擎的共享策略 |
-| 2026.06.13 | 定位描述调整：明确 Cli 依赖编译器编译期反射 API |
-| 2026.06.10 | 架构重设计：Cli 模块设计定型 |

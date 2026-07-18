@@ -17,11 +17,11 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | v0.2 标准库扩展已基本完成，待下一阶段规划 |
+| 活跃需求 | 标准库扩展已基本完成，待下一阶段规划 |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | Phase 8 已完成，待下一阶段规划 |
 | 最近完成 | Phase 8：Nilable 公开 ADT（kw_nil 移除、`?T` 解析、`Some` 模式）、标准库扩展（Nilable/Duration/Int/Float/Char/Validator 模块）、zig-regex 引擎集成（isMatch/replace/firstMatch）、DateTime 格式化引擎、i18n kmsg/format 分层（26 条 zh_CN 翻译）、nil_to_non_nilable 错误移除、nil_literal 从 AST 完全移除（708 测试，零泄漏） |
-| 推迟项 | 沙箱（Landlock/seccomp/rlimit）→ v0.5；Kun Shell → v2.0；等递归类型 → v0.3；Cli 模块 + Parser.Record → v0.3；Validator PureKun 实现（.kun 文件）→ v0.2 后续 phase；String/List/Map/Set PureKun 函数（.kun 文件）→ v0.2 后续 phase |
+| 推迟项 | 沙箱（Landlock/seccomp/rlimit）；Kun Shell；等递归类型；Cli 模块 + Parser.Record；Validator PureKun 实现（.kun 文件）；String/List/Map/Set PureKun 函数（.kun 文件） |
 | AI 自治级别 | `implement` |
 | 阻塞项 | 无 |
 
@@ -31,7 +31,7 @@
 |---|---|
 | 语言实现 | Zig 0.17.0-dev（宿主语言，版本锁定，版本包 `/opt/ai-agent/tools/`） |
 | 运行时 | fork-exec + pipe 捕获 stdout/stderr |
-| 二进制产物 | `kun`（脚本执行器）+ `libkunlang.so`（共享解释器核心）；`kun-shell`（交互式环境）[推迟 v2.0] |
+| 二进制产物 | `kun`（脚本执行器）+ `libkunlang.so`（共享解释器核心）；`kun-shell`（交互式环境，未来版本） |
 | 安全模型 | CLI 参数（`--allow-path`/`--allow-net`）+ Landlock + mount namespace 兜底 + seccomp + rlimit |
 | 文档构建 | VitePress + pnpm |
 | 版本控制 | Git + GitHub |
@@ -75,8 +75,8 @@
 | 2026-06-20 | 双代理审计循环（第1轮测试审计）→ 测试从 51 增至 68，零泄漏 | 审计+修复 | ✅ syntax、system-baseline、zig-patterns | ✅ plan-audit、closure-audit | `plan-first` → `implement` |
 | 2026-06-20 | 首阶段 Zig 代码实现 — build.zig + Lexer + AST + Parser + CLI dump-ast | 实现 | ✅ system-baseline、syntax、module-boundaries、zig-patterns | ✅ writing-conventions、plan-audit | `plan-first` → `implement` |
 | 2026-06-20 | 首阶段实现计划（骨架 + Lexer + Parser + AST）编写 | 计划 | ✅ system-baseline、module-boundaries、syntax、zig-patterns | ✅ writing-conventions | `plan-first` |
-| 2026-06-19 | 单一表达式范式全面定稿——设计讨论、7 份文档重写、跨文档一致性修复、Test 模块效应分类修正、9 示例文件迁移 | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
-| 2026-06-17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`→`Stat` 纯访问器）；示例修复（Verifier.kun `let…in`+`do`、Builder.kun+Dockerizer.kun `File.stat` 适配） | 设计+修复 | ✅ standard-library、syntax、examples | ✅ writing-conventions | `implement` |
+| 2026-06-19 | 块表达式（原"单一表达式范式"）全面定稿——设计讨论、7 份文档重写、跨文档一致性修复、Test 模块效应分类修正、9 示例文件迁移 | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions | `implement` |
+| 2026-06-17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`→`Stat` 纯访问器）；示例修复（Verifier.kun `let in`、Builder.kun+Dockerizer.kun `File.stat` 适配） | 设计+修复 | ✅ standard-library、syntax、examples | ✅ writing-conventions | `implement` |
 | 2026-06-16 | 标准库模块必要性分析与精简（移除 5 模块 + 19 函数、新增 4 项 P0、跨 14 文件传播） | 设计+重构 | ✅ 全部 owner docs | ✅ writing-conventions、closure-audit | `implement` |
 | 2026-06-15 | Zig 0.13 → 0.17 宿主语言升级——分析版本文档、更新所有版本引用、重写 zig-patterns.md 惯用模式指南 | 配置+文档 | ✅ zig-patterns、system-baseline、language-evaluation、project-context | ✅ writing-conventions | `implement` |
 | 2026-06-15 | 错误消息国际化（i18n）子系统设计——msgid 体系、.po 文件管理、构建时代码生成、运行时 locale 检测、消息格式化 API | 设计 | ✅ system-baseline、module-boundaries、type-system、i18n | ✅ writing-conventions | `plan-first`（先计划后实施） |
@@ -94,30 +94,3 @@
 - 涉及类型系统核心（ADT、模式匹配、类型推断）变更需先更新 `docs/ai-agent/architecture/` 下的设计文档
 - 运行时安全模型（沙箱、Landlock/seccomp）变更需人工确认
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.06.25 | Phase 7 全部完成（4 Steps，671 测试）：模块系统（ModuleResolver 四级搜索/递归加载/循环检测）、--run 端到端（import 解析 → decls 合并 → TypeCheck → Eval）、eval stub 修复（range_literal/pipe_reverse）、6 轮审计修复（58 项）；v0.1.0 功能完整 |
-| 2026.06.24 | Phase 6 全部完成（7 Steps，470 测试）：Map/Set 哈希表、Parser 9/10 语法、效应检查 18/18 函数接线、Stream.iter/fold/range/pipe、File 25 函数全真实（含 statx/walkDir/glob/copy/atomicWrite）、JSON(std.json)、glob_engine.zig、质量加固（span/内存泄漏/narrowType/docs）；审计缺陷修复 28/37 项 |
-| 2026.06.24 | Phase 5 实施完成：前置架构修复（A1-A4, R2, F9-F11）+ Steps 1-5（签名注册 + Stream + Syscall + 数据结构），106 Primitive 绑定；Primitive 拆分为 5 子模块（子目录 primitive/）；测试重构（50→13 tests，列表+循环模式） |
-| 2026.06.23 | 版本路线图重构：模块系统搜索路径提升至 v0.1；CLI 沙箱推迟至 v0.2；Cli.parse/show + Parser.Record + Random.* + 类型化命令模块 + Hash.md5 提升至 v0.3；Task.spawn/all 提升至 v0.4；kun doc 推迟至 v0.5；Test 推迟至 v1.2；移除 PlantUML 图表任务 |
-| 2026.06.23 | Phase 4 实现完成：PrimitiveTable 管道 + 12 Primitive + 效应接线（8/11）+ i18n.zig（24 msgid）+ cmd.zig + TypedExpr 补全 + Phase 1-3 深度审计（44 项修复）+ 双代理测试审计（545 测试收敛） |
-| 2026.06.22 | Phase 3 实现完成：Primitive 表 + 效应迁移 + 14 ErrorType + typeName/generalize + 效应检查 + Value 9 变体 + StreamNode + map/set eval + Cmd ident + 模式穷举；计划 23 轮审计（77 项修复）；双代理测试审计（306 全通过）；3 轮实现审计（20 项修复） |
-| 2026.06.21 | Phase 2 实现完成（typecheck + runtime + 229 测试）+ 效应识别方案 C + Phase 1 审计修复 + 构建打包脚本 |
-| 2026.06.20 | Phase 1 全部 8 轮审计完成：skipTypeAnn 修复；75 测试全通过零泄漏 |
-| 2026.06.20 | 第 7 轮元审计：文档基础设施同步（backlog/导航/版本历史） |
-| 2026.06.20 | 第 6 轮清理：移除死函数 exprSpan + typed.zig 接入编译 |
-| 2026.06.20 | 第 5 轮深度审计：6 项 P0 修复（大写进制前缀/MapSet/联合变体/双行函数/case终结） |
-| 2026.06.20 | 第 4 轮构建修复：dump-ast cwd |
-| 2026.06.20 | 第 3 轮审计：export 语法/??语义/优先级表全对齐 + 8 新测试 |
-| 2026.06.20 | 双代理审计第2轮（源码实现审计）— 修复整数前缀/??/字符串转义/? token/Duration 溢出等 11 项；68 测试全通过零泄漏 |
-| 2026.06.20 | 双代理审计第1轮（测试审计）— 测试从 51 增至 68；修复运算符优先级/.. spread/! token/全局 arena/测试泄漏 |
-| 2026.06.20 | 首阶段 Zig 代码实现完成 — build.zig/Lexer/AST/Parser/CLI dump-ast；项目进入可构建状态 |
-| 2026.06.20 | 首阶段实现计划创建（骨架+Lexer+Parser+AST）——活跃计划更新、验证命令补充 |
-| 2026.06.19 | 单一表达式范式全面定稿——活跃工作/最近完成/任务路由更新 |
-| 2026.06.18 | Kun Shell 标注 [推迟 v2.0]，二进制产物更新（`kun-shell` 标记推迟） |
-| 2026.06.17 | File 模块 API 精简（移除 `isDir`/`isFile`/`isSymlink`/`exists`）；示例重构（`File.stat` 替代多函数） |
-| 2026.06.17 | 标准库精简 + 跨文档一致性传播 |
-| 2026.06.16 | 持续设计审计与修复——活跃工作/任务路由更新 |
-| 2026.06.10 | 初始版本 |

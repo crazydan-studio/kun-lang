@@ -201,8 +201,3 @@ readString : Path -> Result String IOError
 4. 每个模块的 Primitive/PureKun 分类是否正确反映了"必须内置"与"可用 Kun 表达"的边界
 5. 标注格式不改变已有 API 签名
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.06.15 | 初始版本 |

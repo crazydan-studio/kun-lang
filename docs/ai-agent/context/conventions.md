@@ -47,7 +47,7 @@
 ## Git 规范
 
 - 分支命名：`feature/<name>`、`fix/<name>`、`docs/<name>`
-- 提交者统一为 `AI <ai@kun-lang.crazydan.io>`
+- 提交者统一为 `AI 码农 <coder@ai.crazydan.io>`
 - 提交信息使用中文，格式：`<类型>: <描述>`
   - 类型：`新增`、`修复`、`重构`、`文档`、`配置`、`测试`
 - **按需提交**：AI 仅在用户明确要求提交时执行 git commit。提交前必须通过 `git status` 和 `git diff` 确认变更内容，按变更意图分组提交
@@ -69,9 +69,7 @@
   - 主版本变更：破坏性语言/API 变更（如 `0.1.0` → `1.0.0`）
   - 次版本变更：新特性、标准库模块扩展（如 `0.1.0` → `0.2.0`）
   - 修订号变更：Bug 修复、文档更新（如 `0.1.0` → `0.1.1`）
-- **文档版本**：各文档的 `## 版本历史` 节采用 `yyyy.MM.dd` 日期形式（如 `2026.06.15`）——仅记录该文档自身的修改时间线，与项目版本解耦
 - 源代码版本通过 Git tag 管理（格式：`v<项目版本>`，如 `v0.1.0`）
-- 文档版本历史记录在各文件的 `## 版本历史` 节
 
 ## 编码约定
 
@@ -146,14 +144,3 @@ test "describes the category being tested" {
 - `isEffectBinding covers all known patterns` — 合并了 14 个原独立测试
 - `primitive impl functions return correct variant` — 合并了 5 个原独立测试
 - `isKnownCmdApi covers all known patterns`（`test_cmd.zig`）— 合并了 4 个原独立测试
-
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.06.25 | 测试规范扩展：新增运行参数（--test-timeout 5s、IO 阻塞规避、数据规模控制）和内存模型（Arena 包裹 testing.allocator） |
-| 2026.06.25 | 测试规范扩展：新增文件组织规则（共址原则、模块目录映射、test_main.zig 入口） |
-| 2026.06.24 | 新增测试用例编写规范（列表+循环模式） |
-| 2026.06.17 | 命名规范：新增 Kun 模块文件（PascalCase）、入口脚本（kebab-case）、`lib/` 子目录（PascalCase）、Zig 源文件（snake_case）命名规则；移除"待定"占位 |
-| 2026.06.15 | 新增代码审查/版本管理/编码约定/注释标记规范 |
-| 2026.06.10 | 初始版本 |

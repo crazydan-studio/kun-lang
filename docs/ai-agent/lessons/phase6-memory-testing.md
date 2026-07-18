@@ -85,8 +85,3 @@ pub fn format(self: Span, writer: anytype) !void {
 }
 ```
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.06.25 | 初始版本 |

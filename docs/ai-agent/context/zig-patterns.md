@@ -473,11 +473,3 @@ const src = @src();
 std.log.debug("in {s}:{d}", .{ src.file, src.line });
 ```
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 锁定 Zig 0.16.0（已发布稳定版）作为 Kun 宿主语言：版本声明从 0.17.0-dev 改为 0.16.0；补充官方文档链接与版本包路径；代码注释中 0.17 特性引用统一为 0.16（这些特性在 0.16.0 已落地）；更新 0.13→0.16 变更摘要标题。锁定稳定版而非 dev 版，避免 API 频繁变动；Kun 所需核心能力（Arena、FFI/dlopen、fork-exec、Landlock/seccomp 沙箱、tagged union、comptime、I/O Interface、Juicy Main）在 0.16.0 均已具备并稳定 |
-| 2026.06.25 | 内存管理重写（Arena 唯一策略、禁止 page_allocator、禁止单独 free、测试 Arena 模式）；新增格式化陷阱（{} vs {f}） |
-| 2026.06.15 | 全面更新至 Zig 0.17.0-dev：类型反射字段小写、@Type 移除使用独立内置函数、@cImport 废弃、I/O as Interface、标记 switch/@branchHint、构建系统变更、Unmanaged 容器 .empty 初始化、文件系统 API 更新 |
-| 2026.06.10 | 初始版本，基于 Zig 0.13.0 |

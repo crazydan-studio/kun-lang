@@ -814,7 +814,7 @@ toString : Signal -> String
 #### 信号接收
 
 ```kun
-// [Primitive] 注册信号处理函数——收到信号时执行回调并传递信号值；前一个处理器被替换 [推迟 v1.0]
+// [Primitive] 注册信号处理函数——收到信号时执行回调并传递信号值；前一个处理器被替换
 on : Signal -> (Signal -> Unit ! e) -> Unit ! {Signal, e}
 ```
 
@@ -1005,7 +1005,7 @@ toString : DateTime -> String
 // [Primitive] 获取当前系统时间
 now : DateTime ! {DateTime}
 
-// [Primitive] 阻塞等待指定时长 [推迟 v0.2]
+// [Primitive] 阻塞等待指定时长
 sleep : Duration -> Unit ! {DateTime}
 
 // [PureKun] DateTime + Duration = DateTime
@@ -1978,10 +1978,10 @@ withValidator : (a -> Result a String) -> CliArg -> CliArg
 // [PureKun] 互斥组（at most one：成员中最多允许一个出现）
 oneOf : String -> List CliArg -> CliArgGroup
 
-// [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断） [推迟 v0.3]
+// [Primitive] 解析原始参数列表为目标 Record（类型 a 由调用点 HM 推断）
 parse : CliSpec -> List String -> Result a CliError
 
-// [Primitive] 将解析错误转为人类可读字符串 [推迟 v0.3]
+// [Primitive] 将解析错误转为人类可读字符串
 show : CliError -> String
 ```
 
@@ -2039,16 +2039,16 @@ import Random
 ### API
 
 ```kun
-// [Primitive] 生成随机整数  // [推迟 v0.3]
+// [Primitive] 生成随机整数
 int : Int -> Int -> Int ! {Random}
 
-// [Primitive] 生成随机字节  // [推迟 v0.3]
+// [Primitive] 生成随机字节
 bytes : Int -> Bytes ! {Random}
 
-// [Primitive] 生成随机浮点数  // [推迟 v0.3]
+// [Primitive] 生成随机浮点数
 float : Float -> Float -> Float ! {Random}
 
-// [Primitive] 随机打乱列表  // [推迟 v0.3]
+// [Primitive] 随机打乱列表
 shuffle : List a -> List a ! {Random}
 ```
 
@@ -2569,7 +2569,7 @@ type Stat =
 
 > **MVP 已知限制 — 阻塞型文件**：`File.read` 和 `File.readBytes` 通过 `read(2)` 系统调用实现，在 FIFO（命名管道）、socket、字符设备等阻塞型文件上会无限期阻塞直到对端写入或连接。MVP 不提供超时参数。
 >
-> 未来方案（v1.1 候选）：为 `File.read` 和 `File.readBytes` 增加可选的 `Duration` 超时参数。
+> 未来方案：为 `File.read` 和 `File.readBytes` 增加可选的 `Duration` 超时参数。
 >
 > 临时规避：将阻塞读取放入 `cmd cat` 子进程并用 `Cmd.timeout` 包裹——子进程超时后 `Cmd.execSafe` 返回 `Err`，父进程不受影响。
 
@@ -2676,7 +2676,7 @@ mergeStderr : Command -> Command
 // [PureKun] 指定子进程工作目录（fork 后、exec 前 chdir）
 withWorkDir : Path -> Command -> Command
 
-// [PureKun] 指定子进程执行用户（需 OS 级权限）  // [推迟 v1.0]
+// [PureKun] 指定子进程执行用户（需 OS 级权限）
 withRunAs : String -> Command -> Command
 
 // [PureKun] 关闭 -- 分隔符自动插入
@@ -2698,10 +2698,10 @@ orElse : Command -> Command -> Command
 #### 超时与重试（修饰函数，纯操作）
 
 ```kun
-// [PureKun] 设置超时（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）  // [推迟 v1.0]
+// [PureKun] 设置超时（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）
 timeout : Duration -> Command -> Command
 
-// [PureKun] 设置重试（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）  // [推迟 v1.0]
+// [PureKun] 设置重试（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）
 retry : Int -> Duration -> Command -> Command
 ```
 
@@ -3046,7 +3046,7 @@ MVP 不支持：
 
 - C struct 按值传递（用 `Opaque` 包装 + FFI 函数访问字段）
 - C union（不支持）
-- 函数指针/回调（v1.0+ 考虑）
+- 函数指针/回调（未来考虑）
 - 变参函数（不支持）
 
 ### 效应流向
@@ -3269,9 +3269,9 @@ sha256Hex : Bytes -> String
 // [Primitive] SHA-256 流式哈希——逐块处理 Stream，避免大文件全部加载到内存
 sha256Stream : Stream Bytes -> Bytes
 
-// [Primitive] MD5 哈希 [推迟 v0.3]
+// [Primitive] MD5 哈希
 md5 : Bytes -> Bytes
-// [Primitive] MD5 哈希，返回十六进制字符串 [推迟 v0.3]
+// [Primitive] MD5 哈希，返回十六进制字符串
 md5Hex : Bytes -> String
 ```
 
@@ -3351,10 +3351,10 @@ import Task
 ### API
 
 ```kun
-// [Primitive] 并发执行命令列表，最大并行数为 n  [推迟 v0.4]
+// [Primitive] 并发执行命令列表，最大并行数为 n
 spawn : Int -> List Command -> Stream (Result (Stream String) CommandError) ! {Cmd}
 
-// [Primitive] 等待所有 Task 完成，收集结果  [推迟 v0.4]
+// [Primitive] 等待所有 Task 完成，收集结果
 all : Stream (Result a e) -> List (Result a e) ! {Cmd}
 ```
 
@@ -3367,7 +3367,7 @@ all : Stream (Result a e) -> List (Result a e) ! {Cmd}
 
 `Task.spawn` 通过主线程的 **epoll/poll 事件循环**管理多个子进程的 stdout/stderr pipe——不引入额外线程。子进程 fork 后各自独立，彼此无共享内存。文件冲突由内核文件系统锁定处理（多进程写同一文件的行为由 OS 定义），Kun 不做额外管理。
 
-> **MVP 不包含**：`Task` 模块（`spawn`/`all`）列为 v0.5 特性（见 [MVP 定义](../requirements/mvp.md)）。
+> **MVP 不包含**：`Task` 模块（`spawn`/`all`）（见 [MVP 定义](../requirements/mvp.md)）。
 
 ### 示例
 
@@ -3484,9 +3484,9 @@ export
   , toJson
   )
 
-// [Primitive] 从 JSON 字符串反序列化（编译期代码生成） [推迟 v0.3]
+// [Primitive] 从 JSON 字符串反序列化（编译期代码生成）
 fromJson : String -> Result a String
-// [Primitive] 序列化为 JSON 字符串（编译期代码生成） [推迟 v0.3]
+// [Primitive] 序列化为 JSON 字符串（编译期代码生成）
 toJson   : a -> Result String String
 ```
 
@@ -3538,8 +3538,6 @@ main = \_ ->
 > 2. 用例载体：导出的 `TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`），而非 `test*` 前缀函数
 > 3. 收集规则：仅 `export` 列表中的 `TestCase` 类型值会被收集执行；未导出的 `TestCase` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
 > 4. `body` 字段：零参效应函数 `Unit ! {Test, e}`，效应集必须含 `Test`，可选含用户效应 `e`
-
-> **推迟至 v1.2**：`Test` 模块与 `kun test` 子命令在 MVP（v0.1）中推迟实现。在 v1.2 前，Kun 脚本的验证通过直接运行脚本并检查退出码完成。
 
 完整测试系统设计（执行模型、并行隔离、生命周期、报告格式、命令选项）详见 [单元测试设计](testing.md)。
 
@@ -3805,51 +3803,3 @@ testReplay : TestCase =
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
 | `Test` | `import Test (Test, TestCase, test, assert, fail, skip)` | `TestCase` 类型（测试用例 Record）、`Test` 效应（`assert`/`fail`/`skip`）、`testHandler`、`TestResult`、`test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式函数 |
 
-## 推迟特性一览
-
-下表中的函数其类型签名已在标准库中定义，但运行时实现在对应版本之前不可用。调用这些函数在未激活版本中将因 Primitive 表无绑定而报"未定义函数"错误。
-
-| 函数 | 推迟版本 | 所在模块 |
-|------|---------|---------|
-| `Signal.on` | v1.0 | Signal |
-| `Cmd.timeout` | v1.0 | Cmd |
-| `Cmd.retry` | v1.0 | Cmd |
-| `Cmd.withRunAs` | v1.0 | Cmd |
-| `Random.*`（全部） | v0.3 | Random |
-| `Hash.md5` / `Hash.md5Hex` | v0.3 | Hash |
-| `Test` 模块全部 | v1.2 | Test |
-| `Cli.parse` / `Cli.show` | v0.3 | Cli |
-| `Parser.Record.fromJson` / `toJson` | v0.3 | Parser.Record |
-| `Task.spawn` / `Task.all` | v0.4 | Task |
-
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test : String -> (Unit ! {Test, e}) -> TestCase` 便捷构造器（默认 `description`/`timeout`/`with` 均为 `Nil`）与 `Test.with`/`Test.timeout`/`Test.describe` 三个纯函数链式 `|>` 调用；导入语句从 `import Test (Test, Test(..), assert, fail, skip)` 改为 `import Test (Test, TestCase, test, assert, fail, skip)`；所有示例从 `Test { name, body, with }` 字面量改为 `test "..." (\ -> ...) |> Test.with ... |> Test.timeout ...` 链式形式；字段引用 `Test` 类型 `body` 字段/`Test.with` 改为 `TestCase.body`（字段）/`Test.with`（模块函数）；`effect Test`/`testHandler`/`TestResult` 不变；录制/回放章节 `testReplay` 示例同步迁移；模块分类表 `Test` 行更新；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 单元测试系统重设计：`Test` 模块章节全面重写——从 `assert : Bool -> Unit`（panic 失败）+ `TestResult` 改为 `type Test = Test { name, description, timeout, body, with }`（Record）+ `effect Test = { assert, fail, skip }`（abort 失败）+ `testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；导入语句从 `import Test` 改为 `import Test (Test, Test(..), assert, fail, skip)`；`assert` 不再是 panic 函数，是 `Test` 效应操作；`TestResult` 仅由 `testHandler` 产出；`kun test` 运行器行为从“收集 `test*` 函数 + 捕获 panic”改为“扫描 `lib/*_test.kun` + 收集导出的 `Test` 值 + 包装/body/with/testHandler 四步执行”；示例改为 `lib/List_test.kun`/`lib/UserService_test.kun` 的 `Test` 类型值；测试文件约定从 `tests/` 目录 + `test-*.kun` 改为 `<module>_test.kun` 同目录共置；模块分类表 `Test` 行重写；内置效应章节与 `IO` 模块定位段中 `main`/`test*` 措辞改为 `main`/`Test` 类型 `body` 字段；录制/回放章节 `testReplay` 示例同步迁移为 `Test` 类型值；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——`IO.readln`/`IO.readAll`/`IO.readAllBytes`/`IO.flush`/`File.createTemp`/`File.createTempDir`/`DateTime.now`/`Process.pid`/`Process.uid`/`Process.gid`/`Process.wait` 等签名从 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`，`effect`/`extern` 操作记录中 `IO.readln`/`File.createTemp`/`Curl.easy_init` 等从 `Unit -> T` 改为 `T`，示例调用加 `!` 后缀；测试函数签名从 `Unit -> Unit/TestResult ! {E}` 改为 `Unit ! {E}` / `TestResult ! {E}`（2）守卫子句改用 `if`（3）类型标注与值绑定支持同行 |
-| 2026.07.15 | 重构为代数效应与命令系统设计：新增「内置效应」章节（IO/File/Cmd/Random/DateTime/Signal/FFI），签名在标准库以 `effect` 声明，handler 在编译器源码（Zig）实现；新增 `FFI` 模块（`extern` 块、`FfiValue`/`FfiBuffer`/`Opaque`、`Ffi.alloc`/`toBytes`/`toString`，仅 Linux）；新增 `Equal` 模块（`List.equal`/`Map.equal`/`Set.equal` 深比较）；新增 `Int` 位运算（`(&)`/`(|)`/`(^)`/`not`/`shl`/`shr`/`ushr`/`popCount`/`leadingZeros`/`trailingZeros`）+ 优先级（shl/shr > & > ^ > \|，左结合）；新增 `Map.fromHashFn` 自定义哈希；新增「录制/回放」章节（`recordHandler`/`replayHandler`，JSON Lines 格式，按时间戳）；重构 `Test` 模块为 `assert : Bool -> Unit` + `type TestResult = Pass \| Fail String \| Skip String`，`test*` 函数识别规则；`Float.approxEqual` 参数顺序修正为 `a b epsilon`；新增文档注释规范（多行 `//` + Markdown，`kun doc` 提取）；新增模块系统规则（默认私有、`export`/re-export、无 wildcard、别名）；所有示例改用 `let in`（废弃 `do`/`do in`）、显式 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`（废弃 `?`/`!` 后缀、`|>` 隐式触发、`Cmd.<bin>` 语法、`Cmd.withRawOpt`、`Cmd.pipe?`/`Cmd.pipe!`）；`List.iter`/`Stream.iter`/`Signal.on` 签名改用单效应变量 `e`（`(a -> Unit ! e) -> ... ! e`） |
-| 2026.06.20 | Round 12 聚焦审计：Task API 行补充 `[推迟 v0.5]` 行内标注 |
-| 2026.06.19 | Test 模块全部 9 个断言统一为效应函数，均返回 Unit：`isOk`/`isErr`/`isSome` 签名改为 `-> String -> Unit`（纯断言，不提取值） |
-| 2026.06.19 | Test 模块断言分类修正（单一表达式范式配套）：`equal`/`ok`/`notEqual`/`approxEqual`/`isNil`/`panics` 从 `[PureKun]` 改为效应函数（返回 `Unit` 的纯函数违反类型系统规则）；新增效应断言调用须在 `do` 上下文中的说明 |
-| 2026.06.18 | Cmd API 精简：`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`（与 `Cmd.<bin>?` 对齐）；移除 `stdoutToString`、`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
-| 2026.06.18 | 审计修复：`Stream.string`/`Stream.bytes` 分类精确化——命令输出流消费为效应操作，纯流可在外使用 |
-| 2026.06.18 | 审计修复：`List.minimum`/`List.maximum` 重命名为 `min`/`max`，新增比较器参数 `(a -> a -> Int)`（匹配 `sort` 风格）；`File.copy` 标签修正 `[PureKun]` → `[Primitive]`；`Test.panics` 示例修正为不依赖 panic 的断言；新增「推迟特性一览」表；`Cli.parse`/`Parser.Record` 添加 `[推迟 v0.5]` 标注；`Cmd.withStdin` 添加重载消歧说明；`DateTime.format` 添加 f-string `%` 引导符说明；File 模块新增「已移除函数」小节 |
-| 2026.06.17 | 新增 `List.sortBy`、`Stream.takeWhile`/`Stream.dropWhile`、`Duration.fromMillis`、`DateTime.toUnixMillis`（P1+P2 最后补全） |
-| 2026.06.17 | FileType/FileMode/FileStat 并入 File 模块（`File.Type`/`File.Mode`/`File.Stat`）；Pid/ExitCode 并入 Process 模块（`Process.Pid`/`Process.ExitCode`）；新增 `Bytes.slice`/`Bytes.contains`；净消除 5 模块（41→36） |
-| 2026.06.17 | 移除 `File.changeDir`（全局可变状态），`Cmd.withCwd` 更名为 `Cmd.withWorkDir` |
-| 2026.06.17 | 移除 `Path.cwd`（与 `File.currentDir` 冗余，`getcwd()` 归属 File 更合理） |
-| 2026.06.17 | 新增 `Bytes.length`、`IO.readAll`/`IO.readAllBytes`、`String.repeat`（P0+P1+P2 补全） |
-| 2026.06.17 | Math 模块并入 Float（pi/e/sin/cos/tan/exp/log/log2/log10/pow/min/max/clamp 迁入）；移除 Math 模块；Int 新增 pow/clamp |
-| 2026.06.17 | 标准库深度精简：移除 Math 反三角/双曲/角度转换/hypot/tau（11 项）、Int.neg、Float.neg、List.intersperse/product、Stream.cycle/repeat；新增 Int.min/max、String.trimStart/trimEnd/padStart/padEnd、Hash.sha256Stream、DateTime.fromUnixMillis、List.range |
-| 2026.06.17 | 标准库精简与补充：移除 `Sys`/`Port`/`IpAddress`/`SocketAddr`/`Errno` 模块（功能由 `Cmd.xxx` 替代或并入 IOError）；移除非必要的 File 函数（`chmod`/`chown`/`symlink`/`readlink`）和 Env 函数（`setenv`/`unsetenv`）、FileMode 低频谓词（`isSetuid`/`isSetgid`/`isSticky`）；新增 `DateTime` 算术（`+ Duration`/`- Duration`/`- DateTime`/`compare`/`before`/`after`）及 `DateTime.now`；新增 `Process.uid`/`Process.gid`；新增 `Path` 工具函数（`resolve`/`normalize`/`isAbsolute`/`isRelative`/`relative`）；新增 `Hash` 模块（SHA-256）和 `Base64` 模块 |
-| 2026.06.15 | 审计修复四轮：73 函数 API 补全（List/Map/Set/Stream/IO/File/Cmd/Process/Test 模块）；Test 模块推迟 v1.0；Uid.current/Gid.current 移除（Sys.uid/gid 替代） |
-| 2026.06.15 | 审计修复六轮：分类表更新 + 效应列表补全 + Cmd 函数推迟标注 |
-| 2026.06.14 | `File` 新增 `mkdir`/`mkdirAll`/`exists`；`Bytes` 新增 `fromString`/`toString`；`Map` 新增 `remove`；`String` 新增 `replaceAll`；新增 `Test` 模块（`equal`/`ok`/`panics`） |
-| 2026.06.14 | `List.iter`/`Stream.iter`/`Signal.on` 签名新增 `(a -> b)!` 效应回调标注——回调必须是效应函数；新增 `Cmd.exec : Command -> Unit` 显式执行；Stream IO 消费示例更新 |
-| 2026.06.13 | 示例代码语法合规修复；新增 `Regex`/`Duration`/`Set`/`Task` 模块；`Map` API 签名泛化（`k`/`v`）；`List` 新增 `sort`/`slice`/`take`/`drop`/`all`/`any`；`Process` 新增 `kill`/`wait`；`File` 新增 `glob`；`Regex` 新增 `fromString` |
-| 2026.06.12 | `Nil` 模块新增 `andThen`，`maybe` 重命名为 `withDefault`；新增 `Decimal` 精确十进制类型；`Float` 模块新增 `approxEqual` |
-| 2026.06.11 | 新增 `Math` 模块、`Function` 模块（缺省可用的 `identity`/`always`/`<\|`/`\|>`/`<<`/`>>`）；`Pid`/`Port`/`ExitCode`/`DateTime` 改为 `type` 单变体 ADT 形式（旧文档写作 "newtype"，2026.07.15 后统一为 `type` 单变体 ADT），定义 `of`/`isValid`/`fromInt`；新增 `Nil` 模块（`maybe`/`map`/`orElse`/`toResult`）；`FileType` 变体重命名（`Regular`/`SymbolicLink`/`CharDevice`）；`JsonNumber` 拆分为 `JsonInt`/`JsonFloat`；新增 `String` 模块（`toString` 及类型互转函数）；`IO` 改为需显式导入；`Path` 新增 `(++)` 及 `fromString`/`toString`；`Int`/`Float`/`String` 的内置操作移入各自模块并需显式导入；`FileMode` 新增 `of`/`fromInt`；`FileStat` 新增 `device` 字段；移除 `Time` 模块，`sleep` 移至 `Process`，获取当前时间作为 `Sys.time` 实现；所有模块按「定位」「API」「示例」统一结构；重新引入 `Validator` 模块（`oneOf`/`range`/`nonEmpty`/`regex`），更新 `Cli` 章节同步最新设计 |
-| 2026.06.10 | 架构重设计：移除 `IO` 类型标记、`Validator`、`RunAs`；新增 `CommandError`、`Cmd.*`/`Cmd.pipe`/`Cmd.withEnv`/`Cmd.withStdin`/`Cmd.withRawOpt`/`Cmd.mergeStderr`、`Parser.Record`；`Uid`/`Gid` 改为 `Int` 单变体 ADT（旧文档写作 "newtype"，2026.07.15 后统一为 `type` 单变体 ADT）；`Signal.on` 移至 `Signal` 模块 |
-| 2026.05.27 | MVP 基础标准库类型设计定型 |

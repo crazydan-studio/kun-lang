@@ -1586,7 +1586,7 @@ MVP 不支持：
 
 - C struct 按值传递（用 `Opaque` 包装 + FFI 函数访问字段）
 - C union（不支持）
-- 函数指针/回调（v1.0+ 考虑）
+- 函数指针/回调（未来考虑）
 - 变参函数（不支持）
 
 ### FFI 内存管理（`let in` 闭包自动释放）
@@ -2077,7 +2077,7 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 3. 效应检查器验证：纯函数内包含效应调用时精确报告 `Effect In Pure Function`；`let in` 块内未消费的 Stream 精确报告 `Stream Not Consumed`；未消解用户效应冒泡到 `main` 精确报告 `Unhandled User Effect`
 4. 错误恢复：单文件内多个独立类型错误全部报告（非遇第一个停止）
 
-测试基础架构见 `standard-library.md` 的 `Test` 模块与 [单元测试设计](testing.md)（推迟 v1.2）。
+测试基础架构见 `standard-library.md` 的 `Test` 模块与 [单元测试设计](testing.md)。
 
 ### 错误级别
 
@@ -2119,41 +2119,15 @@ fn getADTVariants(env: *TypeEnv, ty: TypeId) []const ADTVariantInfo;
 fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 ```
 
-这些函数仅在编译期（`comptime`）可用，由 `Cli.parse`（v0.5）、`Parser.Record.fromJson`（v0.5）和 `toString` 泛型分发等 Primitive 函数调用。API 在 `TypeEnv` 已完全构造（类型检查完成后）方可使用。
+这些函数仅在编译期（`comptime`）可用，由 `Cli.parse`、`Parser.Record.fromJson` 和 `toString` 泛型分发等 Primitive 函数调用。API 在 `TypeEnv` 已完全构造（类型检查完成后）方可使用。
 
-> **Kun TypeId ↔ Zig comptime type 映射**：`TypeId` 是 `TypeEnv.types` 数组的索引。在类型检查完成（Typed AST 构建后）的 `comptime` 上下文中，编译器通过 `@typeInfo(TypeEnv.types[id])` 获取 Zig 类型结构信息。此映射仅在编译期为有效——运行时 `TypeEnv` 中的类型表示为值，不可用作 Zig 类型。`getTypeName` 等 API 函数在 `comptime` 环境中通过此映射返回类型信息供 `Cli.parse`（v0.5）和 `Parser.Record.fromJson`（v0.5）使用。
+> **Kun TypeId ↔ Zig comptime type 映射**：`TypeId` 是 `TypeEnv.types` 数组的索引。在类型检查完成（Typed AST 构建后）的 `comptime` 上下文中，编译器通过 `@typeInfo(TypeEnv.types[id])` 获取 Zig 类型结构信息。此映射仅在编译期为有效——运行时 `TypeEnv` 中的类型表示为值，不可用作 Zig 类型。`getTypeName` 等 API 函数在 `comptime` 环境中通过此映射返回类型信息供 `Cli.parse` 和 `Parser.Record.fromJson` 使用。
 
 ## 类型表示与运行时
 
 类型在编译后的运行时表示及 C ABI 映射见[系统基线](../architecture/system-baseline.md#类型运行时表示)。类型系统专注于编译期语义，运行时内存布局属于架构实现细节。
 
 `type` 定义的 ADT 运行时为 tagged union（`{tag, payload}`），单变体与多变体一致，**不做 tag 擦除**。`alias` 编译期展开为底层类型，无运行时存在。
-
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 调用；导入语句从 `import Test (Test, Test(..), assert, fail, skip)` 改为 `import Test (Test, TestCase, test, assert, fail, skip)`；`handle` 表达式章节入口级上下文表 `Test` 类型 `body` 字段 改为 `TestCase.body`，识别机制与强制性保证 5 条同步更新；Mock 场景示例从 `Test { name, body, with }` 字面量改为 `test "..." (...) |> Test.with ...` 链式形式；`effect Test`/`testHandler`/`TestResult` 不变 |
-| 2026.07.16 | 单元测试系统重设计：`handle` 表达式章节入口级上下文从 `main`/`test*` 改为 `main`/`Test` 类型 `body` 字段（表格、识别机制、效应流向同步更新）；测试用例识别规则从 `test*` 前缀函数改为导出的 `Test` 类型值（`type Test = Test { name, description, timeout, body, with }`，文件约定 `<module>_test.kun`）；纯函数返回 `Unit` 例外说明从 `assert : Bool -> Unit`（panic）改为 `Test` 效应的 `assert : Bool -> Unit ! {Test}`（由 `testHandler` 消解）；内置效应 Handler 章节补充 `testHandler` 引用；Mock Handler 示例路径从 `test/` 改为 `lib/`；Mock 场景示例从 `testStrlen : Unit ! {IO}` + `handle with` 改为 `testStrlen : Test` + `Test.with` 字段；强制性保证 5 条措辞从 `main`/`test*` 改为 `main`/`Test` 类型 `body` 字段；测试基础架构交叉引用补充 `testing.md`；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 三项设计调整：（1）零参效应函数约定——签名 `-> T ! {E}` / `Unit -> T ! {E}` 改为 `T ! {E}`（无 `->`/`Unit ->`），`effect`/`extern` 操作记录中 `Unit -> T` 改为 `T`，调用加 `!` 后缀（`Name!`），裸名 `Name` 为函数引用，`!` 后缀与已废弃的 Command 断言执行 `!` 是不同特性；（2）守卫子句改用 `if`（移除 `when` 关键字）；（3）类型标注与值绑定支持同行形式 `name : Type = expr` |
-| 2026.07.16 | 内置效应章节补充「效应名与模块名同名」说明：效应名属类型命名空间、模块名属值命名空间，同名合法；交叉引用语法设计的同名消歧规则 |
-| 2026.07.15 | 代数效应与命令系统重设计：函数类型改为 `<param> -> <result> ! <effectSet>`；新增 7 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）；新增 `effect`/`handler`/`handle with` 代数效应系统（限入口、`continue`/`abort` 二选一、效应多态单变量 `e`）；新增 `extern` FFI 块（仅 Linux，分层归属，`FfiBuffer` 不逃逸，`Opaque` 幻影类型，防欺骗四层）；Nilable 简化（**禁止嵌套 `??T`**，移除隐式包装/操作符脱糖/Record 字段 Nil 填充）；新增 `alias`/`type` 分离（结构 vs 名义等价，**不做 tag 擦除**，移除 `Newtype` 概念）；新增 `==` 浅比较 + `Equal` 模块深比较 + Map 键哈希规则；新增递归类型深度上限 256（`KUN_MAX_TYPE_DEPTH`）；新增 `Int` 位运算 + 优先级；新增 Let 泛化值限制；新增效应集合一规则与有序性；新增 `Handler` 类型与组合（`>>`）；新增多效应 handler 操作名限定；新增 `Stream` 消费检查规则；新增错误消息（Nested Nilable / Unhandled User Effect / Unhandled Library Effect 等）；种类系统新增 `Effect`/`EffectSet` |
-| 2026.06.19 | 效应检查规则全面扩展（单一表达式范式配套） |
-| 2026.06.18 | Cmd API 精简；Nilable 隐式包装规则文档化；Regex 修饰符作用域默认行为说明补全 |
-| 2026.06.15 | 审计修复三轮：Int 溢出/Float NaN 语义文档化；除零行为明确；递归 let 与互递归 HM 类型推断；错误恢复占位类型机制；occurs check 选择性启用规则 |
-| 2026.06.15 | 审计修复二轮：编译器类型内省 API 定义 |
-| 2026.06.15 | 审计修复：补全 DateTime/Map/Set/Stream/Command 类型定义；纯函数定义统一；kind 表补充 Map/Stream |
-| 2026.06.14 | 效应跟踪修正 |
-| 2026.06.14 | `(a -> b)!` 退糖为 `EffectFn(a, b)` 独立类型构造器（已废弃，新设计统一为效应集） |
-| 2026.06.14 | 新增效应回调标记 `(a -> b)!`（已废弃，新设计统一为效应集） |
-| 2026.06.13 | `Cmd` 效应分类细化 |
-| 2026.06.12 | 新增 `Float` 精度局限说明；编译器内置标注；新增 `Decimal` 类型；`TempFile`/`TempDir` 整合 |
-| 2026.06.10 | 移除 `Nat`、`IO T` 效应类型、幻影类型、扩展积类型；效应跟踪改为 AST 标记方案 |
-| 2026.06.10 | 目录即命名空间模块系统 |
-| 2026.06.02 | 扩展积类型 `{ Base \| field : T }`（已废弃） |
-| 2026.06.26 | Nil 去除字面量特殊地位 |
-| 2026.06.02 | Nilable 类型 `?T` 替代 `Maybe` |
-| 2026.05.27 | MVP 基础类型 + `Maybe`/`Result` + HM 推断 + 简单参数化多态 + `IO` 效应标记 |
 
 ## 参考
 
@@ -2164,3 +2138,4 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 - [标准库](standard-library.md) — `Lazy`/`Equal`/`FFI`/录制回放等模块
 - [系统基线](../architecture/system-baseline.md) — 运行时与类型系统概览
 - [模块边界](../architecture/module-boundaries.md) — 类型检查器在架构中的位置
+

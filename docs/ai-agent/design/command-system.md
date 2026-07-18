@@ -652,7 +652,7 @@ withStdinFile : Path -> Command -> Command
 mergeStderr   : Command -> Command
 // [PureKun]
 withWorkDir   : Path -> Command -> Command
-// [PureKun] 指定子进程执行用户  // [推迟 v1.0]
+// [PureKun] 指定子进程执行用户
 withRunAs     : String -> Command -> Command
 // [PureKun] 关闭 -- 分隔符自动插入
 withoutDash   : Command -> Command
@@ -665,9 +665,9 @@ orElse        : Command -> Command -> Command
 
 // 超时与重试（修饰函数）
 // [PureKun]
-timeout       : Duration -> Command -> Command  // [推迟 v1.0]
+timeout       : Duration -> Command -> Command
 // [PureKun]
-retry         : Int -> Duration -> Command -> Command  // [推迟 v1.0]
+retry         : Int -> Duration -> Command -> Command
 
 // Cmd 效应操作（立即执行，需显式调用）
 // [Primitive] 执行 Command——fork-exec 阻塞等待，失败 panic，stdout 丢弃
@@ -746,18 +746,3 @@ in
 - [系统基线](../architecture/system-baseline.md#命令调用机制)：描述 fork-exec 运行时**实现机制**（系统契约、安全层、内存管理）
 - 本文档：定义命令调用的**语法、语义、API 签名与使用机制**
 
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.07.16 | 测试类型重命名与 `Test` 模块化：`type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`（消除「类型与效应同名」歧义）；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；新增 `test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 调用；跨文档一致性更新——内置 Cmd handler 章节中 `main`/`Test` 类型 `body` 字段 措辞改为 `main`/`TestCase.body`；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 单元测试系统重设计：跨文档一致性更新——内置 Cmd handler 章节中 `main`/`test*` 措辞改为 `main`/`Test` 类型 `body` 字段；详见 [单元测试设计](testing.md) |
-| 2026.07.16 | 三项设计调整澄清：Command 的 `?`/`!` 后缀糖已废弃（`c?` → `Cmd.execSafe c`，`c!` → `Cmd.exec c`）；零参函数执行的 `!` 后缀是独立特性（见[类型系统 - 零参效应函数类型](type-system.md#零参效应函数类型-t-e)），二者非同一概念。`effect Cmd` 操作记录（`exec`/`execSafe`/`stream`/`which`）均为带参操作，无零参 op 需调整 |
-| 2026.07.15 | 重构为代数效应与命令系统设计：Command 改为 ADT（`Simple`/`Pipe`），引入 `cmd` 字面量四段式语法（命令/子命令/选项/位置参数），选项支持标识符键（自动映射）与字符串键（原样）；显式执行三入口（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）+ `Cmd.which`；引入纯函数 `pipe`（替代 `Cmd.pipe?`/`Cmd.pipe!`，最多 16 层，字面量空列表编译错误）；修饰函数新增 `Cmd.withoutDash`（关闭 `--`），`Cmd.withStdin` 添加死锁预防策略；废弃 `Cmd.<bin>` 语法、`Cmd["..."]` 转义、`Cmd.withRawOpt`、`?`/`!` 后缀、`|>` 隐式触发；废弃 `do`/`do in` 改用 `let in` |
-| 2026.06.18 | API 精简：`execSafe` 签名从 `Result Unit` 改为 `Command -> Result (Stream String) CommandError`（与 `Cmd.<bin>?` 对齐）；移除 `stdoutToString`/`stderrToString`；新增 `Cmd.<bin>!`/`Cmd.pipe!` 构造语法（断言执行简写） |
-| 2026.06.15 | 审计修复三轮：参数转义/execve 语义文档化；0 字节管道输出行为；空 pipe 列表编译期报错；Cmd.which PATH 搜索细节；Cmd.timeout kill 流程；Cmd.retry 边界值处理 |
-| 2026.06.15 | 审计修复：`\|>` 管道执行限制为 `do` 块内（效应检查器守卫）；`Cmd.exec` 阻塞语义文档化 |
-| 2026.06.14 | `Cmd.withRunAs` 权限降级流程补全：`initgroups` → `setgid` → `setuid` → 验证 |
-| 2026.06.14 | 移除 `do` 块语句边界隐式执行规则；新增 `Cmd.exec : Command -> Unit` 显式执行；未被消费的 Command 是编译错误；新增 Command 生命周期示例 |
-| 2026.06.13 | API 签名伪语法规范；锚点规范化 |
-| 2026.06.12 | 从 `app-overview.md` 和 `system-baseline.md` 中提取命令调用机制为独立文档 |
