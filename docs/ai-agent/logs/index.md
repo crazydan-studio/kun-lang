@@ -10,6 +10,7 @@
 
 | 文件 | 主题 | 日期 |
 |------|------|------|
+| [code/kun-lang/ 实现撤销](log-2026-07-17-codebase-revocation.md) | code/kun-lang/ 全部源码撤销，清理实现相关文档 | 2026-07-17 |
 | [单一表达式范式全面定稿](log-2026-06-19-single-expression-paradigm.md) | 单一表达式范式设计讨论、文档重写、示例迁移 | 2026-06-19 |
 | [设计审计修复](log-2026-06-02-design-audit-fixes.md) | 设计审计第 3-5 轮修复 | 2026-06-02 |
 | [CDF 编译期代码生成定稿](log-2026-06-03-cdf-code-generation.md) | CDF→Kun 编译期代码生成 | 2026-06-03 |

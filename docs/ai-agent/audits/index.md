@@ -28,3 +28,4 @@
 | [第 12 轮聚焦审计](audit-round12-focused.md) | 边缘区域专项审计 | 2026-06-20 |
 | [第 13 轮边缘审计](audit-round13-edge.md) | 边缘场景审计 | 2026-06-21 |
 | [第 14 轮终审扫尾](audit-round14-final-sweep.md) | 终审扫尾 | 2026-06-21 |
+| [code/kun-lang/ 实现撤销闭合审计](audit-codebase-revocation-closure.md) | code/kun-lang/ 撤销事后补建闭合审计与矛盾引用修复 | 2026-07-17 |
