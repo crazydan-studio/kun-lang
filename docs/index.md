@@ -45,7 +45,6 @@ docs/
 │   ├── examples/      语法使用示例
 │   ├── archive/       历史版本归档
 │   ├── diagrams/      PlantUML 图表文件
-│   ├── logs/          开发日志
 │   ├── testing/       测试记录
 │   ├── bugs/          Bug 修复笔记
 │   ├── lessons/       经验教训

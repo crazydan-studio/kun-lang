@@ -72,8 +72,8 @@ src/
 │   ├── stream.zig        # Stream.lines / iter / fold / range / Cmd.pipe 等
 │   └── test_*.zig        # 对应模块的单元测试
 │
-├── cli/                  # CLI 参数解析引擎（推迟 v0.3）
-├── security/             # 安全子系统（推迟 v0.2）
+├── cli/                  # CLI 参数解析引擎
+├── security/             # 安全子系统
 │
 ├── tests/                # 集成测试（lex→parse→typecheck→eval 全流水线）
 │   └── test_integration.zig
@@ -102,7 +102,6 @@ src/
 | `docs/ai-agent/input/` | 原始需求输入记录 |
 | `docs/ai-agent/discussions/` | 设计讨论记录 |
 | `docs/ai-agent/lessons/` | 经验教训与违规记录 |
-| `docs/ai-agent/logs/` | 开发日志 |
 | `docs/ai-agent/testing/` | 测试记录与基线值 |
 | `docs/ai-agent/bugs/` | Bug 修复笔记 |
 | `docs/ai-agent/references/` | 实现指南、维护检查清单、文档命名规范 |
@@ -115,12 +114,3 @@ src/
 ## 脆弱文件
 
 当前项目处于初始阶段，暂无已识别的脆弱文件。
-
-## 版本历史
-
-| 版本 | 变更 |
-|------|------|
-| 2026.06.25 | 源代码结构树新增 module/ 目录（模块解析系统） |
-| 2026.06.25 | 新增源代码结构树，与 architecture/module-boundaries.md 模块划分对齐 |
-| 2026.06.20 | 关键目录表补全：新增 process/、examples/、audits/ 等 11 个目录条目 |
-| 2026.06.10 | 初始版本 |

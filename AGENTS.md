@@ -60,7 +60,6 @@
 | `docs/ai-agent/audits/` | 审计记录、审计执行指南 | 实施前/实施后的审计环节 |
 | `docs/ai-agent/lessons/` | 经验教训与违规记录 | 遇到已记录过的错误模式时 |
 | `docs/ai-agent/examples/` | 语法使用综合示例 | 理解语法设计意图、验证一致性时 |
-| `docs/ai-agent/logs/` | 开发日志 | 追溯近期工作时 |
 | `docs/ai-agent/backlog/` | 待办事项与状态流转 | 了解未完成工作项时 |
 | `docs/ai-agent/testing/` | 测试记录与基线值 | 测试实施前后 |
 | `docs/ai-agent/bugs/` | Bug 修复笔记 | 遇到已知 Bug 模式时 |
@@ -71,7 +70,7 @@
 | `docs/ai-agent/archive/` | 版本归档规则 | 文档版本迭代前 |
 | `docs/ai-agent/diagrams/` | PlantUML 图表 | 需要生成或更新可视化图表时 |
 
-**文档状态追踪**：每份文档的实现状态见 [`design/feature-inventory.md`](docs/ai-agent/design/feature-inventory.md)（功能级）和各个 `index.md`（文件级）。例如 `Kun Shell` 设计已定型，实现注明 `[推迟 v2.0]`，路由时仍应阅读其设计文档，但不应触发实现相关的任务路由。
+**文档状态追踪**：每份文档的设计状态见 [`design/feature-inventory.md`](docs/ai-agent/design/feature-inventory.md)（功能级）和各个 `index.md`（文件级）。例如 `Kun Shell` 设计已定型（未来版本实现），路由时仍应阅读其设计文档。
 
 **文档优先级链**（引用 `docs/ai-agent/context/source-of-truth-and-precedence.md`）：
 > `context/` > `architecture/` > `design/` > `requirements/` > `plans/` > 其他文档

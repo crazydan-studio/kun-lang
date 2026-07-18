@@ -8,7 +8,7 @@
 | 当前语言行为？ | `docs/ai-agent/design/` | 设计文档定义语言行为规范 |
 | 当前技术结构？ | `docs/ai-agent/architecture/` | 架构文档定义系统技术结构 |
 | 如何执行某个任务？ | `docs/ai-agent/plans/` | 计划文档定义具体执行步骤 |
-| 发生了什么？ | `docs/ai-agent/logs/` + `docs/ai-agent/testing/` + `docs/ai-agent/bugs/` + `docs/ai-agent/audits/` | 日志、测试、Bug、审计记录历史 |
+| 发生了什么？ | `docs/ai-agent/testing/` + `docs/ai-agent/bugs/` + `docs/ai-agent/audits/` | 测试、Bug、审计记录历史 |
 | 项目约定？ | `docs/ai-agent/context/` | 项目上下文定义协作规范 |
 
 ## 文档优先级
