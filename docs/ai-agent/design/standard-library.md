@@ -884,7 +884,7 @@ show : IOError -> String
 #### 示例
 
 ```kun
-let
+do
   case File.read p"/nonexistent" of
     Ok _ -> IO.println "ok"
     Err e ->
@@ -2740,7 +2740,7 @@ c =
     |> Cmd.withWorkDir p"/home"
     |> Cmd.mergeStderr
 
-let
+do
   // 管道显式执行（错误处理）
   result =
     pipe
@@ -2770,8 +2770,6 @@ let
   cmd git clone {} [ "https://..." ]
     |> Cmd.andThen (cmd make {} [ "-C", "repo" ])
     |> Cmd.exec
-in
-  ()
 ```
 
 ## `FFI` — 外部 C 库调用

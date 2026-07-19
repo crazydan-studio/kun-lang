@@ -1785,13 +1785,12 @@ readFileContent = \path ->
 import FileReader (readFileContent)
 
 main : List String -> Unit ! {Libc, IO}
-main = \args ->
-  let
-    result = readFileContent (Path.fromString "/etc/hostname")
+main = \args -> do
+  result = readFileContent (Path.fromString "/etc/hostname")
 
-    case result of
-      Ok content -> IO.println content
-      Err e -> IO.println e
+  case result of
+    Ok content -> IO.println content
+    Err e -> IO.println e
   // Libc 冒泡，运行时注入默认 Libc handler
   // 默认 handler 调用 FFI.call，产生 FFI
   // FFI 冒泡，运行时默认消解（需 --allow-ffi）

@@ -53,9 +53,8 @@ Int -> Int -> Int
 // 打开编辑器，编写内容后保存：
 
 main : List String -> Unit ! {IO}
-main = \_ ->
-  let
-    IO.println "Hello Kun Shell"
+main = \_ -> do
+  IO.println "Hello Kun Shell"
 
 >>> :run /tmp/hello.kun
 Hello Kun Shell

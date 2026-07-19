@@ -119,12 +119,12 @@ notify = \msg -> do
 
 ### 纯函数
 
-纯函数体为 `let in`（单表达式，可省略）。多绑定返回非 `Unit` 须用 `let in` 包裹，`in` 与 `let` 对齐：
+纯函数体为单表达式（单语句直接书写；多语句用 `let in`）。多绑定返回非 `Unit` 须用 `let in` 包裹，`in` 与 `let` 对齐：
 
 ```kun
 add : Int -> Int -> Int
 add = \x y ->
-  x + y                             // 单表达式，let in 省略
+  x + y                             // 单语句，直接书写
 
 sumAndFloor : List Int -> Int
 sumAndFloor = \items ->
@@ -400,20 +400,13 @@ result =
     x + y
 ```
 
-**空 body 约束**：`let in <expr>`（body 无任何绑定）为编译错误。直接在需要的位置书写 `<expr>` 即可：
+**空 body 约束**：`let in <expr>`（body 无任何绑定）为编译错误。单语句直接书写——无需 `let in` 包裹：
 
 ```kun
 // ❌ 编译错误
 result = let in x + 1
 
-// ✅ 直接写表达式
-result = x + 1
-```
-
-单条绑定时，`let` 可省略（此时无 `in` 关键字）：
-
-```kun
-// ✅ 单表达式，let in 省略
+// ✅ 单语句直接书写
 result = x + y
 ```
 

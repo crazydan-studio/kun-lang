@@ -153,7 +153,7 @@
 | 立即求值 | ✅ 设计定型 | 所有表达式立即求值；`let in` 绑定立即；call-by-value |
 | 单表达式 | ✅ 设计定型 | 多语句返回值用 `let in`，返回 `Unit` 用 `do`（≈ `let <body> in ()`） |
 | `let in` 三种语句 | ✅ 设计定型 | 绑定（`name = expr`）/效应调用（无绑定，立即执行）/纯表达式（无绑定，告警） |
-| `let in` 省略形式 | ✅ 设计定型 | 返回 `Unit` 时可省略 `in`（≡ `let <body> in ()`）；或使用 `do <body>` 语法糖；缩进对齐判定结束 |
+| `do` 语法糖 | ✅ 设计定型 | 返回 `Unit` 的多语句用 `do <body>`（≡ `let <body> in ()`）；关键字定界，不依赖缩进 |
 | `let in` 嵌套 | ✅ 设计定型 | 嵌套 `let in` 各层独立；内层绑定可在外层使用 |
 | `let in` 效应集推导 | ✅ 设计定型 | 体内所有效应语句的并集 |
 | `Lazy` 显式惰性 | ✅ 设计定型 | `Lazy.lazy` 构造 thunk；`Lazy.force` 强制求值（memoize） |
@@ -207,7 +207,7 @@
 | 泛型语法 | ✅ 设计定型 | Elm 风格空格分隔 |
 | 函数类型 | ✅ 设计定型 | `<param> -> <result> ! <effectSet>`，无 `!` ≡ `! {}` |
 | 函数应用 | ✅ 设计定型 | 空格分隔参数，无逗号 |
-| `let in` / `do` 单表达式 | ✅ 设计定型 | 三种语句；返回 `Unit` 用 `do` 或省略 `in`；缩进对齐结束；多语句返回值用 `let in` |
+| `let in` / `do` 单表达式 | ✅ 设计定型 | 三种语句；返回 `Unit` 用 `do`；关键字定界（不依赖缩进）；多语句返回值用 `let in` |
 | `defer` | ✅ 设计定型 | 绑定最近 `let in` 块，LIFO，panic 时执行 |
 | `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }` |
 | `handler` 声明 | ✅ 设计定型 | case of 风格 `<name> = handler <Effect> of <op> <args> -> <impl>` |

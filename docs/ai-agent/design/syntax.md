@@ -609,12 +609,11 @@ pid = \ ->
     p
 
 main : List String -> Unit ! {IO}
-main = \_ ->
-  let
-    content = File.read p"/tmp/foo"
-    case content of
-      Ok text -> IO.print text
-      Err _   -> IO.println "failed"
+main = \_ -> do
+  content = File.read p"/tmp/foo"
+  case content of
+    Ok text -> IO.print text
+    Err _   -> IO.println "failed"
 ```
 
 函数类型语法：
@@ -697,7 +696,7 @@ myVariable      // 变量引用
     in
       y * 2               // 多语句，必须 let in
   ```
-- **单语句匿名函数**：直接书写，可省略 `do`/`let in`：
+- **单语句匿名函数**：直接书写，无需 `do`/`let in` 包裹：
   ```kun
   \x -> x + 1             // 单表达式
   ```
@@ -853,34 +852,46 @@ case result of
     IO.exit 1
 ```
 
-### 解析器识别规则（缩进对齐）
+### 解析器识别规则（关键字定界）
 
-`let`/`do` 后的语句块以**缩进对齐**判定结束：
+`do`/`let` 后的语句块以**关键字定界**判定结束，**不依赖缩进**：
 
-1. `let` 后遇 `in` → `let in` 完整形式，`in` 后必须有表达式
-2. `do` 后语句缩进对齐 → 返回 `Unit`（≡ `let <body> in ()`）
-3. `let` 后无 `in`、缩进回退 → 块结束（等价于 `do`）
+1. `let <body> in <expr>` — `let` 后遇 `in` 关键字结束 body，`in` 后必须有表达式
+2. `do <body>` — `do` 后语句持续至遇到定界符（下一个 `pattern ->`、`else`/`else if`、`in`、`}`、`)` 或外层块结束）
+3. `let` 后**必须**有 `in`——不再支持无 `in` 的 `let <body>` 形式（Unit 返回用 `do`）
 4. `let in`（空 body + 空 expr）或 `do`（空 body）→ 编译错误
-5. 缩进不一致 → lint 告警
+5. 缩进仅用于格式可读性，不影响解析；缩进不一致 → lint 告警
 
 ```kun
-// do 形式：缩进对齐，块在缩进回退时结束
-do
+// do 形式：关键字定界
+main = \args -> do
   IO.println "line1"
   IO.println "line2"
-IO.println "outside"          // 缩进回退，do 块结束
+// 函数体结束，do 块随之结束
+
+case result of
+  Ok x -> do
+    IO.println "ok"
+    process x
+  Err _ -> do
+    IO.println "err"
+    fallback
+// 下一个 pattern -> (Err _) 结束 Ok 分支的 do 块
 
 // let in 完整形式：显式 in
 let
-  IO.println "line1"
+  x = compute
+  IO.println "done"
 in
-  result
+  x
 ```
+
+> **注**：解析器不依赖缩进来解析 `do`/`let` 块结构——所有代码块由显式关键字界定（`do`、`let...in`、`case...of`、`handle...with`）。分支体内多语句的边界通过 `pattern ->` / `else if` / `else` 关键字定界 + `case...of` 配对跟踪实现。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。
 
 **笔误检测**：
 
 - `in` 后无表达式 → 编译错误
-- `do` 或 `let`（省略 `in`）仅单语句 → lint 告警“单语句 Unit 块可省略 `do`/`let`，直接书写”
+- `do` 仅单语句 → lint 告警“单语句 Unit 块可省略 `do`，直接书写”
 
 适用场景：`main` 函数、仅副作用的函数、循环体等 Unit 返回场景。
 
