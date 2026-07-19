@@ -1754,11 +1754,11 @@ Set.union s #[3, 4, 5]                  // → #[1, 2, 3, 4, 5]
 Set.toList (Set.fromList [1, 2, 2, 3])  // → [1, 2, 3]（去重）
 ```
 
-## `Equal` — 深比较
+## `Equal` — 自定义比较
 
 ### 定位
 
-`Equal` 模块提供容器类型的深比较函数。Kun 的 `==` 运算符采用**结构浅比较**（不递归嵌套容器/ADT），如需深比较，使用 `Equal` 模块显式递归。
+`Equal` 模块提供容器类型的自定义比较函数。Kun 的 `==` 运算符采用**结构相等**（递归比较复合类型的元素/字段/载荷，详见 [类型系统 - 相等比较（`==`）语义](type-system.md#相等比较语义)），默认已覆盖绝大多数场景。`Equal` 模块用于**自定义比较策略**（如大小写不敏感字符串比较、近似浮点比较、忽略部分字段等），调用方显式传入元素比较器。
 
 需显式导入：
 
@@ -1769,47 +1769,48 @@ import Equal
 ### API
 
 ```kun
-// [PureKun] List 深比较——元素比较函数由调用方提供
+// [PureKun] List 自定义比较——元素比较函数由调用方提供
 equal : (a -> a -> Bool) -> List a -> List a -> Bool
 
-// [PureKun] Map 深比较——键与值的比较函数由调用方提供
+// [PureKun] Map 自定义比较——键与值的比较函数由调用方提供
 equal : (k -> k -> Bool) -> (v -> v -> Bool) -> Map k v -> Map k v -> Bool
 
-// [PureKun] Set 深比较——元素比较函数由调用方提供
+// [PureKun] Set 自定义比较——元素比较函数由调用方提供
 equal : (a -> a -> Bool) -> Set a -> Set a -> Bool
 ```
 
-> **`==` 浅比较 vs `Equal.equal` 深比较**：
+> **`==` 结构相等 vs `Equal.equal` 自定义比较**：
 >
-> | 类型 | `==` 行为 |
+> - `==` 默认结构相等，递归比较复合类型的元素/字段/载荷，能覆盖绝大多数场景
+> - `Equal.equal` 用于自定义比较策略——当默认的 `==` 不适用时（如大小写不敏感、近似浮点、忽略字段）传入自定义元素比较器
+>
+> | 场景 | 选择 |
 > |---|---|
-> | `Int`/`Bool`/`Char`/`Duration` | 值比较 |
-> | `Float` | 值比较；`NaN == NaN` → `false`（IEEE 754） |
-> | `String`/`Bytes`/`Path` | 内容比较（首层） |
-> | `List`/`Map`/`Set` | **引用比较**（不递归元素） |
-> | `Record`/`Tuple` | **引用比较**（不递归字段） |
-> | ADT | **引用比较**（不比较 tag 与 payload） |
->
-> 容器/复合类型的深比较需通过 `Equal.equal` 显式递归。
+> | 常规相等判断 | `==`（结构相等） |
+> | 大小写不敏感字符串列表比较 | `Equal.equal (\x y -> String.toLower x == String.toLower y)` |
+> | 近似浮点列表比较 | `Equal.equal (\x y -> Float.approxEqual x y 1e-10)` |
+> | 忽略 Record 部分字段比较 | 转为 List 后用 `Equal.equal` + 自定义比较器 |
 
 ### 示例
 
 ```kun
 import Equal
 
-// List 深比较——元素用 == 浅比较
-Equal.equal (==) [1, 2] [1, 2]                          // → true
-
-// List 嵌套深比较
-Equal.equal (Equal.equal (==)) [[1], [2]] [[1], [2]]    // → true
-
-// Map 深比较
+// 常规相等：直接用 ==（结构相等，无需 Equal 模块）
+[1, 2] == [1, 2]                                // → true
 m1 = Map.fromList [("a", 1), ("b", 2)]
 m2 = Map.fromList [("a", 1), ("b", 2)]
-Equal.equal (==) (==) m1 m2                              // → true
+m1 == m2                                         // → true
 
-// Set 深比较
-Equal.equal (==) (Set.fromList [1, 2]) (Set.fromList [1, 2])  // → true
+// 自定义比较：大小写不敏感
+Equal.equal (\x y -> String.toLower x == String.toLower y) ["Hi"] ["HI"]  // → true
+
+// 自定义比较：近似浮点
+Equal.equal (\x y -> Float.approxEqual x y 1e-10) [0.1 + 0.2] [0.3]      // → true
+
+// 嵌套自定义比较
+Equal.equal (Equal.equal (\x y -> Float.approxEqual x y 1e-10))
+  [[0.1 + 0.2]] [[0.3]]                          // → true
 ```
 
 ## `Result` — 错误处理组合子
@@ -2366,11 +2367,91 @@ in
   ()
 ```
 
+## `Log` — 日志记录
+
+### 定位
+
+用户自定义日志效应。`Log` 是**用户效应**（非 7 个内置效应之一，也非标准库效应——其默认 handler 不由 `kun` 二进制提供），需在 `main`/`TestCase.body` 内通过 `do...with` / `let...in...with` 显式消解。`Log` 效应在标准库中**仅声明**效应签名，不提供默认 handler 实现——用户需自行编写 handler（输出到 stderr/journald/文件/网络等）。
+
+```kun
+effect Log =
+  { info : String -> Unit
+  , warn : String -> Unit
+  , error : String -> Unit
+  }
+```
+
+需显式导入：
+
+```kun
+import Log
+```
+
+### API
+
+```kun
+// [Primitive] 记录 info 级别日志
+info : String -> Unit ! {Log}
+
+// [Primitive] 记录 warn 级别日志
+warn : String -> Unit ! {Log}
+
+// [Primitive] 记录 error 级别日志
+error : String -> Unit ! {Log}
+```
+
+### handler 示例
+
+用户需提供 handler 消解 `Log` 效应。以下是输出到 stderr 的示例 handler：
+
+```kun
+import IO
+import Log
+
+stderrLogHandler : Handler {Log} Unit ! {IO}
+stderrLogHandler =
+  handler Log of
+    info msg -> do
+      IO.eprintln f"[INFO] {msg}"
+      continue ()
+    warn msg -> do
+      IO.eprintln f"[WARN] {msg}"
+      continue ()
+    error msg -> do
+      IO.eprintln f"[ERROR] {msg}"
+      continue ()
+
+main : List String -> Unit ! {IO}
+main = \args -> do
+  Log.info "application started"
+  Log.warn "this is a warning"
+  Log.error "this is an error"
+with
+  stderrLogHandler
+```
+
+### 与内置 IO 的区别
+
+`Log` 与 `IO.eprintln` 都可输出文本，但语义不同：
+
+- `IO.eprintln` 直接写 stderr，是底层 IO 效应
+- `Log.info`/`warn`/`error` 是用户效应，handler 决定输出目的地（stderr/journald/文件/网络/丢弃）与格式（JSON 结构化日志/纯文本），并可附加时间戳、级别过滤、采样等策略
+
+业务代码使用 `Log.*`（声明意图），入口处用 handler 决定具体行为；测试时用 mock handler 捕获日志断言。
+
 ## `Env` — 环境变量
 
 ### 定位
 
-进程环境变量的读写操作。所有函数均为效应操作。
+进程环境变量的读写操作。所有函数均为效应操作。`Env` 是**标准库效应**（非 7 个内置效应之一），其默认 handler 由 `kun` 二进制运行时提供（与 IO/File 等内置效应默认 handler 同级），用户不可定义同名 `effect`。
+
+```kun
+effect Env =
+  { getenv : String -> ?String
+  , list : Map String String
+  , contains : String -> Bool
+  }
+```
 
 需显式导入：
 
@@ -2690,6 +2771,8 @@ withoutDash : Command -> Command
 ```
 
 > **withStdin 重载消歧**：编译器通过第一参数的类型（`String` vs `Stream Bytes`）在调用点进行消歧，不依赖传统函数重载。HM 推断根据上下文确定调用哪一个签名。
+
+> **`Cmd.withStdin` 的 Stream 模式**：`withStdin` 本身是纯函数（将 Stream 引用存入 Command 值，不立即消费 Stream），Stream 的实际消费发生在执行时（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`），效应由执行函数承担。Stream 在传入时仍可被多次引用（不可变），但仅在被执行的 Command 消费时触发迭代。
 
 #### 短路条件组合（纯操作，返回 Command）
 
@@ -3541,11 +3624,11 @@ main = \_ ->
 
 `Test` 模块同时承载**效应声明**与**测试用例构造工具**，提供单元测试的核心抽象：
 
-- **`TestCase` 类型**——测试用例 Record（`type TestCase = TestCase { name, description, timeout, body, with }`）
+- **`TestCase` 类型**——测试用例不透明类型（编译器内置，类似 `Command`；其 `body` 字段的效应变量 `e` 被存在性量化，由 `test` Primitive 在构造时捕获）
 - **`Test` 效应**——`assert`/`fail`/`skip` 三个操作（通过 `abort` 终止测试，不使用 panic）
 - **`testHandler`**——运行器内置 handler（消解 `Test` 效应为 `TestResult`）
 - **`TestResult` 类型**——测试结果（`Pass`/`Fail String`/`Skip String`）
-- **`test` 构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式函数**——便捷构造 `TestCase`
+- **`test` 构造器（Primitive） + `Test.with`/`Test.timeout`/`Test.describe` 链式函数**——便捷构造 `TestCase`（`test` 为编译器内置 Primitive，存在性量化 body 的效应变量 `e`）
 
 > **`Test` 名称的三重指代**：`Test` 既是**效应名**（`! {Test, e}`），也是**模块名**（`Test.with`/`Test.timeout`/`Test.describe`/`assert`）；类型则命名为 `TestCase`。三者靠类型/值命名空间分离 + 全名/选择性导入消歧（详见 [效应与模块同名](../discussions/discussion-zig-host-and-effect-module-namespacing.md)）。
 
@@ -3553,7 +3636,7 @@ main = \_ ->
 
 > **测试用例识别规则**：
 > 1. 文件命名：`<module>_test.kun`，与被测模块同目录共置（如 `lib/List.kun` 对应 `lib/List_test.kun`）；不识别 `tests/` 目录、不识别 `test-*.kun` 命名
-> 2. 用例载体：导出的 `TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`），而非 `test*` 前缀函数
+> 2. 用例载体：导出的 `TestCase` 类型值（不透明类型，仅由 `test` Primitive 构造；内部封装 `name`/`description`/`timeout`/`body`/`with`，不暴露给用户），而非 `test*` 前缀函数
 > 3. 收集规则：仅 `export` 列表中的 `TestCase` 类型值会被收集执行；未导出的 `TestCase` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
 > 4. `body` 字段：零参效应函数 `Unit ! {Test, e}`，效应集必须含 `Test`，可选含用户效应 `e`
 
@@ -3569,15 +3652,18 @@ import Test (Test, TestCase, test, assert, fail, skip)
 ### API
 
 ```kun
-// 测试用例类型（Record）
-type TestCase =
-  TestCase
-    { name : String                              // 测试名，用于 --filter 匹配与报告显示
-    , description : ?String                      // 可选详细描述（仅文档化，不参与匹配）
-    , timeout : ?Duration                        // 可选单测试超时，覆盖 --timeout 默认值
-    , body : Unit ! {Test, e}                    // 测试逻辑本体（零参效应函数，! 后缀调用）
-    , with : ?(Handler {e} Unit ! {r})           // 可选 handler，消解用户效应 e
-    }
+// 测试用例类型——编译器内置不透明类型（类似 Command），内部结构不暴露
+// test 构造器（Primitive）存在性量化 body 的效应变量 e
+opaque type TestCase
+
+// 概念模型（仅供理解，不作为公开 API）
+// TestCase 内部封装：
+//   { name        : String
+//   , description : ?String
+//   , timeout     : ?Duration
+//   , body        : Unit ! {Test, e}                // e 被存在性量化
+//   , with        : ?(Handler {e} TestResult ! {r})
+//   }
 
 // Test 效应（标准库效应，非保留名——与 DB/Log 等用户效应同构）
 // assert/fail/skip 通过 abort 终止当前测试（不使用 panic）
@@ -3597,23 +3683,24 @@ type TestResult =
 // 消解 Test 效应为 TestResult，产生 IO 效应（写报告）
 testHandler : Handler {Test} TestResult ! {IO}
 
-// 便捷构造器：以 name + body 构造 TestCase，其余字段填默认值
-//   description = Nil, timeout = Nil, with = Nil
+// [Primitive] test 构造器——存在性量化 body 的效应变量 e
+//   以 name + body 构造 TestCase，其余字段填默认值（description = Nil, timeout = Nil, with = Nil）
 test : String -> (Unit ! {Test, e}) -> TestCase
 
 // 链式字段设置（纯函数，返回新 TestCase，支持 |> 管道）
-Test.with     : Handler {e} Unit ! {r} -> TestCase -> TestCase   // 设置 with 字段
-Test.timeout  : Duration -> TestCase -> TestCase                 // 设置 timeout 字段
-Test.describe : String -> TestCase -> TestCase                   // 设置 description 字段
+Test.with     : Handler {e} TestResult ! {r} -> TestCase -> TestCase   // 设置 with 字段（消解 e 产出 TestResult）
+Test.timeout  : Duration -> TestCase -> TestCase                       // 设置 timeout 字段
+Test.describe : String -> TestCase -> TestCase                        // 设置 description 字段
 ```
 
 **关键语义**：
 
 - `assert`/`fail`/`skip` 是 `Test` 效应的操作，可在**任何效应集含 `Test` 的函数**中使用（不限 `TestCase.body`）；通过 `abort` 终止当前测试——**没有 panic 黑魔法**，与普通 handler 的 `abort` 语义完全一致
 - `Test` 是**标准库效应**（非保留名）；`testHandler` 是 `kun` 二进制内置 handler（运行器提供）
-- `TestCase.with` 字段：声明式效应隔离——可选 handler 消解 `body` 的用户效应 `e`；多个用户效应通过 `>>` 组合为单一 handler；`Nil` 表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解）
+- `TestCase` 是**不透明类型**（编译器内置，类似 `Command`），其 `body` 字段的效应变量 `e` 被存在性量化——不同测试的 `e` 不同，但都可存入 `List TestCase`。`test` 构造器（Primitive）在构造时捕获 `e`，运行器在执行时通过 handler 消解。这不要求用户可见的类型系统支持 rank-2 多态或存在类型——`TestCase` 对用户是不可见的内部类型
+- `TestCase.with` 字段：声明式效应隔离——可选 handler 消解 `body` 的用户效应 `e` 并产出 `TestResult`；多个用户效应通过 `>>` 组合为单一 handler；`Nil` 表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解）
 - `TestResult` 仅由 `testHandler` 产出：`Pass` 对应 `body` 正常返回，`Fail`/`Skip` 对应 `Test` 效应的 `abort`
-- `test` + `Test.with`/`Test.timeout`/`Test.describe` 与 `TestCase { ... }` 字面量构造**等价**，前者更简洁、可组合，后者适合一次设置全部字段
+- `test` + `Test.with`/`Test.timeout`/`Test.describe` 链式构造 `TestCase`（`test` 为 Primitive，不存在 `TestCase { ... }` 字面量构造形式）
 
 ### 测试用例示例
 
@@ -3755,6 +3842,12 @@ testReplay : TestCase =
 - **序号校验**：回放时 `seq` 不匹配则报错（业务逻辑变化）
 - **非确定性消除**：`DateTime`/`Random` 等非确定性效应的录制结果在回放时固定，消除非确定性
 
+### 类型安全与副作用隔离
+
+- **Stream 录制**：`Cmd.execSafe`/`Cmd.stream` 返回的 `Stream String` 在录制时被强制消费（`Stream.toList`），完整内容记入 JSONL 的 `result` 字段。**部分消费的 Stream 不支持录制**——录制模式下 Stream 必须完整消费，否则录制报错 `ReplayStreamPartiallyConsumed`。这避免回放时 Stream 状态不一致（生产侧懒消费 N 个元素、回放侧却消费了全部）。
+- **回放类型检查**：回放时，`replayHandler` 从 JSONL 读取 `result` 并反序列化为业务函数期望类型。**类型不匹配**（业务函数返回类型变更，如 `Result String IOError` 改为 `Result Bytes IOError`）时，回放报错（`ReplayTypeMismatch`），不静默继续。这防止录制文件与代码漂移导致的隐性错误。
+- **回放副作用隔离**：`replayHandler` 仅消解录制时指定的效应（`effectNames`）。若业务代码产生**未录制的效应**（如 `Cmd`/`Signal`/`FFI`），这些效应冒泡到 `main`，运行器在回放模式下拒绝执行（报错 `ReplaySideEffectLeak`），确保回放完全确定。这一机制保证回放不依赖任何外部状态，仅以录制文件作为唯一真值源。
+
 ### 匹配规则与限制
 
 | 项目 | 说明 |
@@ -3794,14 +3887,15 @@ testReplay : TestCase =
 | `Map` | `import Map` | 映射表操作（含 `fromHashFn`） |
 | `Set` | `import Set` | 集合操作 |
 | `Result` | `import Result` | 错误处理组合子 |
-| `Equal` | `import Equal` | 深比较（`List.equal`/`Map.equal`/`Set.equal`） |
+| `Equal` | `import Equal` | 自定义比较（`List.equal`/`Map.equal`/`Set.equal`；`==` 默认结构相等，`Equal` 用于自定义比较策略） |
 | `Cli` | `import Cli` | 命令行参数解析（类型驱动，auto --help，子命令） |
 | `Random` | `import Random` | 随机数与洗牌 |
 | `Stream` | `import Stream` | 惰性序列 |
 | `Lazy` | `import Lazy (Lazy, lazy, force)` | 显式惰性特区（`lazy`/`force`，memoize 一次） |
 | `Validator` | `import Validator` | 校验函数（`oneOf`/`range`/`nonEmpty`/`regex`），供 `Cli.withValidator` 等使用 |
 | `IO` | `import IO` | 控制台 IO（内置效应） |
-| `Env` | `import Env` | 环境变量 |
+| `Env` | `import Env` | 环境变量（标准库效应，非内置效应，`kun` 二进制提供默认 handler） |
+| `Log` | `import Log` | 日志记录（用户效应，非内置效应，需用户在 `main`/`TestCase.body` 内提供 handler 消解） |
 | `File` | `import File` | 文件操作及关联类型（`File.read`/`write`/`remove`/`exists`/`createTemp` 对应 `effect File` 操作；`File.Type`/`File.Mode`/`File.Stat`，内置效应） |
 | `Cmd` | `import Cmd` | 命令调用（内置效应，`cmd` 字面量语法） |
 | `Task` | `import Task` | 并发命令执行（`spawn`/`all`） |
@@ -3817,5 +3911,5 @@ testReplay : TestCase =
 | `FFI` | `import FFI` | FFI 内置效应与 `FfiBuffer`/`Ffi.alloc`/`Ffi.toBytes`/`Ffi.toString` |
 | `Parser.JSON` | `import Parser.JSON` | JSON 解析 |
 | `Parser.Record` | `import Parser.Record` | Record 反序列化 |
-| `Test` | `import Test (Test, TestCase, test, assert, fail, skip)` | `TestCase` 类型（测试用例 Record）、`Test` 效应（`assert`/`fail`/`skip`）、`testHandler`、`TestResult`、`test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式函数 |
+| `Test` | `import Test (Test, TestCase, test, assert, fail, skip)` | `TestCase` 类型（不透明类型，编译器内置）、`Test` 效应（`assert`/`fail`/`skip`）、`testHandler`、`TestResult`、`test` 构造器与 `Test.with`/`Test.timeout`/`Test.describe` 链式函数 |
 

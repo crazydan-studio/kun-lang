@@ -2,7 +2,7 @@
 
 ## 设计定位
 
-对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。`Cli` 是标准库模块，利用编译器提供的编译期类型内省与代码展开 API（与 `Parser.Record.fromJson` 共用基础设施）实现类型安全。
+对标 Python `argparse`，以类型驱动的方式将 `main` 接收的 `List String` 解析为类型安全的 Record。`Cli` 是标准库模块，其 `Cli.parse` 函数为编译器内置 Primitive（依赖类型检查后的 TypeEnv 内省生成参数解析代码，详见下文 Primitive 说明），与 `Parser.Record.fromJson` 共用同一套编译器内省接口。
 
 `Cli` 模块仅导出类型结构与声明器函数，不提供构造器或修饰器包装函数——用户直接操作`Cli.CliSpec` 和 `Cli.CliMeta` 等 Record 数据，通过标准 Record 语法和 Map 字面量/更新语法进行组装。
 
@@ -563,17 +563,13 @@ handleSubCmd = \cfg -> do
 
 `withDefault` 在编译期将多态值序列化为 `String` 存入 `CliArg` 的 `default` 字段。在 `Cli.parse` 展开阶段，编译器按目标字段类型将存储的字符串反序列化，并校验反序列结果类型匹配。此机制与 `Parser.Record.fromJson` 的默认值处理一致。
 
-> **编译期代码展开**：上述步骤 3-9 由编译器的通用代码展开设施执行——该设施允许标
-> 准库函数在编译期根据已知类型参数内省 Record 结构并生成特化代码。此机制与
-> `Parser.Record.fromJson` 共用同一基础设施，基于 Zig `comptime` + `@typeInfo` 实
-> 现。`Cli.parse` 不要求编译器对其有特殊内置知识——它仅使用编译器提供的公开类型内
-> 省 API。
+> **`Cli.parse` 作为 Primitive**：上述步骤 3-9 由编译器内置的 Primitive 函数实现（非通用元编程设施）。编译器在类型检查完成后，利用 TypeEnv 中的类型信息（`getTypeName`/`getRecordFields` 等 comptime 内省 API）生成参数解析代码。这是编译器对 `Cli` 模块的专门支持，不构成通用宏展开或 comptime 求值设施。`Parser.Record.fromJson` 共用同一套 Primitive 内省接口，但二者均为编译器内置 Primitive，而非用户可调用的展开机制。
 
 ---
 
 ## 示例
 
-> **注意**：`Cli.parse` 和 `Cli.show` 依赖编译期代码展开设施，以下示例展示完整功能设计。当前 `Cli` 模块仅提供声明器（`flag`/`option`/`count`/`arg`）和修饰器（`withDefault`/`withRequires`/`withNegation`/`withEnvVar`/`withValidator`），`parse`/`show` 函数暂不可用。
+> **注意**：`Cli.parse` 和 `Cli.show` 为编译器 Primitive 函数（依赖类型检查后的 TypeEnv 内省），以下示例展示完整功能设计。当前 `Cli` 模块仅提供声明器（`flag`/`option`/`count`/`arg`）和修饰器（`withDefault`/`withRequires`/`withNegation`/`withEnvVar`/`withValidator`），`parse`/`show` 函数暂不可用。
 
 ### 1. 基本用法
 
@@ -1355,12 +1351,12 @@ Try 'build.kun --help' for more information.
 
 `kun test` 子命令扫描 `lib/` 目录下所有 `*_test.kun` 文件（递归），将每个文件作为独立模块加载，依据编译期类型信息收集所有**导出的 `TestCase` 类型值**并执行。
 
-> 测试系统的完整设计（`TestCase` 类型 Record、`Test` 效应、`Test` 模块（`test`/`Test.with`/`Test.timeout`/`Test.describe`）、`testHandler`、执行模型、并行隔离、生命周期、报告格式）详见 [单元测试设计](testing.md)。本节仅描述 `kun test` 命令行为与 CLI 选项。
+> 测试系统的完整设计（`TestCase` 不透明类型、`Test` 效应、`Test` 模块（`test`/`Test.with`/`Test.timeout`/`Test.describe`）、`testHandler`、执行模型、并行隔离、生命周期、报告格式）详见 [单元测试设计](testing.md)。本节仅描述 `kun test` 命令行为与 CLI 选项。
 
 ### 测试用例识别规则
 
 1. 文件命名：`<module>_test.kun`，与被测模块同目录共置（如 `lib/List.kun` 对应 `lib/List_test.kun`）；不识别 `tests/` 目录、不识别 `test-*.kun` 命名
-2. 用例载体：`TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`），而非 `test*` 前缀函数
+2. 用例载体：`TestCase` 不透明类型值（`opaque type TestCase`，由 `test` Primitive 构造，详见 [单元测试设计](testing.md)），而非 `test*` 前缀函数
 3. 收集规则：仅 `export` 列表中的 `TestCase` 类型值会被收集执行；未导出的 `TestCase` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
 4. `body` 字段：零参效应函数 `Unit ! {Test, e}`，`!` 后缀调用（`tc.body!`）触发执行；效应集必须含 `Test`，可选含用户效应 `e`
 

@@ -62,17 +62,28 @@ testReverse : TestCase =
 
 ## TestCase 类型
 
-`TestCase` 是一个 Record 类型，描述单个测试用例的全部信息：
+`TestCase` 是编译器内置的**不透明类型**（类似 `Command`），内部结构不暴露给用户。`test` 构造器存在性量化 body 的效应变量 `e`：
 
 ```kun
-type TestCase =
-  TestCase
-    { name : String
-    , description : ?String
-    , timeout : ?Duration
-    , body : Unit ! {Test, e}
-    , with : ?(Handler {e} Unit ! {r})
-    }
+// TestCase 是编译器内置的不透明类型（类似 Command），内部结构不暴露
+// test 构造器存在性量化 body 的效应变量 e
+opaque type TestCase
+
+// [Primitive] test 构造器——存在性量化 body 的效应变量 e
+test : String -> (Unit ! {Test, e}) -> TestCase
+```
+
+虽然内部结构不暴露，但从概念上 `TestCase` 封装了下列信息（以伪结构形式表达，仅供理解，不作为公开 API）：
+
+```kun
+// 概念模型（不暴露给用户，运行器内部可见）
+TestCase
+  { name        : String
+  , description : ?String
+  , timeout     : ?Duration
+  , body        : Unit ! {Test, e}          // e 被存在性量化
+  , with        : ?(Handler {e} TestResult ! {r})
+  }
 ```
 
 | 字段 | 类型 | 语义 |
@@ -81,15 +92,17 @@ type TestCase =
 | `description` | `?String` | 可选详细描述，仅用于文档化，不参与匹配 |
 | `timeout` | `?Duration` | 可选单测试超时，覆盖 `--timeout` 全局默认值。`Nil` 表示沿用全局 |
 | `body` | `Unit ! {Test, e}` | 零参效应函数，测试逻辑本体。`!` 后缀调用（`tc.body!`）触发执行。效应集含 `Test`（断言效应）+ 用户效应 `e` |
-| `with` | `?(Handler {e} Unit ! {r})` | 可选 handler，消解用户效应 `e`。`Nil` 表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解） |
+| `with` | `?(Handler {e} TestResult ! {r})` | 可选 handler，消解用户效应 `e` 并产出 `TestResult`。`Nil` 表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解） |
 
 **约束**：
 
 - `body` 必须是零参效应函数（`Unit ! {Test, e}`），不接受参数——所有测试输入通过闭包捕获
 - `body` 的效应集中**必须**含 `Test`（断言/失败/跳过操作依赖此效应），可选含用户效应 `e`
-- `with` 字段类型为 `Handler {e} Unit ! {r}`，即消解 `e` 后产生内置效应 `r`；多个用户效应通过 `>>` 组合为单一 handler
+- `with` 字段类型为 `Handler {e} TestResult ! {r}`，即消解 `e` 后产出 `TestResult` 与可能的内置效应 `r`；多个用户效应通过 `>>` 组合为单一 handler
 
-> **类型与效应、模块的命名分工**：`TestCase` 是**类型**（用例 Record），`Test` 是**效应**（`! {Test, e}`，由 `testHandler` 消解）也是**模块**（`Test.with`/`Test.timeout`/`Test.describe` 链式构造函数与 `assert`/`fail`/`skip` 效应操作）。三者靠类型/值命名空间分离 + 全名/选择性导入消歧，详见 [效应与模块同名](discussion-zig-host-and-effect-module-namespacing.md)。
+> **类型系统说明**：`TestCase` 是不透明类型，其 `body` 字段的效应变量 `e` 被存在性量化——不同测试的 `e` 不同，但都可存入 `List TestCase`。`test` 构造器（Primitive）在构造时捕获 `e`，运行器在执行时通过 handler 消解。这不要求用户可见的类型系统支持 rank-2 多态或存在类型——`TestCase` 对用户是不可见的内部类型。
+
+> **类型与效应、模块的命名分工**：`TestCase` 是**不透明类型**（用例载体，编译器内置，类似 `Command`），`Test` 是**效应**（`! {Test, e}`，由 `testHandler` 消解）也是**模块**（`Test.with`/`Test.timeout`/`Test.describe` 链式构造函数与 `assert`/`fail`/`skip` 效应操作）。三者靠类型/值命名空间分离 + 全名/选择性导入消歧，详见 [效应与模块同名](discussion-zig-host-and-effect-module-namespacing.md)。
 
 ## Test 效应
 
@@ -138,10 +151,10 @@ testFoo : TestCase =
 | 符号 | 类别 | 用途 |
 |------|------|------|
 | `Test` | 效应 | 测试断言效应（`! {Test, e}`），由 `testHandler` 消解 |
-| `TestCase` | 类型 | 测试用例 Record 类型 |
-| `TestCase(..)` | 构造器 | `TestCase { ... }` 字面量构造 |
+| `TestCase` | 类型 | 测试用例不透明类型（编译器内置，类似 `Command`） |
+| `TestCase(..)` | 构造器 | 不适用（`TestCase` 为不透明类型，仅通过 `test` Primitive 构造，无 `TestCase { ... }` 字面量构造器） |
 | `TestResult`/`TestResult(..)` | 类型 + 构造器 | `Pass`/`Fail String`/`Skip String` |
-| `test` | 模块函数 | 便捷构造器，构造带默认值的 `TestCase` |
+| `test` | Primitive | 编译器内置构造器，存在性量化 body 的 `e` 构造带默认值的 `TestCase` |
 | `Test.with` / `Test.timeout` / `Test.describe` | 模块函数 | 链式字段设置（`|>` 管道） |
 | `assert` / `fail` / `skip` | 效应操作 | `Test` 效应的三个操作，可选择性导入裸用 |
 
@@ -154,28 +167,21 @@ import Test (Test, TestCase, test, assert, fail, skip)
 
 ### 便捷构造器 `test`
 
-`test` 是一个**便捷构造器**——以测试名 + body 构造 `TestCase`，其余字段填默认值（`description = Nil`、`timeout = Nil`、`with = Nil`）：
+`test` 是一个**编译器 Primitive 构造器**——以测试名 + body 构造 `TestCase`，其余字段填默认值（`description = Nil`、`timeout = Nil`、`with = Nil`）。`test` 在构造时存在性量化 body 的效应变量 `e`，使不同 `e` 的测试可存入同一 `List TestCase`：
 
 ```kun
+// [Primitive] test 构造器——存在性量化 body 的效应变量 e
 test : String -> (Unit ! {Test, e}) -> TestCase
-test = \name body ->
-  TestCase
-    { name = name
-    , description = Nil
-    , timeout = Nil
-    , body = body
-    , with = Nil
-    }
 ```
 
-等价于手写 `TestCase { name = ..., description = Nil, timeout = Nil, body = ..., with = Nil }`，省略重复样板。
+等价于（概念上）构造一个不透明 `TestCase` 值，封装 `{ name, description = Nil, timeout = Nil, body, with = Nil }`，但实际实现由编译器内置，用户不可见内部结构。
 
 ### 链式字段设置 `Test.with` / `Test.timeout` / `Test.describe`
 
 三个**纯函数**返回新的 `TestCase`（Kun 不可变），支持 `|>` 管道链式调用：
 
 ```kun
-Test.with     : Handler {e} Unit ! {r} -> TestCase -> TestCase
+Test.with     : Handler {e} TestResult ! {r} -> TestCase -> TestCase
 Test.timeout  : Duration -> TestCase -> TestCase
 Test.describe : String -> TestCase -> TestCase
 ```
@@ -507,7 +513,7 @@ kun test --fail-fast --timeout 5s
 - **`assert : Bool -> Unit`（panic 版）已废弃**（2026.07.16）：替换为 `Test` 效应的 `assert` 操作；旧形式仅出现在「已废弃」上下文中
 - **入口级 `do...with` / `let...in...with` 限制扩展**（2026.07.16）：`do...with` / `let...in...with` 现在可在 `main` 与 `TestCase` 值的 `body` 字段中使用（运行器提供入口级上下文）；旧的"`test*` 函数内可用"措辞被替换。2026.07.18 进一步移除 `handle` 关键字，统一为 `do...with` / `let...in...with`（详见 [讨论记录](../discussions/discussion-handle-with-scope-and-syntax.md)）
 - **`TestResult` 类型保留**：仍是测试结果的唯一表示，但仅由 `testHandler` 产出，不再由测试函数显式返回
-- **类型 `Test` → `TestCase` 重命名**（2026.07.16 v2）：原 `type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`），遵循效应/模块同名消歧设计
+- **类型 `Test` → `TestCase` 重命名**（2026.07.16 v2）：原 `type Test = Test {...}` 重命名为 `type TestCase = TestCase {...}`；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`），遵循效应/模块同名消歧设计
 - **新增 `Test` 模块函数**（2026.07.16 v2）：`test` 便捷构造器 + `Test.with`/`Test.timeout`/`Test.describe` 纯函数链式 `|>` 调用；与原 `Test { ... }` 字面量构造等价，但更简洁、可组合
 
 > 详见 [讨论记录 - 单元测试设计](../discussions/discussion-unit-testing-design.md)。

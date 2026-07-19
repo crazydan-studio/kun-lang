@@ -1,8 +1,8 @@
 # 功能清单
 
-## 当前版本（2026.07 — 代数效应与命令系统重设计）
+## 当前版本（2026.07 — 效应委派与命令系统重设计）
 
-> 以下为代数效应与命令系统重设计后的功能清单。
+> 以下为效应委派与命令系统重设计后的功能清单。
 
 > **注**：`✅ 设计定型` 表示设计文档已编写且经过审计，但不保证无未发现的矛盾或不再变更。设计仍在迭代中，部分特性可能在实现阶段调整。
 
@@ -21,12 +21,12 @@
 | 泛型 | ✅ 设计定型 | 无约束参数化多态；**不支持行多态**，效应集为闭集 + 单效应变量 `e` |
 | 函数类型 | ✅ 设计定型 | `<param> -> <result> ! <effectSet>`；无 `!` ≡ `! {}`（纯） |
 | 效应集 | ✅ 设计定型 | `! {}`/`! {IO}`/`! {IO, File}`/`! e`/`! {IO, e}`；无序集合，合一按排序后比较 |
-| 相等比较 `==` | ✅ 设计定型 | **结构浅比较**；基础类型值比较；容器/Record/ADT 引用比较；深比较用 `Equal` 模块；Map 键仅限内置可哈希类型 |
+| 相等比较 `==` | ✅ 设计定型 | **结构相等**（递归比较复合类型的元素/字段/载荷）；基础类型值比较；List/Map/Set/Record/Tuple/ADT/Nilable/Result 均递归 `==`；`Closure`/`Opaque`/`Stream` 引用比较；自定义比较用 `Equal` 模块；Map 键仅限内置可哈希类型 |
 | 递归类型 | ✅ 设计定型 | 等递归类型，展开深度上限 256 层（`KUN_MAX_TYPE_DEPTH` 可覆盖，0 表示无限制），超限编译错误 |
 | 种类系统 | ✅ 设计定型 | `Type`、`Type -> Type`、`Type -> Type -> Type`、`Effect`、`EffectSet` |
 | 类型等价 | ✅ 设计定型 | `alias` 结构等价 / `type` 名义等价；无子类型；**不支持 typeclass** |
 
-### 代数效应系统
+### 效应委派系统
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
@@ -144,7 +144,7 @@
 | Float | ✅ 设计定型 | 浮点绝对值/取整/三角/指数对数/幂/常量/类型互转/`approxEqual`，Math 已并入 Float |
 | Decimal | ✅ 设计定型 | 精确十进制数值，非编译器内置 |
 | Lazy | ✅ 设计定型 | 显式惰性特区：`Lazy.lazy : (Unit -> a) -> Lazy a`；`Lazy.force : Lazy a -> a`（memoize） |
-| Test | ✅ 设计定型 | `type TestCase = TestCase { name, description, timeout, body, with }`（测试用例 Record）；`effect Test = { assert, fail, skip }`（`abort` 终止，不再 panic）；`testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；`TestResult`（Pass/Fail/Skip）；`Test` 模块函数——`test : String -> (Unit ! {Test, e}) -> TestCase` 便捷构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 设置字段。详见 [单元测试设计](testing.md) |
+| Test | ✅ 设计定型 | `TestCase` 不透明类型（编译器内置，类似 `Command`，由 `test` Primitive 构造）；`effect Test = { assert, fail, skip }`（`abort` 终止，不再 panic）；`testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；`TestResult`（Pass/Fail/Skip）；`Test` 模块函数——`test : String -> (Unit ! {Test, e}) -> TestCase` Primitive 构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 设置字段。详见 [单元测试设计](testing.md) |
 
 > **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型。Cli 和 Parser.Record 均依赖编译期内省基础设施（基于 Zig comptime + @typeInfo）实现。
 
@@ -218,7 +218,7 @@
 | `extern` 块 | ✅ 设计定型 | `extern <Name> from "lib" = { func : sig, ... }` |
 | `assert` | ✅ 设计定型 | `Test` 效应操作 `Bool -> Unit ! {Test}`（需 `import Test`）；`cond=false` → `abort (Fail "assertion failed")`；可在任何效应集含 `Test` 的函数中使用 |
 | `TestResult` | ✅ 设计定型 | `Pass`/`Fail String`/`Skip String`（仅由 `testHandler` 产出） |
-| `Test` 类型值 | ✅ 设计定型 | `type TestCase = TestCase { name, description, timeout, body, with }` Record；`<module>_test.kun` 同目录共置；`export` 列表中的 `TestCase` 值被 `kun test` 收集；`test` 构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式构造 |
+| `Test` 类型值 | ✅ 设计定型 | `TestCase` 不透明类型值（由 `test` Primitive 构造）；`<module>_test.kun` 同目录共置；`export` 列表中的 `TestCase` 值被 `kun test` 收集；`test` Primitive 构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式构造 |
 | `kun test` 命令 | ✅ 设计定型 | 扫描 `lib/*_test.kun`，收集导出的 `TestCase` 值；`--filter` glob 匹配 `TestCase.name`/`--timeout`/`--parallel`/`--fail-fast`/`--report text\|json` |
 | List 解构与展开 | ✅ 设计定型 | `[a, ..rest]`、`[..la, 0, ..lb]` |
 | 模式匹配 | ✅ 设计定型 | 穷举、守卫、嵌套、解构、or 模式 |
@@ -264,7 +264,7 @@
 | `Std` 模块 | ❌ 已移除 | `File.currentDir` + `Cmd.withWorkDir` 替代 |
 | `Nat` 类型 | ❌ 已移除 | `Int` + 运行时范围检查替代 |
 | 扩展积类型 `{ Base \| field : T }` | ❌ 已移除 | Record 类型需精确静态匹配 |
-| `test*` 前缀函数 | ❌ 已废弃（2026.07.16） | `TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`） |
+| `test*` 前缀函数 | ❌ 已废弃（2026.07.16） | `TestCase` 不透明类型值（由 `test` Primitive 构造） |
 | `tests/` 目录 + `test-*.kun` 命名 | ❌ 已废弃（2026.07.16） | `<module>_test.kun` 同目录共置 |
 | `assert : Bool -> Unit`（panic 版） | ❌ 已废弃（2026.07.16） | `Test` 效应的 `assert` 操作（`abort` 失败，不再 panic） |
 | `beforeAll`/`afterAll`/`beforeEach`/`afterEach` 隐式钩子 | ❌ 已废弃（2026.07.16） | `defer` + handler 组合（`Test.with` 模块函数设置 `TestCase.with` 字段） |

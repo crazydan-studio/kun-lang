@@ -8,7 +8,7 @@
 | 项目类型 | 编程语言设计与实现 |
 | 当前版本 | 0.1.0（设计阶段，代码实现已撤销待重写） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
-| 里程碑 | 代数效应与命令系统重设计完成，语言设计定型中；`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），待设计完全稳定后基于新设计重新实现 |
+| 里程碑 | 效应委派与命令系统重设计完成，语言设计定型中；`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），待设计完全稳定后基于新设计重新实现 |
 | 宿主语言 | Zig（锁定 0.16.0 稳定版，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.16.0.tar.xz`） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
@@ -17,10 +17,10 @@
 
 | 维度 | 当前值 |
 |---|---|
-| 活跃需求 | 语言设计稳定化（代数效应 / 命令系统 / 测试系统 / 沙箱等重设计落地） |
+| 活跃需求 | 语言设计稳定化（效应委派 / 命令系统 / 测试系统 / 沙箱等重设计落地） |
 | Owner Doc | `docs/ai-agent/design/type-system.md`、`docs/ai-agent/design/syntax.md`、`docs/ai-agent/design/standard-library.md`、`docs/ai-agent/architecture/system-baseline.md`、`docs/ai-agent/architecture/module-boundaries.md`、`docs/ai-agent/design/kun-shell.md`、`docs/ai-agent/design/kun-cli-tool.md` |
 | 活跃计划 | 无活跃实现计划（设计稳定后重新实现） |
-| 最近完成 | `code/kun-lang/` 实现撤销（commit `559180a`，设计大改动导致旧实现不可维护）；代数效应与命令系统重设计（`effect`/`handler`/`handle with`、`cmd` 字面量、显式执行、`TestCase` 测试系统、沙箱加固等）；设计与架构文档同步重写；`.kun` 示例与 README 迁移到新语法 |
+| 最近完成 | `code/kun-lang/` 实现撤销（commit `559180a`，设计大改动导致旧实现不可维护）；效应委派与命令系统重设计（`effect`/`handler`/`handle with`、`cmd` 字面量、显式执行、`TestCase` 测试系统、沙箱加固等）；设计与架构文档同步重写；`.kun` 示例与 README 迁移到新语法 |
 | 推迟项 | 沙箱（Landlock/seccomp/rlimit，设计已定型）；Kun Shell（未来版本）；等递归类型；Cli 模块 + Parser.Record；String/List/Map/Set PureKun 实现 |
 | AI 自治级别 | `plan-first`（设计阶段，设计文档变更需先审后实施） |
 | 阻塞项 | 无 |

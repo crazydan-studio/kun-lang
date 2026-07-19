@@ -1544,7 +1544,7 @@ add1 = add 1
 
 ## 效应声明 `effect`
 
-`effect` 关键字声明代数效应，Record 风格：
+`effect` 关键字声明效应（基于效应委派模型，详见 [类型系统 - 效应委派系统](type-system.md#效应委派系统)），Record 风格：
 
 ```kun
 effect <Name> =
@@ -1900,19 +1900,20 @@ with
 
 测试用例是 `<module>_test.kun` 文件中**导出的 `TestCase` 类型值**（而非 `test*` 前缀函数）。`assert`/`fail`/`skip` 是 `Test` 效应的操作，通过 `abort` 终止测试（不再使用 panic）。
 
-> 完整设计（`TestCase` 类型 Record、`Test` 效应、`Test` 模块（`test`/`Test.with`/`Test.timeout`/`Test.describe`）、`testHandler`、执行模型、并行隔离、生命周期、报告格式、`kun test` 命令选项）详见 [单元测试设计](testing.md)。本节仅描述语法层面要点。
+> 完整设计（`TestCase` 不透明类型、`Test` 效应、`Test` 模块（`test` Primitive/`Test.with`/`Test.timeout`/`Test.describe`）、`testHandler`、执行模型、并行隔离、生命周期、报告格式、`kun test` 命令选项）详见 [单元测试设计](testing.md)。本节仅描述语法层面要点。
 
 ### `TestCase` 类型与 `Test` 效应
 
 ```kun
-type TestCase =
-  TestCase
-    { name : String
-    , description : ?String
-    , timeout : ?Duration
-    , body : Unit ! {Test, e}
-    , with : ?(Handler {e} Unit ! {r})
-    }
+// TestCase 是编译器内置不透明类型（类似 Command），内部结构不暴露
+// test 构造器（Primitive）存在性量化 body 的效应变量 e
+opaque type TestCase
+
+// [Primitive] test 构造器——存在性量化 body 的效应变量 e
+test : String -> (Unit ! {Test, e}) -> TestCase
+
+// 概念模型（仅供理解，不作为公开 API）
+// TestCase 内部封装：{ name, description, timeout, body, with : ?(Handler {e} TestResult ! {r}) }
 
 effect Test =
   { assert : Bool -> Unit        // assert cond；cond=false → abort (Fail "assertion failed")
@@ -1921,20 +1922,21 @@ effect Test =
   }
 ```
 
-- `Test` 是**标准库效应**（非保留名——与 `DB`/`Log` 等用户效应同构）也是**标准库模块**（`test`/`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；`testHandler : Handler {Test} TestResult ! {IO}` 是 `kun` 二进制内置 handler（运行器提供，与 IO/File 等内置效应默认 handler 同级）；`TestCase` 是测试用例 Record 类型
+- `Test` 是**标准库效应**（非保留名——与 `DB`/`Log` 等用户效应同构）也是**标准库模块**（`test`/`Test.with`/`Test.timeout`/`Test.describe`，同名消歧）；`testHandler : Handler {Test} TestResult ! {IO}` 是 `kun` 二进制内置 handler（运行器提供，与 IO/File 等内置效应默认 handler 同级）；`TestCase` 是编译器内置**不透明类型**（类似 `Command`），其 `body` 字段的效应变量 `e` 被存在性量化，由 `test` 构造器在构造时捕获
 - `assert`/`fail`/`skip` 是 `Test` 效应的操作，可在**任何效应集含 `Test` 的函数**中使用（不限 `TestCase.body`）；通过 `abort` 终止当前测试——**没有 panic 黑魔法**，与普通 handler 的 `abort` 语义完全一致
-- `Test.with` 模块函数：设置 `TestCase.with` 字段，指定消解 `body` 用户效应 `e` 的 handler；多个用户效应通过 `>>` 组合为单一 handler；`Test.with = Nil`（省略）表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解）
+- `Test.with` 模块函数：设置 `TestCase.with` 字段（内部 handler，消解 `body` 用户效应 `e` 并产出 `TestResult`）；多个用户效应通过 `>>` 组合为单一 handler；`Test.with = Nil`（省略）表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解）
 
 ### `Test` 模块——`test` 构造器与链式函数
 
-`Test` 模块提供便捷构造器与链式字段设置函数（均为纯函数，返回新 `TestCase`）：
+`Test` 模块提供 `test` 构造器（Primitive）与链式字段设置函数（纯函数，返回新 `TestCase`）：
 
 ```kun
 import Test (Test, TestCase, test, assert, fail, skip)
 // Test.with / Test.timeout / Test.describe 全名使用
 
+// [Primitive] test 构造器——存在性量化 body 的效应变量 e
 test : String -> (Unit ! {Test, e}) -> TestCase
-Test.with     : Handler {e} Unit ! {r} -> TestCase -> TestCase
+Test.with     : Handler {e} TestResult ! {r} -> TestCase -> TestCase
 Test.timeout  : Duration -> TestCase -> TestCase
 Test.describe : String -> TestCase -> TestCase
 ```
@@ -1942,7 +1944,8 @@ Test.describe : String -> TestCase -> TestCase
 `test` 构造 `TestCase` 默认填 `Nil`；链式函数 `|>` 管道设置字段：
 
 ```kun
-// 等价：test "foo" (...) |> Test.timeout 5s  ≡  TestCase { name = "foo", ..., timeout = Some 5s, ... }
+// 概念上等价（实际实现为编译器 Primitive，不暴露 Record 字面量）：
+// test "foo" (...) |> Test.timeout 5s  ≡  构造 TestCase { name="foo", ..., timeout=Some 5s, ... }
 ```
 
 ### `TestResult` 类型
@@ -2388,7 +2391,7 @@ do
 | 乘除 | `*`, `/`, `%` | 左结合 | |
 | 加减 | `+`, `-` | 左结合 | |
 | 拼接 | `++` | 左结合，适用于 `String`（`"a" ++ "b"`）、`Bytes`（`0x01 ++ 0x02`）、`Path`（`p"/etc" ++ p"config"`） |
-| 比较 | `==`, `/=`, `<`, `>`, `<=`, `>=` | 无结合 | `==` 浅比较 |
+| 比较 | `==`, `/=`, `<`, `>`, `<=`, `>=` | 无结合 | `==` 结构相等（递归比较复合类型） |
 | 逻辑与 | `&&` | 左结合（短路） |
 | 逻辑或 | `\|\|` | 左结合（短路） |
 | 函数组合 | `>>`, `<<` | 左结合 |

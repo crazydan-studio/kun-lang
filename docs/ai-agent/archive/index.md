@@ -42,3 +42,4 @@ archive/
 | `command-function-system.md` | 命令函数系统（`.cmd.kun` + Builder API） | 被 `Cmd.<bin>` 语法替代 |
 | `command-signature-system.md` | 命令签名系统（CDF） | 不涉及注册中心，设计废弃 |
 | `capability-mapping-guide.md` | 能力映射指南 | `.cmd.kun` 命令函数系统被 `Cmd.<bin>` 替代 |
+| `req-capability-design.md` | 能力安全系统重新设计（需求综合，`with caps` 语法方案） | `with caps` 方案被 CLI 参数替代，运行时沙箱通过 Landlock + mount namespace + seccomp + rlimit 实现 |

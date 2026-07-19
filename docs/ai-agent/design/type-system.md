@@ -21,7 +21,7 @@ Kun 的类型系统服务于一门面向 Linux 的函数式脚本语言。其设
 4. **效应即类型**：函数类型含效应集，纯函数 `! {}` 不能调用 `! E`（E 非空）函数
 5. **不可变默认**：所有数据默认不可变，类型系统对此做静态保证
 6. **立即求值**：所有表达式立即求值，`let in` 绑定立即；`Lazy`/`Stream` 为显式惰性特区
-7. **`==` 浅比较**：结构浅比较，深比较显式使用 `Equal` 模块函数
+7. **`==` 结构相等**：默认结构相等（递归比较复合类型的元素/字段/载荷），自定义比较用 `Equal` 模块函数
 8. **不支持 typeclass**：效应抽象靠 `effect`/`handler`，非 typeclass
 9. **不支持行多态**：效应集为闭集 + 单效应变量 `e`
 
@@ -422,7 +422,7 @@ users = Map.fromHashFn (\(UserId i) -> i) Map.empty
 
 ## 相等比较（`==`）语义
 
-`==` 采用**结构浅比较**，不递归嵌套容器/ADT。
+`==` 采用**结构相等**（structural equality）：递归比较复合类型的元素/字段/载荷。Kun 数据不可变、无循环引用，结构相等安全且直观，适合脚本语言的`==` 默认行为。
 
 ### 规则
 
@@ -430,13 +430,16 @@ users = Map.fromHashFn (\(UserId i) -> i) Map.empty
 |---|---|
 | `Int`/`Bool`/`Char`/`Duration` | 值比较 |
 | `Float` | 值比较；`NaN == NaN` → `false`（IEEE 754） |
-| `String`/`Bytes`/`Path` | 内容比较（首层） |
-| `List`/`Map`/`Set` | **引用比较**（不递归元素） |
-| `Record`/`Tuple` | **引用比较**（不递归字段） |
-| ADT | **引用比较**（不比较 tag 与 payload） |
-| `Closure`/`Opaque`/`Stream` | 引用比较 |
+| `String`/`Bytes`/`Path` | 内容比较 |
+| `List` | 逐元素 `==` 递归比较（长度不同→`false`） |
+| `Map`/`Set` | 相同结构 + 元素/键值 `==` 递归比较 |
+| `Record`/`Tuple` | 逐字段 `==` 递归比较 |
+| ADT | 相同 tag + payload `==` 递归比较 |
+| `Nilable` | `Nil == Nil` → `true`；`Some a == Some b` 当且仅当 `a == b` |
+| `Result` | `Ok a == Ok b` 当且仅当 `a == b`；`Err e == Err f` 当且仅当 `e == f` |
+| `Closure`/`Opaque`/`Stream` | **引用比较**（这些类型无法结构比较） |
 
-### 浅比较的语义
+### 结构相等的语义
 
 ```kun
 // 基础类型：值比较
@@ -444,37 +447,37 @@ users = Map.fromHashFn (\(UserId i) -> i) Map.empty
 "hello" == "hello"                  // true（内容相同）
 NaN == NaN                          // false（IEEE 754）
 
-// 容器/复合类型：引用比较（浅）
-[1, 2] == [1, 2]                    // false（不同 List 实例）
-{ x = 1, y = 2 } == { x = 1, y = 2 }  // false（不同 Record 实例）
-(Ok 1) == (Ok 1)                    // false（不同 ADT 实例）
+// 容器/复合类型：结构相等（递归）
+[1, 2] == [1, 2]                    // true（逐元素相等）
+{ x = 1, y = 2 } == { x = 1, y = 2 }  // true（逐字段相等）
+(Ok 1) == (Ok 1)                    // true（同 tag + payload 相等）
+[Some 1, None] == [Some 1, None]    // true（递归比较 Nilable 元素）
 
-// 同一引用：true
-xs = [1, 2]
-xs == xs                            // true（同一实例）
+// 不同结构：false
+[1, 2] == [1, 2, 3]                 // false（长度不同）
+{ x = 1 } == { x = 1, y = 2 }       // false（字段集不同）
+(Ok 1) == (Err 1)                   // false（tag 不同）
 ```
 
-### 深比较需求
+### 自定义比较需求
 
-若需深比较，用 `Equal` 模块提供的 `equal` 函数，显式递归：
+`==` 的结构相等语义能满足绝大多数场景。若需自定义比较（如大小写不敏感字符串比较、近似浮点比较、忽略部分字段等），用 `Equal` 模块提供的 `equal` 函数，显式传入元素比较器：
 
 ```kun
-// Equal 模块（深比较）
+// Equal 模块（自定义比较）
 List.equal : (a -> a -> Bool) -> List a -> List a -> Bool
 Map.equal : (k -> k -> Bool) -> (v -> v -> Bool) -> Map k v -> Map k v -> Bool
 Set.equal : (a -> a -> Bool) -> Set a -> Set a -> Bool
 
-// 使用
-List.equal (==) [1, 2] [1, 2]                          // true（元素浅比较）
-List.equal (List.equal (==)) [[1], [2]] [[1], [2]]     // true（嵌套深比较）
+// 使用：自定义元素比较器
+List.equal (\x y -> String.toLower x == String.toLower y) ["Hi"] ["HI"]  // true
 ```
 
 ### 设计理由
 
-- 浅比较是 O(1)，性能可预测
-- 深比较在不可变语言中语义复杂（嵌套循环引用、大结构性能）
-- 显式 `equal` 函数让深比较成为用户选择，非默认行为
-- 不引入 typeclass，用模块函数替代
+- Kun 数据不可变、无循环引用，结构相等语义清晰、实现简单
+- 脚本语言用户期望 `[1,2] == [1,2]` 为 `true`，结构相等符合直觉
+- `Equal` 模块仍保留，用于自定义比较策略（如大小写不敏感、近似比较），不作为默认深比较的替代
 
 ### Map 键的哈希
 
@@ -791,7 +794,9 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 | `String -> Bytes` | `toBytes : String -> Bytes` | 始终安全 |
 | `Bytes -> String` | `toString : Bytes -> String` | UTF-8 非法序列运行时 Panic |
 
-## 代数效应系统
+## 效应委派系统
+
+> **命名说明**：Kun 的效应系统基于**效应委派**（effect delegation），不是标准代数效应（algebraic effects）。`continue` 将效应调用转发给外层/默认 handler，不捕获续延。这简化了实现（tree-walking 解释器即可支持），但无法表达 state/generator/backtracking/async 等需要续延的模式。
 
 ### 内置效应
 
@@ -1202,6 +1207,8 @@ composedHandler =
   postgreHandler >> journaldLog
 ```
 
+> **`(>>)` 的多效应变量**：handler 组合需要 4 个效应变量（`e1`/`e2` 为被消解的效应，`e11`/`e21` 为 handler 产生的效应）。这是 handler 组合的固有需求，不违反「单效应变量 `e`」原则——后者约束的是**函数效应多态**（回调的效应集用单变量 `e` 参数化），而非 handler 组合的类型构造。
+
 ### `do ... with` / `let ... in ... with` 表达式（限入口函数）
 
 **`do...with` / `let...in...with` 仅在 `main` 函数与 `TestCase` 值的 `body` 字段内可用**，业务函数不可使用。`handle` 关键字已移除（2026.07.18），所有 handler 绑定统一通过 `do...with` / `let...in...with` 表达。
@@ -1239,7 +1246,7 @@ with
 **测试用例识别规则**：
 
 1. 文件命名：`<module>_test.kun`，与被测模块同目录共置（如 `lib/List.kun` 对应 `lib/List_test.kun`）；不识别 `tests/` 目录、不识别 `test-*.kun` 命名
-2. 用例载体：导出的 `TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`），而非 `test*` 前缀函数
+2. 用例载体：导出的 `TestCase` 不透明类型值（`opaque type TestCase`，由 `test` Primitive 构造，详见 [单元测试设计](testing.md)），而非 `test*` 前缀函数
 3. 收集规则：仅 `export` 列表中的 `TestCase` 类型值会被收集执行；未导出的 `TestCase` 类型绑定视为辅助构造（fixture、参数化模板），不参与执行
 4. `body` 字段：零参效应函数 `Unit ! {Test, e}`，效应集必须含 `Test`，可选含用户效应 `e`
 
@@ -1666,6 +1673,8 @@ type Opaque a    // a 是指向的类型，Opaque 表示完全未知
 - 类型参数 `a` 用于编译期类型安全，防止不同库的句柄误传
 
 用于 C 库返回的句柄（`FILE*`/`curl*`/`sqlite3*` 等），由专门的 FFI 函数释放（如 `fclose`/`curl_easy_cleanup`）。
+
+> **`Any` 占位类型**：`Any` 是内置占位类型，仅用于 `Opaque Any` 表示完全不透明的指针（指向未知类型的 C 对象，运行时表示为 `OpaqueVal (Opaque Any)`，见上文 FFI 值表示）。`Any` 无值可居留、无操作，仅作为 `Opaque` 的类型参数占位——当 C 库返回的句柄类型在 Kun 侧无需区分（如泛型容器句柄）时使用。需要类型区分时，应定义专门的 `type` 别名（如 `type File`、`type Curl`）作 `Opaque` 的参数。
 
 **`Opaque` 的内存管理**：
 

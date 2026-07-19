@@ -121,7 +121,7 @@ main = \args -> do
 `do...with` / `let...in...with` 表达式**仅在 `main` 函数与 `TestCase` 值的 `body` 字段内可用**——业务函数只声明效应不消解，效应冒泡到入口级上下文集中消解。
 
 - **`main`**：程序入口，允许消解用户效应（内置效应自动注入默认 handler）
-- **`TestCase.body`**：`TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`）的 `body` 字段，由 `kun test` 运行器在入口级上下文执行，允许使用 `do...with` / `let...in...with`；用户效应通常通过 `Test.with` 模块函数声明式消解（设置 `TestCase.with` 字段，详见 [单元测试设计](testing.md)）
+- **`TestCase.body`**：`TestCase` 不透明类型值（`opaque type TestCase`，由 `test` Primitive 构造，详见 [单元测试设计](testing.md)）的 `body` 字段，由 `kun test` 运行器在入口级上下文执行，允许使用 `do...with` / `let...in...with`；用户效应通常通过 `Test.with` 模块函数声明式消解（设置 `TestCase.with` 字段，详见 [单元测试设计](testing.md)）
 - **其他业务函数**：禁止使用 `do...with` / `let...in...with`，只声明效应
 
 ### `main` 边界与效应集校验

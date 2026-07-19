@@ -299,7 +299,7 @@ let f = \x -> x
 
 #### 效应检查
 
-在类型合一的同时，效应检查器（Effect Checker）扫描 AST 中的效应调用与函数签名效应集。完整规则见 [类型系统设计 > 代数效应系统](../design/type-system.md#代数效应系统)，以下列出实现要点：
+在类型合一的同时，效应检查器（Effect Checker）扫描 AST 中的效应调用与函数签名效应集。完整规则见 [类型系统设计 > 效应委派系统](../design/type-system.md#效应委派系统)，以下列出实现要点：
 
 - 识别函数签名中的效应集 `! {E}`，作为调用约束
 - 验证纯函数（`! {}`）体中无效应函数调用
@@ -658,15 +658,16 @@ CLI 安全参数（`--allow-path`、`--allow-net`、`--allow-ffi`、`--no-sandbo
 
 父进程与子进程采用两层安全机制叠加（非替代）：
 
-1. **父进程层**（初始化阶段一次性安装）：
+1. **父进程层**（初始化阶段一次性安装，按下列顺序依次执行）：
    - `prctl(PR_SET_NO_NEW_PRIVS, 1)` — 最优先执行，禁止当前进程及所有后代获取新特权（setuid exec 将无法提升权限），是 Landlock 生效的前提条件
+   - **创建 user namespace（`CLONE_NEWUSER`，内核 3.8+）**——无需特权，在新 user ns 内进程拥有全部 capability（含 `CAP_SYS_ADMIN`），使后续 `CLONE_NEWNS`/`CLONE_NEWNET` 可用。这是非特权用户沙箱的关键：传统模式下 `CLONE_NEWNS` 需要原进程持 `CAP_SYS_ADMIN`，而 `capset` 清零后无法再创建 mount namespace；通过先创建 user ns，在新 ns 内恢复 capability，再清零，使"capability 清零 + mount namespace 隔离"两者共存成为可能
    - `prctl(PR_SET_DUMPABLE, 0)` — 禁用 core dump 并锁定 `/proc/self/mem` 访问（core dump 可能泄露内存中的敏感数据，`/proc/self/mem` 可被用于绕过保护）。在 `NO_NEW_PRIVS` 之后立即设置
-   - **capabilities 显式清零**（`capset` + securebits 锁定）——`PR_SET_NO_NEW_PRIVS` 仅阻止**获取新特权**，但不撤销**当前已持有的 capabilities**。此层弥补 `NO_NEW_PRIVS` 的缺口，确保解释器进程不以多余 capability 运行。具体策略：
+   - **capabilities 显式清零（`capset` + securebits 锁定，在新 user ns 内执行）**——`PR_SET_NO_NEW_PRIVS` 仅阻止**获取新特权**，但不撤销**当前已持有的 capabilities**。此层弥补 `NO_NEW_PRIVS` 的缺口，确保解释器进程不以多余 capability 运行。具体策略：
      - **脚本未使用 `Cmd.withRunAs`**（默认）：`capset(hdr, data={0,0,0})` 清零所有 capability 集（effective/permitted/inheritable），并锁定 securebits（`SECBIT_KEEP_CAPS_LOCKED | SECBIT_NO_SETUID_FIXUP_LOCKED | SECBIT_NOROOT_LOCKED | SECBIT_NO_CAP_AMBIENT_RAISE_LOCKED`），不可逆
      - **脚本使用了 `Cmd.withRunAs`**：`capset` 清零除 `CAP_SETUID`/`CAP_SETGID` 外的所有 capability（保留这两个于 inheritable 集，供子进程 withRunAs 降权使用），securebits 仅锁定非 KEEP_CAPS 项（`SECBIT_NO_SETUID_FIXUP_LOCKED | SECBIT_NOROOT_LOCKED | SECBIT_NO_CAP_AMBIENT_RAISE_LOCKED`）；子进程在 withRunAs 完成（initgroups → setgid → setuid）后，再执行 `capset` 全清 + `SECBIT_KEEP_CAPS_LOCKED`，最终达到无 cap 状态
-   - Mount namespace `/proc`/`/sys`/`/dev` 加固（内核 3.8+，始终执行）——在所有沙箱模式下均创建最小 mount namespace 重新挂载 `/proc`、`/sys`、`/dev` 为安全实例。此层独立于 Landlock 文件控制，确保伪文件系统始终受控
+   - **创建 mount namespace（`CLONE_NEWNS`，在新 user ns 内执行）**——此时已无 `CAP_SYS_ADMIN`（被 `capset` 清零），但 mount namespace 已在 user ns 上下文中创建成功（user ns 提供的 capability 在 ns 创建时已生效，创建后即可清零）。Mount namespace `/proc`/`/sys`/`/dev` 加固（内核 3.8+，始终执行）——在所有沙箱模式下均创建最小 mount namespace 重新挂载 `/proc`、`/sys`、`/dev` 为安全实例。此层独立于 Landlock 文件控制，确保伪文件系统始终受控
    - Landlock 文件控制（内核 5.13+）——限制真实文件系统访问；网络控制（内核 6.7+）——限制网络访问
-   - Mount namespace 目录级隔离（兜底，内核 3.8+，Landlock 不可用时）：同时创建 network namespace（`CLONE_NEWNET`，内核 3.0+）与 IPC namespace（`CLONE_NEWIPC`，内核 3.0+）——`CLONE_NEWNET` 在 Landlock 网络控制不可用时（内核 5.13–6.6）提供网络隔离；`CLONE_NEWIPC` 隔离 SysV 共享内存/信号量/消息队列，防止通过 IPC 机制逃逸或干扰其他进程
+   - Mount namespace 目录级隔离（兜底，内核 3.8+，Landlock 不可用时）：同时创建 network namespace（`CLONE_NEWNET`，内核 3.0+）与 IPC namespace（`CLONE_NEWIPC`，内核 3.0+）——`CLONE_NEWIPC` 隔离 SysV 共享内存/信号量/消息队列，防止通过 IPC 机制逃逸或干扰其他进程
    - 拒绝运行（内核 < 3.8）
 2. **子进程层**（每次 fork 后始终安装）：
    - **fd 清理（fd scrub）**——fork 后、exec 前关闭所有继承自父进程的 fd≥3（解释器可能持有 Landlock 规则文件、审计日志、内部 pipe 等特权 fd，子进程默认继承全部 fd，可通过 `/proc/self/fd/<N>` 访问这些 fd 绕过沙箱）。保留 stdin/stdout/stderr 及 `Cmd.withStdin` 显式指定的 fd；其余 fd 设置 `FD_CLOEXEC` 或直接 `close`。此清理在 setrlimit 与 seccomp 安装之前执行
@@ -683,11 +684,13 @@ Kun 的默认安全策略为"无网络访问"。`--allow-net` 为全局开关—
 
 | 内核版本 | 网络隔离机制 |
 |---------|------------|
-| ≥ 6.7 | Landlock 网络控制（文件 + 网络规则集） |
-| ≥ 3.0 | Network namespace（`CLONE_NEWNET`，与 mount namespace 同时创建） |
+| ≥ 6.7 | Network namespace（`CLONE_NEWNET`，**始终创建**）+ Landlock 网络控制（文件 + 网络规则集，作为 namespace 之上的精细化层） |
+| ≥ 3.0 | Network namespace（`CLONE_NEWNET`，**始终创建**） |
 | < 3.0 | 拒绝运行 |
 
-`CLONE_NEWNET` 创建一个拥有独立网络栈的新 namespace——无任何网络接口（含 lo），子进程无法建立任何 TCP/UDP 连接。无 per-command 或 per-destination 过滤——精细化网络出口控制需通过 Landlock 网络控制（内核 6.7+）在后续版本中实现。
+`CLONE_NEWNET` **始终创建**——无论内核版本是否支持 Landlock 网络控制（6.7+），mount namespace 创建时均同时创建 network namespace，提供无任何网络接口（含 lo）的隔离环境。Landlock 网络控制（6.7+）是 namespace 之上的**附加层**，提供 per-destination 过滤能力，但**不替代** namespace 隔离——即使 Landlock 网络可用，namespace 隔离仍作为兜底保证。
+
+`CLONE_NEWNET` 创建一个拥有独立网络栈的新 namespace——无任何网络接口（含 lo），子进程无法建立任何 TCP/UDP 连接。Landlock 网络控制（内核 6.7+）作为 namespace 之上的附加层，提供 per-destination 出口过滤的精细化网络控制。
 
 Landlock 使用严格模式：内核版本不支持所需规则集时拒绝运行，不做静默降级。Mount namespace 采用 `pivot_root`（需 `CLONE_NEWNS`）而非 `chroot`，消除 chroot 已知逃逸路径（`chdir("..")` 多次 + `chroot(".")` 可回到真实根）。
 
@@ -703,7 +706,7 @@ seccomp-BPF 过滤规则禁止以下系统调用类别：
 | 内核执行 | `kexec_load`、`kexec_file_load` |
 | BPF 逃逸 | `bpf`（可加载 eBPF 程序绕过 seccomp 或注入内核钩子） |
 | 文件系统重挂载 | `mount`、`umount2`、`pivot_root`（子进程禁止）；`fsopen`、`fsmount`、`fsconfig`、`open_tree`、`move_mount`（Linux 5.2+ 新 mount API）；`mount_setattr`（Linux 5.12+，修改挂载属性，可移除 nosuid/nodev 保护） |
-| 命名空间逃逸 | `unshare`、`clone`（含 `CLONE_NEWNS`/`CLONE_NEWUSER`/`CLONE_NEWNET` 等标志时）；`setns`（加入已有命名空间，绕过 ns 隔离） |
+| 命名空间逃逸 | `unshare`、`clone`（含 `CLONE_NEWNS`/`CLONE_NEWNET` 等标志时）；`setns`（加入已有命名空间，绕过 ns 隔离） |
 | 原始套接字 | `socket`（`AF_PACKET` 协议族） |
 | Landlock 逃逸 | `open_by_handle_at`、`name_to_handle_at`（按 inode 打开文件可绕过 Landlock 路径级限制） |
 | 内核利用原语 | `perf_event_open`（CPU PMU 侧信道 / kprobe 附加）、`userfaultfd`（用户态缺页处理，可绕过 W^X）、`memfd_create`（匿名内存文件 + `execveat` 可绕过文件系统级执行限制） |
@@ -711,6 +714,8 @@ seccomp-BPF 过滤规则禁止以下系统调用类别：
 | 异步 I/O 逃逸 | `io_uring_setup`、`io_uring_enter`、`io_uring_register`（历史漏洞频发，可绕过 seccomp 检查） |
 
 子进程的 seccomp 规则集是固定编译期常量，不受用户配置影响。
+
+> **`CLONE_NEWUSER` 的层次化处理**：`CLONE_NEWUSER` 在父进程层允许使用（用于建立沙箱 user ns，内核 3.8+ 无需特权，见上文父进程层第 2 步）；子进程层的 `unshare`/`clone`（无论带何种 namespace 标志）整体被 seccomp 拦截，因此子进程无法通过 `CLONE_NEWUSER` 逃逸到新 user ns 或新建特权 ns。这一层次化策略使父进程能建立沙箱、子进程被严格隔离，二者各得其所。
 
 > **prctl 子选项过滤**：`prctl` 系统调用不可整体阻止（legitimate 用途包括 `PR_SET_PDEATHSIG`、`PR_SET_NAME` 等）。seccomp-BPF 的 arg0 过滤能力用于阻止以下危险子选项：`PR_SET_MM`（修改进程内存映射描述，可混淆 `/proc/self/maps`）、`PR_CAP_AMBIENT`（提升 ambient 能力集）。实现由 seccomp-BPF 在 arg0 参数上匹配这两个常量值并返回 `SECCOMP_RET_ERRNO`。
 
@@ -1019,7 +1024,7 @@ import File
 模块索引缓存在脚本执行期间持久有效。以下场景触发缓存刷新：
 
 - 文件系统变更检测：加载前通过 `stat` 检查模块文件 `mtime`，若变化则重新加载
-- `--force` 参数：跳过缓存，强制重新解析与类型检查全部模块
+- `--no-cache` 参数：跳过缓存，强制重新解析与类型检查全部模块（与 [`kun` CLI 工具](../design/kun-cli-tool.md#安全控制) 中的 `--force` 语义不同——后者为"跳过安全确认"，二者参数名分离避免歧义）
 - 新增模块：编译器在每次执行入口遍历库根目录，增量更新索引缓存
 
 此策略确保在不重启 `kun` 的情况下，新增或修改的模块文件在下一次脚本执行时自动生效。

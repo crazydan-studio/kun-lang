@@ -50,9 +50,9 @@ Kun 采用 **`alias`/`type` 分离** 的类型声明体系：
 
 脚本领域特定的类型（`Signal`、`DateTime`、`Uid`/`Gid`、`IOError`、`CommandError`、`TestResult`、`FfiBuffer`、`FfiValue` 等）由[标准库](standard-library.md)以 ADT 或效应签名形式定义，详见独立文档。
 
-## 代数效应系统
+## 效应委派系统
 
-Kun 将副作用视为**类型层的效应集**——函数类型显式标注效应集 `a -> b ! E`，纯函数是效应空集 `! {}` 的特例。
+Kun 将副作用视为**类型层的效应集**——函数类型显式标注效应集 `a -> b ! E`，纯函数是效应空集 `! {}` 的特例。效应系统基于**效应委派**（effect delegation），非标准代数效应：`continue` 转发调用而非捕获续延，详见 [类型系统](type-system.md#效应委派系统)。
 
 ### 7 个内置效应
 
