@@ -397,8 +397,8 @@ f"path: { p"/etc/hosts" }"     // 嵌入 Path 字面量
 `'`（单引号）是标识符的合法字符，但不被赋予任何特殊语义（不代表重载、重写或变体关系）。用户可按约定使用，例如区分严格/惰性变体：
 
 ```kun
-map   : (a -> b) -> List a -> List b
-map'  : (a -> b) -> List a -> List b    // 用户的严格变体
+map   : (a -> b ! e) -> List a -> List b ! e
+map'  : (a -> b ! e) -> List a -> List b ! e    // 用户的严格变体
 
 value   : Int                           // 惰性绑定
 value'  : Int                           // 用户约定的"立即求值"变体
@@ -2398,6 +2398,17 @@ do
 | 绑定 | `=` | 右结合 | |
 | 效应集引导 | `!` | — | 函数类型中引导效应集 `! {E}` |
 
+#### `!` 与 `?` 的符号重载
+
+`!` 与 `?` 在 Kun 中均承担多种语义，**通过位置（类型位置 vs 表达式位置）确定性消歧**，无歧义场景：
+
+| 符号 | 类型位置（`:` 后 / 函数类型注解） | 表达式位置（`=` 后 / 函数体） |
+|------|----------------------------------|------------------------------|
+| `!` | 引导效应集：`a -> b ! {E}`（含 `! {}` 纯函数）、`! e`（单效应变量） | 后缀执行：`thunk!` 触发零参效应函数 |
+| `?` | Nilable 类型构造器：`?T` 等价 `Nilable T`（**禁止嵌套** `??T`） | 三元运算符：`cond ? thenExpr : elseExpr` |
+
+> 解析器通过 `:` 与 `=` 的上下文区分位置；`!` 在类型位置永远是效应集引导符，`!` 在表达式位置（且紧邻标识符后）为零参执行后缀。`?` 在类型位置永远是 Nilable 构造器，`?` 在表达式位置永远是三元运算符的前缀。两者在各自位置上不可互换，编译器据此消歧，无需关键字区分。
+
 `Nil` 和 `Some` 为编译器内置 ADT `Nilable a` 的两个变体，始终缺省可用。`Nil` 是无 payload 变体（类似 `true`/`false` 的语法角色），`Some` 是带 payload 变体。二者在 `case` 模式匹配中使用。`Nil` 在表达式和模式中统一通过 ADT 变体查找路径处理，非特殊字面量关键字。详见 [类型系统](type-system.md#nilable-类型-nilable-a--t)。
 
 ### 优先级（从高到低）
@@ -2677,7 +2688,7 @@ Stream.range 0 100           // [0, 1, ..., 99]
 ### 变换（惰性）
 
 ```kun
-Stream.map    : (a -> b) -> Stream a -> Stream b
+Stream.map    : (a -> b ! e) -> Stream a -> Stream b ! e
 Stream.filter : (a -> Bool) -> Stream a -> Stream a
 Stream.take   : Int -> Stream a -> Stream a
 Stream.drop   : Int -> Stream a -> Stream a
@@ -2685,7 +2696,7 @@ Stream.lines  : Stream String -> Stream (Result String LineError)
 Stream.linesMax : Int -> Stream String -> Stream (Result String LineError)
 Stream.parseMap     : (a -> Result b e) -> Stream a -> Stream b
 Stream.parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
-Stream.filterMap    : (a -> ?b) -> Stream a -> Stream b      // 映射并丢弃 Nil
+Stream.filterMap    : (a -> ?b ! e) -> Stream a -> Stream b ! e      // 映射并丢弃 Nil
 ```
 
 ### 消费（终端）
@@ -2693,7 +2704,7 @@ Stream.filterMap    : (a -> ?b) -> Stream a -> Stream b      // 映射并丢弃 
 ```kun
 Stream.toList  : Stream a -> List a                       // 终端
 Stream.iter    : (a -> Unit ! e) -> Stream a -> Unit ! e  // 终端
-Stream.fold    : (b -> a -> b) -> b -> Stream a -> b      // 终端
+Stream.fold    : (b -> a -> b ! e) -> b -> Stream a -> b ! e      // 终端
 Stream.string  : Stream String -> String                  // 终端：全文收集
 Stream.bytes   : Stream a -> Bytes                        // 终端：二进制读取
 ```

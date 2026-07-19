@@ -4,6 +4,8 @@
 
 > 以下为代数效应与命令系统重设计后的功能清单。
 
+> **注**：`✅ 设计定型` 表示设计文档已编写且经过审计，但不保证无未发现的矛盾或不再变更。设计仍在迭代中，部分特性可能在实现阶段调整。
+
 ### 类型系统
 
 | 功能 | 状态 | 说明 |
@@ -85,7 +87,7 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| `recordHandler` | ✅ 设计定型 | `Path -> List Effect -> Handler e a ! {File}`；包装默认 handler，记录每次效应调用 |
+| `recordHandler` | ✅ 设计定型 | `Path -> List String -> Handler e a ! {File}`；包装默认 handler，记录每次效应调用。`Effect` 为种类（非值类型），效应名以 `List String` 传入，运行时按字符串匹配解析 |
 | `replayHandler` | ✅ 设计定型 | `Path -> Handler e a ! {File}`；按时间戳顺序从录制读取，不实际执行副作用 |
 | 录制格式 | ✅ 设计定型 | JSON Lines，每行一次调用；字段 `ts`/`seq`/`eff`/`op`/`args`/`result` |
 | 匹配规则 | ✅ 设计定型 | 按 `eff`+`op`+`seq` 匹配；重命名导致回放失败需重新录制；跨版本不保证兼容 |

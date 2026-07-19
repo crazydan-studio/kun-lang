@@ -234,7 +234,7 @@ main = \args -> do
     Ok content -> IO.println content
     Err e -> IO.println e
 with
-  recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
+  recordHandler p"/trace/session-001.jsonl" ["Libc", "File", "IO"]
 
 // 测试回放（确定性复现，作为 TestCase 值）
 testReplay : TestCase =

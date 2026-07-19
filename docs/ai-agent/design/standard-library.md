@@ -1457,7 +1457,7 @@ missingPort =
 
 ### 定位
 
-`List` 模块提供不可变列表的查询和变换操作。所有函数为纯函数。
+`List` 模块提供不可变列表的查询和变换操作。谓词/比较器类高阶函数（`filter`、`sort`、`sortBy`、`all`、`any`、`find`、`findIndex`、`partition`、`min`、`max`、`groupBy`）为纯函数；`map`/`filterMap`/`fold`/`reduce`/`zipWith`/`iter` 的回调可为效应函数（效应经单变量 `e` 传播）。
 
 需显式导入：
 
@@ -1480,16 +1480,16 @@ last    : List a -> ?a                // 末尾元素，空列表返回 Nil
 get     : Int -> List a -> ?a         // 索引访问，越界返回 Nil
 
 // 变换
-// [PureKun] 对每个元素应用函数
-map       : (a -> b) -> List a -> List b
-// [PureKun] 保留满足条件的元素
+// [PureKun] 对每个元素应用函数（回调可产生效应，效应经单变量 e 传播）
+map       : (a -> b ! e) -> List a -> List b ! e
+// [PureKun] 保留满足条件的元素（谓词返回 Bool，纯函数）
 filter    : (a -> Bool) -> List a -> List a
-// [PureKun] 映射并丢弃 Nil
-filterMap : (a -> ?b) -> List a -> List b
-// [PureKun] 左折叠
-fold      : (b -> a -> b) -> b -> List a -> b
-// [PureKun] 无初始值的折叠，空列表返回 Nil
-reduce    : (a -> a -> a) -> List a -> ?a
+// [PureKun] 映射并丢弃 Nil（回调可产生效应）
+filterMap : (a -> ?b ! e) -> List a -> List b ! e
+// [PureKun] 左折叠（回调可产生效应）
+fold      : (b -> a -> b ! e) -> b -> List a -> b ! e
+// [PureKun] 无初始值的折叠，空列表返回 Nil（回调可产生效应）
+reduce    : (a -> a -> a ! e) -> List a -> ?a ! e
 // [PureKun] 遍历每个元素并调用效应回调
 iter      : (a -> Unit ! e) -> List a -> Unit ! e
 // [Primitive] 拼接两个列表
@@ -1523,8 +1523,8 @@ elem : a -> List a -> Bool
 // [PureKun] 两列表按元素配对
 zip : List a -> List b -> List (a, b)
 
-// [PureKun] 两列表按元素配对并应用函数
-zipWith : (a -> b -> c) -> List a -> List b -> List c
+// [PureKun] 两列表按元素配对并应用函数（回调可产生效应）
+zipWith : (a -> b -> c ! e) -> List a -> List b -> List c ! e
 
 // [PureKun] 按谓词分割为两列表
 partition : (a -> Bool) -> List a -> (List a, List a)
@@ -1553,7 +1553,11 @@ groupBy : (a -> k) -> List a -> Map k (List a)
 - `reduce` 为无初始值的折叠，以首个元素作为起始累加器，空列表返回 `Nil`
 - `iter` 遍历每个元素并调用回调。签名为 `(a -> Unit ! e) -> List a -> Unit ! e`——回调效应集通过单效应变量 `e` 传播到 `List.iter` 调用方。回调可为任意效应函数（含内置效应如 `IO`/`File` 等），调用 `List.iter` 的上下文必须能容纳这些效应。
 
-> **回调纯函数约束**：除 `iter` 外，`List` 模块的所有高阶函数（`map`、`filter`、`filterMap`、`fold`、`reduce`、`all`、`any`、`take`、`drop`）的回调参数**必须为纯函数**（即 `! {}`）。这些操作的语义是「从 A 计算出 B」的纯变换，不应掺杂副作用。`List.iter` 的回调可为任意效应函数（签名标注 `(a -> Unit ! e)`），用于逐元素执行副作用。
+> **回调效应性约束**：`List` 模块的高阶函数分两类：
+> - **效应多态**（回调可为效应函数，效应经 `e` 传播）：`map`、`filterMap`、`fold`、`reduce`、`zipWith`、`iter`
+> - **纯回调**（回调必须为纯函数 `! {}`，即谓词/比较器/键提取）：`filter`、`sort`、`sortBy`、`all`、`any`、`find`、`findIndex`、`partition`、`min`、`max`、`groupBy`
+>
+> 谓词/比较器类操作的语义是「判断/比较」，不应掺杂副作用；变换类操作（`map`/`fold` 等）的回调可为效应函数，用于在变换过程中执行副作用。
 
 当回调是 `Cmd.*` 调用时，每次循环独立 fork 子进程（fork ~0.1ms + exec ~0.3ms ≈ ~0.5ms/次）。按规模选择策略：
 
@@ -1629,8 +1633,8 @@ isEmpty : Map k v -> Bool                     // 是否为空
 insert   : k -> v -> Map k v -> Map k v             // 插入/覆写键值对
 // [Primitive] 移除键值对（键不存在时无操作）
 remove   : k -> Map k v -> Map k v                  // 移除键值对（键不存在时无操作）
-// [PureKun] 更新已有值
-update   : (v -> v) -> k -> Map k v -> Map k v      // 更新已有值
+// [PureKun] 更新已有值（回调可产生效应）
+update   : (v -> v ! e) -> k -> Map k v -> Map k v ! e      // 更新已有值
 // [PureKun] 从列表构造
 fromList : List (k, v) -> Map k v                   // 从列表构造
 // [PureKun] 转为列表
@@ -1644,8 +1648,8 @@ containsKey : k -> Map k v -> Bool
 // [PureKun] 按值谓词过滤
 filter : (v -> Bool) -> Map k v -> Map k v
 
-// [PureKun] 变换值
-map : (v -> w) -> Map k v -> Map k w
+// [PureKun] 变换值（回调可产生效应）
+map : (v -> w ! e) -> Map k v -> Map k w ! e
 
 // [PureKun] 左优先合并两 Map
 union : Map k v -> Map k v -> Map k v
@@ -1658,7 +1662,7 @@ difference : Map k v -> Map k v -> Map k v
 ```
 
 - `insert` 覆写已有键的值
-- `update` 对已有值应用变换函数，键不存在时不操作。变换函数必须为纯函数——逐个元素执行副作用应遍历 `List (k, v)` 并在 `let in` 块中使用 `List.iter`
+- `update` 对已有值应用变换函数，键不存在时不操作。变换函数可为效应函数（效应经单变量 `e` 传播到调用方）；若需逐个元素执行副作用，也可遍历 `List (k, v)` 并在 `let in` 块中使用 `List.iter`
 - `merge` 并集合并，右侧覆盖左侧的相同键
 
 ### 示例
@@ -1721,8 +1725,8 @@ fromList : List a -> Set a             // 从列表构造（自动去重）
 // [PureKun] 按谓词过滤
 filter : (a -> Bool) -> Set a -> Set a
 
-// [PureKun] 变换元素（需结果可哈希）
-map : (a -> b) -> Set a -> Set b
+// [PureKun] 变换元素（需结果可哈希；回调可产生效应）
+map : (a -> b ! e) -> Set a -> Set b ! e
 
 // [PureKun] 左 Set 是否为右 Set 的子集
 isSubset : Set a -> Set a -> Bool
@@ -1733,8 +1737,8 @@ isSuperset : Set a -> Set a -> Bool
 // [PureKun] 两集合是否无交集
 disjoint : Set a -> Set a -> Bool
 
-// [PureKun] 折叠（与 List.fold 相同签名）
-fold : (b -> a -> b) -> b -> Set a -> b
+// [PureKun] 折叠（与 List.fold 相同签名；回调可产生效应）
+fold : (b -> a -> b ! e) -> b -> Set a -> b ! e
 ```
 
 ### 示例
@@ -1823,14 +1827,14 @@ import Result
 ### API
 
 ```kun
-// [PureKun] 对 Ok 应用函数
-map      : (a -> b) -> Result a e -> Result b e     // 对 Ok 应用函数
-// [PureKun] 对 Err 应用函数
+// [PureKun] 对 Ok 应用函数（回调可产生效应，用 f 避免与错误类型变量 e 冲突）
+map      : (a -> b ! f) -> Result a e -> Result b e ! f     // 对 Ok 应用函数
+// [PureKun] 对 Err 应用函数（错误变换为纯函数）
 mapError : (e -> f) -> Result a e -> Result a f     // 对 Err 应用函数
 
 // 链式
-// [PureKun] Ok 时链式调用，Err 短路
-andThen : (a -> Result b e) -> Result a e -> Result b e   // Ok 时链式调用，Err 短路
+// [PureKun] Ok 时链式调用，Err 短路（回调可产生效应）
+andThen : (a -> Result b e ! f) -> Result a e -> Result b e ! f   // Ok 时链式调用，Err 短路
 
 // 解包
 // [PureKun] Ok 返回值，Err 返回缺省值
@@ -2088,8 +2092,8 @@ fromList : List a -> Stream a
 // range start end 为 range start end 1 的语法糖（编译器自动脱糖）
 range : Int -> Int -> Int -> Stream Int
 
-// [PureKun] — 变化为一对多映射然后展平
-flatMap : (a -> Stream b) -> Stream a -> Stream b
+// [PureKun] — 变化为一对多映射然后展平（回调可产生效应）
+flatMap : (a -> Stream b ! e) -> Stream a -> Stream b ! e
 
 // [PureKun] 拼接两个 Stream
 append : Stream a -> Stream a -> Stream a
@@ -2097,8 +2101,8 @@ append : Stream a -> Stream a -> Stream a
 // [PureKun] 逐元素配对
 zip : Stream a -> Stream b -> Stream (a, b)
 
-// [PureKun] 带状态的折叠（emit 中间状态）
-scan : (a -> b -> b) -> b -> Stream a -> Stream b
+// [PureKun] 带状态的折叠（emit 中间状态；回调可产生效应）
+scan : (a -> b -> b ! e) -> b -> Stream a -> Stream b ! e
 
 // [PureKun] 查找第一个匹配元素
 find : (a -> Bool) -> Stream a -> ?a
@@ -2118,8 +2122,8 @@ group : (a -> a -> Bool) -> Stream a -> Stream (List a)
 // [PureKun] 取第 n 个元素
 nth : Int -> Stream a -> ?a
 
-// [Primitive] 创建无限迭代的 Stream
-iterate : (a -> a) -> a -> Stream a
+// [Primitive] 创建无限迭代的 Stream（步进函数可产生效应）
+iterate : (a -> a ! e) -> a -> Stream a ! e
 ```
 
 `range start end` 为 `range start end 1` 的语法糖——编译器在约束生成阶段将 2 参数的 `range` 调用自动脱糖为 3 参数形式，HM 类型检查仅需处理 `Int -> Int -> Int -> Stream Int` 单一签名。
@@ -2127,8 +2131,8 @@ iterate : (a -> a) -> a -> Stream a
 #### 变换（惰性）
 
 ```kun
-// [PureKun] 对每个元素应用函数
-map : (a -> b) -> Stream a -> Stream b
+// [PureKun] 对每个元素应用函数（回调可产生效应）
+map : (a -> b ! e) -> Stream a -> Stream b ! e
 
 // [PureKun] 保留满足条件的元素
 filter : (a -> Bool) -> Stream a -> Stream a
@@ -2178,8 +2182,8 @@ toList : Stream a -> List a
 // [Primitive] 遍历每个元素
 iter : (a -> Unit ! e) -> Stream a -> Unit ! e
 
-// [Primitive] 折叠
-fold : (b -> a -> b) -> b -> Stream a -> b
+// [Primitive] 折叠（回调可产生效应）
+fold : (b -> a -> b ! e) -> b -> Stream a -> b ! e
 
 // [Primitive] 全文收集为 String
 string : Stream String -> String
@@ -2193,8 +2197,8 @@ bytes : Stream a -> Bytes
 #### 错误处理辅助
 
 ```kun
-// [PureKun] 映射并丢弃 Nil
-filterMap : (a -> ?b) -> Stream a -> Stream b
+// [PureKun] 映射并丢弃 Nil（回调可产生效应）
+filterMap : (a -> ?b ! e) -> Stream a -> Stream b ! e
 // -> Stream.filterMap Result.ok stream — 过滤掉所有 Err 元素
 ```
 
@@ -2202,14 +2206,19 @@ filterMap : (a -> ?b) -> Stream a -> Stream b
 
 | 操作 | 类别 | 说明 |
 |------|------|------|
-| `Stream.map` / `Stream.filter` / `Stream.take` / `Stream.drop` / `Stream.takeWhile` / `Stream.dropWhile` / `Stream.flatMap` / `Stream.append` / `Stream.zip` / `Stream.scan` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` | **纯** | 惰性变换，不触发 IO |
-| `Stream.parseMap` / `Stream.parseMapKeep` | **纯** | 同上 |
+| `Stream.filter` / `Stream.take` / `Stream.drop` / `Stream.takeWhile` / `Stream.dropWhile` / `Stream.append` / `Stream.zip` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` | **纯**（纯回调） | 惰性变换，回调为谓词（`Bool`），不触发 IO |
+| `Stream.map` / `Stream.flatMap` / `Stream.scan` / `Stream.iterate` / `Stream.filterMap` | **效应多态**（回调可为效应函数） | 惰性变换，回调效应经 `e` 传播；Stream 本身仍惰性，效应在终端消费时触发 |
+| `Stream.parseMap` / `Stream.parseMapKeep` | **纯**（纯回调） | 解析变换，回调返回 `Result`，不掺杂副作用 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
-| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter` 声明了 `(a -> Unit ! e)` 回调，自身效应集为 `e`（可在 `let in` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在纯上下文使用 |
-| `Stream.string` / `Stream.bytes` | **终端**（非纯流为效应） | 消费 Stream 并收集为 `String`/`Bytes`；纯 Stream（`fromList`/`range`）可在纯上下文使用；命令输出 Stream 须在 `let in` 块内调用（驱动 pipe 读取为效应操作） |
+| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter`/`Stream.fold` 声明了效应多态回调，自身效应集为 `e`（可在 `do`/`let in` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在纯上下文使用 |
+| `Stream.string` / `Stream.bytes` | **终端**（非纯流为效应） | 消费 Stream 并收集为 `String`/`Bytes`；纯 Stream（`fromList`/`range`）可在纯上下文使用；命令输出 Stream 须在 `do`/`let in` 块内调用（驱动 pipe 读取为效应操作） |
 | `Stream.fromList` | **纯** | 从纯 List 构造，无 IO 绑定 |
 
-> **回调纯函数约束**：`Stream.map`、`Stream.filter`、`Stream.take`、`Stream.parseMap`、`Stream.parseMapKeep` 的回调参数**必须为纯函数**（`! {}`）。这些是惰性变换，不应掺杂副作用。`Stream.iter` 的回调可为任意效应函数（签名标注 `(a -> Unit ! e)`），用于逐元素执行副作用。
+> **回调效应性约束**：`Stream` 模块的高阶函数分两类：
+> - **效应多态**（回调可为效应函数，效应经 `e` 传播）：`map`、`flatMap`、`scan`、`iterate`、`filterMap`、`iter`、`fold`
+> - **纯回调**（回调必须为纯函数 `! {}`，即谓词/解析）：`filter`、`find`、`all`、`any`、`group`、`takeWhile`、`dropWhile`、`parseMap`、`parseMapKeep`
+>
+> 谓词类操作的语义是「判断」，不应掺杂副作用；变换类操作的回调可为效应函数。
 
 ### 示例
 
@@ -3699,13 +3708,16 @@ testFetchUser : TestCase =
 
 ```kun
 // 录制：包装默认 handler，记录指定效应的调用
-recordHandler : Path -> List Effect -> Handler e a ! {File}
-recordHandler = \logPath effects -> ...
+// Effect 为种类（kind），不是值类型；效应名以 String 列表传入，运行时按字符串匹配解析
+recordHandler : Path -> List String -> Handler e a ! {File}
+recordHandler = \logPath effectNames -> ...
 
 // 回放：按时间戳顺序从录制读取，不执行副作用
 replayHandler : Path -> Handler e a ! {File}
 replayHandler = \logPath -> ...
 ```
+
+> **效应名传参说明**：`Effect` 是种类（kind），不是值类型，无法作为值参数类型出现在函数签名中。`recordHandler` 因此接收 `List String`——元素为效应名（如 `"Libc"`、`"File"`、`"IO"`），运行时通过字符串匹配解析为对应效应记录。这与类型层的 `! {Libc, File, IO}`（效应集）是不同层面：类型层用于编译期效应检查，值层（`List String`）用于运行时录制过滤。
 
 ### 使用示例
 
@@ -3719,7 +3731,7 @@ main = \args -> do
     Ok content -> IO.println content
     Err e -> IO.println e
 with
-  recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
+  recordHandler p"/trace/session-001.jsonl" ["Libc", "File", "IO"]
 
 // 测试回放（确定性复现）——测试用例为导出的 TestCase 类型值
 testReplay : TestCase =
