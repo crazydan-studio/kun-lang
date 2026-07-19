@@ -100,14 +100,11 @@ kun --trace=full script.kun       # 打印完整调用栈
 
 ```kun
 main : List String -> Unit ! {IO, File, Cmd, ...}
-main = \args ->
-  let
-    case args of
-      []           -> IO.println "no arguments"
-      [name]       -> IO.println f"hello, {name}"
-      [cmd, ..rest] -> IO.println f"{cmd} with {List.length rest} args"
-  in
-    ()
+main = \args -> do
+  case args of
+    []           -> IO.println "no arguments"
+    [name]       -> IO.println f"hello, {name}"
+    [cmd, ..rest] -> IO.println f"{cmd} with {List.length rest} args"
 ```
 
 ### 入口规则
@@ -142,10 +139,8 @@ main = \args ->
 main : List String -> Unit ! {Cmd, IO}
 main = \args ->
   handle
-    let
+    do
       result = fetchUser (UserId "1")
-    in
-      ()
   with
     postgreHandler >> journaldLog
   // 用户效应 DB/Log 被消解
@@ -177,20 +172,14 @@ kun script.kun            # args = []
 ```kun
 // ✅ 正确：可执行脚本
 main : List String -> Unit ! {IO}
-main = \_ ->
-  let
-    IO.println "hello"
-  in
-    ()
+main = \_ -> do
+  IO.println "hello"
 
 // ❌ 错误：可执行脚本不能有 export
 export (helper)    // 编译错误
 main : List String -> Unit ! {IO}
-main = \_ ->
-  let
-    IO.println "hello"
-  in
-    ()
+main = \_ -> do
+  IO.println "hello"
 
 // ❌ 错误：main 签名不合法
 main : Unit        // 编译错误
@@ -217,13 +206,10 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg  -> IO.println f"config: {cfg.verbose} {cfg.output}"
-      Err err -> IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg  -> IO.println f"config: {cfg.verbose} {cfg.output}"
+    Err err -> IO.println (Cli.show err)
 ```
 
 ## 安全控制

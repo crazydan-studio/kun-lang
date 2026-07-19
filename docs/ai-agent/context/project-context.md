@@ -71,11 +71,11 @@
 | 2026-07-17 | 类型标注与值绑定支持同行形式 `name : Type = expr` | 设计 | ✅ syntax、type-system | ✅ writing-conventions | `implement` |
 | 2026-07-17 | 守卫子句改用 `if` 关键字，移除 `when` | 重构 | ✅ syntax、type-system | ✅ writing-conventions | `implement` |
 | 2026-07-17 | 设计目录索引更新——文件说明与设计原则同步新设计 | 文档 | ✅ design/index | ✅ writing-conventions | `implement` |
-| 2026-07-17 | 工具链与格式化规范更新——`let in` / `--allow-ffi` / `kun test` / 块表达式格式 | 文档 | ✅ kun-cli-tool、code-formatting | ✅ writing-conventions | `implement` |
+| 2026-07-17 | 工具链与格式化规范更新——`let in` / `--allow-ffi` / `kun test` / 单表达式格式 | 文档 | ✅ kun-cli-tool、code-formatting | ✅ writing-conventions | `implement` |
 | 2026-07-17 | 应用概览与功能清单更新——效应系统 / FFI / 录制回放概览、功能状态刷新 | 文档 | ✅ app-overview、feature-inventory | ✅ writing-conventions | `implement` |
 | 2026-07-17 | 标准库重设计——7 个内置效应 + `Process` 标准库效应 / `extern` FFI 模块 / Int 位运算 / 录制 / 回放 | 重构 | ✅ standard-library、type-system | ✅ writing-conventions | `plan-first` |
 | 2026-07-17 | 命令系统重设计——`Command` ADT / `cmd` 字面量 / 显式执行三入口 | 重构 | ✅ command-system、syntax、standard-library | ✅ writing-conventions | `plan-first` |
-| 2026-07-17 | 语法重设计——块表达式 / `let in` 统一 / `effect`/`handler`/`handle` / `cmd` 字面量 | 重构 | ✅ syntax | ✅ writing-conventions | `plan-first` |
+| 2026-07-17 | 语法重设计——单表达式 / `let in` 统一 / `effect`/`handler`/`handle` / `cmd` 字面量 | 重构 | ✅ syntax | ✅ writing-conventions | `plan-first` |
 | 2026-07-17 | 类型系统重设计——`alias`/`type` 分离 / `==` 浅比较 / 代数效应类型 | 重构 | ✅ type-system | ✅ writing-conventions | `plan-first` |
 | 2026-07-17 | **code/kun-lang/ 实现撤销（commit `559180a`）** —— 设计大改动（代数效应 / 命令系统 / `alias`/`type` 分离 / TestCase 测试系统等）导致旧实现不可维护；删除全部源码 + 清理实现相关 logs/plans/audits；保留设计文档；更新 `code/README.md` | 撤销 | ✅ - | ✅ closure-audit | `plan-first` → `research-only` |
 

@@ -180,17 +180,14 @@ in
 
 ### `defer` 资源清理
 
-`defer expr` 绑定到所在 `let in` 块，块退出时（正常或 panic）按 LIFO 逆序执行：
+`defer expr` 绑定到所在 `do`/`let in` 块，块退出时（正常或 panic）按 LIFO 逆序执行：
 
 ```kun
-let
+do
   case File.createTemp! of
-    Ok tmp ->
-      let
-        defer (File.remove tmp)
-        cmd ffmpeg {} [ "input.mp4", tmp ] |> Cmd.exec
-      in
-        ()
+    Ok tmp -> do
+      defer (File.remove tmp)
+      cmd ffmpeg {} [ "input.mp4", tmp ] |> Cmd.exec
     Err _ -> IO.println "failed to create temp file"
 ```
 
@@ -275,10 +272,10 @@ testReplay : TestCase =
 
 ## 语法设计
 
-Kun 采用**块表达式**范式——程序中所有构造均为具有确定类型值的表达式，`let in` 是块表达式。Unit 返回的 `let in` 可省略 `in`（`let <body>` ≡ `let <body> in ()`）。所有多语句形式统一为 `let in`，**废弃 `do`/`do in`**。`case`/`if` 根据结果是否被消费决定分支的包裹规则（unbound 继承外层效应上下文，bound 多语句须 `let in` 包裹）。语法借鉴 Elm、Haskell 和 Rust（以 Elm 为主），深度融合 Unix 哲学，确保简洁、统一、一致。所有数据必须赋初值，消除 null，支持自动类型推断。
+Kun 采用**单表达式**范式——程序中所有构造均为具有确定类型值的表达式，多语句形式以 `let <body> in <expr>`（返回值）或 `do <body>`（返回 `Unit`，≈ `let <body> in ()`）表达。`do` 是 `let ... in ()` 的语法糖，可紧跟 `->`（函数箭头或分支箭头）以减少缩进。`case`/`if` 根据结果是否被消费决定分支的包裹规则（unbound 继承外层效应上下文，bound 多语句返回 `Unit` 用 `do`、返回非 `Unit` 用 `let in`、单语句直接书写）。语法借鉴 Elm、Haskell 和 Rust（以 Elm 为主），深度融合 Unix 哲学，确保简洁、统一、一致。所有数据必须赋初值，消除 null，支持自动类型推断。
 
 ```kun
-// 块表达式（完整形式）
+// let in（返回值）
 let
   users = DB.query all          // 立即执行
   count = List.length users     // 立即计算
@@ -286,8 +283,8 @@ let
 in
   count
 
-// 省略形式（返回 Unit）
-let
+// do（返回 Unit，≈ let <body> in ()）
+do
   IO.println "line1"
   IO.println "line2"
 ```

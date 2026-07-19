@@ -30,11 +30,8 @@ import List
 import Path
 
 run : Path -> Unit ! {Cmd, IO}
-run = \dir ->
-  let
-    ...
-  in
-    ()
+run = \dir -> do
+  ...
 ```
 
 ### 可执行脚本
@@ -47,11 +44,8 @@ import List
 import Path
 
 main : List String -> Unit ! {IO}
-main = \_ ->
-  let
-    ...
-  in
-    ()
+main = \_ -> do
+  ...
 ```
 
 其余代码（类型定义、函数定义、绑定等）顺序无强制要求。
@@ -60,7 +54,7 @@ main = \_ ->
 
 使用 2 空格缩进，不使用 Tab。
 
-> **注**：Kun 的解析器**不依赖缩进**来解析结构——所有代码块由显式关键字界定（`let...in`、`case...of`、`handle...with`）。分支体内多语句的边界识别通过 `pattern ->` / `else if` / `else` **关键字定界** + `case...of` 配对跟踪实现，不依赖缩进。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
+> **注**：Kun 的解析器**不依赖缩进**来解析结构——所有代码块由显式关键字界定（`do`、`let...in`、`case...of`、`handle...with`）。分支体内多语句的边界识别通过 `pattern ->` / `else if` / `else` **关键字定界** + `case...of` 配对跟踪实现，不依赖缩进。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
 
 各语境的缩进量（相对于父级上下文）：
 
@@ -71,6 +65,7 @@ main = \_ ->
 | `type` 变体 `=` / `\|` | +2 |
 | ADT 变体中的 Record 字段 | +4（从 `\|` 算 +2） |
 | 函数体 / Lambda 体 | +2 |
+| `\args -> do` body 内绑定/语句 | +2（从 `\args -> do` 所在行算） |
 | `let in` body 内绑定/语句 | +2（从 `let` 算） |
 | `in`（`let in`） | 与 `let` 对齐 |
 | `handle with` 的 `with` | 与 `handle` 对齐 |
@@ -78,6 +73,7 @@ main = \_ ->
 | `handler <Eff> of` 的操作分支体 | +2（从 `handler` 算） |
 | `if` / `case` 分支模式 | +2（从 `if`/`case` 算） |
 | `if` / `case` 分支体（多行） | +4（从 `if`/`case` 算） |
+| Branch 内 `-> do` body | +4（从 `if`/`case` 算），同分支多行体 |
 | Branch 内显式 `let in` | +4（从 `if`/`case` 算），内层语句再 +2 |
 | unbound 分支隐式块 body | +4（从 `if`/`case` 算），同分支多行体 |
 | `if` 省略 `else` | 同 `if` / `case` 分支模式与分支体 |
@@ -93,16 +89,13 @@ main = \_ ->
 
 ### 效应函数
 
-效应函数体用 `let in` 包裹，无论单语句还是多语句。`let in` 与 Lambda 体同级缩进，返回 `Unit` 时可省略 `in`：
+返回 `Unit` 的效应函数体用 `do`（可紧跟 `->`），无论单语句还是多语句：
 
 ```kun
 deploy : Config -> Unit ! {Cmd, IO}
-deploy = \cfg ->
-  let
-    IO.println "deploying..."
-    cmd rsync { archive = true } [ cfg.source, cfg.target ] |> Cmd.exec
-  in
-    ()
+deploy = \cfg -> do
+  IO.println "deploying..."
+  cmd rsync { archive = true } [ cfg.source, cfg.target ] |> Cmd.exec
 
 countFiles : Path -> Int ! {Cmd}
 countFiles = \dir ->
@@ -116,18 +109,17 @@ countFiles = \dir ->
     List.length entries
 ```
 
-返回 `Unit` 的效应函数可省略 `in`：
+返回 `Unit` 的效应函数优先用 `do <body>`（≈ `let <body> in ()`）—— 比 `let <body> in ()` 更简洁，且 `do` 紧跟 `->` 可减少一层缩进：
 
 ```kun
 notify : String -> Unit ! {IO}
-notify = \msg ->
-  let
-    IO.println msg
+notify = \msg -> do
+  IO.println msg
 ```
 
 ### 纯函数
 
-纯函数体为 `let in`（块表达式，单表达式时可省略）。多绑定须用 `let in` 包裹，`in` 与 `let` 对齐：
+纯函数体为 `let in`（单表达式，可省略）。多绑定返回非 `Unit` 须用 `let in` 包裹，`in` 与 `let` 对齐：
 
 ```kun
 add : Int -> Int -> Int
@@ -169,7 +161,7 @@ isEmpty : List a -> Bool = \xs -> List.length xs == 0
 **优先分两行**（任一条件成立）：
 
 - 类型签名超过 60 字符
-- 函数体使用 `let in` 包裹（多语句效应函数体）
+- 函数体使用 `do` 或 `let in` 包裹（多语句函数体）
 - 函数体多行（如 `case` 表达式）
 
 ```kun
@@ -177,16 +169,13 @@ isEmpty : List a -> Bool = \xs -> List.length xs == 0
 fetchUser : UserId -> Result User ! {DB, Log}
 fetchUser = \uid -> ...
 
-// 函数体用 let in 包裹 → 分两行
+// 返回 Unit 的多语句函数体用 do → 分两行
 deploy : Config -> Unit ! {Cmd, IO}
-deploy = \cfg ->
-  let
-    IO.println "deploying..."
-    cmd rsync { archive = true } [ cfg.source, cfg.target ] |> Cmd.exec
-  in
-    ()
+deploy = \cfg -> do
+  IO.println "deploying..."
+  cmd rsync { archive = true } [ cfg.source, cfg.target ] |> Cmd.exec
 
-// 零参效应函数体用 let in 包裹 → 分两行
+// 返回非 Unit 的多语句函数体用 let in → 分两行
 currentTime : String ! {DateTime}
 currentTime = \ ->
   let
@@ -197,7 +186,7 @@ currentTime = \ ->
       Err _ -> "??:??:??"
 ```
 
-**`let in` 块内的同行标注**：`let in` 块内的绑定同样支持同行标注，便于短绑定的类型说明：
+**`let in` / `do` 块内的同行标注**：`let in` 或 `do` 块内的绑定同样支持同行标注，便于短绑定的类型说明：
 
 ```kun
 let
@@ -208,7 +197,7 @@ in
   ...
 ```
 
-`kun fmt` 默认对 `let in` 块内短绑定使用同行形式（标注可选，无标注时直接 `name = expr`）。
+`kun fmt` 默认对 `let in` / `do` 块内短绑定使用同行形式（标注可选，无标注时直接 `name = expr`）。
 
 ## 控制流
 
@@ -225,26 +214,24 @@ result =
 
 分支按结果是否被消费分为 unbound 和 bound 两种格式。
 
-#### Unbound（结果未被消费——`let in` 上下文中）
+#### Unbound（结果未被消费——`do`/`let in` 上下文中）
 
-当 `case` 结果未被值绑定、也不作为函数返回值，且处于 `let in` 效应上下文时，各分支为隐式块表达式。分支内可直接书写多语句，不需显式 `let in` 包裹，结果均为 `Unit`：
+当 `case` 结果未被值绑定、也不作为函数返回值，且处于 `do`/`let in` 效应上下文时，各分支为隐式单表达式。分支内可直接书写多语句，不需显式 `do`/`let in` 包裹，结果均为 `Unit`：
 
 ```kun
-let
+do
   case File.read path of
     Ok text ->
       IO.println "processing..."
       process text
     Err e ->
       IO.println (toString e)
-in
-  ()
 ```
 
-`defer` 在 unbound 分支中属于该分支自身的隐式块表达式，退出分支时立即执行：
+`defer` 在 unbound 分支中属于该分支自身的隐式单表达式，退出分支时立即执行：
 
 ```kun
-let
+do
   case command of
     Deploy config ->
       defer cleanupDeploy ()
@@ -252,27 +239,34 @@ let
     Rollback version ->
       defer cleanupRollback ()
       cmd restore {} [ version ] |> Cmd.exec
-in
-  ()
 ```
 
 #### Bound（结果被值绑定或作为函数返回值）
 
-多语句分支必须用 `let in` 包裹为块表达式，单表达式分支直接书写即可。各分支结果类型必须相同：
+多语句返回 `Unit` 用 `do`；多语句返回非 `Unit` 用 `let in`；单语句直接书写。各分支结果类型必须相同（可为 `Unit`）：
 
 ```kun
-// 效应上下文 bound — 多语句分支须用 let in
+// 效应上下文 bound — 各分支返回同类型（此处 String）
 result =
   case File.read path of
     Ok text ->
-      text                            // 单表达式，不需包裹
+      text                            // 单语句，直接书写
     Err e ->
       let
-        IO.println (toString e)
+        IO.println (toString e)       // 多语句返回非 Unit，用 let in
       in
-        defaultText                   // 多语句，须 let in 包裹
+        fallbackText
 
-// 纯上下文 bound — 多语句分支须用 let in
+// 效应上下文 unbound — 多语句返回 Unit 用 do
+case File.read path of
+  Ok text -> do
+    IO.println "read ok"
+    IO.println text
+  Err e -> do
+    IO.println "read failed"
+    IO.println (toString e)
+
+// 纯上下文 bound — 多语句返回非 Unit 用 let in
 processed =
   case items of
     [] ->
@@ -285,7 +279,7 @@ processed =
         List.sum squared |> List.singleton
 ```
 
-> `case ... of` 内嵌 `let in` 的 `let` 缩进为 +4（从外层 `case` 算），其内部 body 语句再缩进 +2。
+> `case ... of` 内嵌 `let in` 的 `let` 缩进为 +4（从外层 `case` 算），其内部 body 语句再缩进 +2。`-> do` body 同样 +4（从 `case` 算）。
 
 模式守卫使用 `if`：
 
@@ -342,10 +336,10 @@ case value of
 
 `if`、`else if`、`else` 各自独立一行。分支规则与 `case` 一致，按 unbound / bound 区分：
 
-**Unbound（`let in` 上下文中，结果未被消费）** — 分支为隐式块表达式，直接书写多语句：
+**Unbound（`do`/`let in` 上下文中，结果未被消费）** — 分支为隐式单表达式，直接书写多语句：
 
 ```kun
-let
+do
   if cfg.dryRun then
     IO.println "\n  DRY RUN — exiting.\n"
     Process.exit 0
@@ -354,11 +348,9 @@ let
     doWork ()
   else
     doWork ()
-in
-  ()
 ```
 
-**Bound（结果被消费）** — 多语句分支须用 `let in` 包裹，单表达式直接书写：
+**Bound（结果被消费）** — 多语句返回 `Unit` 用 `do`；多语句返回非 `Unit` 用 `let in`；单语句直接书写：
 
 ```kun
 result =
@@ -379,20 +371,18 @@ result =
 
 ```kun
 // unbound 位置：无条件执行效应，省略 else
-let
+do
   if needsCleanup then
     defer (File.remove tmp)
     cmd cleanup {} [] |> Cmd.exec
   // 无 else — if 结果被丢弃，隐式 Unit
-in
-  ()
 
 // bound 位置：then 分支须返回 Unit
 result =
   if needsAbort then
-    let
+    do
       IO.println "aborting"
-  // else 省略 → 隐式 Unit，与 then 的块表达式 (Unit) 一致
+  // else 省略 → 隐式 Unit，与 then 的单表达式 (Unit) 一致
 ```
 
 > 省略 `else` 的 `if` 不可出现在需返回非 `Unit` 值的位置。
@@ -427,18 +417,18 @@ result = x + 1
 result = x + y
 ```
 
-### `let in` 块表达式
+### `let in` / `do` 单表达式
 
-`let` 在新行开始，body 内语句缩进 +2。返回 `Unit` 时可省略 `in`（`let <body>` ≡ `let <body> in ()`）。
+`let` 在新行开始，body 内语句缩进 +2。返回 `Unit` 时优先用 `do <body>`（≈ `let <body> in ()`）。
 
 `let in` 在副作用执行后返回值——`in` 在独立行，与 `let` 对齐，`in` 后表达式的结果即为整个 `let in` 的值：
 
 ```kun
-// let（省略 in）— 返回 Unit
-main = \_ ->
-  let
-    step1
-    step2
+// do — 返回 Unit
+cleanup : Path -> Unit ! {File}
+cleanup = \p -> do
+  removeTemp p
+  log "done"
 
 // let in — 返回值
 readConfig : Path -> Result Config Error ! {File}
@@ -456,7 +446,7 @@ readConfig = \path ->
       Err e -> Err (ConfigReadError e)
 ```
 
-**空 body 约束**：`let in <expr>`（body 无任何绑定）和 `let`（无 body）为编译错误。
+**空 body 约束**：`let in <expr>`（body 无任何绑定）、`do`（无 body）、`let`（无 body）均为编译错误。
 
 **嵌套 `let in`**：`let in` 可自由嵌套，效应集为体内所有效应语句的并集：
 
@@ -476,15 +466,14 @@ in
 
 ### `handle with` 表达式
 
-`handle` 和 `with` 各自在新行。`handle` 后为效应表达式（可为 `let in` 块），`with` 后为 handler（或 handler 组合 `>>`）。`with` 与 `handle` 对齐：
+`handle` 和 `with` 各自在新行。`handle` 后为效应表达式（可为 `do`/`let in` 块），`with` 后为 handler（或 handler 组合 `>>`）。`with` 与 `handle` 对齐：
 
 ```kun
 main : List String -> Unit ! {IO}
 main = \args ->
   handle
-    let
+    do
       result = fetchUser (UserId "1")
-    in
       case result of
         Ok user -> IO.println user.name
         Err _ -> IO.println "not found"
@@ -575,15 +564,13 @@ result = stream |> filter predicate |> map transform |> fold (+) 0
 `|>` 链从 `cmd` 起始时，`|>` 缩进与 `cmd` 名对齐：
 
 ```kun
-let
+do
   entries =
     cmd ls { all = true } [ dir ]
       |> Cmd.stream
       |> Stream.lines
       |> Stream.take 100
       |> Stream.toList
-in
-  ()
 ```
 
 ### `pipe` OS 管道
@@ -831,12 +818,12 @@ cmd "g++" { o = "a.out" } [ "main.cpp" ]
 cmd "a-b-c" { flag = true } []
 ```
 
-## `let in` 块内多行绑定与管道
+## `do`/`let in` 块内多行绑定与管道
 
-`let in` 块内的多行赋值，`=` 独占一行，右侧值体缩进 2：
+`do`/`let in` 块内的多行赋值，`=` 独占一行，右侧值体缩进 2：
 
 ```kun
-let
+do
   entries =
     cmd ls { all = true } [ dir ]
       |> Cmd.stream
@@ -844,11 +831,9 @@ let
       |> Stream.take 100
       |> Stream.toList
   IO.println f"found {List.length entries} items"
-in
-  ()
 ```
 
-`let in` 块内语句之间**无空行**。
+`do`/`let in` 块内语句之间**无空行**。
 
 ## Lambda 作为高阶函数参数
 
@@ -860,47 +845,37 @@ in
 stream |> Stream.filter (\l -> String.contains "ERROR" l)
 ```
 
-### Lambda 体为 `let in` 块
+### Lambda 体为 `do`/`let in` 块
 
 函数名和 Lambda 各自换行，闭括号与参数紧随或换行：
 
 ```kun
-let
+do
   List.iter
-    (\item ->
-      let
-        IO.println f"processing {item.name}"
-        cmd process {} [ item.path ] |> Cmd.exec
-      in
-        ()
+    (\item -> do
+      IO.println f"processing {item.name}"
+      cmd process {} [ item.path ] |> Cmd.exec
     )
     items
 
   Signal.on
     SIGTERM
-    (\sig ->
-      let
-        Process.exit 0
-      in
-        ()
+    (\sig -> do
+      Process.exit 0
     )
-in
-  ()
 ```
 
 ## defer
 
-`defer` 与所在块内语句同级缩进，延迟表达式使用 `()` 包裹。`defer` 的作用域为最近的 `let in` 块（含 unbound 分支中的隐式块）：
+`defer` 与所在块内语句同级缩进，延迟表达式使用 `()` 包裹。`defer` 的作用域为最近的 `do`/`let in` 块（含 unbound 分支中的隐式块）：
 
 ```kun
-let
+do
   tmp = p"/tmp/out.mp4"
   defer (File.remove tmp)
   defer (IO.println "cleanup complete")
 
   cmd ffmpeg {} [ "input.mp4", tmp ] |> Cmd.exec
-in
-  ()
 ```
 
 多个 `defer` 按 LIFO 逆序执行。unbound 分支中的 `defer` 属于该分支自身的隐式块，退出分支时立即执行。`defer` 适合"尽力清理"逻辑，不适合"必须成功"的操作。
@@ -921,12 +896,12 @@ case x of
 if done then result else fallback
 ```
 
-### Unbound 分支（`let in` 上下文中，结果未被消费）
+### Unbound 分支（`do`/`let in` 上下文中，结果未被消费）
 
-分支为隐式块表达式，多语句直接书写，无需显式 `let in` 包裹。分支体缩进 +4（从 `if`/`case` 算），语句间无空行：
+分支为隐式单表达式，多语句直接书写，无需显式 `do`/`let in` 包裹。分支体缩进 +4（从 `if`/`case` 算），语句间无空行：
 
 ```kun
-let
+do
   case content of
     Ok text ->
       IO.println f"got {text}"
@@ -941,54 +916,46 @@ let
   else
     IO.println "skipping"
     Process.exit 1
-in
-  ()
 ```
 
 `defer` 在 unbound 分支中属于该分支自身的隐式块，退出分支时立即执行：
 
 ```kun
-let
+do
   if needsBackup then
     defer (File.remove tmpBackup)
     cmd tar {} [ sourcePath, tmpBackup ] |> Cmd.exec
   else
     IO.println "skipping backup"
-in
-  ()
 ```
 
-若需要分支与外层 `let in` 共享 `defer` 生命周期，将 `defer` 语句写在外层 `let in` 中：
+若需要分支与外层 `do`/`let in` 共享 `defer` 生命周期，将 `defer` 语句写在外层 `do`/`let in` 中：
 
 ```kun
-let
+do
   defer globalCleanup ()
   if needsBackup then
     cmd tar {} [ sourcePath, tmpBackup ] |> Cmd.exec
   else
     IO.println "skipping backup"
   // globalCleanup 在此执行
-in
-  ()
 ```
 
 ### Bound 分支（结果被值绑定或作为函数返回值）
 
-多语句分支必须用 `let in` 包裹为块表达式。内嵌 `let` 缩进 +4（从外层 `if`/`case` 算），内部语句再 +2：
+多语句返回 `Unit` 用 `do`；多语句返回非 `Unit` 用 `let in`；单语句直接书写。内嵌 `let`/`do` 缩进 +4（从外层 `if`/`case` 算），内部语句再 +2：
 
 ```kun
-// 效应上下文 — 多语句须用 let in 包裹
+// 效应上下文 — 多语句返回 Unit 用 do，返回非 Unit 用 let in
 result =
   case File.read path of
     Ok text ->
       text
-    Err e ->
-      let
-        IO.println (toString e)
-      in
-        defaultText
+    Err e -> do
+      IO.println (toString e)
+      fallbackText
 
-// 纯上下文 — 多语句须用 let in 包裹
+// 纯上下文 — 多语句返回非 Unit 用 let in
 processed =
   if list |> List.isEmpty then
     []
@@ -1044,7 +1011,7 @@ aLongVariableName = someFunction withMany args
 
 - 顶层声明（`type` / 函数 / `main`）之间空 1 行
 - 同一定义的内部各行之间不空行
-- `let in` 块内连续语句之间不空行
+- `do`/`let in` 块内连续语句之间不空行
 - `if` / `case` 分支之间不空行
 - 函数体内的逻辑段落之间可空 1 行
 - 文件末尾留 1 个空行
@@ -1076,29 +1043,23 @@ parseLine = \line ->
       Err f"invalid line: {line}"
 
 main : List String -> Unit ! {Cmd, DateTime, IO}
-main = \_ ->
-  let
-    entries =
-      pipe
-        [ cmd cat {} [ p"/var/log/app.log" ]
-        , cmd grep { pattern = "ERROR" } []
-        , cmd head { n = 100 } []
-        ]
-        |> Cmd.stream
-        |> Stream.lines
-        |> Stream.parseMap parseLine
-        |> Stream.toList
+main = \_ -> do
+  entries =
+    pipe
+      [ cmd cat {} [ p"/var/log/app.log" ]
+      , cmd grep { pattern = "ERROR" } []
+      , cmd head { n = 100 } []
+      ]
+      |> Cmd.stream
+      |> Stream.lines
+      |> Stream.parseMap parseLine
+      |> Stream.toList
 
-    IO.println f"found {List.length entries} errors at {currentTime!}"
-    List.iter
-      (\entry ->
-        let
-          IO.println f"[{entry.timestamp}] {entry.message}"
-        in
-          ()
-      )
-      entries
-  in
-    ()
+  IO.println f"found {List.length entries} errors at {currentTime!}"
+  List.iter
+    (\entry -> do
+      IO.println f"[{entry.timestamp}] {entry.message}"
+    )
+    entries
 ```
 

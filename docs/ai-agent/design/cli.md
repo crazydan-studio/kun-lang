@@ -515,16 +515,13 @@ parentSpec
 ```kun
 // 使用 case 模式配合 Result 组合
 handleSubCmd : DeployConfig -> Unit ! {IO}
-handleSubCmd = \cfg ->
-  let
-    case cfg.push of
-      Nil ->
-        case cfg.status of
-          Nil -> IO.println "No subcommand"
-          s   -> IO.println f"Status: short={s.short}"
-      p -> IO.println f"Pushing to {p.remote}/{p.branch}"
-  in
-    ()
+handleSubCmd = \cfg -> do
+  case cfg.push of
+    Nil ->
+      case cfg.status of
+        Nil -> IO.println "No subcommand"
+        s   -> IO.println f"Status: short={s.short}"
+    p -> IO.println f"Pushing to {p.remote}/{p.branch}"
 ```
 
 当子命令数量超过 3 时，建议抽取独立的处理函数，将嵌套 `case` 限制在分发层，业务逻辑放在各自处理函数中。
@@ -609,15 +606,12 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg ->
-        IO.println f"building {cfg.source} with {cfg.jobs} jobs"
-      Err err ->
-        IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg ->
+      IO.println f"building {cfg.source} with {cfg.jobs} jobs"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 自动 `--help` 输出：
@@ -697,20 +691,17 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg ->
-        case cfg.push of
-          Nil ->
-            case cfg.status of
-              Nil -> IO.println "No subcommand specified"
-              s   -> IO.println f"Status: short={s.short}"
-          p -> IO.println f"Pushing to {p.remote}/{p.branch}"
-      Err err ->
-        IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg ->
+      case cfg.push of
+        Nil ->
+          case cfg.status of
+            Nil -> IO.println "No subcommand specified"
+            s   -> IO.println f"Status: short={s.short}"
+        p -> IO.println f"Pushing to {p.remote}/{p.branch}"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 自动 `--help` 输出：
@@ -773,15 +764,12 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg ->
-        IO.println f"watching {cfg.path} at verbosity level {cfg.verbose}"
-      Err err ->
-        IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg ->
+      IO.println f"watching {cfg.path} at verbosity level {cfg.verbose}"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 ```bash
@@ -813,23 +801,20 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg ->
-        case cfg.target of
-          Nil ->
-            case cfg.push of
-              Nil ->
-                case cfg.status of
-                  Nil -> IO.println "No subcommand or target"
-                  s   -> IO.println f"Status: short={s.short}"
-              p -> IO.println f"Pushing to {p.remote}/{p.branch}"
-          t -> IO.println f"Target: {t}"
-      Err err ->
-        IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg ->
+      case cfg.target of
+        Nil ->
+          case cfg.push of
+            Nil ->
+              case cfg.status of
+                Nil -> IO.println "No subcommand or target"
+                s   -> IO.println f"Status: short={s.short}"
+            p -> IO.println f"Pushing to {p.remote}/{p.branch}"
+        t -> IO.println f"Target: {t}"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 ```bash
@@ -1037,15 +1022,12 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg ->
-        IO.println f"host={cfg.host}, level={cfg.logLevel}, port={cfg.port}"
-      Err err ->
-        IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg ->
+      IO.println f"host={cfg.host}, level={cfg.logLevel}, port={cfg.port}"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 违规时：
@@ -1085,15 +1067,12 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg ->
-        IO.println f"verbose={cfg.verbose}, color={cfg.color}, port={cfg.port}"
-      Err err ->
-        IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg ->
+      IO.println f"verbose={cfg.verbose}, color={cfg.color}, port={cfg.port}"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 自动 `--help` 输出：
@@ -1142,15 +1121,12 @@ parseConfig =
     }
 
 main : List String -> Unit ! {IO}
-main = \raw ->
-  let
-    case parseConfig raw of
-      Ok cfg ->
-        IO.println f"host={cfg.host}, port={cfg.port}, debug={cfg.debug}"
-      Err err ->
-        IO.println (Cli.show err)
-  in
-    ()
+main = \raw -> do
+  case parseConfig raw of
+    Ok cfg ->
+      IO.println f"host={cfg.host}, port={cfg.port}, debug={cfg.debug}"
+    Err err ->
+      IO.println (Cli.show err)
 ```
 
 自动 `--help` 输出：
@@ -1326,7 +1302,7 @@ parseConfig =
 `CliError` 为和类型，支持模式匹配实现程序化处理。使用 `Cli.show` 获取人类可读描述：
 
 ```kun
-let
+do
   case parseConfig raw of
     Ok cfg -> ...
     Err (Cli.UnknownOption { option = "verbse", suggestion = "verbose" }) ->
@@ -1337,8 +1313,6 @@ let
       IO.println "env var PORT has invalid value"
     Err err ->
       IO.println (Cli.show err)
-in
-  ()
 ```
 
 完整错误输出示例：
@@ -1398,12 +1372,9 @@ import Test (Test, TestCase, test, assert)
 export (testReverse)   // ← 仅导出的 TestCase 值才会被运行
 
 testReverse : TestCase =
-  test "reverse preserves elements" (\ ->
-    let
-      result = reverse [1, 2, 3]
-      assert (result == [3, 2, 1])
-    in
-      ()
+  test "reverse preserves elements" (\ -> do
+    result = reverse [1, 2, 3]
+    assert (result == [3, 2, 1])
   )
   |> Test.describe "reverse returns elements in opposite order"
   |> Test.timeout 5s

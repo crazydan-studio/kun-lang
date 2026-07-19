@@ -310,7 +310,7 @@ cmd mkdir { p = true } [ "/tmp/build" ]
   |> Cmd.exec
 
 // 错误处理
-let
+do
   result =
     cmd cat {} [ p"/etc/maybe_missing" ]
       |> Cmd.execSafe
@@ -320,8 +320,6 @@ let
       Stream.iter IO.println stream
     Err e ->
       IO.println "not found"
-in
-  ()
 
 // 输出流处理
 let
@@ -442,7 +440,7 @@ Cmd.retry         : Int -> Duration -> Command -> Command
 Kun **不提供全局 `cd`** 或 `chdir`。`Cmd.withWorkDir : Path -> Command -> Command` 指定每个子进程独立的工作目录（fork 后、exec 前 `chdir`）。父进程 CWD 在脚本启动时冻结为 `File.currentDir`，不可变——需使用相对路径的场景通过 `Path.resolve` 基于 `File.currentDir` 转为绝对路径后显式传递，或对各命令使用 `Cmd.withWorkDir` 隔离设置。
 
 ```kun
-let
+do
   cmd ls {} [] |> Cmd.exec                                  // CWD = File.currentDir
 
   cmd tar { c = true, f = "backup.tar" } [ "." ]
@@ -450,14 +448,12 @@ let
     |> Cmd.exec                                          // 仅此子进程 CWD = /build/output
 
   cmd ls {} [] |> Cmd.exec                                  // CWD 仍为 File.currentDir
-in
-  ()
 ```
 
 需要跨多个命令使用同一 CWD 时，用变量绑定：
 
 ```kun
-let
+do
   workDir = p"/build/output"
 
   cmd tar { c = true, f = "backup.tar" } [ "." ]
@@ -465,8 +461,6 @@ let
 
   cmd ls { a = true } []
     |> Cmd.withWorkDir workDir |> Cmd.exec
-in
-  ()
 ```
 
 ### 执行用户：`Cmd.withRunAs`
@@ -491,7 +485,7 @@ cmd systemctl { restart = true } [ "nginx" ]
 ```kun
 // Cmd.andThen : Command -> Command -> Command（前一个成功时执行后一个）
 // Cmd.orElse  : Command -> Command -> Command（前一个失败时执行备选）
-let
+do
   cmd docker build { tag = "app" } [ "." ]
     |> Cmd.andThen (cmd docker push {} [ "app:latest" ])
     |> Cmd.exec
@@ -499,8 +493,6 @@ let
   cmd ping { c = 3 } [ "192.168.1.1" ]
     |> Cmd.orElse (cmd echo {} [ "unreachable" ])
     |> Cmd.exec
-in
-  ()
 ```
 
 `Cmd.andThen` / `Cmd.orElse` 返回 `Command`（延迟执行），不立即 fork。不引入 `&&`/`||` 运算符以避免与逻辑短路运算符冲突。
@@ -513,7 +505,7 @@ in
 // Cmd.timeout : Duration -> Command -> Command
 // Cmd.retry   : Int -> Duration -> Command -> Command
 
-let
+do
   result =
     cmd curl {} [ "https://example.com" ]
       |> Cmd.timeout 5s
@@ -531,8 +523,6 @@ let
   case result2 of
     Ok stream -> Stream.iter IO.println stream
     Err err   -> IO.println "request failed after 3 retries"
-in
-  ()
 ```
 
 `Cmd.retry` 内部调用 `Cmd.timeout`，每次重试独立 fork 子进程。失败时重试 `n` 次，全部失败后返回最后一次 `Err`。
@@ -554,14 +544,12 @@ in
 修饰函数通过 `|>` 链式应用时按从左到右的顺序累积属性，最终由 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 触发 fork：
 
 ```kun
-let
+do
   cmd someCmd {} [ dir ]
     |> Cmd.withWorkDir p"/work"        // 1. 设置工作目录
     |> Cmd.withRunAs "appuser"         // 2. 设置执行用户
     |> Cmd.timeout 5s                  // 3. 设置超时
     |> Cmd.exec                        // 4. fork → chdir → setuid → exec
-in
-  ()
 ```
 
 fork 在 `Cmd.exec` 处触发，子进程内依次执行 `chdir("/work")` → `setuid(appuser)` → `exec`。修饰函数必须在触发执行的操作之前。
@@ -694,12 +682,12 @@ which         : String -> ?Path ! {Cmd}
 | `?` 后缀（`c?`） | `Cmd.execSafe c` |
 | `!` 后缀（`c!`） | `Cmd.exec c` |
 | `\|>` 隐式触发 | 显式 `Cmd.stream`/`Cmd.exec`/`Cmd.execSafe` |
-| `do`/`do in` | `let in` |
+| `do in`（返回值形式） | `let <body> in <expr>`（`do <body>` 保留为返回 `Unit` 的语法糖，≈ `let <body> in ()`） |
 
 ### 迁移示例
 
 ```kun
-// ❌ 废弃写法
+// ❌ 旧式写法（已废弃）
 do
   result = Cmd.cat? p"/etc/maybe_missing"
   case result of
@@ -717,7 +705,7 @@ do
     |> Stream.lines                  // |> 隐式触发执行
 
 // ✅ 新设计写法
-let
+do
   result =
     cmd cat {} [ p"/etc/maybe_missing" ]
       |> Cmd.execSafe
@@ -736,8 +724,7 @@ let
     cmd ls { long = true } [ "/tmp" ]
       |> Cmd.stream
       |> Stream.lines
-in
-  lines
+      |> Stream.toList
 ```
 
 ## 与标准库的关系

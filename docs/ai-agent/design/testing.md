@@ -46,12 +46,9 @@ import Test (Test, TestCase, test, assert, fail, skip)
 export (testReverse, testMap, testFilterSkipped)   // ← 仅导出的 TestCase 值才会被运行
 
 testReverse : TestCase =
-  test "reverse preserves elements" (\ ->
-    let
-      result = reverse [1, 2, 3]
-      assert (result == [3, 2, 1])
-    in
-      ()
+  test "reverse preserves elements" (\ -> do
+    result = reverse [1, 2, 3]
+    assert (result == [3, 2, 1])
   )
 ```
 
@@ -128,12 +125,9 @@ checkPositive n =
   assert (n >= 0)
 
 testFoo : TestCase =
-  test "foo" (\ ->
-    let
-      checkPositive 5          // ← 在辅助函数中调用 assert，效应冒泡到 body
-      checkPositive (-1)        // ← abort (Fail "assertion failed")，body 提前终止
-    in
-      ()
+  test "foo" (\ -> do
+    checkPositive 5          // ← 在辅助函数中调用 assert，效应冒泡到 body
+    checkPositive (-1)        // ← abort (Fail "assertion failed")，body 提前终止
   )
 ```
 
@@ -188,14 +182,11 @@ Test.describe : String -> TestCase -> TestCase
 
 ```kun
 testFetchUser : TestCase =
-  test "fetchUser returns user" (\ ->
-    let
-      result = fetchUser (UserId "1")
-      case result of
-        Ok user -> assert (user.name == "alice")
-        Err _ -> fail "expected Ok, got Err"
-    in
-      ()
+  test "fetchUser returns user" (\ -> do
+    result = fetchUser (UserId "1")
+    case result of
+      Ok user -> assert (user.name == "alice")
+      Err _ -> fail "expected Ok, got Err"
   )
   |> Test.describe "Uses mock DB and Log handlers"
   |> Test.with (mockDbHandler >> mockLogHandler)
@@ -301,19 +292,16 @@ in
 
 ```kun
 testWithTempFile : TestCase =
-  test "parse config file" (\ ->
-    let
-      path = File.createTemp!           // setup：创建临时文件
-      defer (File.remove path)          // cleanup：测试退出时执行（无论 Pass/Fail）
-      File.write path "key=value"
-      config = parseConfig (File.read path)
-      assert (config.key == "value")
-    in
-      ()
+  test "parse config file" (\ -> do
+    path = File.createTemp!           // setup：创建临时文件
+    defer (File.remove path)          // cleanup：测试退出时执行（无论 Pass/Fail）
+    File.write path "key=value"
+    config = parseConfig (File.read path)
+    assert (config.key == "value")
   )
 ```
 
-`defer` 绑定最近 `let in` 块，LIFO 逆序执行。**`defer` 在 `Test` 效应的 `abort`（Fail/Skip）路径下也会执行**——因为 `abort` 是 handler 控制流，不是 panic unwind，`defer` 在 handler 接管前正常清理。这保证测试资源（临时文件、子进程、网络连接）在任何测试结果下都被回收。
+`defer` 绑定最近 `do`/`let in` 块，LIFO 逆序执行。**`defer` 在 `Test` 效应的 `abort`（Fail/Skip）路径下也会执行**——因为 `abort` 是 handler 控制流，不是 panic unwind，`defer` 在 handler 接管前正常清理。这保证测试资源（临时文件、子进程、网络连接）在任何测试结果下都被回收。
 
 ### Handler 组合实现效应隔离
 
@@ -321,14 +309,11 @@ testWithTempFile : TestCase =
 
 ```kun
 testFetchUser : TestCase =
-  test "fetchUser returns user" (\ ->
-    let
-      result = fetchUser (UserId "1")   // ! {DB, Log, IO}
-      case result of
-        Ok user -> assert (user.name == "alice")
-        Err _ -> fail "expected Ok, got Err"
-    in
-      ()
+  test "fetchUser returns user" (\ -> do
+    result = fetchUser (UserId "1")   // ! {DB, Log, IO}
+    case result of
+      Ok user -> assert (user.name == "alice")
+      Err _ -> fail "expected Ok, got Err"
   )
   |> Test.with (mockDbHandler >> mockLogHandler)
   //  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -440,23 +425,17 @@ import Test (Test, TestCase, test, assert, fail, skip)
 export (testReverse, testMap, testFilterSkipped)
 
 testReverse : TestCase =
-  test "reverse preserves elements" (\ ->
-    let
-      result = reverse [1, 2, 3]
-      assert (result == [3, 2, 1])
-    in
-      ()
+  test "reverse preserves elements" (\ -> do
+    result = reverse [1, 2, 3]
+    assert (result == [3, 2, 1])
   )
   |> Test.describe "reverse returns elements in opposite order"
   |> Test.timeout 5s
 
 testMap : TestCase =
-  test "map applies function" (\ ->
-    let
-      result = map (\x -> x * 2) [1, 2, 3]
-      assert (result == [2, 4, 6])
-    in
-      ()
+  test "map applies function" (\ -> do
+    result = map (\x -> x * 2) [1, 2, 3]
+    assert (result == [2, 4, 6])
   )
 
 testFilterSkipped : TestCase =
@@ -475,14 +454,11 @@ import Log.Mock (mockLogHandler)
 export (testFetchUser)
 
 testFetchUser : TestCase =
-  test "fetchUser returns user" (\ ->
-    let
-      result = fetchUser (UserId "1")
-      case result of
-        Ok user -> assert (user.name == "alice")
-        Err _ -> fail "expected Ok, got Err"
-    in
-      ()
+  test "fetchUser returns user" (\ -> do
+    result = fetchUser (UserId "1")
+    case result of
+      Ok user -> assert (user.name == "alice")
+      Err _ -> fail "expected Ok, got Err"
   )
   |> Test.describe "Uses mock DB and Log handlers"
   |> Test.with (mockDbHandler >> mockLogHandler)
