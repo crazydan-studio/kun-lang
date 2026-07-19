@@ -103,21 +103,18 @@ getCurrentTime = \ ->
       Ok s  -> s
       Err _ -> "unknown"
 
-// 效应函数：块表达式 let in 返回 Unit
+// 效应函数：do 单表达式返回 Unit（do 是 let <body> in () 的语法糖）
 processLog : Path -> Unit ! {Cmd, IO}
-processLog = \path ->
-  let
-    entries =
-      cmd cat {} [ path ]
-        |> Cmd.stream
-        |> Stream.lines
-        |> Stream.filterMap Result.ok
-        |> Stream.filter (String.contains "ERROR")
-        |> Stream.take 100
-        |> Stream.toList
-    IO.println f"found {List.length entries} errors"
-  in
-    ()
+processLog = \path -> do
+  entries =
+    cmd cat {} [ path ]
+      |> Cmd.stream
+      |> Stream.lines
+      |> Stream.filterMap Result.ok
+      |> Stream.filter (String.contains "ERROR")
+      |> Stream.take 100
+      |> Stream.toList
+  IO.println f"found {List.length entries} errors"
 
 // 效应函数：let in + cmd.execSafe 显式执行
 countErrors : Path -> Int ! {Cmd}

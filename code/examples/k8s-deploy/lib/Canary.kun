@@ -67,18 +67,15 @@ gradualShift = \cfg ->
     steps = generateSteps cfg.startPercent cfg.endPercent cfg.stepSize
 
     steps
-      |> List.iter (\step ->
-        let
-          IO.println f"  [canary] Adjusting traffic: canary={step.percent}% stable={step.stable}%"
+      |> List.iter (\step -> do
+        IO.println f"  [canary] Adjusting traffic: canary={step.percent}% stable={step.stable}%"
 
-          case setTrafficWeight cfg.namespace cfg.service step.percent of
-            Ok _ ->
-              IO.println f"    ✓ Traffic shifted to {step.percent}%"
-              Process.sleep cfg.stepInterval
-            Err err ->
-              IO.eprintln f"    ✗ Failed to shift traffic: {CommandError.show err}"
-        in
-          ()
+        case setTrafficWeight cfg.namespace cfg.service step.percent of
+          Ok _ ->
+            IO.println f"    ✓ Traffic shifted to {step.percent}%"
+            Process.sleep cfg.stepInterval
+          Err err ->
+            IO.eprintln f"    ✗ Failed to shift traffic: {CommandError.show err}"
       )
   in
     steps

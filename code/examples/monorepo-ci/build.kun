@@ -84,140 +84,137 @@ toTestSuites =
   )
 
 main : List String -> Unit ! {IO, Cmd, DateTime, Process, File}
-main = \rawArgs ->
-  let
-    IO.println ""
-    IO.println (String.repeat 60 "=")
-    IO.println "  Monorepo CI/CD Pipeline"
-    IO.println (String.repeat 60 "=")
-    IO.println ""
+main = \rawArgs -> do
+  IO.println ""
+  IO.println (String.repeat 60 "=")
+  IO.println "  Monorepo CI/CD Pipeline"
+  IO.println (String.repeat 60 "=")
+  IO.println ""
 
-    case parseConfig rawArgs of
-      Ok cfg ->
-        started   = DateTime.now!
-        allSvcs   = B.detectServices cfg.rootPath
-        services  = filterByNames allSvcs cfg.services
+  case parseConfig rawArgs of
+    Ok cfg ->
+      started   = DateTime.now!
+      allSvcs   = B.detectServices cfg.rootPath
+      services  = filterByNames allSvcs cfg.services
 
-        IO.println f"Workspace : {Path.toString cfg.rootPath}"
-        IO.println f"Services  : {List.length services} detected"
-        IO.println f"Parallel  : {cfg.parallel}"
-        IO.println f"Registry  : {cfg.registry}"
-        IO.println f""
+      IO.println f"Workspace : {Path.toString cfg.rootPath}"
+      IO.println f"Services  : {List.length services} detected"
+      IO.println f"Parallel  : {cfg.parallel}"
+      IO.println f"Registry  : {cfg.registry}"
+      IO.println f""
 
-        // -------------------------------------------------
-        // Phase 1: 并行构建
-        // -------------------------------------------------
-        IO.println f"{String.repeat 40 "-"}"
-        IO.println "  BUILD PHASE"
-        IO.println f"{String.repeat 40 "-"}"
+      // -------------------------------------------------
+      // Phase 1: 并行构建
+      // -------------------------------------------------
+      IO.println f"{String.repeat 40 "-"}"
+      IO.println "  BUILD PHASE"
+      IO.println f"{String.repeat 40 "-"}"
 
-        buildResults = B.buildAll services cfg.parallel
-        buildPassed =
-          List.fold
-            (\n r ->
-              case r of
-                B.BuildOk _ -> n + 1
-                _           -> n
-            )
-            0 buildResults
-        IO.println f"  {buildPassed}/{List.length services} built"
+      buildResults = B.buildAll services cfg.parallel
+      buildPassed =
+        List.fold
+          (\n r ->
+            case r of
+              B.BuildOk _ -> n + 1
+              _           -> n
+          )
+          0 buildResults
+      IO.println f"  {buildPassed}/{List.length services} built"
 
-        // -------------------------------------------------
-        // Phase 2: 并行测试
-        // -------------------------------------------------
-        testResults =
-          if cfg.skipTests then
-            let
-              IO.println "\n  Tests skipped (--skip-tests)"
-            in
-              []
-          else
-            let
-              IO.println ""
-              IO.println "  TEST PHASE"
-              IO.println (String.repeat 40 "-")
-
-              suites = toTestSuites services
-            in
-              T.runTests suites cfg.parallel
-
-        // -------------------------------------------------
-        // Phase 3: Docker 镜像并行构建
-        // -------------------------------------------------
-        IO.println ""
-        IO.println "  DOCKER PHASE"
-        IO.println (String.repeat 40 "-")
-
-        dockerCfg =
-          { registry  = cfg.registry
-          , namespace = "default"
-          , dockerfile = Nil
-          }
-        dockerCmds =
-          services
-            |> List.map (\svc ->
-              D.buildImage
-                f"{cfg.registry}/{svc.name}:latest"
-                svc.dir
-            )
-
-        dockerStream = Task.spawn cfg.parallel dockerCmds
-        dockerResults = Task.all dockerStream
-        imageResults =
-          dockerResults
-            |> List.zip services
-            |> List.map (\(svc, result) ->
-              case result of
-                Ok _ ->
-                  D.ImageOk
-                    { service = svc.name
-                    , tag = f"{cfg.registry}/{svc.name}:latest"
-                    , imageId = "<parallel>"
-                    , size = "N/A"
-                    }
-                Err err ->
-                  D.ImageFailed
-                    { service = svc.name
-                    , error = CommandError.show err
-                    }
-            )
-
-        // -------------------------------------------------
-        // Phase 4: 报告
-        // -------------------------------------------------
-        elapsed = DateTime.now! - started
-        IO.println ""
-        IO.println "  REPORT"
-        IO.println (String.repeat 40 "-")
-
-        timestamp =
-          case DateTime.format "yyyyMMdd-HHmmss" started of
-            Ok s  -> s
-            Err _ -> "unknown"
-
-        report =
-          R.generateReport
-            buildResults testResults
-            imageResults started elapsed
-
-        reportPath =
-          cfg.reportDir
-            ++ Path.fromString f"build-report-{timestamp}.md"
-
-        case R.writeReport report reportPath of
-          Ok _ ->
+      // -------------------------------------------------
+      // Phase 2: 并行测试
+      // -------------------------------------------------
+      testResults =
+        if cfg.skipTests then
+          let
+            IO.println "\n  Tests skipped (--skip-tests)"
+          in
+            []
+        else
+          let
             IO.println ""
-            IO.println f"  Total time: {Duration.toSeconds elapsed}s"
-            IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
+            IO.println "  TEST PHASE"
+            IO.println (String.repeat 40 "-")
 
-            if report.failed > 0 then
-              Process.exit 1
-            else
-              Process.exit 0
-          Err _ ->
-            Process.exit 2
-      Err err ->
-        IO.eprintln (Cli.show err)
-        Process.exit 1
-  in
-    ()
+            suites = toTestSuites services
+          in
+            T.runTests suites cfg.parallel
+
+      // -------------------------------------------------
+      // Phase 3: Docker 镜像并行构建
+      // -------------------------------------------------
+      IO.println ""
+      IO.println "  DOCKER PHASE"
+      IO.println (String.repeat 40 "-")
+
+      dockerCfg =
+        { registry  = cfg.registry
+        , namespace = "default"
+        , dockerfile = Nil
+        }
+      dockerCmds =
+        services
+          |> List.map (\svc ->
+            D.buildImage
+              f"{cfg.registry}/{svc.name}:latest"
+              svc.dir
+          )
+
+      dockerStream = Task.spawn cfg.parallel dockerCmds
+      dockerResults = Task.all dockerStream
+      imageResults =
+        dockerResults
+          |> List.zip services
+          |> List.map (\(svc, result) ->
+            case result of
+              Ok _ ->
+                D.ImageOk
+                  { service = svc.name
+                  , tag = f"{cfg.registry}/{svc.name}:latest"
+                  , imageId = "<parallel>"
+                  , size = "N/A"
+                  }
+              Err err ->
+                D.ImageFailed
+                  { service = svc.name
+                  , error = CommandError.show err
+                  }
+          )
+
+      // -------------------------------------------------
+      // Phase 4: 报告
+      // -------------------------------------------------
+      elapsed = DateTime.now! - started
+      IO.println ""
+      IO.println "  REPORT"
+      IO.println (String.repeat 40 "-")
+
+      timestamp =
+        case DateTime.format "yyyyMMdd-HHmmss" started of
+          Ok s  -> s
+          Err _ -> "unknown"
+
+      report =
+        R.generateReport
+          buildResults testResults
+          imageResults started elapsed
+
+      reportPath =
+        cfg.reportDir
+          ++ Path.fromString f"build-report-{timestamp}.md"
+
+      case R.writeReport report reportPath of
+        Ok _ ->
+          IO.println ""
+          IO.println f"  Total time: {Duration.toSeconds elapsed}s"
+          IO.println f"  Builds: {report.passed}/{report.totalBuilds} passed"
+
+          if report.failed > 0 then
+            Process.exit 1
+          else
+            Process.exit 0
+        Err _ ->
+          Process.exit 2
+    Err err ->
+      IO.eprintln (Cli.show err)
+      Process.exit 1

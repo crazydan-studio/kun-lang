@@ -30,33 +30,27 @@ getCurrentTime = \ ->
       Err _ -> "??:??:??"
 
 main : List String -> Unit ! {IO, Cmd, DateTime}
-main = \args ->
-  let
-    logPath =
-      case args of
-        [path] -> Path.fromString path
-        _      -> p"/var/log/syslog"
+main = \args -> do
+  logPath =
+    case args of
+      [path] -> Path.fromString path
+      _      -> p"/var/log/syslog"
 
-    lines =
-      cmd cat {} [ logPath ]
-        |> Cmd.stream
-        |> Stream.lines
-        |> Stream.filterMap Result.ok
-        |> Stream.parseMap parseLine
-        |> Stream.toList
+  lines =
+    cmd cat {} [ logPath ]
+      |> Cmd.stream
+      |> Stream.lines
+      |> Stream.filterMap Result.ok
+      |> Stream.parseMap parseLine
+      |> Stream.toList
 
-    errors =
-      lines
-        |> List.filter (\e -> e.level == "ERROR")
+  errors =
+    lines
+      |> List.filter (\e -> e.level == "ERROR")
 
-    IO.println f"found {List.length errors} errors at {getCurrentTime!}"
-    List.iter
-      (\entry ->
-        let
-          IO.println f"[{entry.timestamp}] {entry.message}"
-        in
-          ()
-      )
-      errors
-  in
-    ()
+  IO.println f"found {List.length errors} errors at {getCurrentTime!}"
+  List.iter
+    (\entry -> do
+      IO.println f"[{entry.timestamp}] {entry.message}"
+    )
+    errors

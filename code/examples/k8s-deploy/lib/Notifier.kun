@@ -92,34 +92,28 @@ notifySlack = \webhookUrl event ->
       |> Result.map (\_ -> "")
 
 notifyConsole : DeploymentEvent -> Unit ! {IO}
-notifyConsole = \event ->
-  let
-    prefix =
-      case event.level of
-        Info     -> "[INFO]"
-        Success  -> "[OK]  "
-        Warning  -> "[WARN]"
-        Failure  -> "[FAIL]"
-        Rollback -> "[ROLL]"
-
-    msg = f"{prefix} {event.service}: {event.message}"
-
+notifyConsole = \event -> do
+  prefix =
     case event.level of
-      Failure | Rollback -> IO.eprintln msg
-      _                  -> IO.println msg
-  in
-    ()
+      Info     -> "[INFO]"
+      Success  -> "[OK]  "
+      Warning  -> "[WARN]"
+      Failure  -> "[FAIL]"
+      Rollback -> "[ROLL]"
+
+  msg = f"{prefix} {event.service}: {event.message}"
+
+  case event.level of
+    Failure | Rollback -> IO.eprintln msg
+    _                  -> IO.println msg
 
 notify : String -> DeploymentEvent -> Unit ! {IO, Cmd}
-notify = \webhookUrl event ->
-  let
-    notifyConsole event
+notify = \webhookUrl event -> do
+  notifyConsole event
 
-    if String.length (String.trim webhookUrl) > 0 then
-      case notifySlack webhookUrl event of
-        Ok _  ->
-          IO.println "  [notify] Webhook sent"
-        Err e ->
-          IO.eprintln f"  [notify] Webhook failed: {CommandError.show e}"
-  in
-    ()
+  if String.length (String.trim webhookUrl) > 0 then
+    case notifySlack webhookUrl event of
+      Ok _  ->
+        IO.println "  [notify] Webhook sent"
+      Err e ->
+        IO.eprintln f"  [notify] Webhook failed: {CommandError.show e}"

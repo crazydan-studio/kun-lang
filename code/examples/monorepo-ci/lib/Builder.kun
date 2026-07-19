@@ -141,11 +141,8 @@ buildAll : List Service -> Int -> List BuildResult ! {IO, Cmd}
 buildAll = \svcs maxParallel ->
   let
     List.iter
-      (\svc ->
-        let
-          IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
-        in
-          ()
+      (\svc -> do
+        IO.println f"  [build] {String.toUpper svc.language}: {svc.name}"
       )
       svcs
 

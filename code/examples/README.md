@@ -20,10 +20,10 @@
 - **纯/效应分离**：`formatMessage`（纯，`! {}`）vs `writeReport`/`buildService`（效应，`! {IO, Cmd, ...}`）
 
 ### 效应系统
-- **块表达式 `let in`**：所有 IO/命令调用在 `let in` 块中顺序执行（统一多语句形式）
+- **单表达式 `let in` / `do`**：所有 IO/命令调用在 `let in` 块（返回值）或 `do` 块（返回 `Unit`，`do` 是 `let <body> in ()` 的语法糖）中顺序执行（统一多语句形式）
 - **效应集 `! {E}`**：函数类型显式标注效应集，纯函数为 `! {}`
 - **零参效应函数 `!` 后缀**：`DateTime.now!`、`getCurrentTime!` 执行零参效应函数
-- **`List.iter` 效应回调**：`List.iter (\x -> let ... in ()) items`——回调内可含效应语句
+- **`List.iter` 效应回调**：`List.iter (\x -> do ...) items`——回调内可含效应语句（`do` 是 `let <body> in ()` 的语法糖，可紧跟 `->`）
 - **效应集并集推导**：含 `cmd ...` / `File.*` 调用的函数由编译器推导效应集合并标注 `! {E}`
 
 ### 模式匹配

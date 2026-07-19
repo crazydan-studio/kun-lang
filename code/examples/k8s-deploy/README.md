@@ -39,7 +39,7 @@ k8s-deploy/
 
 | 特性 | 位置 | 示例 |
 |------|------|------|
-| `let in` 块多层嵌套 | `deploy.kun` | 3 层 `case ... of Ok _ → let ... in ()` 嵌套编排 |
+| `let in` / `do` 块多层嵌套 | `deploy.kun` | 3 层 `case ... of Ok _ → do ...` 嵌套编排（`do` 是 `let <body> in ()` 的语法糖） |
 | 效应集标注 | 各 `lib/*.kun` | `applyManifest : Path -> String -> Result (Stream String) CommandError ! {IO, Cmd}` |
 | 零参效应函数 `!` 调用 | `deploy.kun` | `DateTime.now!`（启动时间）、`getCurrentTime!` |
 | 纯函数分离 | `Notifier.kun` | `formatMessage`（纯，`! {}`）→ `notifySlack`/`notifyConsole`（效应，`! {Cmd}`/`! {IO}`） |
