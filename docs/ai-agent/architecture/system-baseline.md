@@ -309,7 +309,7 @@ let f = \x -> x
 - Lambda 的效应集由体内效应调用推导，与外层效应集独立
 - 验证 `let in` 块内未被消费的 `Command` 值与 `Stream` 值
 - 验证 `let in` body 非空
-- 验证 `handle with` 仅出现在入口函数（`main`/`TestCase.body`）
+- 验证 `do...with` / `let...in...with` 仅出现在入口函数（`main`/`TestCase.body`）
 - 验证未消解的用户效应冒泡到 `main`/`TestCase.body` 是编译错误
 - 识别 unbound `case`/`if` 分支为隐式 `let in`（结果视为 `Unit`）
 - 告警：未消费的纯表达式/绑定等

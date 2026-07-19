@@ -68,9 +68,9 @@ Kun 将副作用视为**类型层的效应集**——函数类型显式标注效
 
 效应签名在标准库（Kun）中声明（`effect X = { op : sig }` Record 风格），handler 实现在编译器源码（Zig）中——签名与实现彻底分离。用户自定义效应（如 `DB`/`Log`）通过 `effect`/`handler` 语法声明与实现。
 
-### `handle with` 限入口
+### `do ... with` / `let ... in ... with` 限入口
 
-业务函数只声明效应不消解，效应冒泡到 `main`/`TestCase.body`，入口级上下文内通过 `handle <expr> with <handler>` 集中消解（`TestCase.body` 由 `kun test` 运行器提供入口级上下文，详见 [单元测试设计](testing.md)）：
+业务函数只声明效应不消解，效应冒泡到 `main`/`TestCase.body`，入口级上下文内通过 `do <body> with <handler>`（Unit 返回）或 `let <body> in <expr> with <handler>`（值返回）集中消解（`TestCase.body` 由 `kun test` 运行器提供入口级上下文，详见 [单元测试设计](testing.md)）：
 
 ```kun
 // 业务函数：声明效应，不消解
@@ -84,18 +84,15 @@ fetchUser = \uid ->
       Ok [row] -> Ok (User row)
       _ -> Err NotFound
 
-// main：集中 handle 消解用户效应
+// main：集中消解用户效应（do...with / let...in...with）
 main : List String -> Unit ! {Cmd, IO}
-main = \args ->
-  handle
-    let
-      result = fetchUser (UserId "1")
-    in
-      case result of
-        Ok user -> IO.println f"found: {user.name}"
-        Err _ -> IO.println "not found"
-  with
-    postgreHandler >> journaldLog
+main = \args -> do
+  result = fetchUser (UserId "1")
+  case result of
+    Ok user -> IO.println f"found: {user.name}"
+    Err _ -> IO.println "not found"
+with
+  postgreHandler >> journaldLog
   // 用户效应 DB/Log 被消解
   // 剩余 {Cmd, IO} 冒泡到 main，运行时自动注入默认 Zig handler
 ```
@@ -207,7 +204,7 @@ do
 
 ## FFI 系统
 
-FFI 采用**分层归属**设计——底层 `FFI` 内置效应（受 `--allow-ffi` 控制），上层每个 `extern` 块自动产生独立效应（如 `Libc`/`Curl`），可独立 handle/mock。
+FFI 采用**分层归属**设计——底层 `FFI` 内置效应（受 `--allow-ffi` 控制），上层每个 `extern` 块自动产生独立效应（如 `Libc`/`Curl`），可独立消解/mock。
 
 ```kun
 extern Libc from "libc" =
@@ -231,27 +228,23 @@ extern Libc from "libc" =
 ```kun
 // 生产录制
 main : List String -> Unit ! {Libc, File, IO}
-main = \args ->
-  handle
+main = \args -> do
+  result = readFileContent (Path.fromString "/etc/hostname")
+  case result of
+    Ok content -> IO.println content
+    Err e -> IO.println e
+with
+  recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
+
+// 测试回放（确定性复现，作为 TestCase 值）
+testReplay : TestCase =
+  test "replay readFileContent" (\ ->
     let
       result = readFileContent (Path.fromString "/etc/hostname")
     in
       case result of
         Ok content -> IO.println content
         Err e -> IO.println e
-  with
-    recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
-
-// 测试回放（确定性复现，作为 TestCase 值）
-testReplay : TestCase =
-  test "replay readFileContent" (\ ->
-    handle
-      let
-        result = readFileContent (Path.fromString "/etc/hostname")
-      in
-        case result of
-          Ok content -> IO.println content
-          Err e -> IO.println e
     with
       replayHandler p"/trace/session-001.jsonl"
   )
@@ -265,7 +258,7 @@ testReplay : TestCase =
 
 **效应安全模型**：
 
-- 用户效应（`DB`/`Log` 等）必须 `handle` 消解，未消解冒泡到 `main`/`TestCase.body` 编译错误
+- 用户效应（`DB`/`Log` 等）必须消解（`do...with` / `let...in...with`），未消解冒泡到 `main`/`TestCase.body` 编译错误
 - 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`）运行时自动注入默认 Zig handler
 - `FFI` 效应冒泡到 `main` 时运行时检查 `--allow-ffi`，未启用则拒绝执行
 - 用户无法通过命名、定义、handler 等手段绕过 FFI 安全检查（保留名 + 硬编码 + 命名空间隔离 + 运行时检查）

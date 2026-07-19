@@ -8,7 +8,7 @@ Kun 通过 `cmd` 字面量构造 `Command` 值，通过显式执行函数（`Cmd
 > - **Command 是 ADT**：`Command` 是普通代数数据类型，`cmd` 字面量是构造 `Command` 的语法糖，无解析器魔法
 > - **显式执行**：所有 Command 执行必须显式调用执行函数，**无 Command 的 `?`/`!` 后缀糖**（注：零参函数执行的 `!` 后缀是独立特性，见[语法设计零参效应函数类型](type-system.md#零参效应函数类型-t-e)），**无 `|>` 隐式触发**
 > - **`|>` 回归纯管道**：`|>` 统一类型为 `a -> (a -> b) -> b`，对 Command 与 Stream 一视同仁，无双重语义
-> - **入口级 handle**：`Cmd` 是内置效应（保留名），其默认 handler 在编译器源码（Zig）中实现，编译进 `kun` 二进制
+> - **入口级消解**：`Cmd` 是内置效应（保留名），其默认 handler 在编译器源码（Zig）中实现，编译进 `kun` 二进制；用户可在 `main`/`TestCase.body` 入口级上下文用 `do...with` / `let...in...with` 包装消解
 
 具体的运行时实现细节见[系统基线](../architecture/system-baseline.md#命令调用机制)。
 
@@ -604,7 +604,7 @@ effect Cmd =
 **handler 实现**在编译器源码（Zig）中，编译进 `kun` 二进制，用户不可见、不可改。用户可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认 Zig 实现）。
 
 ```kun
-// 用户在 main 内 handle Cmd，用 continue 委托默认实现
+// 用户在 main 内消解 Cmd（do...with / let...in...with），用 continue 委托默认实现
 loggingCmd : Handler {Cmd} a ! {Cmd, IO}
 loggingCmd =
   handler Cmd of

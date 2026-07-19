@@ -96,7 +96,7 @@ kun --trace=full script.kun       # 打印完整调用栈
 
 ## 脚本入口
 
-`.kun` 脚本通过 `main` 函数作为执行入口。`main` 函数与 `Test` 值的 `body` 字段是入口级上下文，允许使用 `handle with` 消解效应（业务函数不可使用，详见 [类型系统 - 内置效应](type-system.md#内置效应)）。
+`.kun` 脚本通过 `main` 函数作为执行入口。`main` 函数与 `TestCase` 值的 `body` 字段是入口级上下文，允许使用 `do...with` / `let...in...with` 消解效应（业务函数不可使用，详见 [类型系统 - 内置效应](type-system.md#内置效应)）。
 
 ```kun
 main : List String -> Unit ! {IO, File, Cmd, ...}
@@ -116,33 +116,31 @@ main = \args -> do
 | 未定义 `main` | 编译错误：可执行脚本缺少 `main` 入口 |
 | `main` 签名不合法 | 类型标注不为 `List String -> Unit ! e` 时编译错误 |
 
-### `main` 与 `TestCase.body` 的 `handle with` 限制
+### `main` 与 `TestCase.body` 的 `do ... with` / `let ... in ... with` 限制
 
-`handle with` 表达式**仅在 `main` 函数与 `TestCase` 值的 `body` 字段内可用**——业务函数只声明效应不消解，效应冒泡到入口级上下文集中消解。
+`do...with` / `let...in...with` 表达式**仅在 `main` 函数与 `TestCase` 值的 `body` 字段内可用**——业务函数只声明效应不消解，效应冒泡到入口级上下文集中消解。
 
 - **`main`**：程序入口，允许消解用户效应（内置效应自动注入默认 handler）
-- **`TestCase.body`**：`TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`）的 `body` 字段，由 `kun test` 运行器在入口级上下文执行，允许使用 `handle with`；用户效应通常通过 `Test.with` 模块函数声明式消解（设置 `TestCase.with` 字段，详见 [单元测试设计](testing.md)）
-- **其他业务函数**：禁止使用 `handle with`，只声明效应
+- **`TestCase.body`**：`TestCase` 类型值（`type TestCase = TestCase { name, description, timeout, body, with }`）的 `body` 字段，由 `kun test` 运行器在入口级上下文执行，允许使用 `do...with` / `let...in...with`；用户效应通常通过 `Test.with` 模块函数声明式消解（设置 `TestCase.with` 字段，详见 [单元测试设计](testing.md)）
+- **其他业务函数**：禁止使用 `do...with` / `let...in...with`，只声明效应
 
 ### `main` 边界与效应集校验
 
 **`main` 允许的效应**：
 - 所有内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）
-- 不允许用户效应（`DB`/`Log`/`Libc` 等），必须 `handle` 消解
+- 不允许用户效应（`DB`/`Log`/`Libc` 等），必须 `do...with` / `let...in...with` 消解
 
 **未消解效应的处理**：
 - 内置效应：运行时自动注入默认 Zig handler
-- 用户效应（含 `extern` 库效应）：编译错误，必须显式 `handle`
+- 用户效应（含 `extern` 库效应）：编译错误，必须显式消解（`do...with` / `let...in...with`）
 - `FFI` 效应到达 `main`：运行时检查 `--allow-ffi`（见下方）
 
 ```kun
 main : List String -> Unit ! {Cmd, IO}
-main = \args ->
-  handle
-    do
-      result = fetchUser (UserId "1")
-  with
-    postgreHandler >> journaldLog
+main = \args -> do
+  result = fetchUser (UserId "1")
+with
+  postgreHandler >> journaldLog
   // 用户效应 DB/Log 被消解
   // 剩余 {Cmd, IO} 冒泡到 main，运行时自动注入默认 handler
 ```

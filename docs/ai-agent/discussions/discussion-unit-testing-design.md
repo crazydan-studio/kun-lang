@@ -2,7 +2,7 @@
 
 > **日期**：2026-07-16
 > **状态**：已定稿
-> **相关文档**：[单元测试设计](../design/testing.md)、[`Cli` 模块 - `kun test` 运行器](../design/cli.md#kun-test-运行器)、[`kun` CLI 工具 - `test` 子命令](../design/kun-cli-tool.md#子命令)、[语法设计 - 测试与 `Test` 效应](../design/syntax.md#测试与-test-效应)、[类型系统 - `handle` 表达式](../design/type-system.md#handle-表达式限入口函数)、[标准库 `Test` 模块](../design/standard-library.md#test-测试断言与结果)
+> **相关文档**：[单元测试设计](../design/testing.md)、[`Cli` 模块 - `kun test` 运行器](../design/cli.md#kun-test-运行器)、[`kun` CLI 工具 - `test` 子命令](../design/kun-cli-tool.md#子命令)、[语法设计 - 测试与 `Test` 效应](../design/syntax.md#测试与-test-效应)、[类型系统 - `do ... with` / `let ... in ... with` 表达式](../design/type-system.md#do--with--let--in--with-表达式限入口函数)、[标准库 `Test` 模块](../design/standard-library.md#test-测试断言与结果)
 
 ## 背景
 

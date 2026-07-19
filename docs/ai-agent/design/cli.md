@@ -1405,7 +1405,7 @@ kun test --allow-ffi                  # 允许测试体使用 FFI（与 `kun run
 
 ### 并行执行与隔离
 
-`--parallel <n>`（默认 = CPU 核心数）控制并发度。每个 `TestCase` 在独立的 `handle with` 上下文中执行，三层隔离保障绝对安全：
+`--parallel <n>`（默认 = CPU 核心数）控制并发度。每个 `TestCase` 在独立的 `do...with` / `let...in...with` 上下文中执行，三层隔离保障绝对安全：
 
 1. **不可变语义**：Kun 数据默认不可变，`List`/`Map`/`Set`/`Record` 等无共享可变状态
 2. **Handler 隔离**：每个 `TestCase` 通过 `with` 字段携带独立 handler 实例（mock handler 提供确定性、无副作用行为）

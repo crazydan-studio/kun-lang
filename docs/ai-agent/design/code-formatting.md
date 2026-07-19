@@ -54,7 +54,7 @@ main = \_ -> do
 
 使用 2 空格缩进，不使用 Tab。
 
-> **注**：Kun 的解析器**不依赖缩进**来解析结构——所有代码块由显式关键字界定（`do`、`let...in`、`case...of`、`handle...with`）。分支体内多语句的边界识别通过 `pattern ->` / `else if` / `else` **关键字定界** + `case...of` 配对跟踪实现，不依赖缩进。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
+> **注**：Kun 的解析器**不依赖缩进**来解析结构——所有代码块由显式关键字界定（`do`、`let...in`、`case...of`、`do...with`、`let...in...with`）。分支体内多语句的边界识别通过 `pattern ->` / `else if` / `else` **关键字定界** + `case...of` 配对跟踪实现，不依赖缩进。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
 
 各语境的缩进量（相对于父级上下文）：
 
@@ -68,8 +68,8 @@ main = \_ -> do
 | `\args -> do` body 内绑定/语句 | +2（从 `\args -> do` 所在行算） |
 | `let in` body 内绑定/语句 | +2（从 `let` 算） |
 | `in`（`let in`） | 与 `let` 对齐 |
-| `handle with` 的 `with` | 与 `handle` 对齐 |
-| `handle...with` 的 body（表达式） | +2（从 `handle` 算） |
+| `do ... with` / `let ... in ... with` 的 `with` | 与 `do`/`let` 对齐 |
+| `do...with` 的 body（语句）/ `let...in...with` 的 body（语句）与 expr | +2（从 `do`/`let` 算） |
 | `handler <Eff> of` 的操作分支体 | +2（从 `handler` 算） |
 | `if` / `case` 分支模式 | +2（从 `if`/`case` 算） |
 | `if` / `case` 分支体（多行） | +4（从 `if`/`case` 算） |
@@ -457,19 +457,32 @@ in
   result
 ```
 
-### `handle with` 表达式
+### `do ... with` / `let ... in ... with` 表达式
 
-`handle` 和 `with` 各自在新行。`handle` 后为效应表达式（可为 `do`/`let in` 块），`with` 后为 handler（或 handler 组合 `>>`）。`with` 与 `handle` 对齐：
+`do`/`let` 块末尾追加 `with` 后缀绑定 handler，`with` 与 `do`/`let` 对齐。`with` 后为 handler（或 handler 组合 `>>`）。`do <body> with <h>` 用于 Unit 返回，`let <body> in <expr> with <h>` 用于值返回。仅 `main`/`TestCase.body` 入口级可用：
+
+```kun
+main : List String -> Unit ! {IO}
+main = \args -> do
+  result = fetchUser (UserId "1")
+  case result of
+    Ok user -> IO.println user.name
+    Err _ -> IO.println "not found"
+with
+  postgreHandler >> journaldLog
+```
+
+值返回形式（`let in ... with`）：
 
 ```kun
 main : List String -> Unit ! {IO}
 main = \args ->
-  handle
-    do
-      result = fetchUser (UserId "1")
-      case result of
-        Ok user -> IO.println user.name
-        Err _ -> IO.println "not found"
+  let
+    result = fetchUser (UserId "1")
+  in
+    case result of
+      Ok user -> IO.println user.name
+      Err _ -> IO.println "not found"
   with
     postgreHandler >> journaldLog
 ```

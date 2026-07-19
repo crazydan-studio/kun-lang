@@ -31,13 +31,13 @@
 | 内置效应 | ✅ 设计定型 | 7 个：`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`；保留名，用户不可重名定义 |
 | `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }`；签名在标准库（Kun），handler 实现在编译器源码（Zig） |
 | `handler` 声明 | ✅ 设计定型 | case of 风格 `<name> = handler <Effect> of <op> <args> -> <impl>`；类型 `Handler {e} a ! {handlerEffects}` |
-| `handle with` 表达式 | ✅ 设计定型 | **仅 `main`/`TestCase.body` 内可用**；`handle <expr> with <handler>`；handler 组合 `h1 >> h2`（`TestCase.body` 由 `kun test` 运行器在入口级上下文执行，详见 [单元测试设计](testing.md)） |
+| `do ... with` / `let ... in ... with` 表达式 | ✅ 设计定型 | **仅 `main`/`TestCase.body` 内可用**；`do <body> with <handler>`（Unit 返回）/ `let <body> in <expr> with <handler>`（值返回）；`with` 绑定 handler 到整个前置 `do`/`let in` 块；handler 组合 `h1 >> h2`（`TestCase.body` 由 `kun test` 运行器在入口级上下文执行，详见 [单元测试设计](testing.md)）；`handle` 关键字已移除（2026.07.18） |
 | `continue` 委托 | ✅ 设计定型 | 控制流原语，委托外层/默认 handler；每分支恰好一次；不可多次调用；不可作值传递；不可嵌套 lambda |
 | `abort` 提前终止 | ✅ 设计定型 | 控制流原语，提前终止 handler；返回值须匹配 handler 产出类型；与 `continue` 二选一 |
 | 效应多态 | ✅ 设计定型 | 单效应变量 `e`，调用时实例化；`map : (a -> b ! e) -> List a -> List b ! e` |
 | Let 泛化值限制 | ✅ 设计定型 | 语法值（lambda/字面量/ADT 构造）泛化类型与效应变量；函数应用/效应调用不泛化 |
 | HM 效应集合一 | ✅ 设计定型 | `! e ~ ! IO` 成立（`e := {IO}`）；`! e ~ ! {IO, e}` occurs check 失败 |
-| 强制消解 | ✅ 设计定型 | 用户效应必须 `handle`；内置效应运行时自动注入默认 Zig handler；未消解用户效应冒泡到 `main`/`TestCase.body` 编译错误 |
+| 强制消解 | ✅ 设计定型 | 用户效应必须消解（`do...with` / `let...in...with`）；内置效应运行时自动注入默认 Zig handler；未消解用户效应冒泡到 `main`/`TestCase.body` 编译错误 |
 | 多效应 handler | ✅ 设计定型 | `handler {DB, Log} of DB.query q -> ...`；操作名必须限定（`DB.query`）避免歧义 |
 | Mock Handler | ✅ 设计定型 | 测试用，每效应可独立 mock；`continue` 委托默认或不调用 `continue` 直接返回 |
 | Stream 消费检查 | ✅ 设计定型 | 单 `let in` 块强制消费；跨块传递视为已消费；`case`/`if` 各分支均需消费；`defer` 不计入 |
@@ -185,7 +185,7 @@
 | CLI `--force` | ✅ 设计定型 | 强制运行（跳过安全确认） |
 | CLI `--env=` | ✅ 设计定型 | 环境变量继承策略 |
 | CLI `--cpu-limit` / `--mem-limit` | ✅ 设计定型 | rlimit 资源限制 |
-| 效应安全模型 | ✅ 设计定型 | 用户效应必须 `handle` 消解；内置效应运行时默认 handler；FFI `--allow-ffi` 强制 |
+| 效应安全模型 | ✅ 设计定型 | 用户效应必须消解（`do...with` / `let...in...with`）；内置效应运行时默认 handler；FFI `--allow-ffi` 强制 |
 | Landlock | ✅ 设计定型 | 内核 5.13+：文件控制；6.7+：文件 + 网络控制（首选） |
 | Network namespace 网络隔离 | ✅ 设计定型 | `CLONE_NEWNET`（内核 3.0+），覆盖 Landlock 网络控制不可用场景 |
 | Mount namespace 兜底 | ✅ 设计定型 | 内核 3.8+：目录级隔离（`pivot_root`） |
@@ -211,7 +211,7 @@
 | `defer` | ✅ 设计定型 | 绑定最近 `let in` 块，LIFO，panic 时执行 |
 | `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }` |
 | `handler` 声明 | ✅ 设计定型 | case of 风格 `<name> = handler <Effect> of <op> <args> -> <impl>` |
-| `handle with` 表达式 | ✅ 设计定型 | 仅 `main`/`TestCase.body` 内可用 |
+| `do ... with` / `let ... in ... with` 表达式 | ✅ 设计定型 | 仅 `main`/`TestCase.body` 内可用（`handle` 关键字已移除，统一为 `do...with` / `let...in...with`） |
 | `continue` / `abort` | ✅ 设计定型 | 控制流原语，每 handler 分支二选一 |
 | `extern` 块 | ✅ 设计定型 | `extern <Name> from "lib" = { func : sig, ... }` |
 | `assert` | ✅ 设计定型 | `Test` 效应操作 `Bool -> Unit ! {Test}`（需 `import Test`）；`cond=false` → `abort (Fail "assertion failed")`；可在任何效应集含 `Test` 的函数中使用 |

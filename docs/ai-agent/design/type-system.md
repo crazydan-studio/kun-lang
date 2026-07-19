@@ -1062,7 +1062,7 @@ Handler : EffectSet -> Type -> Type
 
 ### 用户效应 Handler
 
-用户效应无默认 handler，必须显式 handle：
+用户效应无默认 handler，必须显式消解（`do...with` / `let...in...with`，仅 `main`/`TestCase.body` 入口级可用）：
 
 ```kun
 // DB/PostgresHandler.kun
@@ -1202,26 +1202,39 @@ composedHandler =
   postgreHandler >> journaldLog
 ```
 
-### `handle` 表达式（限入口函数）
+### `do ... with` / `let ... in ... with` 表达式（限入口函数）
 
-**`handle with` 仅在 `main` 函数与 `TestCase` 值的 `body` 字段内可用**，业务函数不可使用。
+**`do...with` / `let...in...with` 仅在 `main` 函数与 `TestCase` 值的 `body` 字段内可用**，业务函数不可使用。`handle` 关键字已移除（2026.07.18），所有 handler 绑定统一通过 `do...with` / `let...in...with` 表达。
+
+两种形式：
 
 ```kun
-handle
+// Unit 返回：do <body> with <handler>
+do
+  <body>
+with
+  <handler>
+
+// 值返回：let <body> in <expr> with <handler>
+let
+  <body>
+in
   <expr>
 with
   <handler>
 ```
 
+`with <handler>` 位于前置 `do`/`let in` 块**末尾**（与 `do`/`let` 同缩进），将 handler 绑定到整个前置块。
+
 **入口级上下文**：
 
-| 上下文 | 可用 `handle` | 说明 |
+| 上下文 | 可用 `do...with` / `let...in...with` | 说明 |
 |---|---|---|
 | `main` | ✅ | 程序入口 |
 | `TestCase.body` | ✅ | `TestCase` 类型值的 `body` 字段，由 `kun test` 运行器在入口级上下文执行（详见 [单元测试设计](testing.md)） |
 | 其他业务函数 | ❌ | 只声明效应，不消解 |
 
-**识别机制**：`main` 函数名 + `TestCase` 类型值的 `body` 字段（运行器提供入口级上下文）。编译器对 `main` 与 `TestCase.body` 统一处理，允许其内 `handle`。
+**识别机制**：`main` 函数名 + `TestCase` 类型值的 `body` 字段（运行器提供入口级上下文）。编译器对 `main` 与 `TestCase.body` 统一处理，允许其内 `do...with` / `let...in...with`。
 
 **测试用例识别规则**：
 
@@ -1249,22 +1262,21 @@ testReverse : TestCase =
 
 > `TestCase` 类型、`Test` 效应、`testHandler`、`Test` 模块（`test`/`Test.with`/`Test.timeout`/`Test.describe`）的完整定义见 [标准库 Test 模块](standard-library.md#test-测试断言与结果)；完整测试设计见 [单元测试设计](testing.md)。
 
-**业务函数的效应流向**：业务函数声明效应 → 冒泡到调用者 → 最终到 `main`（或 `TestCase.body`）→ 入口级上下文内 `handle` 消解。
+**业务函数的效应流向**：业务函数声明效应 → 冒泡到调用者 → 最终到 `main`（或 `TestCase.body`）→ 入口级上下文内 `do...with` / `let...in...with` 消解。
 
 **未消解效应的处理**：
 
 - 内置效应（IO/File/Cmd/FFI 等）：运行时自动注入默认 handler
-- 用户效应（DB/Log 等）：编译错误，必须显式 `handle`
+- 用户效应（DB/Log 等）：编译错误，必须显式消解（`do...with` / `let...in...with`）
 
 例：
 
 ```kun
-handle
-  let
-    users = DB.query allUsers
-    Log.info "fetched"
-  in
-    users
+let
+  users = DB.query allUsers
+  Log.info "fetched"
+in
+  users
 with
   postgreHandler >> journaldLog
 ```
@@ -1286,7 +1298,7 @@ testFetchUser : TestCase =
   |> Test.with (mockDbHandler >> mockLogHandler)
 ```
 
-> `kun test` 运行器在入口级上下文执行 `TestCase.body`：包装 `body!` → 用 `TestCase.with` 消解用户效应 → 用 `testHandler` 消解 `Test` 效应 → 产出 `TestResult`。因此 `body` 内可使用 `handle with`（与 `main` 同级）。
+> `kun test` 运行器在入口级上下文执行 `TestCase.body`：包装 `body!` → 用 `TestCase.with` 消解用户效应 → 用 `testHandler` 消解 `Test` 效应 → 产出 `TestResult`。因此 `body` 内可使用 `do...with` / `let...in...with`（与 `main` 同级）。
 
 ### Handler 效应变换
 
@@ -1318,21 +1330,21 @@ composedHandler =
 
 1. **编译期效应集追踪**：每个函数效应集由编译器推导
 2. **调用经分发表**：效应调用 `X.op` 编译为分发表查找
-3. **用户效应必须 handle**：未消解的用户效应冒泡到 `main`/`TestCase.body`，编译错误
+3. **用户效应必须消解**：未消解的用户效应冒泡到 `main`/`TestCase.body`，编译错误
 4. **内置效应有默认**：未消解的内置效应运行时自动注入默认 Zig handler
-5. **入口级 handle 限制**：`handle with` 仅 `main`/`TestCase.body` 可用，业务函数不可中途消解
+5. **入口级 do...with / let...in...with 限制**：`do...with` / `let...in...with` 仅 `main`/`TestCase.body` 可用，业务函数不可中途消解
 
 ### `main` 边界与效应集校验
 
 **`main` 允许的效应**：
 
 - 所有内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）
-- 不允许用户效应（`DB`/`Log`/`Libc` 等），必须 `handle` 消解
+- 不允许用户效应（`DB`/`Log`/`Libc` 等），必须 `do...with` / `let...in...with` 消解
 
 **未消解效应的处理**：
 
 - 内置效应：运行时自动注入默认 Zig handler
-- 用户效应（含 `extern` 库效应）：编译错误，必须显式 `handle`
+- 用户效应（含 `extern` 库效应）：编译错误，必须显式消解（`do...with` / `let...in...with`）
 - `FFI` 效应到达 `main`：运行时检查 `--allow-ffi`
 
 **错误消息模板**：
@@ -1341,28 +1353,24 @@ composedHandler =
 Error: Unhandled User Effect ─── src/main.kun:1:1
   Effect: DB
   In function: main
-  Hint: 用户效应 DB 必须在 main 内 handle。
-        添加：handle <expr> with dbHandler
+  Hint: 用户效应 DB 必须在 main 内消解（do...with / let...in...with）。
+        添加：do <body> with dbHandler（或 let <body> in <expr> with dbHandler）
 
 Error: Unhandled Library Effect ─── src/main.kun:1:1
   Effect: Libc
   In function: main
   Hint: 库效应 Libc 未消解。
-        选项 1：在 main 内 handle（自定义 handler）
-        选项 2：不 handle，运行时自动注入默认（产生 FFI，需 --allow-ffi）
+        选项 1：在 main 内 do...with / let...in...with（自定义 handler）
+        选项 2：不消解，运行时自动注入默认（产生 FFI，需 --allow-ffi）
 ```
 
 ```kun
 main : List String -> Unit ! {IO, File, Cmd, ...}
-main = \args ->
-  handle
-    let
-      result = fetchUser (UserId "1")
-      ...
-    in
-      ()
-  with
-    postgreHandler >> journaldLog
+main = \args -> do
+  result = fetchUser (UserId "1")
+  ...
+with
+  postgreHandler >> journaldLog
   // 用户效应 DB/Log 被消解
   // 剩余 {Cmd, IO} 冒泡到 main，运行时自动注入默认 handler
 ```
@@ -1407,7 +1415,7 @@ in
 FFI 采用**分层归属**设计：
 
 - **底层 `FFI` 效应**：内置保留效应，所有 C 库调用最终产生 `! {FFI}`，受 `--allow-ffi` 控制
-- **上层库效应**：每个 `extern` 块自动产生独立效应（如 `Libc`/`Curl`），可独立 handle/mock
+- **上层库效应**：每个 `extern` 块自动产生独立效应（如 `Libc`/`Curl`），可独立消解/mock
 - **自动桥接**：`extern` 块的默认 handler 自动生成，调用 `FFI.call`，用户无需手写桥接
 - **仅 Linux 支持**：FFI 不做跨平台，专注 Linux `.so`/`dlopen`，不支持 Windows/macOS
 
@@ -1596,7 +1604,7 @@ MVP 不支持：
 ```kun
 let
   buf = Ffi.alloc 4096              // FFI 内存，绑定此 let in 块
-  n = Libc.fread buf 1 4096 handle  // 使用 buf
+  n = Libc.fread buf 1 4096 file    // 使用 buf
   content = Ffi.toBytes buf n       // 拷贝到 Kun Bytes（可逃逸）
 in
   content
@@ -1671,12 +1679,12 @@ let
 in
   case fp of
     Nil -> Err "open failed"
-    Some handle ->
+    Some file ->
       let
-        defer (Libc.fclose handle)  // 保证关闭
+        defer (Libc.fclose file)  // 保证关闭
 
         buf = Ffi.alloc 4096
-        n = Libc.fread buf 1 4096 handle
+        n = Libc.fread buf 1 4096 file
         content = Ffi.toString buf n
       in
         Ok content
@@ -1685,7 +1693,7 @@ in
 
 ### 效应流向
 
-**默认场景**（用户不 handle 库效应）：
+**默认场景**（用户不消解库效应）：
 
 ```
 Libc.strlen "hello" ! {Libc}
@@ -1771,12 +1779,12 @@ readFileContent = \path ->
   in
     case fp of
       Nil -> Err "open failed"
-      Some handle ->
+      Some file ->
         let
-          defer (Libc.fclose handle)
+          defer (Libc.fclose file)
 
           buf = Ffi.alloc 4096
-          n = Libc.fread buf 1 4096 handle
+          n = Libc.fread buf 1 4096 file
           content = Ffi.toString buf n
         in
           Ok content
@@ -2005,8 +2013,8 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
       Effect: {effect_name}
       In function: main
       ──┤ {context_line}
-      Hint: 用户效应 {effect_name} 必须在 main 内 handle。
-            添加：handle <expr> with {effect_lower}Handler
+      Hint: 用户效应 {effect_name} 必须在 main 内消解（do...with / let...in...with）。
+            添加：do <body> with {effect_lower}Handler（或 let <body> in <expr> with {effect_lower}Handler）
     ```
 
 17. **`UnhandledLibraryEffect`**（未消解的库效应）
@@ -2016,8 +2024,8 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
       In function: main
       ──┤ {context_line}
       Hint: 库效应 {effect_name} 未消解。
-            选项 1：在 main 内 handle（自定义 handler）
-            选项 2：不 handle，运行时自动注入默认（产生 FFI，需 --allow-ffi）
+            选项 1：在 main 内 do...with / let...in...with（自定义 handler）
+            选项 2：不消解，运行时自动注入默认（产生 FFI，需 --allow-ffi）
     ```
 
 **Unbound / 作用域**
@@ -2132,7 +2140,7 @@ fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
 
 - [应用概览](app-overview.md) — Kun 语言功能全景
 - [功能清单](feature-inventory.md) — 功能实现状态追踪
-- [语法设计](syntax.md) — `effect`/`handler`/`handle`/`extern`/`cmd` 字面量语法
+- [语法设计](syntax.md) — `effect`/`handler`/`with`/`extern`/`cmd` 字面量语法
 - [OS 命令调用机制](command-system.md) — `cmd` 字面量与 Command 执行
 - [标准库](standard-library.md) — `Lazy`/`Equal`/`FFI`/录制回放等模块
 - [系统基线](../architecture/system-baseline.md) — 运行时与类型系统概览

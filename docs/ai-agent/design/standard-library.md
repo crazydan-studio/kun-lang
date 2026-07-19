@@ -142,7 +142,7 @@ const builtin_handler_table = std.ComptimeStringMap(HandlerEntry, .{
 **用户自定义 handler 包装内置效应**：
 
 ```kun
-// 用户可在 main 内 handle 内置效应，用 continue 委托默认 Zig 实现
+// 用户可在 main 内消解内置效应（do...with / let...in...with），用 continue 委托默认 Zig 实现
 loggingIO : Handler {IO} a ! {IO}
 loggingIO =
   handler IO of
@@ -2259,7 +2259,7 @@ force : Lazy a -> a
 
 - `lazy` 不立即执行传入函数——它把函数封装为 thunk（与立即求值的 `let in` 形成对比）
 - `force` 首次调用时执行 thunk 内的计算并缓存结果；后续调用直接返回缓存值（memoize 一次）
-- `Lazy a` 的 `a` 可为任意类型（含效应结果类型），但 `force` 的求值行为取决于 thunk 表达式自身的效应上下文——若 thunk 内含效应操作，调用 `force` 的位置须在可消解该效应的 `let in`/`handle with` 上下文中
+- `Lazy a` 的 `a` 可为任意类型（含效应结果类型），但 `force` 的求值行为取决于 thunk 表达式自身的效应上下文——若 thunk 内含效应操作，调用 `force` 的位置须在可消解该效应的 `let in`/`do...with`/`let...in...with` 上下文中
 
 ### 示例
 
@@ -2292,7 +2292,7 @@ in
 
 ### 定位
 
-控制台输入输出操作。所有函数均为 `IO` 效应操作，产生 `! {IO}`，必须在 `let in` 块中调用（或由 `main`/`TestCase.body` 的 `handle with` 消解）。
+控制台输入输出操作。所有函数均为 `IO` 效应操作，产生 `! {IO}`，必须在 `let in` 块中调用（或由 `main`/`TestCase.body` 的 `do...with` / `let...in...with` 消解）。
 
 需显式导入：
 
@@ -2781,7 +2781,7 @@ do
 `FFI` 采用**分层归属**设计：
 
 - **底层 `FFI` 效应**：内置保留效应，所有 C 库调用最终产生 `! {FFI}`
-- **上层库效应**：每个 `extern` 块自动产生独立效应（如 `Libc`/`Curl`），可独立 handle/mock
+- **上层库效应**：每个 `extern` 块自动产生独立效应（如 `Libc`/`Curl`），可独立消解/mock
 - **自动桥接**：`extern` 块的默认 handler 自动生成，调用 `FFI.call`，用户无需手写桥接
 - **仅 Linux 支持**：FFI 不做跨平台，专注 Linux `.so`/`dlopen`，不支持 Windows/macOS
 
@@ -2949,7 +2949,7 @@ type Opaque a    // a 是指向的类型，Opaque 表示完全未知
 ```kun
 let
   buf = Ffi.alloc 4096              // FFI 内存，绑定此 let in 块
-  n = Libc.fread buf 1 4096 handle  // 使用 buf
+  n = Libc.fread buf 1 4096 file    // 使用 buf
   content = Ffi.toBytes buf n       // 拷贝到 Kun Bytes（可逃逸）
 in
   content
@@ -3046,7 +3046,7 @@ MVP 不支持：
 
 ### 效应流向
 
-**默认场景**（用户不 handle 库效应）：
+**默认场景**（用户不消解库效应）：
 
 ```
 Libc.strlen "hello" ! {Libc}
@@ -3096,12 +3096,12 @@ readFileContent = \path ->
   in
     case fp of
       Nil -> Err "open failed"
-      Some handle ->
+      Some file ->
         let
-          defer (Libc.fclose handle)
+          defer (Libc.fclose file)
 
           buf = Ffi.alloc 4096
-          n = Libc.fread buf 1 4096 handle
+          n = Libc.fread buf 1 4096 file
           content = Ffi.toString buf n
         in
           Ok content
@@ -3712,29 +3712,24 @@ replayHandler = \logPath -> ...
 ```kun
 // 生产录制
 main : List String -> Unit ! {Libc, File, IO}
-main = \args ->
-  handle
-    let
-      result = readFileContent (Path.fromString "/etc/hostname")
+main = \args -> do
+  result = readFileContent (Path.fromString "/etc/hostname")
 
-      case result of
-        Ok content -> IO.println content
-        Err e -> IO.println e
-    in
-      ()
-  with
-    recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
+  case result of
+    Ok content -> IO.println content
+    Err e -> IO.println e
+with
+  recordHandler p"/trace/session-001.jsonl" [Libc, File, IO]
 
 // 测试回放（确定性复现）——测试用例为导出的 TestCase 类型值
 testReplay : TestCase =
   test "replay readFileContent" (\ ->
-    handle
-      let
-        result = readFileContent (Path.fromString "/etc/hostname")
-      in
-        case result of
-          Ok content -> IO.println content
-          Err e -> IO.println e
+    let
+      result = readFileContent (Path.fromString "/etc/hostname")
+    in
+      case result of
+        Ok content -> IO.println content
+        Err e -> IO.println e
     with
       replayHandler p"/trace/session-001.jsonl"
     // 效应调用从录制读取，不实际执行

@@ -1,6 +1,6 @@
 # 单元测试设计
 
-> **相关文档**：[`Cli` 模块 - `kun test` 运行器](cli.md#kun-test-运行器)、[`kun` CLI 工具 - `test` 子命令](kun-cli-tool.md#子命令)、[语法设计 - 测试与 `Test` 效应](syntax.md#测试与-test-效应)、[类型系统 - `handle` 表达式](type-system.md#handle-表达式限入口函数)、[标准库 `Test` 模块](standard-library.md#test-测试断言与结果)
+> **相关文档**：[`Cli` 模块 - `kun test` 运行器](cli.md#kun-test-运行器)、[`kun` CLI 工具 - `test` 子命令](kun-cli-tool.md#子命令)、[语法设计 - 测试与 `Test` 效应](syntax.md#测试与-test-效应)、[类型系统 - `do ... with` / `let ... in ... with` 表达式](type-system.md#do--with--let--in--with-表达式限入口函数)、[标准库 `Test` 模块](standard-library.md#test-测试断言与结果)
 
 ## 设计原则
 
@@ -12,7 +12,7 @@ Kun 单元测试系统遵循 6 项核心原则：
 
 3. **`TestCase` 类型值即用例**：测试用例是**导出的 `TestCase` 类型值**，而非 `test*` 前缀函数。仅 `export` 列表中的 `TestCase` 值会被运行器收集执行。`Test` 既是效应名（`! {Test, e}`）也是模块名（`Test.with`/`Test.timeout`/`Test.describe`），与效应/模块同名消歧设计一致。
 
-4. **严格并行执行、绝对安全**：Kun 不可变语义 + 每测试独立 `handle with` 效应上下文 + 每测试沙箱（独立临时目录、独立 stdout/stderr 捕获、独立 Cmd 子进程沙箱）三层保障，使并行执行无副作用泄漏。
+4. **严格并行执行、绝对安全**：Kun 不可变语义 + 每测试独立 `do...with` / `let...in...with` 效应上下文 + 每测试沙箱（独立临时目录、独立 stdout/stderr 捕获、独立 Cmd 子进程沙箱）三层保障，使并行执行无副作用泄漏。
 
 5. **可读测试报告**：默认 text 报告（按模块分组，含 ✓/✗/- 状态、耗时、失败原因）；可选 `--report json` 输出结构化 JSON。
 
@@ -236,13 +236,14 @@ let
   wrapped = let tc.body! in Pass     // : TestResult ! {Test, e}
 
   // 2. 消解用户效应 e：用 TestCase.with 指定的 handler（若有）
+  //    入口级上下文内执行（do...with / let...in...with 仅 main/TestCase.body 可用）
   resolved =
     case tc.with of
-      Nil    -> wrapped                 // : TestResult ! {Test, e_builtin}
-      Some h -> handle wrapped with h   // : TestResult ! {Test, h_produced}
+      Nil    -> wrapped                                  // : TestResult ! {Test, e_builtin}
+      Some h -> let v = wrapped in v with h              // : TestResult ! {Test, h_produced}
 
   // 3. 消解 Test 效应：用 testHandler 转为 TestResult
-  result = handle resolved with testHandler   // : TestResult ! {IO 或其他内置}
+  result = let v = resolved in v with testHandler        // : TestResult ! {IO 或其他内置}
 in
   result
 ```
@@ -250,16 +251,16 @@ in
 **步骤解析**：
 
 1. **包装为 Pass**：`body!` 正常返回 `Unit` 时，外层 `let in Pass` 将其包装为 `Pass`；若 `body` 内 `assert false`/`fail`/`skip` 已通过 `testHandler` 的 `abort` 提前终止，则 `wrapped` 直接产出 `Fail`/`Skip`，不再执行 `Pass` 包装
-2. **消解用户效应**：`TestCase.with = Some h` 时，`handle wrapped with h` 将用户效应 `e` 转换为 handler 产生的内置效应；`TestCase.with = Nil` 时，`e` 必须为空或仅含内置效应，由运行时沙箱消解
+2. **消解用户效应**：`TestCase.with = Some h` 时，`let v = wrapped in v with h` 将用户效应 `e` 转换为 handler 产生的内置效应；`TestCase.with = Nil` 时，`e` 必须为空或仅含内置效应，由运行时沙箱消解
 3. **消解 Test 效应**：`testHandler` 将 `Test` 效应的 `assert`/`fail`/`skip` 转为 `TestResult`
 
-> **入口级 `handle with` 上下文**：上述伪代码中的 `handle ... with h` 和 `handle ... with testHandler` 都由运行器在入口级上下文执行。因此 `TestCase` 值的 `body` 字段内**可以**使用 `handle with`（业务函数不可），这是 `body` 与普通业务函数的关键区别。详见 [类型系统 - `handle` 表达式](type-system.md#handle-表达式限入口函数)。
+> **入口级 `do...with` / `let...in...with` 上下文**：上述伪代码中的 `let ... in ... with h` 和 `let ... in ... with testHandler` 都由运行器在入口级上下文执行。因此 `TestCase` 值的 `body` 字段内**可以**使用 `do...with` / `let...in...with`（业务函数不可），这是 `body` 与普通业务函数的关键区别。详见 [类型系统 - `do ... with` / `let ... in ... with` 表达式](type-system.md#do--with--let--in--with-表达式限入口函数)。
 
 ## 并行执行与隔离
 
 ### 并行度
 
-`--parallel <n>` 控制并发度（默认 = CPU 核心数）。每个 `TestCase` 在独立的 `handle with` 上下文中执行，互不干扰。
+`--parallel <n>` 控制并发度（默认 = CPU 核心数）。每个 `TestCase` 在独立的 `do...with` / `let...in...with` 上下文中执行，互不干扰。
 
 ### 三层隔离保障
 
@@ -494,7 +495,7 @@ kun test --fail-fast --timeout 5s
 | **断言机制** | `assert : Bool -> Unit`（panic 失败） | `assert : Bool -> Unit ! {Test}`（abort 失败，handler 控制流） | 同左（`Test` 效应操作，不变） |
 | **结果类型** | `TestResult`（函数显式返回）或 `Unit`（panic 失败） | `TestResult`（仅由 `testHandler` 产出） | 同左（不变） |
 | **生命周期** | 隐式全局钩子 | 显式 `defer` + handler 组合 | 同左（不变） |
-| **效应隔离** | 入口级 `handle with` | `Test.with` 字段指定 handler | `Test.with` 模块函数设置 `TestCase.with` 字段（声明式） |
+| **效应隔离** | 入口级 `do...with` / `let...in...with` | `Test.with` 字段指定 handler | `Test.with` 模块函数设置 `TestCase.with` 字段（声明式） |
 | **并行安全** | 未明确 | 不可变 + handler 隔离 + 每测试沙箱 三层保障 | 同左（不变） |
 | **超时** | 未提供 | `--timeout` + `Test.timeout` 字段 | `--timeout` + `Test.timeout` 模块函数（设置 `TestCase.timeout` 字段） |
 | **报告** | 未提供 | text（默认）/ json | 同左（不变） |
@@ -504,7 +505,7 @@ kun test --fail-fast --timeout 5s
 
 - **`test*` 前缀函数已废弃**（2026.07.16）：不再作为测试用例识别规则；旧的 `test*` 函数视为普通业务函数（仍可定义但不再被 `kun test` 收集）
 - **`assert : Bool -> Unit`（panic 版）已废弃**（2026.07.16）：替换为 `Test` 效应的 `assert` 操作；旧形式仅出现在「已废弃」上下文中
-- **入口级 `handle with` 限制扩展**（2026.07.16）：`handle with` 现在可在 `main` 与 `TestCase` 值的 `body` 字段中使用（运行器提供入口级上下文）；旧的"`test*` 函数内可用"措辞被替换
+- **入口级 `do...with` / `let...in...with` 限制扩展**（2026.07.16）：`do...with` / `let...in...with` 现在可在 `main` 与 `TestCase` 值的 `body` 字段中使用（运行器提供入口级上下文）；旧的"`test*` 函数内可用"措辞被替换。2026.07.18 进一步移除 `handle` 关键字，统一为 `do...with` / `let...in...with`（详见 [讨论记录](../discussions/discussion-handle-with-scope-and-syntax.md)）
 - **`TestResult` 类型保留**：仍是测试结果的唯一表示，但仅由 `testHandler` 产出，不再由测试函数显式返回
 - **类型 `Test` → `TestCase` 重命名**（2026.07.16 v2）：原 `type Test = Test {...}` Record 重命名为 `type TestCase = TestCase {...}`；`Test` 名专用于效应（`! {Test, e}`）与模块（`Test.with`/`Test.timeout`/`Test.describe`），遵循效应/模块同名消歧设计
 - **新增 `Test` 模块函数**（2026.07.16 v2）：`test` 便捷构造器 + `Test.with`/`Test.timeout`/`Test.describe` 纯函数链式 `|>` 调用；与原 `Test { ... }` 字面量构造等价，但更简洁、可组合
