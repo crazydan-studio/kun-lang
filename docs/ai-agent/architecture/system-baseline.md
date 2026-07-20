@@ -4,7 +4,7 @@
 
 | 层 | 技术选择 | 说明 |
 |---|---|---|
-| 宿主语言 | Rust (stable channel，rustup 管理) | 高性能、内存安全、无 hidden control flow（`panic = abort`）、原生 ADT/模式匹配、成熟的 syscall 与 Arena crate 生态 |
+| 宿主语言 | Rust 1.97（rustup 管理，详见 https://forge.rust-lang.org/index.html） | 高性能、内存安全、无 hidden control flow（`panic = abort`）、原生 ADT/模式匹配、成熟的 syscall 与 Arena crate 生态 |
 | 目标平台 | Linux | 使用 fork/exec、namespace、Landlock、seccomp 等 Linux 特有机制 |
 | 二进制产物 | `kun`（脚本执行器）+ `libkunlang.so`（共享解释器核心）；`kun-shell`（交互式环境，未来版本） | 单体可执行文件 + 动态链接库 |
 | 文档构建 | VitePress + pnpm | 现代化的静态文档站点 |

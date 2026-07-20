@@ -327,10 +327,11 @@ Zig 的 LLM 支持是**已证明的关键风险**——5 万行 Zig 实现被撤
 
 ### 版本锁定
 
-- 锁定 Rust stable channel（通过 `rustup` 管理）
-- 工具链：`rustup toolchain install stable`
+- 锁定 Rust 1.97（通过 `rustup` 管理，详见 https://forge.rust-lang.org/index.html）
+- 工具链：`rustup toolchain install 1.97`
 - 目标平台：`x86_64-unknown-linux-gnu`（开发）/ `x86_64-unknown-linux-musl`（发布静态二进制）
-- CI 配置中显式指定 stable channel + 目标平台
+- CI 配置中显式指定 Rust 1.97 + 目标平台
+- `rust-toolchain.toml` 固定版本：`channel = "1.97"`
 
 ### 后续工作
 

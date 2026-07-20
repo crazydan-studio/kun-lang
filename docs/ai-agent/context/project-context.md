@@ -9,7 +9,7 @@
 | 当前版本 | 0.1.0（设计阶段，代码实现已撤销待重写） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
 | 里程碑 | 效应委派与命令系统重设计完成，语言设计定型中；`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），待设计完全稳定后基于新设计重新实现 |
-| 宿主语言 | Rust（stable channel，rustup 管理；详见 [语言评估](../analysis/language-evaluation.md)） |
+| 宿主语言 | Rust 1.97（rustup 管理，详见 [语言评估](../analysis/language-evaluation.md)） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
 
@@ -29,7 +29,7 @@
 
 | 层 | 技术栈 |
 |---|---|
-| 语言实现 | Rust (stable channel，rustup 管理；目标平台 `x86_64-unknown-linux-gnu` 开发 / `x86_64-unknown-linux-musl` 发布) |
+| 语言实现 | Rust 1.97（rustup 管理；目标平台 `x86_64-unknown-linux-gnu` 开发 / `x86_64-unknown-linux-musl` 发布) |
 | 运行时 | fork-exec + pipe 捕获 stdout/stderr |
 | 二进制产物 | `kun`（脚本执行器，Rust 实现）+ `libkunlang.so`（共享解释器核心，Rust 实现 + C ABI 导出）；`kun-shell`（交互式环境，未来版本） |
 | 安全模型 | CLI 参数（`--allow-path`/`--allow-net`）+ Landlock + mount namespace 兜底 + seccomp + rlimit |
