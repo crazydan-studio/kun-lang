@@ -20,7 +20,8 @@
 | [`.cmd.kun` + Builder API 替代 CDF](discussion-cmdkun-replacement.md) | 废弃 CDF，`.cmd.kun` 完全替代方案——全 Kun 语法、Builder API、Landlock 安全、版本化注册中心 | 2026-06-04 |
 | [设计审计第二轮确认](discussion-design-review-round2.md) | 12 个审计跟进项（R1-R3 高严重度漏洞确认修复、TOCTOU 缓解方案、subprocess 权限建议） | 2026-06-04 |
 | [String 操作与 Path 模块函数归属](discussion-string-path-typing.md) | String 操作均为类型函数（String.xxx），Path 模块包含 join/parent/fileName/extension | 2026-06-07 |
-| [Zig 0.16.0 宿主语言与效应/模块同名消歧](discussion-zig-host-and-effect-module-namespacing.md) | Zig 0.16.0（稳定版）作为宿主语言可行性确认；效应与模块同名（如 Cmd）靠类型/值命名空间分离 + 效应操作必须全名调用消歧 | 2026-07-16 |
+| [Zig 0.16.0 宿主语言与效应/模块同名消歧](discussion-zig-host-and-effect-module-namespacing.md) | Zig 0.16.0（稳定版）作为宿主语言可行性确认；效应与模块同名（如 Cmd）靠类型/值命名空间分离 + 效应操作必须全名调用消歧 —— **历史决策，已被 2026-07-20 宿主语言切换取代** | 2026-07-16 |
 | [Z-Jail 沙箱加固参考分析](discussion-z-jail-sandbox-hardening.md) | 参考 Z-Jail 分层防御补齐沙箱缺口：capabilities 显式清零、fd 清理、PR_SET_DUMPABLE=0、IPC namespace、JSON 审计；不采纳 seccomp 白名单/强制 pivot_root/Truthimatics | 2026-07-16 |
 | [单元测试系统设计](discussion-unit-testing-design.md) | TestCase 类型值、Test 模块（test/Test.with/Test.timeout/Test.describe）、_test.kun 约定、Test 效应（assert/fail/skip abort）、handler 隔离、kun test --filter/--timeout/--parallel、无 before*/after* 钩子 | 2026-07-16 |
 | [`handle with` 入口级范围与语法收缩](discussion-handle-with-scope-and-syntax.md) | 决策一：保留入口级限制（仅 main/TestCase.body）；决策二：移除 `handle` 关键字，统一为 `do...with` / `let...in...with` 形式 | 2026-07-18 |
+| [宿主语言重新评估：从 Zig 切换至 Rust](discussion-host-language-reevaluation.md) | 撤销事件证明 LLM 对 Zig 不稳定是实际风险；Cli.parse 移出 MVP 削弱 comptime 优势；Rust 40.0 vs Zig 37.0，切换至 Rust；含落盘清单与摩擦缓解措施 | 2026-07-20 |

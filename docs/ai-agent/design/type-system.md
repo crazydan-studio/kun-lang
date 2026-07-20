@@ -248,7 +248,7 @@ case (x, y) of              // x : ?Int, y : ?String
 #### `Int`
 
 - 固定 64 位有符号整数（i64），补码表示。字面量支持十进制、`0x`、`0o`、`0b` 及 `_` 分隔
-- `Int` 的四则运算（`+`/`-`/`*`/`/`）在安全模式（Debug/ReleaseSafe）下溢出时 panic。ReleaseFast 和 ReleaseSmall 模式下溢出检测关闭——行为为 Zig 的默认行为（二进制补码回绕，wrapping）。需要精确溢出控制的代码使用 wrapping 运算符（`+%`、`-%`、`*%` 等，wrapping 语义）或将操作数提升为 `Float` 后计算再截断。若后续引入饱和运算需求，可在标准库中补充 `Int.saturatingAdd` 等函数。
+- `Int` 的四则运算（`+`/`-`/`*`/`/`）在安全模式（debug 构建配置）下溢出时 panic。release 构建模式下溢出检测关闭——行为为 Rust 的默认行为（二进制补码回绕，wrapping）。需要精确溢出控制的代码使用 wrapping 运算符（`+%`、`-%`、`*%` 等，wrapping 语义）或将操作数提升为 `Float` 后计算再截断。若后续引入饱和运算需求，可在标准库中补充 `Int.saturatingAdd` 等函数。
 
 `Int` 除零（`x / 0` 或 `x % 0`）在任何构建模式下均为 panic——不可通过模式关闭。`Float` 除零返回 `±Infinity` 或 `NaN`（见下方特殊浮点值表）。
 
@@ -414,7 +414,7 @@ users = Map.fromHashFn (\(UserId i) -> i) Map.empty
 
 #### `Stream t`
 
-惰性序列（显式惰性特区）。元素按需拉取，运行时表示为 Zig tagged union。`Stream` 的消费必须在创建其的 `let in` 块内完成——编译器对未被消费的 `Stream` 进行流敏感检测。
+惰性序列（显式惰性特区）。元素按需拉取，运行时表示为 Rust `enum`（tagged union）。`Stream` 的消费必须在创建其的 `let in` 块内完成——编译器对未被消费的 `Stream` 进行流敏感检测。
 
 #### `Command`
 
@@ -835,7 +835,7 @@ effect <Name> =
 
 ### 内置效应声明（标准库）
 
-内置效应的**签名**在标准库中以普通 `effect` 声明（无特权关键字），与用户效应形式完全一致。**handler 实现**在编译器源码（Zig）中，编译进 `kun` 二进制，用户不可见、不可改。
+内置效应的**签名**在标准库中以普通 `effect` 声明（无特权关键字），与用户效应形式完全一致。**handler 实现**在编译器源码（Rust）中，编译进 `kun` 二进制，用户不可见、不可改。
 
 ```kun
 // <runtime>/lib/kun/IO.kun
@@ -876,28 +876,28 @@ effect FFI =
   }
 ```
 
-**handler 实现（Zig，编译器源码内）**：
+**handler 实现（Rust，编译器源码内）**：
 
-```zig
-// src/builtin_handlers.zig（编译进 kun 二进制）
-fn io_println(env: *Env, args: []const Value) -> Value {
-  std.debug.print("{s}\n", .{args[0].string});
-  return .unit;
+```rust
+// src/builtin_handlers.rs（编译进 kun 二进制）
+fn io_println(env: &mut Env, args: &[Value]) -> Value {
+  print!("{}\n", args[0].string);
+  Value::Unit
 }
-fn ffi_call(env: *Env, args: []const Value) -> Value {
+fn ffi_call(env: &mut Env, args: &[Value]) -> Value {
   // dlopen/dlsym + C ABI 调用
   ...
 }
 
 // 内置 handler 注册表（编译期生成，加载标准库时校验完整性）
-const builtin_handler_table = std.ComptimeStringMap(HandlerEntry, .{
-  .{ "IO.println", .{ .fn_ptr = io_println, .is_effect = true } },
-  .{ "FFI.call", .{ .fn_ptr = ffi_call, .is_effect = true } },
+static BUILTIN_HANDLER_TABLE: &[(&str, HandlerEntry)] = &[
+  ("IO.println", HandlerEntry { fn_ptr: io_println, is_effect: true }),
+  ("FFI.call",    HandlerEntry { fn_ptr: ffi_call,    is_effect: true }),
   // ...
-});
+];
 ```
 
-**签名与实现的绑定**：编译器加载标准库 `effect IO` 时，校验每个操作在注册表有对应 Zig 实现，缺失则编译错误。
+**签名与实现的绑定**：编译器加载标准库 `effect IO` 时，校验每个操作在注册表有对应 Rust 实现，缺失则编译错误。
 
 ### 用户自定义效应
 
@@ -1066,7 +1066,7 @@ Handler : EffectSet -> Type -> Type
 
 ### 内置效应 Handler
 
-内置效应的 handler 实现于编译器源码（Zig），编译进 `kun` 二进制。用户不可定义内置效应的默认 handler，但可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认）。`Test` 标准库效应的默认 handler `testHandler` 同样由运行器内置（与 IO/File 等内置效应默认 handler 同级），详见 [单元测试设计](testing.md)。
+内置效应的 handler 实现于编译器源码（Rust），编译进 `kun` 二进制。用户不可定义内置效应的默认 handler，但可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认）。`Test` 标准库效应的默认 handler `testHandler` 同样由运行器内置（与 IO/File 等内置效应默认 handler 同级），详见 [单元测试设计](testing.md)。
 
 内置 handler 注册表在编译期生成，加载标准库 `effect` 声明时校验完整性。
 
@@ -1345,7 +1345,7 @@ composedHandler =
 1. **编译期效应集追踪**：每个函数效应集由编译器推导
 2. **调用经分发表**：效应调用 `X.op` 编译为分发表查找
 3. **用户效应必须消解**：未消解的用户效应冒泡到 `main`/`TestCase.body`，编译错误
-4. **内置效应有默认**：未消解的内置效应运行时自动注入默认 Zig handler
+4. **内置效应有默认**：未消解的内置效应运行时自动注入默认 Rust handler
 5. **入口级 do...with / let...in...with 限制**：`do...with` / `let...in...with` 仅 `main`/`TestCase.body` 可用，业务函数不可中途消解
 
 ### `main` 边界与效应集校验
@@ -1357,7 +1357,7 @@ composedHandler =
 
 **未消解效应的处理**：
 
-- 内置效应：运行时自动注入默认 Zig handler
+- 内置效应：运行时自动注入默认 Rust handler
 - 用户效应（含 `extern` 库效应）：编译错误，必须显式消解（`do...with` / `let...in...with`）
 - `FFI` 效应到达 `main`：运行时检查 `--allow-ffi`
 
@@ -1725,7 +1725,7 @@ Libc.strlen "hello" ! {Libc}
   → 运行时自动注入 defaultLibcHandler
   → defaultLibcHandler 调用 FFI.call，产生 ! {FFI}
   → FFI 冒泡到 main
-  → 运行时默认 FFI handler（Zig ffi_call）消解，需 --allow-ffi
+  → 运行时默认 FFI handler（Rust ffi_call）消解，需 --allow-ffi
 ```
 
 **自定义 handler 场景**（main 内包装）：
@@ -2134,25 +2134,25 @@ HM 推断器产生的原始合一错误（如 "cannot unify `a -> b` with `Int`"
 
 ### 编译期类型内省 API
 
-编译器向标准库中的 Primitive 函数提供以下编译期类型内省接口（基于 Zig `comptime` + `@typeInfo` 实现）：
+编译器向标准库中的 Primitive 函数提供以下编译期类型内省接口（基于 Rust proc macro + trait 反射实现）：
 
-```zig
+```rust
 /// 返回给定 TypeId 的用户可见类型名称
-fn getTypeName(env: *TypeEnv, ty: TypeId) []const u8;
+fn get_type_name(env: &TypeEnv, ty: TypeId) -> &'static str;
 
 /// 返回 Record 类型的字段信息列表（字段名 + 字段 TypeId + 偏移量）
-fn getRecordFields(env: *TypeEnv, ty: TypeId) []const RecordFieldInfo;
+fn get_record_fields(env: &TypeEnv, ty: TypeId) -> &[RecordFieldInfo];
 
 /// 返回 ADT 类型的变体信息列表（变体名 + 变体 tag 值 + 各变体的字段类型）
-fn getADTVariants(env: *TypeEnv, ty: TypeId) []const ADTVariantInfo;
+fn get_adt_variants(env: &TypeEnv, ty: TypeId) -> &[ADTVariantInfo];
 
 /// 返回指定 Record 字段的编译期偏移量（字节）
-fn getFieldOffset(env: *TypeEnv, ty: TypeId, field_name: []const u8) usize;
+fn get_field_offset(env: &TypeEnv, ty: TypeId, field_name: &str) -> usize;
 ```
 
-这些函数仅在编译期（`comptime`）可用，由 `Cli.parse`、`Parser.Record.fromJson` 和 `toString` 泛型分发等 Primitive 函数调用。API 在 `TypeEnv` 已完全构造（类型检查完成后）方可使用。
+这些函数仅在编译期（proc macro 展开阶段）可用，由 `Cli.parse`、`Parser.Record.fromJson` 和 `toString` 泛型分发等 Primitive 函数调用。API 在 `TypeEnv` 已完全构造（类型检查完成后）方可使用。
 
-> **Kun TypeId ↔ Zig comptime type 映射**：`TypeId` 是 `TypeEnv.types` 数组的索引。在类型检查完成（Typed AST 构建后）的 `comptime` 上下文中，编译器通过 `@typeInfo(TypeEnv.types[id])` 获取 Zig 类型结构信息。此映射仅在编译期为有效——运行时 `TypeEnv` 中的类型表示为值，不可用作 Zig 类型。`getTypeName` 等 API 函数在 `comptime` 环境中通过此映射返回类型信息供 `Cli.parse` 和 `Parser.Record.fromJson` 使用。
+> **Kun TypeId ↔ Rust proc macro type 映射**：`TypeId` 是 `TypeEnv.types` 数组的索引。在类型检查完成（Typed AST 构建后）的编译期上下文中，编译器通过 proc macro 生成的类型元数据获取 Rust 类型结构信息。此映射仅在编译期为有效——运行时 `TypeEnv` 中的类型表示为值，不可用作 Rust 类型。`getTypeName` 等 API 函数在编译期环境中通过此映射返回类型信息供 `Cli.parse` 和 `Parser.Record.fromJson` 使用。
 
 ## 类型表示与运行时
 

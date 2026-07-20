@@ -16,5 +16,5 @@
 - **仓库即真理源**：文档是设计意图的持久化载体
 - **类型驱动**：`cmd` 字面量构造 Command 值，选项通过 Record 类型表达，位置参数直接传递；Command 延迟执行，显式调用 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 触发后输出为 Stream String；组合是类型安全的管道
 - **安全默认**：最小权限通过 CLI 参数和沙箱隔离实现
-- **简单可靠**：采用 Zig 作为宿主语言，构建轻量级运行时（`kun` + `libkunlang.so`），除 vendored `zig-regex` 外无外部库依赖
+- **简单可靠**：采用 Rust 作为宿主语言，构建轻量级运行时（`kun` + `libkunlang.so`），通过成熟 crate 生态（`bumpalo` Arena、`nix` syscall、`regex` 引擎等）满足核心需求；详见 [语言评估](../analysis/language-evaluation.md)
 

@@ -9,7 +9,7 @@
 | 当前版本 | 0.1.0（设计阶段，代码实现已撤销待重写） |
 | 目标用户 | Linux 系统管理员、DevOps 工程师、需要编写 Shell 脚本的开发者 |
 | 里程碑 | 效应委派与命令系统重设计完成，语言设计定型中；`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），待设计完全稳定后基于新设计重新实现 |
-| 宿主语言 | Zig（锁定 0.16.0 稳定版，版本包 `/opt/ai-agent/tools/zig-x86_64-linux-0.16.0.tar.xz`） |
+| 宿主语言 | Rust（stable channel，rustup 管理；详见 [语言评估](../analysis/language-evaluation.md)） |
 | 目标平台 | Linux |
 | 许可证 | Apache 2.0 |
 
@@ -29,9 +29,9 @@
 
 | 层 | 技术栈 |
 |---|---|
-| 语言实现 | Zig 0.16.0（宿主语言，版本锁定，版本包 `/opt/ai-agent/tools/`） |
+| 语言实现 | Rust (stable channel，rustup 管理；目标平台 `x86_64-unknown-linux-gnu` 开发 / `x86_64-unknown-linux-musl` 发布) |
 | 运行时 | fork-exec + pipe 捕获 stdout/stderr |
-| 二进制产物 | `kun`（脚本执行器）+ `libkunlang.so`（共享解释器核心）；`kun-shell`（交互式环境，未来版本） |
+| 二进制产物 | `kun`（脚本执行器，Rust 实现）+ `libkunlang.so`（共享解释器核心，Rust 实现 + C ABI 导出）；`kun-shell`（交互式环境，未来版本） |
 | 安全模型 | CLI 参数（`--allow-path`/`--allow-net`）+ Landlock + mount namespace 兜底 + seccomp + rlimit |
 | 文档构建 | VitePress + pnpm |
 | 版本控制 | Git + GitHub |
@@ -45,7 +45,7 @@
 | 本地预览 | `cd docs && pnpm dev` |
 | 检查 Markdown 语法 | `cd docs && pnpm lint` |
 
-> **注**：`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），不再有 `zig build test` / `zig build dump-ast` 等命令。待设计完全稳定后基于新设计重新实现时，再补充验证命令。
+> **注**：`code/kun-lang/` 实现已撤销（commit `559180a`，2026-07-17），不再有 `cargo test` / `cargo run --bin kun` 等命令。待设计完全稳定后基于新设计重新实现时，再补充验证命令。
 
 ## 最近任务路由
 
@@ -53,6 +53,7 @@
 
 | 日期 | 任务 | 分类 | Owner Docs 检查 | Skills 检查 | 路由决策 |
 |------|------|------|----------------|------------|---------|
+| 2026-07-20 | 宿主语言从 Zig 切换至 Rust（重新评估，详见 [语言评估](../analysis/language-evaluation.md) 与 [讨论记录](../discussions/discussion-host-language-reevaluation.md)） | 配置+文档 | ✅ project-context、system-baseline、project-vision、module-boundaries、AGENTS.md | ✅ writing-conventions | `implement` |
 | 2026-07-18 | 活跃文档冲突与不一致审计 + 修复（13 项问题：Zig 版本统一 / `Process` 效应声明 / `newtype` 术语清理 / 5 失效锚点 / 安全参数补全 等） | 审计+修复 | ✅ 全部 owner docs | ✅ document-audit、closure-audit | `implement` |
 | 2026-07-18 | `.kun` 示例与 README 迁移到新语法（cmd 字面量 / `let in` / 效应集 `! {E}` / 零参效应函数 `!` 后缀 / `pipe` 纯函数 / 显式执行 / `|>` 纯管道）——15 文件 | 重构 | ✅ syntax、command-system、standard-library、examples | ✅ writing-conventions | `implement` |
 | 2026-07-18 | `Process.sleep` 从 DateTime 模块移回 Process 模块（设计纠错） | 重构 | ✅ standard-library、examples | ✅ writing-conventions | `implement` |
@@ -66,7 +67,7 @@
 | 2026-07-18 | `--audit` JSON 审计记录选项新增（CI / 合规场景追溯） | 设计 | ✅ kun-cli-tool、system-baseline | ✅ writing-conventions | `implement` |
 | 2026-07-18 | 沙箱加固——参考 Z-Jail 补齐防御缺口（capabilities drop / fd scrub / dumpable / `CLONE_NEWIPC`） | 重构 | ✅ system-baseline、kun-cli-tool | ✅ writing-conventions | `implement` |
 | 2026-07-18 | 效应与模块同名消歧规则新增（如 `Cmd` 既是效应又是模块） | 设计 | ✅ type-system、syntax、standard-library | ✅ writing-conventions | `implement` |
-| 2026-07-18 | Zig 0.16.0 稳定版锁定（替换原 0.17.0-dev） | 配置+文档 | ✅ zig-patterns、system-baseline | ✅ writing-conventions | `implement` |
+| 2026-07-18 | Zig 0.16.0 稳定版锁定（替换原 0.17.0-dev）—— 历史记录，已被 2026-07-20 宿主语言切换决策取代 | 配置+文档 | ✅ zig-patterns（已归档）、system-baseline | ✅ writing-conventions | `implement` |
 | 2026-07-17 | 零参效应函数约定——声明 `T ! {E}`、调用 `Name!`、区分 `Command !` | 重构 | ✅ type-system、syntax、standard-library | ✅ writing-conventions | `implement` |
 | 2026-07-17 | 类型标注与值绑定支持同行形式 `name : Type = expr` | 设计 | ✅ syntax、type-system | ✅ writing-conventions | `implement` |
 | 2026-07-17 | 守卫子句改用 `if` 关键字，移除 `when` | 重构 | ✅ syntax、type-system | ✅ writing-conventions | `implement` |

@@ -5,7 +5,7 @@
 | 组件 | 路径 | 说明 |
 |---|---|---|
 | 项目根目录 | `/` | 仓库根目录，包含 README.md、LICENSE、AGENTS.md |
-| 源代码 | `code/` | Kun 语言实现源代码（待开发） |
+| 源代码 | `code/` | Kun 语言实现源代码（待开发，基于 Rust 重新实现） |
 | 文档 | `docs/` | VitePress 项目文档 |
 | 构建脚本 | `tools/` | 构建、预览等辅助脚本 |
 
@@ -25,7 +25,7 @@ code/
 └── kun-lsp/           # Language Server Protocol 实现（规划中，依赖 libkunlang.so）
 ```
 
-`kun-lang/`（核心语言：编译器 + 运行时 + CLI）的实现已撤销，待设计完全稳定后基于新设计（效应委派系统、命令系统重设计等）重新实现。
+`kun-lang/`（核心语言：编译器 + 运行时 + CLI）的实现已撤销，待设计完全稳定后基于新设计（效应委派系统、命令系统重设计等）与 Rust 宿主语言重新实现（详见 [语言评估](../analysis/language-evaluation.md)）。
 
 ## 关键目录
 

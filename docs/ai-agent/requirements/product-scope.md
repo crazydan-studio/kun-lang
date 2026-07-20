@@ -32,5 +32,6 @@ Kun（鲲）是一款面向 Linux 的函数式脚本语言，定位于替代 She
 | Shell (bash/sh) | Kun 的替代目标 |
 | Python | 在自动化脚本领域的竞争者 |
 | Haskell/Elm | 语法和类型系统的灵感来源 |
-| Rust | 宿主语言 Zig 的类似定位 |
+| Rust | Kun 的宿主语言（Kun 编译器/运行时用 Rust 实现） |
+| Zig | 早期候选宿主语言（2026-07-20 重新评估后切换至 Rust，详见 [语言评估](../analysis/language-evaluation.md)） |
 

@@ -8,13 +8,13 @@
 - 图表文件使用描述性名称：`type-system-overview.puml`、`runtime-architecture.puml`
 - **Kun 模块文件**（`lib/` 内的 `.kun` 文件）使用 **PascalCase**：`Builder.kun`、`Cmd/Git.kun`、`MyApp/Config.kun`
 - **Kun 入口脚本**（含 `main` 的可执行文件）使用 **kebab-case**：`deploy.kun`、`build-all.kun`
-- Zig 源文件使用 snake_case：`lexer.zig`、`type_check.zig`
-- **Zig 测试文件**使用 `test_{target}.zig` 格式，与实现文件同目录放置：`lexer/test_lexer.zig`、`parser/test_parser.zig`
+- Rust 源文件使用 snake_case：`lexer.rs`、`type_check.rs`（Rust 命名规范）
+- **Rust 测试文件**使用 `test_{target}.rs` 格式，与实现文件同目录放置：`lexer/test_lexer.rs`、`parser/test_parser.rs`
 
 ### 目录命名
 
 - 文档目录使用 kebab-case
-- 源代码目录遵循 Zig 项目结构规范
+- 源代码目录遵循 Rust 项目结构规范（Cargo workspace + crate 划分）
 - **Kun `lib/` 内子目录**使用 **PascalCase**：`lib/Cmd/`、`lib/Parser/`、`lib/MyApp/`
 
 ### 文件后缀
@@ -35,7 +35,7 @@
 - **对话结论必须落盘**：对话中产生的所有结论、需求理解、设计决策、架构变更，必须在对话结束前以文件形式记录到 `docs/ai-agent/` 对应目录。不得仅依赖对话记忆
 - **语法合规审计**：所有代码示例（包括语法设计文档、类型系统文档、标准库文档、示例文件等中的 Kun 代码）必须在变更后通过子代理语法合规审计。审计同时须遵循 [代码格式化规范](../design/code-formatting.md) 检查缩进、换行等格式
 - **Kun 代码验证**：`kun` 可执行文件尚未构建，Kun 代码的语法合规性通过子代理审计（语法设计文档交叉对照）验证。实现阶段后将使用 `kun check` 子命令执行编译期检查
-- **Zig 代码审计**：LLM 生成的 Zig 代码在合入前必须对照 `docs/ai-agent/context/zig-patterns.md` 进行模式审计，确认 Arena 使用、分配器传递、C ABI 兼容性等关键模式正确
+- **Zig 代码审计（历史记录）**：LLM 生成的 Zig 代码在合入前必须对照 `docs/ai-agent/context/zig-patterns.md`（已归档）进行模式审计。该规则仅适用于 Zig 时期历史代码；当前宿主语言为 Rust，Rust 代码审计规则待 `rust-patterns.md` 编写后补充
 - **审计禁止模式**：语法合规审计必须包括对已明确禁止的语法形式的检查（注释 `--`/`#`/`/* */`、泛型尖括号 `<>`、List `::` 模式、Map `=>`、`type alias`、`pub` 关键字、`() -> T` 函数类型、反引号前缀字面量、Record 类型别名、表达式上的 `?` 操作符、函数名后缀 `funcName? args`、`let` 关键字单绑定、括号逗号函数调用等）
 - **审计类型定义**：多处使用到同结构的 Record 类型应定义为 `alias`（透明别名）或 `type` 单变体 ADT（名义等价，有抽象屏障），而非重复内联
 - **日期记录以实际命令为准**：在创建日志、任务路由记录等包含日期的文档时，必须先执行 `date +%Y-%m-%d` 获取实际日期，而非依赖系统上下文中的"今日"概念。日志文件名中的日期也必须与实际日期一致
@@ -81,34 +81,34 @@
 
 ### 文件组织
 
-- **单元测试**：采用 `test_{target}.zig` 命名，与实现文件**同目录放置**（共址原则）
-  - 每个实现模块必须有对应的单元测试文件，例如 `lexer/lexer.zig` ↔ `lexer/test_lexer.zig`
-  - 共址关系受 `src/test_main.zig` 中的 `comptime` 引用链管理
+- **单元测试**：采用 `test_{target}.rs` 命名，与实现文件**同目录放置**（共址原则）
+  - 每个实现模块必须有对应的单元测试文件，例如 `lexer/lexer.rs` ↔ `lexer/test_lexer.rs`
+  - 共址关系受 `src/main.rs` 或 `src/lib.rs` 中的 `mod` 声明链管理
   - 目录结构按 `architecture/module-boundaries.md` 模块划分组织：
     | 模块 | 源代码目录 | 示例 |
     |------|-----------|------|
-    | AST | `ast/` | `ast/ast.zig` ↔ `ast/`（无测试，纯数据结构定义） |
-    | 词法分析器 | `lexer/` | `lexer/lexer.zig` ↔ `lexer/test_lexer.zig` |
-    | 语法分析器 | `parser/` | `parser/parser.zig` ↔ `parser/test_parser.zig` |
-    | 类型检查器 | `typecheck/` | `typecheck/constraint.zig` ↔ `typecheck/test_constraint.zig` |
-    | i18n 子系统 | `i18n/` | `i18n/i18n.zig` ↔ `i18n/test_i18n.zig` |
-    | 运行时 | `runtime/` | `runtime/eval.zig` ↔ `runtime/test_eval.zig` |
-    | 命令调用系统 | `command/` | `command/cmd.zig` ↔ `command/test_cmd.zig` |
-    | 标准库 | `stdlib/` | `stdlib/stream.zig` ↔ `stdlib/test_stream.zig` |
+    | AST | `ast/` | `ast/ast.rs` ↔ `ast/`（无测试，纯数据结构定义） |
+    | 词法分析器 | `lexer/` | `lexer/lexer.rs` ↔ `lexer/test_lexer.rs` |
+    | 语法分析器 | `parser/` | `parser/parser.rs` ↔ `parser/test_parser.rs` |
+    | 类型检查器 | `typecheck/` | `typecheck/constraint.rs` ↔ `typecheck/test_constraint.rs` |
+    | i18n 子系统 | `i18n/` | `i18n/i18n.rs` ↔ `i18n/test_i18n.rs` |
+    | 运行时 | `runtime/` | `runtime/eval.rs` ↔ `runtime/test_eval.rs` |
+    | 命令调用系统 | `command/` | `command/cmd.rs` ↔ `command/test_cmd.rs` |
+    | 标准库 | `stdlib/` | `stdlib/stream.rs` ↔ `stdlib/test_stream.rs` |
 - **集成测试**：位于 `tests/` 目录，测试从词法分析到求值的全流水线（lex → parse → typecheck → eval）
-  - 文件命名：`test_{场景描述}.zig`
-- **测试运行器**：`test_main.zig` 是唯一的测试入口，通过 `comptime` 导入所有测试文件，不新增独立测试入口
+  - 文件命名：`test_{场景描述}.rs`
+- **测试运行器**：通过 `cargo test` 统一运行（Rust 标准工具链）
 
 ### 运行参数
 
-- **必须携带超时参数**：`zig build test --test-timeout 5s`，避免 IO 阻塞或死循环挂死整体测试
+- **必须携带超时参数**：`cargo test -- --test-timeout 5000`（单位 ms，Rust 标准），避免 IO 阻塞或死循环挂死整体测试
 - 测试不得调用实际 stdin 读取（`IO.readln`/`IO.readAll` 等在无终端环境下挂死）
 - 文件系统测试使用临时小目录，禁止遍历 `/tmp` 等大目录
 
 ### 内存模型
 
-- 测试中 `RuntimeEnv` 构造**必须用 `ArenaAllocator` 包裹 `std.testing.allocator`**，`defer arena.deinit()` 统一释放
-- 实现代码禁止使用 `std.heap.page_allocator`，仅使用 `env.allocator`（Arena）
+- 测试中 `RuntimeEnv` 构造**必须用 `bumpalo::Bump` Arena**包裹（或包裹 `std::alloc::System` 用于泄漏检测），`Drop` 时统一释放
+- 实现代码禁止使用 `std::alloc::System` 直接分配，仅使用 `env.allocator`（Arena）
 - Arena 模型下不单独调用 `free()`（no-op），详见 `lessons/phase6-memory-testing.md`
 
 ### 写法模式
@@ -117,13 +117,14 @@
 
 **模式**：
 
-```zig
-test "describes the category being tested" {
-    const cases = [_]struct { input: T, expected: U }{
-        .{ .input = ..., .expected = ... },
-        .{ .input = ..., .expected = ... },
-    };
-    for (cases) |c| {
+```rust
+#[test]
+fn describes_the_category_being_tested() {
+    let cases = [
+        TestCase { input: ..., expected: ... },
+        TestCase { input: ..., expected: ... },
+    ];
+    for c in cases {
         // call function under test with c.input
         // verify result matches c.expected
     }
@@ -140,7 +141,7 @@ test "describes the category being tested" {
 - 测试涉及副作用（IO、文件系统操作）且需隔离
 - 单个测试失败会使后续用例失效的有状态测试
 
-**示例**（`test_primitive.zig`）：
+**示例**（`test_primitive.rs`）：
 - `isEffectBinding covers all known patterns` — 合并了 14 个原独立测试
 - `primitive impl functions return correct variant` — 合并了 5 个原独立测试
-- `isKnownCmdApi covers all known patterns`（`test_cmd.zig`）— 合并了 4 个原独立测试
+- `isKnownCmdApi covers all known patterns`（`test_cmd.rs`）— 合并了 4 个原独立测试

@@ -31,7 +31,7 @@
 | 功能 | 状态 | 说明 |
 |---|---|---|
 | 内置效应 | ✅ 设计定型 | 7 个：`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`；保留名，用户不可重名定义 |
-| `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }`；签名在标准库（Kun），handler 实现在编译器源码（Zig） |
+| `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }`；签名在标准库（Kun），handler 实现在编译器源码（Rust） |
 | `handler` 声明 | ✅ 设计定型 | case of 风格 `<name> = handler <Effect> of <op> <args> -> <impl>`；类型 `Handler {e} a ! {handlerEffects}` |
 | `do ... with` / `let ... in ... with` 表达式 | ✅ 设计定型 | **仅 `main`/`TestCase.body` 内可用**；`do <body> with <handler>`（Unit 返回）/ `let <body> in <expr> with <handler>`（值返回）；`with` 绑定 handler 到整个前置 `do`/`let in` 块；handler 组合 `h1 >> h2`（`TestCase.body` 由 `kun test` 运行器在入口级上下文执行，详见 [单元测试设计](testing.md)）；`handle` 关键字已移除（2026.07.18） |
 | `continue` 委托 | ✅ 设计定型 | 控制流原语，委托外层/默认 handler；每分支恰好一次；不可多次调用；不可作值传递；不可嵌套 lambda |
@@ -39,7 +39,7 @@
 | 效应多态 | ✅ 设计定型 | 单效应变量 `e`，调用时实例化；`map : (a -> b ! e) -> List a -> List b ! e` |
 | Let 泛化值限制 | ✅ 设计定型 | 语法值（lambda/字面量/ADT 构造）泛化类型与效应变量；函数应用/效应调用不泛化 |
 | HM 效应集合一 | ✅ 设计定型 | `! e ~ ! IO` 成立（`e := {IO}`）；`! e ~ ! {IO, e}` occurs check 失败 |
-| 强制消解 | ✅ 设计定型 | 用户效应必须消解（`do...with` / `let...in...with`）；内置效应运行时自动注入默认 Zig handler；未消解用户效应冒泡到 `main`/`TestCase.body` 编译错误 |
+| 强制消解 | ✅ 设计定型 | 用户效应必须消解（`do...with` / `let...in...with`）；内置效应运行时自动注入默认 Rust handler；未消解用户效应冒泡到 `main`/`TestCase.body` 编译错误 |
 | 多效应 handler | ✅ 设计定型 | `handler {DB, Log} of DB.query q -> ...`；操作名必须限定（`DB.query`）避免歧义 |
 | Mock Handler | ✅ 设计定型 | 测试用，每效应可独立 mock；`continue` 委托默认或不调用 `continue` 直接返回 |
 | Stream 消费检查 | ✅ 设计定型 | 单 `let in` 块强制消费；跨块传递视为已消费；`case`/`if` 各分支均需消费；`defer` 不计入 |
@@ -115,7 +115,7 @@
 | Nilable | ✅ 设计定型 | `withDefault`/`map`/`orElse`/`toResult`/`andThen`，变体 `Nil` 缺省可用，函数需显式导入 |
 | Lazy | ✅ 设计定型 | 显式惰性特区：`lazy`/`force`，memoize 一次 |
 | String | ✅ 设计定型 | `toString`（编译器级泛型）+ 类型互转函数 |
-| Regex | ✅ 设计定型 | 正则匹配与替换（基于 zig-regex 引擎，`fromString` 运行时构造） |
+| Regex | ✅ 设计定型 | 正则匹配与替换（基于 Rust `regex` crate 引擎，`fromString` 运行时构造） |
 | Bytes | ✅ 设计定型 | 二进制编解码（`toHex`/`fromHex`） |
 | List | ✅ 设计定型 | 不可变列表查询与变换 |
 | Map | ✅ 设计定型 | 不可变字典查询与变换；键仅限内置可哈希类型；`Map.fromHashFn` 传入自定义哈希 |
@@ -146,7 +146,7 @@
 | Lazy | ✅ 设计定型 | 显式惰性特区：`Lazy.lazy : (Unit -> a) -> Lazy a`；`Lazy.force : Lazy a -> a`（memoize） |
 | Test | ✅ 设计定型 | `TestCase` 不透明类型（编译器内置，类似 `Command`，由 `test` Primitive 构造）；`effect Test = { assert, fail, skip }`（`abort` 终止，不再 panic）；`testHandler : Handler {Test} TestResult ! {IO}`（运行器内置）；`TestResult`（Pass/Fail/Skip）；`Test` 模块函数——`test : String -> (Unit ! {Test, e}) -> TestCase` Primitive 构造器 + `Test.with`/`Test.timeout`/`Test.describe` 链式 `|>` 设置字段。详见 [单元测试设计](testing.md) |
 
-> **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型。Cli 和 Parser.Record 均依赖编译期内省基础设施（基于 Zig comptime + @typeInfo）实现。
+> **编译期代码展开基础设施**（Cli/Parser.Record 的共同依赖）：设计定型。Cli 和 Parser.Record 均依赖编译期内省基础设施（基于 Rust proc macro + trait 反射）实现。
 
 ### 求值策略与单表达式
 

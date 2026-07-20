@@ -7,10 +7,10 @@
 **基础效应分层实现**（新设计总则 §1.2.7）：
 
 - **签名在标准库（Kun）**：内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`）以普通 `effect` 声明形式在标准库中定义，与用户效应形式完全一致
-- **handler 实现在编译器源码（Zig）**：内置效应的默认 handler 在编译器源码中实现，编译进 `kun` 二进制，用户不可见、不可改
-- **签名与实现彻底分离**：用户层统一查看 `effect` 声明，编译器加载标准库时校验每个操作在 Zig 注册表有对应实现
+- **handler 实现在编译器源码（Rust）**：内置效应的默认 handler 在编译器源码中实现，编译进 `kun` 二进制，用户不可见、不可改
+- **签名与实现彻底分离**：用户层统一查看 `effect` 声明，编译器加载标准库时校验每个操作在 Rust 注册表有对应实现
 
-用户不可定义内置效应的默认 handler，但可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认 Zig 实现）。
+用户不可定义内置效应的默认 handler，但可在 `main`/`TestCase.body` 内用自定义 handler 包装（通过 `continue` 委托默认 Rust 实现）。
 
 所有标准库模块中的函数均需显式导入方可使用（除 `Function` 模块名称始终缺省可用、`Nil` 变体始终缺省可用外）。
 
@@ -116,33 +116,33 @@ effect FFI =
 
 ### Handler 实现（编译器源码内）
 
-内置效应的默认 handler 在编译器源码（Zig）中实现，编译进 `kun` 二进制：
+内置效应的默认 handler 在编译器源码（Rust）中实现，编译进 `kun` 二进制：
 
-```zig
-// src/builtin_handlers.zig（编译进 kun 二进制）
-fn io_println(env: *Env, args: []const Value) -> Value {
-  std.debug.print("{s}\n", .{args[0].string});
-  return .unit;
+```rust
+// src/builtin_handlers.rs（编译进 kun 二进制）
+fn io_println(env: &mut Env, args: &[Value]) -> Value {
+  print!("{}\n", args[0].string);
+  Value::Unit
 }
-fn ffi_call(env: *Env, args: []const Value) -> Value {
+fn ffi_call(env: &mut Env, args: &[Value]) -> Value {
   // dlopen/dlsym + C ABI 调用
   ...
 }
 
 // 内置 handler 注册表（编译期生成，加载标准库时校验完整性）
-const builtin_handler_table = std.ComptimeStringMap(HandlerEntry, .{
-  .{ "IO.println", .{ .fn_ptr = io_println, .is_effect = true } },
-  .{ "FFI.call", .{ .fn_ptr = ffi_call, .is_effect = true } },
+static BUILTIN_HANDLER_TABLE: &[(&str, HandlerEntry)] = &[
+  ("IO.println", HandlerEntry { fn_ptr: io_println, is_effect: true }),
+  ("FFI.call",    HandlerEntry { fn_ptr: ffi_call,    is_effect: true }),
   // ...
-});
+];
 ```
 
-**签名与实现的绑定**：编译器加载标准库 `effect IO` 时，校验每个操作在注册表有对应 Zig 实现，缺失则编译错误。
+**签名与实现的绑定**：编译器加载标准库 `effect IO` 时，校验每个操作在注册表有对应 Rust 实现，缺失则编译错误。
 
 **用户自定义 handler 包装内置效应**：
 
 ```kun
-// 用户可在 main 内消解内置效应（do...with / let...in...with），用 continue 委托默认 Zig 实现
+// 用户可在 main 内消解内置效应（do...with / let...in...with），用 continue 委托默认 Rust 实现
 loggingIO : Handler {IO} a ! {IO}
 loggingIO =
   handler IO of
@@ -2742,7 +2742,7 @@ in
 
 ### 定位
 
-`Cmd` 模块提供类型化 OS 命令调用。`Cmd` 是内置保留效应（详见 [内置效应](#内置效应标准库签名)），其签名在标准库中以 `effect` 声明，handler 实现在编译器源码（Zig）中。
+`Cmd` 模块提供类型化 OS 命令调用。`Cmd` 是内置保留效应（详见 [内置效应](#内置效应标准库签名)），其签名在标准库中以 `effect` 声明，handler 实现在编译器源码（Rust）中。
 
 所有函数按执行时机分为纯操作（构造和修饰 Command 值）与效应操作（立即执行）。
 
@@ -3174,7 +3174,7 @@ Libc.strlen "hello" ! {Libc}
   → 运行时自动注入 defaultLibcHandler
   → defaultLibcHandler 调用 FFI.call，产生 ! {FFI}
   → FFI 冒泡到 main
-  → 运行时默认 FFI handler（Zig ffi_call）消解，需 --allow-ffi
+  → 运行时默认 FFI handler（Rust ffi_call）消解，需 --allow-ffi
 ```
 
 **自定义 handler 场景**（main 内包装）：

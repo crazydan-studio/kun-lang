@@ -134,7 +134,7 @@ main = \args -> do
 - 不允许用户效应（`DB`/`Log`/`Libc` 等），必须 `do...with` / `let...in...with` 消解
 
 **未消解效应的处理**：
-- 内置效应：运行时自动注入默认 Zig handler
+- 内置效应：运行时自动注入默认 Rust handler
 - 用户效应（含 `extern` 库效应）：编译错误，必须显式消解（`do...with` / `let...in...with`）
 - `FFI` 效应到达 `main`：运行时检查 `--allow-ffi`（见下方）
 
@@ -276,7 +276,7 @@ main = \raw -> do
 `FFI` 是内置保留效应，其身份不可伪造。`FFI` 效应到达 `main` 时，运行时检查 `--allow-ffi`：
 
 - **未启用 `--allow-ffi` 且 `FFI` 效应到达 `main`**：拒绝执行，返回退出码 126（安全拒绝）
-- **启用 `--allow-ffi`**：运行时默认 Zig handler 消解 FFI（`dlopen` + `dlsym` + C ABI 调用）
+- **启用 `--allow-ffi`**：运行时默认 Rust handler 消解 FFI（`dlopen` + `dlsym` + C ABI 调用）
 
 `FFI` 安全检查是四层防护中的最后一层（详见 [标准库 FFI 模块](standard-library.md#ffi-外部-c-库调用)）：
 

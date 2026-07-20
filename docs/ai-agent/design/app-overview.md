@@ -66,7 +66,7 @@ Kun 将副作用视为**类型层的效应集**——函数类型显式标注效
 | `Signal` | 信号处理 | `Signal.on` |
 | `FFI` | 外部 C 库调用 | `FFI.call`（由 `extern` 块默认 handler 委托） |
 
-效应签名在标准库（Kun）中声明（`effect X = { op : sig }` Record 风格），handler 实现在编译器源码（Zig）中——签名与实现彻底分离。用户自定义效应（如 `DB`/`Log`）通过 `effect`/`handler` 语法声明与实现。
+效应签名在标准库（Kun）中声明（`effect X = { op : sig }` Record 风格），handler 实现在编译器源码（Rust）中——签名与实现彻底分离。用户自定义效应（如 `DB`/`Log`）通过 `effect`/`handler` 语法声明与实现。
 
 ### `do ... with` / `let ... in ... with` 限入口
 
@@ -94,10 +94,10 @@ main = \args -> do
 with
   postgreHandler >> journaldLog
   // 用户效应 DB/Log 被消解
-  // 剩余 {Cmd, IO} 冒泡到 main，运行时自动注入默认 Zig handler
+  // 剩余 {Cmd, IO} 冒泡到 main，运行时自动注入默认 Rust handler
 ```
 
-未消解的用户效应冒泡到 `main`/`TestCase.body` 时编译错误；内置效应运行时自动注入默认 Zig handler。`FFI` 效应到达 `main` 时运行时检查 `--allow-ffi`。
+未消解的用户效应冒泡到 `main`/`TestCase.body` 时编译错误；内置效应运行时自动注入默认 Rust handler。`FFI` 效应到达 `main` 时运行时检查 `--allow-ffi`。
 
 ### `continue`/`abort` 二选一
 
@@ -259,7 +259,7 @@ testReplay : TestCase =
 **效应安全模型**：
 
 - 用户效应（`DB`/`Log` 等）必须消解（`do...with` / `let...in...with`），未消解冒泡到 `main`/`TestCase.body` 编译错误
-- 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`）运行时自动注入默认 Zig handler
+- 内置效应（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`）运行时自动注入默认 Rust handler
 - `FFI` 效应冒泡到 `main` 时运行时检查 `--allow-ffi`，未启用则拒绝执行
 - 用户无法通过命名、定义、handler 等手段绕过 FFI 安全检查（保留名 + 硬编码 + 命名空间隔离 + 运行时检查）
 

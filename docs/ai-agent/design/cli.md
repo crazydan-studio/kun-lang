@@ -563,7 +563,7 @@ handleSubCmd = \cfg -> do
 
 `withDefault` 在编译期将多态值序列化为 `String` 存入 `CliArg` 的 `default` 字段。在 `Cli.parse` 展开阶段，编译器按目标字段类型将存储的字符串反序列化，并校验反序列结果类型匹配。此机制与 `Parser.Record.fromJson` 的默认值处理一致。
 
-> **`Cli.parse` 作为 Primitive**：上述步骤 3-9 由编译器内置的 Primitive 函数实现（非通用元编程设施）。编译器在类型检查完成后，利用 TypeEnv 中的类型信息（`getTypeName`/`getRecordFields` 等 comptime 内省 API）生成参数解析代码。这是编译器对 `Cli` 模块的专门支持，不构成通用宏展开或 comptime 求值设施。`Parser.Record.fromJson` 共用同一套 Primitive 内省接口，但二者均为编译器内置 Primitive，而非用户可调用的展开机制。
+> **`Cli.parse` 作为 Primitive**：上述步骤 3-9 由编译器内置的 Primitive 函数实现（非通用元编程设施）。编译器在类型检查完成后，利用 TypeEnv 中的类型信息（`getTypeName`/`getRecordFields` 等 编译期内省 API）生成参数解析代码。这是编译器对 `Cli` 模块的专门支持，不构成通用宏展开或 编译期求值设施。`Parser.Record.fromJson` 共用同一套 Primitive 内省接口，但二者均为编译器内置 Primitive，而非用户可调用的展开机制。
 
 ---
 
@@ -1431,10 +1431,10 @@ kun test --allow-ffi                  # 允许测试体使用 FFI（与 `kun run
 
 ## 与 CLI 二进制的关系
 
-`Cli` 模块的 spec 模型（`CliSpec`、`CliArg`、`CliMeta`、`CliError`）同时也是 `kun` 和 `kun-shell` 二进制自身参数解析的数据模型。解析引擎（token 分片、选项匹配、子命令调度、帮助生成、错误报告）实现为 `libkunlang.so` 中的 Zig 库：
+`Cli` 模块的 spec 模型（`CliSpec`、`CliArg`、`CliMeta`、`CliError`）同时也是 `kun` 和 `kun-shell` 二进制自身参数解析的数据模型。解析引擎（token 分片、选项匹配、子命令调度、帮助生成、错误报告）实现为 `libkunlang.so` 中的 Rust 库：
 
-- `kun` 和 `kun-shell` 在 Zig 入口直接定义 `CliSpec` 字面量，调用同一引擎解析自身参数
-- `Cli` 模块在编译期展开阶段将 `CliSpec` Record 编译为 Zig 级引擎调用
+- `kun` 和 `kun-shell` 在 Rust 入口直接定义 `CliSpec` 字面量，调用同一引擎解析自身参数
+- `Cli` 模块在编译期展开阶段将 `CliSpec` Record 编译为 Rust 级引擎调用
 
 三者共享 spec 模型与解析算法，避免重复实现。`kun` 和 `kun-shell` 的 CLI 参数解析设计分别见 [`kun-cli-tool.md`](kun-cli-tool.md) 和 [`kun-shell.md`](kun-shell.md)。
 

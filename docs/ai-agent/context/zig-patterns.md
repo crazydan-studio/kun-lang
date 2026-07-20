@@ -1,4 +1,12 @@
-# Zig 模式指南
+# Zig 模式指南（已归档）
+
+> **已归档（2026-07-20）**：宿主语言已切换至 Rust。本文档为 Zig 时期的模式指南，保留作为历史参考。Rust 模式指南待编写（计划文件 `docs/ai-agent/context/rust-patterns.md`）。当前进行 Rust 实现时，请参考 [语言评估](../analysis/language-evaluation.md) 中的「Rust 摩擦缓解措施」一节，以及 [宿主语言重新评估讨论](../discussions/discussion-host-language-reevaluation.md)。
+>
+> 以下内容为 Zig 时期记录，**不再适用于当前 Rust 实现**——保留仅为追溯 Kun 设计演进历史。
+
+---
+
+# Zig 模式指南（历史）
 
 > 本文件记录 Kun 项目实现中 Zig 语言的惯用模式、注意事项和最佳实践，供 LLM 代码生成时参考。
 >
