@@ -25,7 +25,7 @@ kun-lang/
 │   ├── `cmd` 字面量入口（四段式）
 │   ├── camelCase → kebab-case 自动映射
 │   ├── 类型化模块自动发现（~/.kun/cmd/）
-│   ├── Cmd.withEnv / Cmd.withStdin / Cmd.withStdinFile / Cmd.mergeStderr
+│   ├── Cmd.withEnv / Cmd.withStdinStr / Cmd.withStdinBytes / Cmd.withStdinFile / Cmd.mergeStderr
 │   ├── Cmd.withWorkDir / Cmd.withRunAs
 │   ├── Cmd.andThen / Cmd.orElse（短路条件组合）
 │   ├── Cmd.timeout / Cmd.retry（修饰函数，需配合 Cmd.exec/execSafe/stream 执行）
@@ -67,7 +67,7 @@ kun-lang/
 
 ### 命令调用系统
 
-负责将 Linux 命令的能力抽象为类型安全调用。`cmd` 字面量构造 `Command` 值（四段式：命令 / 子命令* / 选项? / 位置参数?），camelCase 字段名自动映射为 kebab-case CLI flag，字符串键原样使用。类型化模块自动发现机制在编译时检查选项类型一致性。`Cmd.withEnv` / `Cmd.withStdin` / `Cmd.withStdinFile` / `Cmd.mergeStderr` / `Cmd.withWorkDir` / `Cmd.withRunAs` 修饰 Command 值（纯函数），`Cmd.andThen` / `Cmd.orElse` 提供短路条件组合。工具函数：`Cmd.timeout` 提供超时控制，`Cmd.retry` 提供重试机制（两者为修饰函数，需配合 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 执行）。`pipe` 纯函数将多个 Command 组合为 OS 管道链。`Cmd.which` 在 PATH 中查找可执行文件。
+负责将 Linux 命令的能力抽象为类型安全调用。`cmd` 字面量构造 `Command` 值（四段式：命令 / 子命令* / 选项? / 位置参数?），camelCase 字段名自动映射为 kebab-case CLI flag，字符串键原样使用。类型化模块自动发现机制在编译时检查选项类型一致性。`Cmd.withEnv` / `Cmd.withStdinStr` / `Cmd.withStdinBytes` / `Cmd.withStdinFile` / `Cmd.mergeStderr` / `Cmd.withWorkDir` / `Cmd.withRunAs` 修饰 Command 值（纯函数），`Cmd.andThen` / `Cmd.orElse` 提供短路条件组合。工具函数：`Cmd.timeout` 提供超时控制，`Cmd.retry` 提供重试机制（两者为修饰函数，需配合 `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` 执行）。`pipe` 纯函数将多个 Command 组合为 OS 管道链。`Cmd.which` 在 PATH 中查找可执行文件。
 
 ### 安全子系统
 

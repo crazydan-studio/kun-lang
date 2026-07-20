@@ -102,8 +102,7 @@ countFiles = \dir ->
   let
     entries =
       cmd ls { all = true } [ dir ]
-        |> Cmd.stream
-        |> Stream.lines
+        |> Cmd.streamLines
         |> Stream.toList
   in
     List.length entries
@@ -573,8 +572,7 @@ result = stream |> filter predicate |> map transform |> fold (+) 0
 do
   entries =
     cmd ls { all = true } [ dir ]
-      |> Cmd.stream
-      |> Stream.lines
+      |> Cmd.streamLines
       |> Stream.take 100
       |> Stream.toList
 ```
@@ -598,12 +596,11 @@ pipe
   [ cmd ps {} []
   , cmd grep {} []
   ]
-  |> Cmd.stream
-  |> Stream.lines
+  |> Cmd.streamLines
   |> Stream.toList
 ```
 
-> `pipe` 是纯函数（`List Command -> Command`），需显式调用 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 触发执行。
+> `pipe` 是纯函数（`List Command -> Command`），需显式调用 `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` 触发执行。
 
 ## Record / Map
 
@@ -800,7 +797,7 @@ cmd rsync
 
 ### `|>` 链接
 
-`cmd` 后可通过 `|>` 链式追加修饰函数（如 `Cmd.withEnv`、`Cmd.withWorkDir`、`Cmd.withStdin`）或执行函数（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）：
+`cmd` 后可通过 `|>` 链式追加修饰函数（如 `Cmd.withEnv`、`Cmd.withWorkDir`、`Cmd.withStdinStr`）或执行函数（`Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes`）：
 
 ```kun
 cmd "g++" { o = "a.out", "-Wall" = true, "-O2" = true } [ "main.cpp" ]
@@ -808,7 +805,7 @@ cmd "g++" { o = "a.out", "-Wall" = true, "-O2" = true } [ "main.cpp" ]
   |> Cmd.exec
 
 cmd mysql { u = "root" } []
-  |> Cmd.withStdin """
+  |> Cmd.withStdinStr """
     CREATE DATABASE mydb;
     """
 ```
@@ -832,8 +829,7 @@ cmd "a-b-c" { flag = true } []
 do
   entries =
     cmd ls { all = true } [ dir ]
-      |> Cmd.stream
-      |> Stream.lines
+      |> Cmd.streamLines
       |> Stream.take 100
       |> Stream.toList
   IO.println f"found {List.length entries} items"
@@ -1058,8 +1054,7 @@ main = \_ -> do
       , cmd grep { pattern = "ERROR" } []
       , cmd head { n = 100 } []
       ]
-      |> Cmd.stream
-      |> Stream.lines
+      |> Cmd.streamLines
       |> Stream.parseMap parseLine
       |> Stream.toList
 

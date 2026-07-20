@@ -226,13 +226,13 @@ enum Stream {
 
 #### 双向管道与死锁预防
 
-父进程同时向子进程 stdin 写入并读取子进程 stdout 时，存在管道缓冲区满死锁风险：双方均阻塞在 `write`（管道 64KB 满），双方均不在 `read`。此场景在 `Cmd.withStdin` 与 `Stream` 消费同时发生时触发。
+父进程同时向子进程 stdin 写入并读取子进程 stdout 时，存在管道缓冲区满死锁风险：双方均阻塞在 `write`（管道 64KB 满），双方均不在 `read`。此场景在 `Cmd.withStdinStr`/`Cmd.withStdinBytes` 与 `Stream` 消费同时发生时触发。
 
 Kun 采用单线程非阻塞双向 poll/select 策略：
 
 - stdout 与 stdin 共享同一 `poll`/`select` 事件循环，优先读取 stdout（必须先清空 stdout 缓冲区给子进程空间，再尝试推送更多 stdin 数据）
 - stdin 写入为非阻塞——`write` 返回 `EAGAIN` 时 poll 循环转向读取 stdout
-- `Cmd.withStdin` String 重载：fork 前将输入完整读入内存缓冲区，fork 后通过非阻塞 `write` 逐 chunk 写入
+- `Cmd.withStdinStr` String 重载：fork 前将输入完整读入内存缓冲区，fork 后通过非阻塞 `write` 逐 chunk 写入
 - 全量 stdin 写尽后立即 `shutdown(fd, SHUT_WR)` 关闭写端，子进程收到 EOF 后可继续写 stdout 直至退出
 - 不引入额外线程——保持解释器单线程语义
 
@@ -243,7 +243,7 @@ Kun 运行时采用单线程主事件循环，在以下场景驱动 IO：
 | 场景 | 被轮询的 fd | 触发条件 |
 |------|-----------|---------|
 | Stream 消费（`cmd` 变体） | 子进程 stdout pipe fd | `toList`/`iter`/`fold` 等终端操作逐元素拉取 |
-| 双向管道 | stdout + stdin pipe fd | `Cmd.withStdin` + Stream 消费同时进行 |
+| 双向管道 | stdout + stdin pipe fd | `Cmd.withStdinStr`/`Cmd.withStdinBytes` + Stream 消费同时进行 |
 | 信号处理 | signalfd | 整个脚本执行期间（与 `Signal.on` 共用） |
 
 事件循环由消费 Stream 的终端操作隐式驱动——Stream 元素拉取时执行 `poll`，事件循环结束后控制权返回 Kun 求值器。脚本进程全局共享一个 `poll` 对象，每次 Stream 消费独立调用 `poll`。
@@ -604,7 +604,7 @@ panic 发生时若存在活跃子进程（已 fork 但未 waitpid），运行时
 - `SIGINT`（Ctrl+C）→ panic 消息 `"interrupted by SIGINT"`
 - `SIGTERM` → panic 消息 `"terminated by SIGTERM"`
 - panic 触发标准 unwind 流程：当前 `let in` 块及其所有外层 `let in` 块的 `defer` 按 LIFO 逆序执行（先当前块，再外层块）→ 子进程回收（SIGTERM → SIGKILL → waitpid）→ Arena 销毁 → 退出码传播
-- `SIGPIPE` 在启动阶段设置为 `SIG_IGN`（忽略），确保 `Cmd.withStdin` 向已退出子进程的 stdin pipe 写入时不被信号终止。`write()` 返回 `EPIPE` 错误由调用方通过 `Result` 或 panic 处理
+- `SIGPIPE` 在启动阶段设置为 `SIG_IGN`（忽略），确保 `Cmd.withStdinStr` 向已退出子进程的 stdin pipe 写入时不被信号终止。`write()` 返回 `EPIPE` 错误由调用方通过 `Result` 或 panic 处理
 - `SIGKILL` 和 `SIGSTOP` 不注册处理器（Linux 内核不允许），收到此二信号时进程按内核默认行为终止——defer 链不执行
 
 此设计确保 `Ctrl+C` 或 `kill <pid>` 不会遗留临时文件、孤儿子进程或泄漏的文件描述符。
@@ -631,7 +631,7 @@ cmd <命令> <子命令>* <选项>? <位置参数>?
 Command 执行的系统契约：
 
 ```
-动作: fork → chdir 到 Cmd.withWorkDir 指定目录或 File.currentDir（子进程内） → [Cmd.withRunAs: initgroups → setgid → setuid → capset 全清] → 关闭 signalfd → 恢复 SIGINT/SIGTERM 处理器 → 恢复信号掩码 → fd 清理（关闭 fd≥3，保留 stdin/stdout/stderr/Cmd.withStdin 指定 fd） → setrlimit → install seccomp → exec → waitpid
+动作: fork → chdir 到 Cmd.withWorkDir 指定目录或 File.currentDir（子进程内） → [Cmd.withRunAs: initgroups → setgid → setuid → capset 全清] → 关闭 signalfd → 恢复 SIGINT/SIGTERM 处理器 → 恢复信号掩码 → fd 清理（关闭 fd≥3，保留 stdin/stdout/stderr/Cmd.withStdinStr/Cmd.withStdinBytes 指定 fd） → setrlimit → install seccomp → exec → waitpid
 返回: Unit（Cmd.exec）/ Result (Stream String) CommandError（Cmd.execSafe）/ Stream String（Cmd.stream），均为 ! {Cmd} 效应
 argv: Record 选项 → 字符串键原样追加 → -- 分隔符 → 位置参数
 stdout: pipe 捕获为 Stream String（Cmd.stream / Cmd.execSafe 的 Ok 分支）
@@ -643,7 +643,7 @@ stdin: 继承父进程（/dev/null 或外部管道）
 - 关闭从父进程继承的 signalfd 描述符（`close(signalfd_fd)`）
 - 将 `SIGINT`/`SIGTERM` 信号处理器恢复为默认行为（`SIG_DFL`）
 - 解除所有被阻塞的信号（通过 `sigprocmask` 恢复默认信号掩码）
-- **fd 清理（fd scrub）**——遍历 `/proc/self/fd` 关闭所有 fd≥3，仅保留 stdin/stdout/stderr 及 `Cmd.withStdin` 显式指定的 fd；其余 fd 设置 `FD_CLOEXEC` 或直接 `close`。防止子进程通过继承的特权 fd（Landlock 规则文件、审计日志、内部 pipe 等）绕过沙箱
+- **fd 清理（fd scrub）**——遍历 `/proc/self/fd` 关闭所有 fd≥3，仅保留 stdin/stdout/stderr 及 `Cmd.withStdinStr`/`Cmd.withStdinBytes` 显式指定的 fd；其余 fd 设置 `FD_CLOEXEC` 或直接 `close`。防止子进程通过继承的特权 fd（Landlock 规则文件、审计日志、内部 pipe 等）绕过沙箱
 此清理确保 fork 与 exec 之间的信号处理与 fd 隔离符合子进程预期。
 
 ## 运行时 PATH 解析
@@ -670,7 +670,7 @@ CLI 安全参数（`--allow-path`、`--allow-net`、`--allow-ffi`、`--no-sandbo
    - Mount namespace 目录级隔离（兜底，内核 3.8+，Landlock 不可用时）；同时创建 network namespace（`CLONE_NEWNET`，内核 3.0+，**始终创建**——见下文"网络隔离"）与 IPC namespace（`CLONE_NEWIPC`，内核 3.0+）——`CLONE_NEWIPC` 隔离 SysV 共享内存/信号量/消息队列，防止通过 IPC 机制逃逸或干扰其他进程
    - 拒绝运行（内核 < 3.8）
 2. **子进程层**（每次 fork 后始终安装）：
-   - **fd 清理（fd scrub）**——fork 后、exec 前关闭所有继承自父进程的 fd≥3（解释器可能持有 Landlock 规则文件、审计日志、内部 pipe 等特权 fd，子进程默认继承全部 fd，可通过 `/proc/self/fd/<N>` 访问这些 fd 绕过沙箱）。保留 stdin/stdout/stderr 及 `Cmd.withStdin` 显式指定的 fd；其余 fd 设置 `FD_CLOEXEC` 或直接 `close`。此清理在 setrlimit 与 seccomp 安装之前执行
+   - **fd 清理（fd scrub）**——fork 后、exec 前关闭所有继承自父进程的 fd≥3（解释器可能持有 Landlock 规则文件、审计日志、内部 pipe 等特权 fd，子进程默认继承全部 fd，可通过 `/proc/self/fd/<N>` 访问这些 fd 绕过沙箱）。保留 stdin/stdout/stderr 及 `Cmd.withStdinStr`/`Cmd.withStdinBytes` 显式指定的 fd；其余 fd 设置 `FD_CLOEXEC` 或直接 `close`。此清理在 setrlimit 与 seccomp 安装之前执行
    - setrlimit 资源限制（CPU/内存/文件数/进程数）
    - seccomp-BPF 系统调用过滤
 
@@ -1161,7 +1161,7 @@ HM 约束生成器在处理 Primitive 函数调用时：
 2. 从 `signature: TypeId` 获取预解析的函数类型（无需求值 `.kun` 文件）
 3. 将该类型与调用上下文生成等价约束（与普通函数调用相同）
 
-此设计确保 Primitive 函数签名与 HM 合一算法的集成不依赖运行时文件解析——签名在编译期一次性从 `.kun` 源码提取并类型检查后固化在 `PrimitiveBinding` 中。`Cmd.withStdin` 的双重重载（`String -> Command -> Command` 和 `Stream Bytes -> Command -> Command`）在约束生成时由调用点参数类型驱动选择正确的签名——编译器按 HM 上下文中的参数类型自动匹配。
+此设计确保 Primitive 函数签名与 HM 合一算法的集成不依赖运行时文件解析——签名在编译期一次性从 `.kun` 源码提取并类型检查后固化在 `PrimitiveBinding` 中。`Cmd.withStdinStr`（`String -> Command -> Command`）和 `Cmd.withStdinBytes`（`Stream Bytes -> Command -> Command`）为不同名函数，无需 HM ad-hoc overloading 消歧。
 
 ### 安全防护
 
@@ -1186,7 +1186,7 @@ HM 约束生成器在处理 Primitive 函数调用时：
 | `List`、`Map`、`Set` | 结构操作为 Primitive | `map`/`filter`/`fold` 为 PureKun，`get`/`insert`/`append` 等为 Primitive |
 | `IO`、`File`(大部分)、`Env`、`Process`、`Random`、`Task` | 全部 Primitive | 需要系统调用 |
 | `Cmd` 执行 (`exec`/`execSafe`/`stream`/`which`) | Primitive | fork-exec |
-| `Cmd` 修饰 (`withEnv`/`withStdin`/`withWorkDir`/`mergeStderr`/`withoutDash`/`andThen`/`orElse`/`timeout`/`retry`) | PureKun | 纯 `Command` 值变换 |
+| `Cmd` 修饰 (`withEnv`/`withStdinStr`/`withStdinBytes`/`withWorkDir`/`mergeStderr`/`withoutDash`/`andThen`/`orElse`/`timeout`/`retry`) | PureKun | 纯 `Command` 值变换 |
 | `pipe` | PureKun | 纯函数，构造 `Pipe` ADT 变体 |
 | `Stream` 构造/终端 (`fromList`/`toList`/`lines` 等) | Primitive | tagged union 操作 |
 | `Stream` 变换 (`map`/`filter`/`take`/`drop`) | PureKun | 包裹上游 Stream |

@@ -60,7 +60,7 @@ Kun 将副作用视为**类型层的效应集**——函数类型显式标注效
 |---|---|---|
 | `IO` | 控制台 IO | `IO.println`/`IO.readln` |
 | `File` | 文件系统 | `File.read`/`File.write` |
-| `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
+| `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` |
 | `Random` | CSPRNG | `Random.int`/`Random.bytes` |
 | `DateTime` | 系统时间 | `DateTime.now` |
 | `Signal` | 信号处理 | `Signal.on` |
@@ -120,9 +120,10 @@ c =
 **执行全显式**——无 Command 的 `?`/`!` 后缀糖（零参函数执行的 `!` 后缀是独立特性，见[类型系统 - 零参效应函数类型](type-system.md#零参效应函数类型-t-e)），无 `|>` 隐式触发：
 
 ```kun
-Cmd.exec     : Command -> Unit ! {Cmd}                                // 失败 panic，丢弃输出
-Cmd.execSafe : Command -> Result (Stream String) CommandError ! {Cmd} // 失败返回 Err
-Cmd.stream   : Command -> Stream String ! {Cmd}                       // 失败 panic，返回 Stream
+Cmd.exec        : Command -> Unit ! {Cmd}                       // eager 执行，丢弃 stdout/stderr，失败 panic
+Cmd.execSafe    : Command -> Result String CommandError ! {Cmd} // eager 执行，缓冲 stdout 为 String
+Cmd.streamLines : Command -> Stream String ! {Cmd}              // lazy 逐行 stdout，不报告退出码
+Cmd.streamBytes : Command -> Stream Bytes ! {Cmd}               // lazy 逐字节 stdout，不报告退出码
 ```
 
 `|>` 退化为纯管道操作符，统一类型 `a -> (a -> b) -> b`。完整设计见 [OS 命令调用机制](command-system.md)。
@@ -158,8 +159,9 @@ Cmd.stream   : Command -> Stream String ! {Cmd}                       // 失败 
 | API | 返回类型 | 失败行为 | 适用场景 |
 |---|---|---|---|
 | `Cmd.exec` | `Unit` | panic | 仅副作用（mkdir/cp） |
-| `Cmd.execSafe` | `Result (Stream String) CommandError` | 返回 Err | 需错误处理 |
-| `Cmd.stream` | `Stream String` | panic | 需输出流，不需错误处理 |
+| `Cmd.execSafe` | `Result String CommandError` | 返回 Err | 需错误处理（eager 缓冲） |
+| `Cmd.streamLines` | `Stream String` | silent（不报告退出码） | 需逐行输出流 |
+| `Cmd.streamBytes` | `Stream Bytes` | silent（不报告退出码） | 需逐字节二进制输出流 |
 
 ```kun
 let
@@ -284,7 +286,7 @@ do
 
 ## 运行时执行
 
-运行时使用 Linux 的 fork-exec 机制执行外部命令，通过 pipe 捕获 stdout/stderr。`cmd` 字面量构造 `Command` ADT（纯操作），运行时通过 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 显式触发 fork-exec——shell 元字符在 exec 层面为普通字符，无注入风险。
+运行时使用 Linux 的 fork-exec 机制执行外部命令，通过 pipe 捕获 stdout/stderr。`cmd` 字面量构造 `Command` ADT（纯操作），运行时通过 `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` 显式触发 fork-exec——shell 元字符在 exec 层面为普通字符，无注入风险。
 
 ## 函数与模块
 

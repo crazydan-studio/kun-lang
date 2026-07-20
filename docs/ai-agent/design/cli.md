@@ -276,7 +276,7 @@ type CliArgGroup
 // 除 meta 外所有字段均为可选——省略时的数据值为 Nil（由解析器内部映射为零值行为：
 //   args=[]   groups=[]   subs=#{}   loose=false）
 // 无类型参数——目标 Record 类型由 Cli.parse 调用点 HM 推断
-type CliSpec =
+type CliSpec = CliSpec
   { meta   : CliMeta
   , args   : ?(List CliArg)           // 位置参数和选项（可选，默认 Nil）
   , groups : ?(List CliArgGroup)      // 互斥组（可选，默认 Nil）
@@ -298,9 +298,15 @@ type CliError
 ```
 
 > **递归类型依赖**：`CliSpec` 通过 `subs : ?(Map String CliSpec)` 形成递归类型。这
-> 要求 Kun 的类型系统支持 **等递归类型（equi-recursive types）**——即在合一算法中
-> 对 `type` 别名关闭 occurs check，允许类型引用自身。此能力已写入
+> 要求 Kun 的类型系统支持 **等递归类型（equi-recursive types）**——即允许 `type` ADT
+> 在自身定义中引用自身，递归引用出现在正则位置（covariant）。此能力已写入
 > [类型系统设计](type-system.md)的「递归类型」章节。
+>
+> **单变体 ADT 包装**：`CliSpec` 形式为 `type CliSpec = CliSpec { ... }`（单变体 ADT
+> 包装 Record），而非 `type CliSpec = { ... }`（裸 Record）。原因：遵循 type/alias
+> 分离原则——`type` 是名义 ADT（有构造器 `CliSpec`），`alias` 是结构别名（无构造器）。
+> 用户构造 `CliSpec` 值需用 `CliSpec { meta = ..., args = ... }` 形式（构造器 + Record），
+> 而非裸 `{ meta = ... }`。这与其他 `type X = X {...}` 形式（如 `Command`、`TestCase`）一致。
 
 ### API
 
@@ -564,6 +570,8 @@ handleSubCmd = \cfg -> do
 `withDefault` 在编译期将多态值序列化为 `String` 存入 `CliArg` 的 `default` 字段。在 `Cli.parse` 展开阶段，编译器按目标字段类型将存储的字符串反序列化，并校验反序列结果类型匹配。此机制与 `Parser.Record.fromJson` 的默认值处理一致。
 
 > **`Cli.parse` 作为 Primitive**：上述步骤 3-9 由编译器内置的 Primitive 函数实现（非通用元编程设施）。编译器在类型检查完成后，利用 TypeEnv 中的类型信息（`getTypeName`/`getRecordFields` 等 编译期内省 API）生成参数解析代码。这是编译器对 `Cli` 模块的专门支持，不构成通用宏展开或 编译期求值设施。`Parser.Record.fromJson` 共用同一套 Primitive 内省接口，但二者均为编译器内置 Primitive，而非用户可调用的展开机制。
+
+> **`Cli.parse` 的执行路径**（前端编译 pass）：Kun 编译器分为前端编译 pass 与运行时求值两阶段。`Cli.parse` 在**前端编译 pass 的 Primitive 展开阶段**执行——具体顺序为：解析 → 类型检查 → **Primitive 展开（含 `Cli.parse`/`Parser.Record.fromJson`）** → 生成可执行 AST → 运行时求值。即 `Cli.parse` 在 **typecheck 后、eval 前**执行，利用类型检查阶段产出的 `TypeEnv` 进行编译期内省（`getTypeName`/`getRecordFields` 等 API），将 `Cli.parse` 调用点展开为针对目标 Record 类型的特化参数解析代码。**这不是通用元编程**（用户无法自定义 Primitive 或在编译期执行任意代码），也**不是运行时反射**（运行时不存在 `TypeEnv`，展开后的代码是普通函数调用，无反射开销）。`Cli.parse` 是编译器对 `Cli` 模块的专门支持，Primitive 表由编译器硬编码维护。
 
 ---
 

@@ -75,12 +75,13 @@
 | 位置参数 | ✅ 设计定型 | 必须用 `[ ]`，不支持裸字符串 |
 | `pipe` 纯函数 | ✅ 设计定型 | `pipe : List Command -> Command`；**深度上限 16**，超限编译错误；空列表字面量 `[]` 编译错误，变量运行时 panic |
 | `Cmd.exec` | ✅ 设计定型 | `Command -> Unit ! {Cmd}`，失败 panic，丢弃输出 |
-| `Cmd.execSafe` | ✅ 设计定型 | `Command -> Result (Stream String) CommandError ! {Cmd}`，失败返回 Err |
-| `Cmd.stream` | ✅ 设计定型 | `Command -> Stream String ! {Cmd}`，失败 panic |
+| `Cmd.execSafe` | ✅ 设计定型 | `Command -> Result String CommandError ! {Cmd}`，eager 缓冲 stdout 为 String |
+| `Cmd.streamLines` | ✅ 设计定型 | `Command -> Stream String ! {Cmd}`，lazy 逐行 stdout，不报告退出码 |
+| `Cmd.streamBytes` | ✅ 设计定型 | `Command -> Stream Bytes ! {Cmd}`，lazy 逐字节 stdout，不报告退出码 |
 | `Cmd.which` | ✅ 设计定型 | `String -> ?Path ! {Cmd}`，PATH 查找 |
-| `Cmd.withEnv`/`withStdin`/`withStdinFile`/`withWorkDir`/`withRunAs` | ✅ 设计定型 | 纯修饰函数（`Command -> Command`） |
+| `Cmd.withEnv`/`withStdinStr`/`withStdinBytes`/`withStdinFile`/`withWorkDir`/`withRunAs` | ✅ 设计定型 | 纯修饰函数（`Command -> Command`，构造 `Modified` 变体） |
 | `Cmd.mergeStderr`/`withoutDash`/`andThen`/`orElse`/`timeout`/`retry` | ✅ 设计定型 | 纯修饰函数 |
-| `Cmd.withStdin` 死锁预防 | ✅ 设计定型 | 单线程非阻塞 poll；优先读 stdout；stdin 非阻塞写；输入 >1MB 推荐 `Stream Bytes` |
+| `Cmd.withStdinStr`/`Cmd.withStdinBytes` 死锁预防 | ✅ 设计定型 | 单线程非阻塞 poll；优先读 stdout+stderr；stdin 非阻塞写；close(fd) 关闭写端；输入 >1MB 推荐 `Stream Bytes` |
 | `\|>` 纯管道 | ✅ 设计定型 | `a -> (a -> b) -> b`；**不再隐式触发 Command 执行** |
 
 ### 录制/回放
@@ -243,7 +244,7 @@
 | `Cmd.withRawOpt` | ❌ 已废弃 | 字符串键 |
 | `Cmd.pipe?` | ❌ 已废弃 | `pipe` + `Cmd.execSafe` |
 | `Cmd.pipe!` | ❌ 已废弃 | `pipe` + `Cmd.exec` |
-| `\|>` 隐式触发执行 | ❌ 已废弃 | 显式 `Cmd.stream`/`Cmd.exec`/`Cmd.execSafe`；`\|>` 回归纯管道 |
+| `\|>` 隐式触发执行 | ❌ 已废弃 | 显式 `Cmd.streamLines`/`Cmd.exec`/`Cmd.execSafe`；`\|>` 回归纯管道 |
 | `Newtype` 概念 | ❌ 已废弃 | `type X = X T` 单变体 ADT（与多变体一致，有 tag 不擦除） |
 | Nilable 隐式包装 | ❌ 已废弃 | 简化：`?T` 为 `Nilable T`；禁止嵌套 `??T` |
 | Nilable 操作符脱糖 | ❌ 已废弃 | `Nil`/`Some` 为构造器，模式匹配 |
@@ -255,7 +256,7 @@
 | `.cmd.kun` 文件格式 | ❌ 已移除 | `cmd` 字面量替代 |
 | `with caps` 能力声明 | ❌ 已移除 | CLI `--allow-path` / `--allow-net` / `--allow-ffi` 替代 |
 | `=!` / `<-!` 早返回 | ❌ 已移除 | `Cmd.execSafe` 替代 |
-| `stdin` 关键字 | ❌ 已移除 | `Cmd.withStdin` 函数替代 |
+| `stdin` 关键字 | ❌ 已移除 | `Cmd.withStdinStr`/`Cmd.withStdinBytes` 函数替代 |
 | `command` 声明 | ❌ 已移除 | `export (…)` 声明替代 |
 | dlopen/ptrace 命令加载 | ❌ 已移除 | fork-exec 统一替代 |
 | Builder API / 幻影类型 | ❌ 已移除 | `cmd` 字面量 + Record 替代 |

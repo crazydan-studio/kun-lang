@@ -27,6 +27,18 @@
 
 标准库中 `Xxx.of` 形式的构造函数由编译器保证转换安全——调用者以字面量（或编译期已知值）调用时在编译期校验合法性；运行时传入非法值时**抛出 panic**。需要处理不确定来源数据的场景应使用 `Xxx.fromString` / `Xxx.fromInt` 等返回 `Result` 的安全构造。
 
+> **`fromString` 的安全性差异**（重要例外）：
+>
+> 多数 `fromString` 函数返回 `Result`（解析失败返回 `Err`），适用于处理不确定来源数据。但**两类 `fromString` 始终成功，不返回 `Result`**：
+>
+> | 函数 | 返回类型 | 理由 |
+> |---|---|---|
+> | `Int.fromString`/`Float.fromString`/`Decimal.fromString`/`Regex.fromString`/`Duration.fromString` | `Result T String` | 解析可能失败（格式错误），需 `Result` 表达失败 |
+> | `Bytes.fromString` | `Bytes`（非 Result） | 任意合法 UTF-8 字符串均可编码为字节序列，编码始终成功，无失败路径 |
+> | `Path.fromString` | `Path`（非 Result） | 任意合法 UTF-8 字符串均可作为路径（Linux 内核视路径为以 NUL 结尾的字节序列），无需文件系统校验，构造始终成功 |
+>
+> 即 `Bytes.fromString` 与 `Path.fromString` 是**安全构造但无失败路径**的特例——它们的"安全性"体现在"不抛 panic"（与 `Xxx.of` 区分），但因构造不可能失败，故不返回 `Result`。这与 `Bytes.fromHex`/`Path.fromBytes`/`Path.component` 等返回 `Result` 的函数形成对比（后者涉及 hex 解码或字节级验证，存在失败路径）。
+
 ### 文档注释规范
 
 文档注释采用**多行 `//`**，支持 **Markdown 语法**。紧邻声明（`type`/函数/`effect`/`extern`/`export`）上方，由 `kun doc` 提取生成文档。
@@ -65,7 +77,7 @@ add = \x y -> x + y
 |---|---|---|
 | `IO` | 控制台 IO | `IO.println`/`IO.readln` |
 | `File` | 文件系统 | `File.read`/`File.write` |
-| `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
+| `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` |
 | `Random` | CSPRNG | `Random.int`/`Random.bytes` |
 | `DateTime` | 系统时间 | `DateTime.now` |
 | `Signal` | 信号处理 | `Signal.on` |
@@ -95,13 +107,14 @@ effect File =
   }
 
 // <runtime>/lib/kun/Cmd.kun
-export (Cmd, pipe, cmd, withEnv, withStdin, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
+export (Cmd, pipe, cmd, withEnv, withStdinStr, withStdinBytes, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
 
 effect Cmd =
-  { exec     : Command -> Unit
-  , execSafe : Command -> Result (Stream String) CommandError
-  , stream   : Command -> Stream String
-  , which    : String -> ?Path
+  { exec        : Command -> Unit
+  , execSafe    : Command -> Result String CommandError
+  , streamLines : Command -> Stream String
+  , streamBytes : Command -> Stream Bytes
+  , which       : String -> ?Path
   }
 
 // <runtime>/lib/kun/FFI.kun
@@ -1564,7 +1577,7 @@ groupBy : (a -> k) -> List a -> Map k (List a)
 | 批量规模 | 方案 | 示例 |
 |---------|------|------|
 | < 50 项 | `List.iter` + `cmd` 字面量直接遍历 | `List.iter (\f -> cmd gzip {} [ f.path ] |> Cmd.exec) files` |
-| 50-500 项 | 批处理——`Cmd.withStdin` 注入列表 | `cmd xargs { P = "4" } [ "gzip" ] \|> Cmd.withStdin fileList` |
+| 50-500 项 | 批处理——`Cmd.withStdinStr` 注入列表 | `cmd xargs { P = "4" } [ "gzip" ] \|> Cmd.withStdinStr fileList` |
 | > 500 项 | `pipe` 流式 + 并行（`Task.spawn`） | 并发度过低时用 `xargs -P`，大文件走 `File.readBytes` 流式管道 |
 
 ### 示例
@@ -1640,7 +1653,7 @@ fromList : List (k, v) -> Map k v                   // 从列表构造
 // [PureKun] 转为列表
 toList   : Map k v -> List (k, v)                   // 转为列表
 // [PureKun] 并集合并，右侧覆盖左侧
-merge    : Map k v -> Map k v -> Map k v            // 并集合并，右侧覆盖左侧
+unionWith    : Map k v -> Map k v -> Map k v            // 并集合并，右侧覆盖左侧
 
 // [PureKun] 键是否存在
 containsKey : k -> Map k v -> Bool
@@ -1663,7 +1676,9 @@ difference : Map k v -> Map k v -> Map k v
 
 - `insert` 覆写已有键的值
 - `update` 对已有值应用变换函数，键不存在时不操作。变换函数可为效应函数（效应经单变量 `e` 传播到调用方）；若需逐个元素执行副作用，也可遍历 `List (k, v)` 并在 `let in` 块中使用 `List.iter`
-- `merge` 并集合并，右侧覆盖左侧的相同键
+- `unionWith` 并集合并，右侧覆盖左侧的相同键（命名遵循 Haskell/OCaml 惯例：`unionWith` 表示"用显式策略合并"，这里策略是"右侧优先"）
+- `union` 左优先合并（左 Map 的键保留，右 Map 仅补充左 Map 缺失的键），与 `unionWith` 语义互补
+- `difference` 差集（移除左 Map 中右 Map 含有的键）
 
 ### 示例
 
@@ -2193,7 +2208,7 @@ string : Stream String -> String ! e
 bytes : Stream a -> Bytes ! e
 ```
 
-终端操作驱动求值，逐一拉取元素。所有终端操作均效应多态——Stream 来源的效应（如 `Cmd.stream` 的 `Cmd` 效应、`File.readBytes` 的 `File` 效应）在终端消费时触发并传播。纯 Stream（`Stream.range`/`Stream.fromList`）的终端操作 `e` 实例化为 `! {}`（纯），可在纯上下文使用。
+终端操作驱动求值，逐一拉取元素。所有终端操作均效应多态——Stream 来源的效应（如 `Cmd.streamLines` 的 `Cmd` 效应、`File.readBytes` 的 `File` 效应）在终端消费时触发并传播。纯 Stream（`Stream.range`/`Stream.fromList`）的终端操作 `e` 实例化为 `! {}`（纯），可在纯上下文使用。
 
 #### 错误处理辅助
 
@@ -2211,7 +2226,7 @@ filterMap : (a -> ?b ! e) -> Stream a -> Stream b ! e
 | `Stream.map` / `Stream.flatMap` / `Stream.scan` / `Stream.iterate` / `Stream.filterMap` | **效应多态**（回调可为效应函数） | 惰性变换，回调效应经 `e` 传播；Stream 本身仍惰性，效应在终端消费时触发 |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯**（纯回调） | 解析变换，回调返回 `Result`，不掺杂副作用 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
-| `Stream.toList` / `Stream.string` / `Stream.bytes` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.nth` / `Stream.iter` / `Stream.fold` | **终端（效应多态）** | 终端操作消费 Stream，签名含 `! e`——Stream 来源的效应（如 `Cmd.stream` 的 `Cmd` 效应）在终端消费时触发并传播；纯 Stream（`range`/`fromList`）的终端操作 `e` 实例化为 `! {}`，可在纯上下文使用；命令输出 Stream 须在 `do`/`let in` 块内调用 |
+| `Stream.toList` / `Stream.string` / `Stream.bytes` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.nth` / `Stream.iter` / `Stream.fold` | **终端（效应多态）** | 终端操作消费 Stream，签名含 `! e`——Stream 来源的效应（如 `Cmd.streamLines` 的 `Cmd` 效应）在终端消费时触发并传播；纯 Stream（`range`/`fromList`）的终端操作 `e` 实例化为 `! {}`，可在纯上下文使用；命令输出 Stream 须在 `do`/`let in` 块内调用 |
 | `Stream.fromList` | **纯** | 从纯 List 构造，无 IO 绑定 |
 
 > **回调效应性约束**：`Stream` 模块的高阶函数分两类：
@@ -2220,7 +2235,7 @@ filterMap : (a -> ?b ! e) -> Stream a -> Stream b ! e
 >
 > 谓词类操作的语义是「判断」，不应掺杂副作用；变换类操作的回调可为效应函数。
 >
-> **Stream 终端操作的效应传播**：消费 Stream 的终端操作（`toList`/`string`/`bytes`/`find`/`all`/`any`/`nth`/`iter`/`fold`）签名含 `! e`——Stream 来源的效应（如 `Cmd.stream` 的 `Cmd` 效应）在终端消费时触发并传播。纯 Stream（`Stream.range`/`Stream.fromList`）的终端操作 `e` 实例化为 `! {}`（纯），可在纯上下文使用。这确保类型系统阻止"纯函数消费效应 Stream"的健全性漏洞——若 `pureFunc : Stream Bytes -> Bytes` 调用 `Hash.sha256Stream s`，则 `e` 必须实例化为来源效应，纯上下文拒绝此类调用。
+> **Stream 终端操作的效应传播**：消费 Stream 的终端操作（`toList`/`string`/`bytes`/`find`/`all`/`any`/`nth`/`iter`/`fold`）签名含 `! e`——Stream 来源的效应（如 `Cmd.streamLines` 的 `Cmd` 效应）在终端消费时触发并传播。纯 Stream（`Stream.range`/`Stream.fromList`）的终端操作 `e` 实例化为 `! {}`（纯），可在纯上下文使用。这确保类型系统阻止"纯函数消费效应 Stream"的健全性漏洞——若 `pureFunc : Stream Bytes -> Bytes` 调用 `Hash.sha256Stream s`，则 `e` 必须实例化为来源效应，纯上下文拒绝此类调用。
 
 ### 示例
 
@@ -2236,8 +2251,7 @@ Stream.range 0 100
 // IO 消费
 let
   cmd cat {} [ p"/var/log/syslog" ]
-    |> Cmd.stream
-    |> Stream.lines
+    |> Cmd.streamLines
     |> Stream.filterMap Result.ok
     |> Stream.filter (String.contains "ERROR")
     |> Stream.iter IO.println
@@ -2467,6 +2481,12 @@ mockLogHandler =
   ```
 - 项目内可定义更复杂的 mock handler（如捕获日志消息供断言）：在 `lib/Log/Mock.kun` 中覆盖标准库 `Log.Mock` 模块的同名 handler 实现
 
+> **短路 vs 转发模式**（详见 [类型系统 - continue 效应归属](type-system.md#continue-委托与-abort-提前终止)）：
+>
+> - **不调用 `continue` = 短路**——效应被当前 handler 完全消解，不转发给外层。`mockLogHandler` 是**短路模式**：handler 体内不调用 `continue`，`Log` 效应被完全消解（直接返回 `()`），不转发给默认 handler，因此不产生 `! {IO}` 等额外效应。
+> - **调用 `continue` = 转发**——效应调用转发给外层/默认 handler。`stderrLogHandler` 是**转发模式**：每个分支体内调用 `continue ()`，将 `Log` 效应转发给外层（最终由默认 `Log` handler 或更外层 handler 消解）；同时 handler 体内的 `IO.eprintln` 产生 `! {IO}`，故 `stderrLogHandler` 的产出效应集为 `! {IO}`。
+> - 两种都是合法的 handler 模式——短路模式适用于测试/mock/拦截场景，转发模式适用于日志/审计/变换场景。
+
 ## `Env` — 环境变量
 
 ### 定位
@@ -2593,8 +2613,8 @@ readLines : Path -> Stream (Result String IOError) ! {File}
 // [Primitive] 递归遍历目录
 walkDir : Path -> Stream Path ! {File}
 
-// [Primitive] 获取当前工作目录（脚本启动时冻结）
-currentDir : Path ! {File}
+// [Primitive] 获取当前工作目录（脚本启动时冻结，读取冻结值为纯操作）
+currentDir : Path
 
 // [Primitive] 用户主目录路径
 homeDir : Path ! {File}
@@ -2606,7 +2626,9 @@ tempDir : Path ! {File}
 atomicWriteString : Path -> String -> Result Unit IOError ! {File}
 ```
 
-> **效应操作与函数名的对应关系**：`File` 模块函数中，`read`/`write`/`remove`/`exists`/`createTemp` 直接对应内置 `effect File = { read, write, remove, exists, createTemp }` 的五个效应操作（命名一一对应）。其余函数（`readBytes`/`writeBytes`/`appendString`/`appendBytes`/`readLines`/`list`/`mkdir`/`stat`/`touch`/`copy`/`rename`/`glob`/`walkDir`/`removeDir`/`removeAll`/`createTempDir`/`currentDir`/`homeDir`/`tempDir`/`atomicWriteString`）为标准库额外提供的文件操作，全部触发 `File` 效应（内部最终调用上述五个原语之一或同源 syscall），调用者需在 `let in` 块内使用。
+> **效应操作与函数名的对应关系**：`File` 模块函数中，`read`/`write`/`remove`/`exists`/`createTemp` 直接对应内置 `effect File = { read, write, remove, exists, createTemp }` 的五个效应操作（命名一一对应）。其余函数（`readBytes`/`writeBytes`/`appendString`/`appendBytes`/`readLines`/`list`/`mkdir`/`stat`/`touch`/`copy`/`rename`/`glob`/`walkDir`/`removeDir`/`removeAll`/`createTempDir`/`homeDir`/`tempDir`/`atomicWriteString`）为标准库额外提供的文件操作，全部触发 `File` 效应（内部最终调用上述五个原语之一或同源 syscall），调用者需在 `let in` 块内使用。
+
+> **`File.currentDir` 的纯性**（与 `Path.resolve` 的一致性）：`File.currentDir` 在**脚本启动时冻结**——`kun` 二进制在进程启动阶段调用一次 `getcwd(2)` 并将结果缓存为不可变值。此后读取 `File.currentDir` 仅访问该冻结缓存，**不触发 syscall、不产生副作用**，故其类型签名为 `currentDir : Path`（无 `! {File}` 效应）。`Path.resolve` 基于该冻结的 `File.currentDir` 解析相对路径，亦为纯操作（`resolve : Path -> Path`，标 `PureKun` 正确）。**注意**：若用户在脚本运行期间通过 `cmd` 子进程 `cd` 改变了 shell 工作目录，`File.currentDir` 仍返回启动时冻结的值——这是有意设计，保证纯性与可重现性；若需获取当前真实工作目录，用 `cmd pwd {} [] |> Cmd.execSafe`（产生 `! {Cmd}`）。
 
 #### 关联类型
 
@@ -2771,16 +2793,16 @@ import Cmd
 pipe : List Command -> Command
 ```
 
-#### 修饰函数（纯操作，接收并返回 Command）
+#### 修饰函数（纯操作，接收并返回 Command，构造 Modified 变体）
 
 ```kun
 // [PureKun] 添加环境变量到子进程
 withEnv : Map String String -> Command -> Command
 
-// [PureKun] 注入 stdin（字符串模式）
-withStdin : String -> Command -> Command
-// [PureKun] 注入 stdin（流式模式，适用于大体积输入）
-withStdin : Stream Bytes -> Command -> Command
+// [PureKun] 注入 stdin（字符串模式，小输入）
+withStdinStr : String -> Command -> Command
+// [PureKun] 注入 stdin（流式模式，大体积输入）
+withStdinBytes : Stream Bytes -> Command -> Command
 
 // [PureKun] 从文件路径注入 stdin
 withStdinFile : Path -> Command -> Command
@@ -2798,9 +2820,9 @@ withRunAs : String -> Command -> Command
 withoutDash : Command -> Command
 ```
 
-> **withStdin 重载消歧**：编译器通过第一参数的类型（`String` vs `Stream Bytes`）在调用点进行消歧，不依赖传统函数重载。HM 推断根据上下文确定调用哪一个签名。
+> **`withStdin` 重命名消歧**：旧设计中 `withStdin` 有两个同名签名（`String` vs `Stream Bytes`），HM 不支持 ad-hoc overloading。新设计拆分为 `withStdinStr`/`withStdinBytes`，调用点显式消歧。`List.equal`/`Map.equal`/`Set.equal` 等通过模块限定名消歧（`List.equal eq xs ys`），HM 推断无需特殊处理——后者参数不同无法通过模块限定消歧，故必须重命名。
 
-> **`Cmd.withStdin` 的 Stream 模式**：`withStdin` 本身是纯函数（将 Stream 引用存入 Command 值，不立即消费 Stream），Stream 的实际消费发生在执行时（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`），效应由执行函数承担。Stream 在传入时仍可被多次引用（不可变），但仅在被执行的 Command 消费时触发迭代。
+> **`Cmd.withStdinBytes` 的 Stream 模式**：`withStdinBytes` 本身是纯函数（将 Stream 引用存入 Command 值，不立即消费 Stream），Stream 的实际消费发生在执行时（`Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes`），效应由执行函数承担。Stream 在传入时仍可被多次引用（不可变），但仅在被执行的 Command 消费时触发迭代。
 
 #### 短路条件组合（纯操作，返回 Command）
 
@@ -2812,27 +2834,30 @@ andThen : Command -> Command -> Command
 orElse : Command -> Command -> Command
 ```
 
-#### 超时与重试（修饰函数，纯操作）
+#### 超时与重试（修饰函数，纯操作，构造 Modified 变体）
 
 ```kun
-// [PureKun] 设置超时（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）
+// [PureKun] 设置超时（修饰 Command，需配合 Cmd.exec/execSafe 执行；不支持 streamLines/streamBytes）
 timeout : Duration -> Command -> Command
 
-// [PureKun] 设置重试（修饰 Command，需配合 Cmd.exec/execSafe/stream 执行）
+// [PureKun] 设置重试（修饰 Command，需配合 Cmd.exec/execSafe 执行；不支持 streamLines/streamBytes）
 retry : Int -> Duration -> Command -> Command
 ```
 
 #### Cmd 效应操作（立即执行，产生 `! {Cmd}`）
 
 ```kun
-// [Primitive] 执行 Command，失败 panic——stdout 被静默丢弃（仅副作用）
+// [Primitive] 执行 Command，失败 panic——stdout/stderr 被静默丢弃（仅副作用）
 exec : Command -> Unit ! {Cmd}
 
-// [Primitive] 执行 Command 的安全变体——失败返回 Err，stdout 通过 Stream String 消费
-execSafe : Command -> Result (Stream String) CommandError ! {Cmd}
+// [Primitive] 执行 Command 的安全变体——eager 缓冲全部 stdout 为 String，返回退出码 + stdout + stderr
+execSafe : Command -> Result String CommandError ! {Cmd}
 
-// [Primitive] 执行 Command，返回 Stream——失败 panic
-stream : Command -> Stream String ! {Cmd}
+// [Primitive] 执行 Command，返回 Stream String（逐行 stdout，lazy，不报告退出码）
+streamLines : Command -> Stream String ! {Cmd}
+
+// [Primitive] 执行 Command，返回 Stream Bytes（逐字节 stdout，lazy，不报告退出码）
+streamBytes : Command -> Stream Bytes ! {Cmd}
 
 // [Primitive] PATH 查找命令位置，不可执行/未找到返回 Nil
 which : String -> ?Path ! {Cmd}
@@ -2843,9 +2868,9 @@ which : String -> ?Path ! {Cmd}
 | 操作 | 类别 | 说明 |
 |------|------|------|
 | `cmd ...` 字面量 | **纯** | 构造 Command 值，不执行 |
-| `pipe` / `withEnv` / `withStdin` / `withStdinFile` / `mergeStderr` / `withWorkDir` / `withRunAs` / `withoutDash` / `timeout` / `retry` | **纯** | 修饰函数，接收并返回 Command |
-| `andThen` / `orElse` | **纯** | 短路条件组合，返回 Command |
-| `exec` / `execSafe` / `stream` / `which` | **效应** | 立即执行（`! {Cmd}`） |
+| `pipe` / `withEnv` / `withStdinStr` / `withStdinBytes` / `withStdinFile` / `mergeStderr` / `withWorkDir` / `withRunAs` / `withoutDash` / `timeout` / `retry` | **纯** | 修饰函数，接收并返回 Command |
+| `andThen` / `orElse` | **纯** | 短路条件组合（构造 Seq/OrElse 变体），返回 Command |
+| `exec` / `execSafe` / `streamLines` / `streamBytes` / `which` | **效应** | 立即执行（`! {Cmd}`） |
 
 > 完整语法、执行模型、选项映射及示例见 [OS 命令调用机制](command-system.md)。
 
@@ -2860,35 +2885,41 @@ c =
     |> Cmd.withWorkDir p"/home"
     |> Cmd.mergeStderr
 
-do
-  // 管道显式执行（错误处理）
+let
+  // 管道显式执行（错误处理，eager 缓冲）
   result =
     pipe
       [ cmd ps { a } []
       , cmd grep { pattern = "nginx" } []
       ]
       |> Cmd.execSafe
-
+in
   case result of
-    Ok stream ->
-      stream |> Stream.iter IO.println
-    Err e -> IO.println (CommandError.show e)
+    Ok output -> IO.println output          // output : String
+    Err e     -> IO.println (CommandError.show e)
 
-  // 显式执行（panic 失败）
-  cmd mkdir { p = true } [ "/tmp/build" ]
-    |> Cmd.exec
+cmd mkdir { p = true } [ "/tmp/build" ]
+  |> Cmd.exec
 
-  // 显式执行已构造的 Command
-  Cmd.exec c
+// 安全执行（execSafe）——失败返回 Err
+let
+  result = Cmd.execSafe c
+in
+  case result of
+    Ok output -> IO.println output
+    Err e     -> IO.println (CommandError.show e)
 
-  // 安全执行（execSafe）——失败返回 Err
-  case Cmd.execSafe c of
-    Ok stream -> Stream.iter IO.println stream
-    Err e -> IO.println (CommandError.show e)
+// 短路条件
+cmd git clone {} [ "https://..." ]
+  |> Cmd.andThen (cmd make {} [ "-C", "repo" ])
+  |> Cmd.exec
 
-  // 短路条件
-  cmd git clone {} [ "https://..." ]
-    |> Cmd.andThen (cmd make {} [ "-C", "repo" ])
+// 大输入 stdin
+let
+  bigInput : Stream Bytes = ...
+in
+  cmd xargs { P = "4" } [ "gzip" ]
+    |> Cmd.withStdinBytes bigInput
     |> Cmd.exec
 ```
 
@@ -3481,7 +3512,7 @@ import Task
 
 ```kun
 // [Primitive] 并发执行命令列表，最大并行数为 n
-spawn : Int -> List Command -> Stream (Result (Stream String) CommandError) ! {Cmd}
+spawn : Int -> List Command -> Stream (Result String CommandError) ! {Cmd}
 
 // [Primitive] 等待所有 Task 完成，收集结果
 all : Stream (Result a e) -> List (Result a e) ! {Cmd}
@@ -3872,7 +3903,7 @@ testReplay : TestCase =
 
 ### 类型安全与副作用隔离
 
-- **Stream 录制**：`Cmd.execSafe`/`Cmd.stream` 返回的 `Stream String` 在录制时被强制消费（`Stream.toList`），完整内容记入 JSONL 的 `result` 字段。**部分消费的 Stream 不支持录制**——录制模式下 Stream 必须完整消费，否则录制报错 `ReplayStreamPartiallyConsumed`。这避免回放时 Stream 状态不一致（生产侧懒消费 N 个元素、回放侧却消费了全部）。
+- **Stream 录制**：`Cmd.streamLines`/`Cmd.streamBytes` 返回的 `Stream String`/`Stream Bytes` 在录制时被强制消费（`Stream.toList`），完整内容记入 JSONL 的 `result` 字段。**部分消费的 Stream 不支持录制**——录制模式下 Stream 必须完整消费，否则录制报错 `ReplayStreamPartiallyConsumed`。这避免回放时 Stream 状态不一致（生产侧懒消费 N 个元素、回放侧却消费了全部）。`Cmd.execSafe`（eager，返回 `Result String CommandError`）的录制直接将完整 stdout 记入 `result` 字段。
 - **回放类型检查**：回放时，`replayHandler` 从 JSONL 读取 `result` 并反序列化为业务函数期望类型。**类型不匹配**（业务函数返回类型变更，如 `Result String IOError` 改为 `Result Bytes IOError`）时，回放报错（`ReplayTypeMismatch`），不静默继续。这防止录制文件与代码漂移导致的隐性错误。
 - **回放副作用隔离**：`replayHandler` 仅消解录制时指定的效应（`effectNames`）。若业务代码产生**未录制的效应**（如 `Cmd`/`Signal`/`FFI`），这些效应冒泡到 `main`，运行器在回放模式下拒绝执行（报错 `ReplaySideEffectLeak`），确保回放完全确定。这一机制保证回放不依赖任何外部状态，仅以录制文件作为唯一真值源。
 

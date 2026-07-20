@@ -192,6 +192,16 @@ x = Some (Some 1)
 
 需表达"可能缺席的可选值"时，用 `Result (?T) Error` 或自定义 ADT。
 
+> **别名展开时机**（防绕过）：别名展开在**类型检查阶段**（嵌套检测之前）执行。`alias` 在嵌套检测前被完全展开，因此用户**不可**通过 `alias` 绕过 `??T` 禁令：
+>
+> ```kun
+> alias Nested = Nilable Int
+> x : ?Nested = Nil          // 脱糖为 Nilable Nested，展开 alias → Nilable (Nilable Int)
+>                            // → 嵌套检测报错：Nested Nilable
+> ```
+>
+> 类型检查器在每次类型构造（`?T`/`Nilable T`/函数参数/Record 字段/ADT 载荷等）发生时先展开所有 alias，再做嵌套检测，确保 `alias` 不成为绕过 `??T` 禁令的漏洞。`?Nested`/`Nilable Nested`/`?(List ?Int)`/`List ?(?Int)` 等所有变体均被检测。
+
 ### 规则
 
 | 规则 | 说明 |
@@ -418,7 +428,7 @@ users = Map.fromHashFn (\(UserId i) -> i) Map.empty
 
 #### `Command`
 
-`type Command = Simple SimpleCommand | Pipe (List Command)` ADT，由 `cmd` 字面量构造（纯操作）。`Command` 为编译器内置类型，执行通过 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 显式触发，无 Command 的 `?`/`!` 后缀糖（注：零参函数执行的 `!` 后缀是独立特性，见[零参效应函数类型](#零参效应函数类型-t-e)），无 `|>` 隐式触发。
+`type Command = Simple SimpleCommand | Pipe (List Command) | Seq Command Command | OrElse Command Command | Modified Command Modifier` ADT，由 `cmd` 字面量构造（纯操作）。`Command` 为编译器内置类型，执行通过 `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` 显式触发，无 Command 的 `?`/`!` 后缀糖（注：零参函数执行的 `!` 后缀是独立特性，见[零参效应函数类型](#零参效应函数类型-t-e)），无 `|>` 隐式触发。
 
 ## 相等比较（`==`）语义
 
@@ -673,17 +683,27 @@ fetchUser uid   // ✅ 接受 UserId，不接受 Int
 
 ## 递归类型
 
-Kun 支持 **等递归类型（Equi-recursive Types）**。在合一算法中，对 `type` 声明的别名关闭 occurs check——允许类型定义中引用自身，通过别名的结构展开实现。
+Kun 支持 **等递归类型（Equi-recursive Types）**——`type` 声明的 ADT 允许在自身定义中递归引用。**等递归类型要求正则性（regularity）**——递归引用必须出现在**正则位置**（covariant：递归引用不嵌套在改变类型构造器 arity 的位置）。
 
 ```kun
-// 等递归类型示例：clispec 通过 subs 引用自身
-type CliSpec =
-  { subs : ?(Map String CliSpec) }
+// ✅ 正则递归：递归引用出现在 covariant 位置
+type Tree a = Tree { value : a, children : List (Tree a) }
+type CliSpec = CliSpec { subs : ?(Map String CliSpec) }
+
+// ❌ 编译错误：非正则递归
+type Bad a = Bad (Bad (List a))   // 递归引用嵌套在 List 内，改变 arity → 非正则
+```
+
+**正则性判定**：递归引用 `T` 必须出现在与 `T` 本身相同的位置（即 `T arg` 中的 `arg` 位置，或字段类型的位置），不可嵌套在其他改变 arity 的类型构造器内（如 `T (List a)` 中 `T` 出现在 `List` 内层 → 非正则）。正则递归类型合一可判定且终止，非正则递归类型可能导致合一不终止。
+
+```kun
+// 等递归类型示例：CliSpec 通过 subs 引用自身
+type CliSpec = CliSpec { subs : ?(Map String CliSpec) }
 ```
 
 ### 递归类型深度限制
 
-等递归类型展开深度上限 **256 层**，达到上限 → **编译错误**（非静默截断）：
+等递归类型展开深度上限 **256 层**，达到上限 → **编译错误**（非静默截断）——这是运行时兜底，理论上正则递归类型不会触发深度限制（正则性保证合一终止）：
 
 ```kun
 // 递归类型展开达到 256 层
@@ -696,15 +716,16 @@ type CliSpec =
 
 ### 递归类型的关键约束
 
-- 递归必须通过 `type` 别名间接发生——直接在匿名 Record 中引用自身会被 occurs check 拒绝（匿名类型无别名可供展开）
-- 编译器对递归 `type` 别名的展开有深度上限（默认 256 层），防止无限展开。达到上限时产生编译错误（`TypeError`），错误信息报告展开路径（`A → B → A → B → ... → B`）和涉及的别名列表
-- 交叉递归（A 引用 B，B 引用 A）同样通过别名机制支持
+- 递归必须通过 `type` ADT 间接发生——直接在匿名 Record 中引用自身会被 occurs check 拒绝（匿名类型无 ADT 名义可供展开）
+- **正则性检查**：编译器在 `type` 声明时检查递归引用是否出现在正则位置——非正则递归 → **编译错误**（`NonRegularRecursiveType`），错误信息指出非正则位置
+- 编译器对递归 `type` ADT 的展开有深度上限（默认 256 层），作为运行时兜底防止正则性检查遗漏的病态输入无限展开
+- 交叉递归（A 引用 B，B 引用 A）同样通过 ADT 机制支持，需正则
 
 occurs check 在合一过程中检测类型变量自引用：
 
 - **默认启用**：`a ~ List a` → 拒绝（无限类型错误）
-- **对 `type` 别名关闭**：`type Tree = { value : Int, children : List Tree }` 中的 `Tree` 在自身定义内出现时，occurs check 不阻止合一——编译器将此类循环识别为等递归类型别名
-- **带类型参数的递归别名**同样关闭 occurs check：`type Tree a = { value : a, children : List (Tree a) }`
+- **对 `type` ADT 关闭**：`type Tree = Tree { value : Int, children : List Tree }` 中的 `Tree` 在自身定义内出现时，occurs check 不阻止合一——编译器将此类循环识别为等递归类型 ADT
+- **带类型参数的递归 ADT**同样关闭 occurs check：`type Tree a = Tree { value : a, children : List (Tree a) }`
 
 ## 类型等价与类型关系
 
@@ -806,7 +827,7 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 |---|---|---|---|
 | `IO` | 内置 | 控制台 IO | `IO.println`/`IO.readln` |
 | `File` | 内置 | 文件系统 | `File.read`/`File.write` |
-| `Cmd` | 内置 | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
+| `Cmd` | 内置 | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` |
 | `Random` | 内置 | CSPRNG | `Random.int`/`Random.bytes` |
 | `DateTime` | 内置 | 系统时间 | `DateTime.now` |
 | `Signal` | 内置 | 信号处理 | `Signal.on` |
@@ -859,13 +880,14 @@ effect File =
   }
 
 // <runtime>/lib/kun/Cmd.kun
-export (Cmd, pipe, cmd, withEnv, withStdin, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
+export (Cmd, pipe, cmd, withEnv, withStdinStr, withStdinBytes, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
 
 effect Cmd =
-  { exec     : Command -> Unit
-  , execSafe : Command -> Result (Stream String) CommandError
-  , stream   : Command -> Stream String
-  , which    : String -> ?Path
+  { exec        : Command -> Unit
+  , execSafe    : Command -> Result String CommandError
+  , streamLines : Command -> Stream String
+  , streamBytes : Command -> Stream Bytes
+  , which       : String -> ?Path
   }
 
 // <runtime>/lib/kun/FFI.kun
@@ -954,6 +976,8 @@ fetchUser = \uid ->
 // 效应集：{DB, Log}
 ```
 
+> **守卫条件的效应并入**：`case x of Pat if cond -> body` 中 `cond` 的效应并入**该分支体**的效应集。守卫条件可为效应函数（如 `if File.exists path`），其效应传播到分支体。即：分支整体效应 = `cond` 效应 ∪ `body` 效应。若 `cond` 含效应调用但 `body` 不含，分支整体仍须包含 `cond` 的效应。详见 [syntax.md 守卫子句](./syntax.md#守卫子句)。
+
 ### 调用约束
 
 **调用者效应集必须包含被调用者效应集**：
@@ -993,16 +1017,29 @@ in
 
 ### Let 泛化与值限制
 
-`let` 绑定泛化时同时泛化效应变量。采用**值限制**（value restriction，OCaml 风格）：
+`let` 绑定泛化时同时泛化效应变量。采用**值限制**（value restriction，OCaml strict 风格）：
+
+**"语法值"定义**：
+
+| 形式 | 是否语法值 | 说明 |
+|---|---|---|
+| 字面量（`1`/`"hi"`/`0xFF`/`true`） | ✅ | 字面量直接是值 |
+| 变量引用（`f`、`x`） | ✅ | 已绑定变量视为值（引用已泛化的变量） |
+| Lambda 字面量（`\x -> body`） | ✅ | 函数定义本身是值 |
+| ADT 构造（`Some x`、`Ok 1`、`Cons (x, xs)`） | ✅ | 不可变数据构造 |
+| 函数应用（`f x`、`add 1`、部分应用） | ❌ | 应用是非值 |
+| 效应调用（`DB.query q`、`IO.println x`） | ❌ | 效应调用非值 |
+| 块表达式 / `case` / `if` | ❌ | 控制流非值 |
 
 **规则**：
 
-1. `let` 绑定的右侧为**语法值**（lambda/字面量/ADT 构造）→ 泛化类型变量与效应变量
+1. `let` 绑定的右侧为**语法值** → 泛化类型变量与效应变量
 2. `let` 绑定的右侧为函数应用/效应调用 → 不泛化，效应集固定
 3. 递归 `let`：先分配效应变量，函数体检查后泛化
+4. **效应变量泛化的健全性约束**：当 lambda 体的效应是具体集 `! {IO}` 时，泛化保持 `e ⊇ {IO}` 约束——即 `let f = \x -> IO.println x` 推断为 `f : ∀a e. a -> Unit ! e` 但**实例化时强制 `e ⊇ {IO}`**。若 `f` 在 `! {}` 上下文被实例化调用，编译错误（约束不满足）。仅当 lambda 体效应为纯变量 `e_g`（来自回调参数）时方可无约束泛化：`let f = \g x -> g x` 推断为 `f : ∀a b e_g. (a -> b ! e_g) -> a -> b ! e_g`
 
 ```kun
-// 函数是值 → 泛化
+// 函数是值 → 泛化（体效应为变量 e_g，无约束）
 let
   id = \x -> x                    // id : a -> a ! e，泛化 e
 in
@@ -1013,9 +1050,21 @@ let
   result = DB.query q             // result : Result Rows ! {DB}，不泛化
 in
   ...                              // result 固定效应集
+
+// 体效应为具体集 → 泛化但保留约束
+let
+  greet = \name -> IO.println ("hi, " + name)   // greet : a -> Unit ! e，e ⊇ {IO}
+in
+  greet "Kun"                     // ✅ 实例化时 e = {IO}，调用上下文 ! {IO} 兼容
+  // greet "Kun" 在纯函数 ! {} 中调用 → ❌ 编译错误：e ⊇ {IO} 不满足
 ```
 
-**设计理由**：值限制避免多态引用破坏类型安全（经典 ML value restriction 问题），简单且可靠。
+**设计理由**：
+
+- 值限制避免多态引用破坏类型安全（经典 ML value restriction 问题），简单且可靠
+- "语法值"显式枚举，避免 OCaml "relaxed value restriction" 的"非扩张性"判定复杂度
+- 效应变量泛化保留 `e ⊇ E` 约束，防止 IO 副作用泄漏到纯函数，保证健全性
+- 仅"lambda 体效应来自回调参数"时方可无约束泛化（这是 sound 的：回调效应被显式参数化）
 
 ### HM 合一规则（效应集）
 
@@ -1146,14 +1195,46 @@ handler 内用 `continue` 委托外层或默认实现，用 `abort` 提前终止
 | `continue` 在 lambda 中 | ❌ | 编译错误 |
 | `continue` 作为值传递 | ❌ | 编译错误 |
 
+**`continue` 的效应归属规则**（关键）：
+
+| 规则 | 描述 |
+|---|---|
+| `continue (X.op args)` 转发 | `continue (X.op args)` **转发**该效应调用给外层/默认 handler for `X`。`continue` 调用本身**不产生** `! {X}`——它把 `X` 委托给负责消解 `X` 的 handler。 |
+| handler 效应集来源 | handler 的产出效应集 `! {r}` **仅来自 handler 体内其他效应调用**（非 `continue` 调用）。 |
+| 转发 vs 短路 | Handler **不调用 `continue`** = **短路**（效应被当前 handler 完全消解，不转发给外层）。Handler **调用 `continue`** = **转发**给外层/默认 handler。两种都是合法的 handler 模式。 |
+
+**示例**：
+
+```kun
+// loggingDb 体内除 continue 外仅有 IO.println 调用 → 产出 ! {IO}
+loggingDb : Handler {DB} a ! {IO}
+loggingDb =
+  handler DB of
+    query q ->
+      let
+        IO.println "querying"               // ← 产出 ! {IO}
+        result = continue (DB.query q)      // ← 转发 DB，不计入 ! {r}
+      in
+        result
+
+// rewritingDb 体内只有 continue 调用，optimizeQuery 是纯函数 → 产出 ! {}
+rewritingDb : Handler {DB} a ! {}
+rewritingDb =
+  handler DB of
+    query q ->
+      continue (DB.query (optimizeQuery q))  // ← 转发 DB，optimizeQuery 纯函数
+```
+
+> **`continue` 转发的目标**：当存在 `>>` 链或多个 handler 消解同一效应时，`continue (X.op args)` 转发给链中下一个能消解 `X` 的 handler；若没有，转发给默认 handler。**不会递归派发到当前 handler 自身**——handler 调用 `continue (X.op ...)` 不会再次触发自身分支，避免无限循环。
+
 **`abort` 规则**：
 
-`abort value` 提前终止 handler，返回 `value`（类型须与 handler 产出类型 `a` 一致）。不调用 `continue`，剩余计算不执行。
+`abort value` 提前终止 handler，返回 `value`（类型须与 handler 产出类型 `a` 一致）。不调用 `continue`，剩余计算不执行。`abort` 是**短路模式**——handler 内的 `defer` 注册的回调在 unwind 时按 LIFO 执行（详见 [syntax.md defer 章节](./syntax.md#defer-资源清理)）。
 
 **编译器检查**：每条 handler 分支路径必须有且仅有一次 `continue` 或 `abort`。
 
 ```kun
-// continue 示例：委托默认
+// continue 示例：委托默认（参见上表说明）
 loggingDb : Handler {DB} a ! {IO}
 loggingDb =
   handler DB of
@@ -1166,8 +1247,8 @@ loggingDb =
     execute s ->
       continue (DB.execute s)
 
-// continue 传不同参数：变换查询
-rewritingDb : Handler {DB} a ! {DB}
+// continue 传不同参数：变换查询（handler 体内无其他效应调用 → ! {}）
+rewritingDb : Handler {DB} a ! {}
 rewritingDb =
   handler DB of
     query q ->
@@ -1397,26 +1478,61 @@ with
 2. **块内构造的 Stream**：必须在本块内消费（`toList`/`iter`/`fold`/`string`/`bytes`）
 3. **跨块传递**：Stream 作为函数参数/返回值/绑定到外层 → 视为"已消费"，不追踪
 4. **条件消费**：`case`/`if` 分支的所有分支均需消费，缺失分支编译错误
-5. **`Cmd.timeout`/`retry` 交互**：返回 `Result (Stream String) CommandError`，`Ok` 分支 Stream 须消费，`Err` 分支豁免
+5. **`Cmd.streamLines`/`streamBytes` 交互**：返回 `Stream String`/`Stream Bytes`，**lazy Stream 不报告退出码**——消费与否仅影响资源回收（Stream Drop 时 kill+waitpid，详见 [command-system.md](./command-system.md)）。`Cmd.execSafe` 返回 `Result String CommandError`（eager，非 Stream），不进入消费检查
 6. **`defer` 交互**：`defer` 块内操作不计入消费分析
+
+### `defer` 类型规则
+
+`defer` 是控制流原语（非函数），类型为 `Unit`：
+
+```kun
+defer : expr ! e -> Unit     // 伪签名，实际是语法形式
+```
+
+**规则**：
+
+1. **`defer expr` 的类型为 `Unit`**——`expr` 的类型不影响 `defer` 表达式的类型
+2. **效应并入**：`defer expr` 中 `expr` 的效应并入**所在 `let in`/`do` 块**的效应集。即 `defer (IO.println "cleanup")` 会让 `IO` 出现在该块的效应集中
+3. **`abort` 路径执行**：`defer` 在 `abort`（handler 提前终止）路径**也执行**——`abort` 触发 unwind，`defer` 注册的回调按 LIFO 逆序执行
+4. **panic 路径执行**：`defer` 在 panic unwind 路径**也执行**（与 `abort` 同样的 LIFO unwind 语义）
+5. **`continue` 不触发 defer**：`continue` 是委托转发，不离开当前 handler 块——handler 分支体内注册的 `defer` 在 `continue` 之后**不会立即执行**，仅在 handler 块退出（handler 整体返回/`abort`/panic）时执行
+6. **`defer` 内禁止 `continue`/`abort`**：`defer` 的 `expr` 是普通表达式，不可包含 `continue`/`abort`（这俩原语仅在 handler 分支体内直接出现，不可被延迟回调捕获）
+7. **作用域限定**：`defer` 仅在 `let in`/`do` 块内有效——不可在纯表达式顶层使用，不可跨块捕获
+
+```kun
+// ✅ 合法：defer 效应并入所在块
+let
+  file = Libc.fopen "/tmp/x" "r"
+  defer (Libc.fclose file)            // ! {Libc} 并入此块
+  content = Libc.fread file
+in
+  content                             // 此块效应集 ! {Libc}
+
+// ❌ 编译错误：defer 内含 continue/abort
+handler DB of
+  query q ->
+    defer (continue (DB.query q))     // continue 不可被 defer 捕获
+```
+
+> **`defer` 与 Stream 消费检查**：`defer` 块内对 Stream 的消费/丢弃**不计入**外层 Stream 消费分析（规则 6 见上节）。但 `defer` 内丢弃未消费 Stream 仍会触发 Stream Drop RAII（kill+waitpid），不产生编译错误。
 
 ```kun
 // ✅ 合法：块内消费
 let
-  stream = Cmd.stream (cmd ls { a } [ "/tmp" ])
-  lines = stream |> Stream.lines |> Stream.toList
+  stream = Cmd.streamLines (cmd ls { a } [ "/tmp" ])
+  lines = stream |> Stream.toList
 in
   lines
 
 // ✅ 合法：跨块传递视为已消费
 let
-  stream = Cmd.stream (cmd ls { a } [ "/tmp" ])
+  stream = Cmd.streamLines (cmd ls { a } [ "/tmp" ])
 in
   stream   // 传递给外层，视为已消费（外层负责）
 
 // ❌ 编译错误：块内未消费
 let
-  stream = Cmd.stream (cmd ls { a } [ "/tmp" ])
+  stream = Cmd.streamLines (cmd ls { a } [ "/tmp" ])
   IO.println "got stream"
 in
   ()   // stream 未消费
@@ -1502,6 +1618,37 @@ extern Curl from "libcurl" =
    extern Empty from "libc" = {}             // ❌ 编译错误
    ```
 
+5. `@pure` 标注（可选）：标记纯 C 函数，效应归为 `! {}`（详见下文）：
+   ```kun
+   extern Libc from "libc" =
+     { @pure strlen : String -> Int          // ✅ 纯函数，效应 ! {}
+     , fopen : String -> String -> ?(Opaque File)   // 默认 ! {Libc}
+     }
+   ```
+
+#### `@pure` 标注（纯 FFI 函数）
+
+`extern` 块支持可选 `@pure` 标注，标记纯 C 函数（无副作用、结果仅依赖参数）：
+
+```kun
+extern Libc from "libc" =
+  { @pure strlen : String -> Int                    // 效应 ! {}（纯）
+  , @pure htonl : Int -> Int                        // 效应 ! {}（纯）
+  , @pure isdigit : Char -> Bool                    // 效应 ! {}（纯）
+  , fopen : String -> String -> ?(Opaque File)      // 效应 ! {Libc}（默认）
+  , fread : FfiBuffer -> Int -> Int -> Opaque File -> Int  // 效应 ! {Libc}（默认）
+  }
+```
+
+**`@pure` 函数的效应规则**：
+
+- `@pure` 标注的函数效应为 `! {}`（纯），**不产生库名效应**——即调用 `Libc.strlen "hi"` 不产生 `! {Libc}`，可在纯函数体内调用
+- 默认（无 `@pure`）函数效应为 `! {<库名>}`（如 `! {Libc}`），需调用方上下文含 `Libc`（或 `Libc` 经 `>>`/默认 handler 消解）
+- `@pure` 标注的函数仍受 `--allow-ffi` 控制（`FFI.call` 仍触发底层调用，运行时检查通过 `--allow-ffi` 链路）——但类型层视为纯
+- **`@pure` 是程序员对编译器的承诺**：编译器不验证 C 函数是否真的纯。若把实际有副作用的 C 函数（如 `printf`）标为 `@pure`，类型系统将允许其在纯上下文调用，但运行时仍产生副作用（破坏引用透明性）。这是 `unsafe` 之外的另一类程序员责任——滥用 `@pure` 等同于"撒谎"。
+
+**设计理由**：纯计算型 C 函数（`strlen`/`htonl`/`isdigit`）默认被强制标 `! {Libc}` 是错误的效应归属——它们没有副作用，应该是 `! {}`。`@pure` 提供显式纯度标注，使纯函数能调用 `Libc.strlen` 而不需把整个函数标为 `! {Libc}`。
+
 5. 同一效应名不可重复声明（与 `effect` 共享命名空间）：
    ```kun
    effect Libc = { customOp : String -> String }
@@ -1581,19 +1728,37 @@ ffiToBool : FfiValue -> Bool
 ffiToString : FfiValue -> String
 ffiToBytes : FfiValue -> Bytes
 ffiToPath : FfiValue -> Path
-ffiToOpaque : FfiValue -> Opaque a
+unsafe ffiToOpaque : FfiValue -> Opaque a    // 全多态抽取，破坏类型安全，需 unsafe
 ffiToUnit : FfiValue -> Unit
 ```
+
+> **`ffiToOpaque` 的 `unsafe` 标注**：`ffiToOpaque : FfiValue -> Opaque a` 是**全多态抽取**——允许任何 `FfiValue`（包括 `IntVal 5`、`StringVal "hi"`）被强制转换成任意 phantom 类型 `Opaque Curl`/`Opaque File`，破坏 FFI 类型安全（经典 `fromDynamic` 反模式）。因此 `ffiToOpaque` 需 `unsafe` 标注。
+>
+> - **`extern` 块默认 handler 内部使用**：编译器为 `extern` 块自动生成的默认 handler 内部调用 `ffiToOpaque` 是**类型安全**的——因为编译器知道 extern 函数签名的返回类型，仅在签名声明返回 `Opaque T` 时才调用 `ffiToOpaque` 提取对应 phantom 类型。编译器保证 `unsafe` 在此上下文不暴露给用户。
+> - **用户直接调用**：用户在自定义 handler 中写 `let c : Opaque Curl = ffiToOpaque (IntVal 42)` 会通过类型检查但运行时崩溃（或更糟，安全漏洞）。因此用户**直接**调用 `ffiToOpaque` 必须加 `unsafe`：
+>
+> ```kun
+> // 用户在自定义 handler 中显式标注 unsafe
+> myCurlHandler : Handler {Curl} a ! {IO}
+> myCurlHandler =
+>   handler Curl of
+>     fetch url ->
+>       let raw : FfiValue = FFI.call "libcurl" "curl_easy_init" []
+>           ptr : Opaque Curl = unsafe ffiToOpaque raw    // 显式 unsafe
+>       in ...
+> ```
 
 **`unsafe` 的归属**：
 
 | 调用形式 | 需 `unsafe` | 理由 |
 |---|---|---|
-| `Libc.strlen "hello"`（extern 块函数） | ❌ | 效应名标注风险，签名类型安全 |
+| `Libc.strlen "hello"`（extern 块函数，非纯） | ❌ | 效应名标注风险，签名类型安全 |
+| `Libc.strlen "hello"`（extern 块函数，`@pure`） | ❌ | `@pure` 标注纯 C 函数，效应 `! {}`，签名类型安全 |
 | `FFI.call "libc" "strlen" [...]`（直接调用） | ✅ | 类型擦除，绕过类型安全 |
+| `ffiToOpaque : FfiValue -> Opaque a` | ✅ | 全多态抽取破坏 FFI 类型安全（详见上文） |
 | `Opaque`/`FfiBuffer` 不安全操作 | ✅ | 绕过类型安全 |
 
-常规 FFI 调用经 `extern` 块，不需 `unsafe`。`unsafe` 仅用于直接 `FFI.call` 等罕见场景。
+常规 FFI 调用经 `extern` 块，不需 `unsafe`。`unsafe` 仅用于直接 `FFI.call`、`ffiToOpaque`、`Opaque`/`FfiBuffer` 不安全操作等罕见场景。
 
 **复杂 C 类型支持范围**：
 
@@ -1671,6 +1836,15 @@ in
 ```
 
 **实现**：编译器类型检查阶段识别 `FfiBuffer` 类型（内置类型表），追踪其作用域，违反则编译错误。无需用户标注，规则硬编码在编译器中。
+
+> **简化作用域追踪**（实现策略）：`FfiBuffer` 仅可在**声明所在的 `let in`/`do` 块内**使用。不可作为函数返回值、不可赋值给外层绑定、不可被闭包捕获。实现采用**简单作用域检查**——编译器追踪 `FfiBuffer` 值的作用域（类似 Rust 生命周期标注），超出声明块即编译错误。**不要求完整逃逸分析**——只需检查使用位置是否在声明块内：
+>
+> 1. 编译器为每个 `FfiBuffer` 值绑定一个**作用域 ID**（其声明的 `let in`/`do` 块）
+> 2. 使用 `FfiBuffer` 值的每个位置（返回表达式、外层绑定、闭包体）检查作用域 ID 是否包含该位置
+> 3. 闭包捕获：检查闭包声明位置是否在 `FfiBuffer` 作用域内，且闭包是否逃逸出该作用域（逃逸判定为：闭包被赋值给外层绑定、被作为参数传递给外层函数、被 `defer` 注册等）
+> 4. 函数参数传递：同块内函数调用允许（参数传递本身不逃逸），但被调用函数的返回类型不可含 `FfiBuffer`（编译期检查函数签名）
+>
+> 这避免了**完整闭包逃逸分析**的复杂度（无需追踪 lambda 是否最终被返回、存入 record、传给其他模块等所有路径）——只需检查"使用位置是否在声明块内"+"闭包是否逃逸出声明块"两步。对于高阶函数接收 `FfiBuffer -> a` 类型的回调，编译器要求 `a` 不含 `FfiBuffer`（用 kind 系统约束 `a` 不是 `FfiBuffer`），这通过函数签名检查实现，无需逃逸分析。
 
 ### `Opaque` 类型
 

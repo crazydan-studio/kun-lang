@@ -2,7 +2,7 @@
 
 ## 定位
 
-Kun 通过 `cmd` 字面量构造 `Command` 值，通过显式执行函数（`Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`）触发 fork-exec。本文件定义 Command 的 ADT 表示、`cmd` 字面量语法、选项映射规则、执行入口与修饰函数。
+Kun 通过 `cmd` 字面量构造 `Command` 值，通过显式执行函数（`Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes`）触发 fork-exec。本文件定义 Command 的 ADT 表示、`cmd` 字面量语法、选项映射规则、执行入口与修饰函数。
 
 > **设计原则**（详见 [语法设计](syntax.md) 与新设计总则）：
 > - **Command 是 ADT**：`Command` 是普通代数数据类型，`cmd` 字面量是构造 `Command` 的语法糖，无解析器魔法
@@ -14,26 +14,32 @@ Kun 通过 `cmd` 字面量构造 `Command` 值，通过显式执行函数（`Cmd
 
 ## Command ADT
 
-`Command` 为代数数据类型，支持 `Simple` 单命令与 `Pipe` 管道两种变体。`cmd` 字面量构造 `Simple` 变体，`pipe` 纯函数构造 `Pipe` 变体。
+`Command` 为代数数据类型，支持五变体：`Simple` 单命令、`Pipe` 管道、`Seq` 顺序执行、`OrElse` 失败回退、`Modified` 修饰符包装。`cmd` 字面量构造 `Simple` 变体，`pipe` 纯函数构造 `Pipe` 变体，`Cmd.andThen`/`Cmd.orElse` 构造 `Seq`/`OrElse` 变体，`Cmd.timeout`/`retry`/`withEnv`/等构造 `Modified` 变体。
 
 ```kun
 type Command =
   Simple SimpleCommand
   | Pipe (List Command)
+  | Seq Command Command          // andThen: 前一个成功后执行后一个
+  | OrElse Command Command       // orElse: 前一个失败后执行备选
+  | Modified Command Modifier    // 修饰符作用于任意 Command（含复合）
 
 type SimpleCommand =
   { name        : String
   , subcommands : List String
   , options     : List OptField
   , args        : List String
-  , env         : Map String String
-  , stdin       : ?StdinSource
-  , workDir     : ?Path
-  , runAs       : ?String
-  , mergeErr    : Bool
-  , timeout     : ?Duration
-  , retry       : ?(Int Duration)
-  , useDash     : Bool
+  }
+
+type Modifier =
+  { env       : ?(Map String String)
+  , stdin     : ?StdinSource
+  , workDir   : ?Path
+  , runAs     : ?String
+  , mergeErr  : Bool
+  , useDash   : Bool
+  , timeout   : ?Duration
+  , retry     : ?(Int Duration)
   }
 
 type OptField =
@@ -56,6 +62,18 @@ type StdinSource =
   | StdinFile Path
   | StdinStream (Stream Bytes)
 ```
+
+**变体语义说明**：
+
+| 变体 | 含义 | 由谁构造 |
+|---|---|---|
+| `Simple sc` | 单条命令 | `cmd` 字面量 |
+| `Pipe cmds` | OS 管道串联（stdout→stdin） | `pipe` 纯函数 |
+| `Seq c1 c2` | `c1` 执行**成功**（退出码 0）后执行 `c2` | `Cmd.andThen` |
+| `OrElse c1 c2` | `c1` 执行**失败**（退出码非 0）后执行 `c2` | `Cmd.orElse` |
+| `Modified c m` | 修饰符 `m` 作用于 `c`（`c` 可为 `Simple`/`Pipe`/`Seq`/`OrElse`/嵌套 `Modified`） | `Cmd.withEnv`/`withStdinStr`/`withWorkDir`/`withRunAs`/`mergeStderr`/`withoutDash`/`timeout`/`retry` |
+
+**修饰符作用于复合命令的语义**：`Modifier` 应用于 `Pipe (List Command)` 时作用于**整个管道**（即每个子命令的执行环境、stdin、工作目录、超时等均统一设置）；应用于 `Seq`/`OrElse` 时作用于**两个分支**。修饰符的 `timeout`/`retry` 字段对 `Pipe` 作用于整个管道执行周期，对 `Seq`/`OrElse` 作用于每次单命令执行。修饰符可嵌套（`Modified (Modified c m1) m2`），外层修饰符叠加于内层之上；同名属性以外层为优先（最后设置的覆盖先前的）。
 
 ## `cmd` 字面量语法
 
@@ -243,33 +261,49 @@ cmd echo {} [ "hello", "world" ] |> Cmd.withoutDash
 3. **显式性**：执行意图明确，错误消息清晰（标准类型不匹配，非"隐式触发失败"）
 4. **与效应系统一致**：所有效应调用（含 Command 执行）统一显式
 
-### 三个执行入口
+### 四个执行入口
 
 ```kun
 // Cmd 效应操作
 
-// 执行，丢弃 stdout，失败 panic。适用于仅副作用的命令（mkdir/cp）。
-Cmd.exec     : Command -> Unit ! {Cmd}
+// eager 执行：fork+waitpid 阻塞等待，丢弃 stdout/stderr，失败 panic。
+// 适用于仅副作用的命令（mkdir/cp）。
+Cmd.exec       : Command -> Unit ! {Cmd}
 
-// 执行，返回 Result，stdout 通过 Stream 消费。适用于需错误处理的场景。
-Cmd.execSafe : Command -> Result (Stream String) CommandError ! {Cmd}
+// eager 执行：fork+waitpid 阻塞等待，缓冲全部 stdout 为 String，返回退出码 + stdout + stderr。
+// 适用于需错误处理且输出量小的场景。
+Cmd.execSafe   : Command -> Result String CommandError ! {Cmd}
 
-// 执行，返回 Stream，失败 panic。适用于需输出流但不需错误处理的场景。
-Cmd.stream   : Command -> Stream String ! {Cmd}
+// lazy 执行：fork，返回 Stream，逐行消费 stdout。
+// 不报告退出码（Stream Drop 时静默 kill+waitpid）。
+// 适用于需流式消费 stdout、不关心退出码的场景。
+Cmd.streamLines : Command -> Stream String ! {Cmd}
+
+// lazy 执行：fork，返回 Stream，逐字节消费 stdout（二进制）。
+// 不报告退出码（Stream Drop 时静默 kill+waitpid）。
+// 适用于处理二进制输出（gzip -c、cat image.png）。
+Cmd.streamBytes : Command -> Stream Bytes ! {Cmd}
 
 // PATH 查找。
-Cmd.which    : String -> ?Path ! {Cmd}
+Cmd.which      : String -> ?Path ! {Cmd}
 ```
 
-#### 三入口语义对比
+#### 四入口语义对比
 
-| API | 返回类型 | 失败行为 | 适用场景 |
-|---|---|---|---|
-| `Cmd.exec` | `Unit` | panic | 仅副作用（mkdir/cp） |
-| `Cmd.execSafe` | `Result (Stream String) CommandError` | 返回 Err | 需错误处理 |
-| `Cmd.stream` | `Stream String` | panic | 需输出流，不需错误处理 |
+| API | 求值策略 | 返回类型 | 失败行为 | stdout | stderr |
+|---|---|---|---|---|---|
+| `Cmd.exec` | eager（fork+waitpid） | `Unit` | panic | 丢弃 | 丢弃 |
+| `Cmd.execSafe` | eager（fork+waitpid，缓冲） | `Result String CommandError` | 返回 `Err` | 缓冲为 `String` | 缓冲为 `CommandError.stderr` |
+| `Cmd.streamLines` | lazy（fork，逐行） | `Stream String` | silent（不报告） | 逐行 Stream | 与 stdout 合并或丢弃（见死锁预防） |
+| `Cmd.streamBytes` | lazy（fork，逐字节） | `Stream Bytes` | silent（不报告） | 逐字节 Stream | 同上 |
 
-`Cmd.stream` 等价于 `case Cmd.execSafe c of Ok s -> s; Err e -> panic e`，是便利组合。
+> **`CommandError` 包含字段**：`{ exitCode : Int, stdout : String, stderr : String }`。`Cmd.execSafe` 返回 `Result String CommandError`（**不是** `Result (Stream String) CommandError`），即 eager 缓冲全部 stdout 为单一 `String`，调用方拿到 `Ok s` 时 `s` 已是完整字符串。
+
+> **Stream RAII（资源回收）**：`Cmd.streamLines`/`Cmd.streamBytes` 返回的 `Stream` 持有子进程句柄（pid + pipe fd）。当 Stream 被 Drop 时（消费完毕、被显式丢弃、所在 `let in` 块退出），Rust 端 RAII 自动 `kill(pid, SIGTERM)` + `waitpid(pid)` 回收子进程，避免僵尸进程和 fd 泄漏。Kun 借助 Rust RAII 实现此机制，**无需 GC finalizer**。
+
+> **Lazy Stream 不报告退出码**：`Cmd.streamLines`/`Cmd.streamBytes` 设计为"消费即忘"模式——子进程退出码不暴露给调用方。若需根据退出码做决策，使用 `Cmd.execSafe`（eager）。这是 lazy I/O 的常见权衡：要么"惰性 + 不报告退出码"，要么"eager + 缓冲全部输出"。Kun 明确选择**双轨模型**，避免"惰性 + 即时失败检测"的不可调和矛盾。
+
+> **`Cmd.retry` 与 lazy Stream 不兼容**：`Cmd.retry` 修饰符**仅对 eager 入口（`Cmd.exec`/`Cmd.execSafe`）生效**。对 lazy Stream 入口（`Cmd.streamLines`/`Cmd.streamBytes`），retry 不生效——lazy Stream 无法"回放"已消费的数据。若需 retry + 流式，调用方应自行实现：捕获 `execSafe` 的输出后用 `String.lines` 转 Stream，或在外层 `Cmd.orElse` 包装重试逻辑。
 
 ### `|>` 的合法用法
 
@@ -282,9 +316,10 @@ cmd ... |> Cmd.mergeStderr
 cmd ... |> Cmd.withoutDash
 
 // Command 执行（Command -> 其他类型）
-cmd ... |> Cmd.exec        // 执行，丢弃输出
-cmd ... |> Cmd.execSafe    // 执行，返回 Result
-cmd ... |> Cmd.stream      // 执行，返回 Stream
+cmd ... |> Cmd.exec          // 执行，丢弃输出
+cmd ... |> Cmd.execSafe      // 执行，返回 Result String CommandError
+cmd ... |> Cmd.streamLines   // 执行，返回 Stream String（lazy）
+cmd ... |> Cmd.streamBytes   // 执行，返回 Stream Bytes（lazy）
 
 // Stream 管道（Stream -> Stream）
 stream |> Stream.lines
@@ -298,8 +333,8 @@ stream |> Stream.toList
 // ❌ 非法：|> 左侧 Command，右侧期望 Stream（类型不匹配）
 cmd ls { a } [ "/tmp" ] |> Stream.lines
 // 编译错误：Command 不匹配 Stream String
-// Hint: 使用 Cmd.stream 执行命令获取输出流：
-//       cmd ... |> Cmd.stream |> Stream.lines
+// Hint: 使用 Cmd.streamLines 执行命令获取输出流：
+//       cmd ... |> Cmd.streamLines |> Stream.lines
 ```
 
 ### 典型用法
@@ -309,24 +344,21 @@ cmd ls { a } [ "/tmp" ] |> Stream.lines
 cmd mkdir { p = true } [ "/tmp/build" ]
   |> Cmd.exec
 
-// 错误处理
-do
+// 错误处理（eager，输出小）
+let
   result =
     cmd cat {} [ p"/etc/maybe_missing" ]
       |> Cmd.execSafe
-
+in
   case result of
-    Ok stream ->
-      Stream.iter IO.println stream
-    Err e ->
-      IO.println "not found"
+    Ok output -> IO.println output          // output : String
+    Err e     -> IO.println "not found"
 
-// 输出流处理
+// 输出流处理（lazy，逐行）
 let
   lines =
     cmd ls { a } [ "/tmp" ]
-      |> Cmd.stream
-      |> Stream.lines
+      |> Cmd.streamLines
       |> Stream.filter (String.contains "log")
       |> Stream.toList
 in
@@ -348,7 +380,7 @@ pipe = \cmds ->
     cs -> Pipe cs
 ```
 
-`pipe` 构造 `Pipe` ADT 变体，是纯函数。执行需显式调用 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`。
+`pipe` 构造 `Pipe` ADT 变体，是纯函数。执行需显式调用 `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes`。
 
 ### 空列表处理（编译期检查）
 
@@ -382,8 +414,8 @@ pipe [c1, ..., c16]
 ### 管道执行示例
 
 ```kun
-// 管道执行（错误处理）
-// result : Result (Stream String) CommandError ! {Cmd}
+// 管道执行（错误处理，eager 缓冲）
+// result : Result String CommandError ! {Cmd}
 result =
   pipe
     [ cmd ps { a } []
@@ -391,49 +423,69 @@ result =
     ]
     |> Cmd.execSafe
 
-// 管道执行（输出流处理）
+// 管道执行（输出流处理，lazy 逐行）
 pipe
   [ cmd ps { a } []
   , cmd grep { pattern = "nginx" } []
   ]
-  |> Cmd.stream
-  |> Stream.lines
+  |> Cmd.streamLines
   |> Stream.toList
 ```
 
-## 修饰函数
+### Pipe 退出码语义
 
-修饰函数均为纯函数，接收 `Command` 并返回新 `Command`：
+`Pipe` 执行后，**整体退出码取最后一个命令的退出码**（shell 默认语义）。即 `Cmd.execSafe` 对 `Pipe` 返回 `Ok` 当且仅当最后一个命令退出码为 0；前序命令的非零退出码被忽略（shell 行为）。
 
 ```kun
-Cmd.withEnv       : Map String String -> Command -> Command
-Cmd.withStdin     : String -> Command -> Command
-Cmd.withStdin     : Stream Bytes -> Command -> Command
-Cmd.withStdinFile : Path -> Command -> Command
-Cmd.withWorkDir   : Path -> Command -> Command
-Cmd.withRunAs     : String -> Command -> Command
-Cmd.mergeStderr   : Command -> Command
-Cmd.withoutDash   : Command -> Command
-Cmd.andThen       : Command -> Command -> Command
-Cmd.orElse        : Command -> Command -> Command
-Cmd.timeout       : Duration -> Command -> Command
-Cmd.retry         : Int -> Duration -> Command -> Command
+// grep 无匹配返回 1，wc 成功返回 0 → 整体 Ok（shell 默认）
+pipe
+  [ cmd grep { pattern = "nonexistent" } [ "/etc/passwd" ]
+  , cmd wc { l = true } []
+  ]
+  |> Cmd.execSafe    // Ok "0"
 ```
 
-> **`withStdin` 重载消歧**：编译器通过第一参数的类型（`String` vs `Stream Bytes`）在调用点进行消歧。HM 推断根据上下文确定调用哪一个签名。
+> **未来扩展**：可加 `Cmd.pipefail` 修饰符（取第一个非零退出码，类似 bash `set -o pipefail`）。当前 MVP 不实现，调用方需自行检查前序命令的输出（如使用 `Cmd.execSafe` 拆分执行）。
 
-### `Cmd.withStdin` 死锁预防策略
+## 修饰函数
 
-父进程同时向子进程 stdin 写入并读取 stdout 时，存在管道缓冲区满死锁风险。Kun 采用单线程非阻塞 poll 策略：
+修饰函数均为纯函数，接收 `Command` 并返回新 `Command`（构造 `Modified` 变体）：
 
-1. stdout 与 stdin 共享同一 `poll` 事件循环
-2. **优先读 stdout**（清空缓冲给子进程空间，再尝试推送 stdin）
-3. stdin 非阻塞写入，`EAGAIN` 时转向读 stdout
-4. stdin 写尽后 `shutdown(fd, SHUT_WR)` 关闭写端
+```kun
+Cmd.withEnv        : Map String String -> Command -> Command
+Cmd.withStdinStr   : String -> Command -> Command
+Cmd.withStdinBytes : Stream Bytes -> Command -> Command
+Cmd.withStdinFile  : Path -> Command -> Command
+Cmd.withWorkDir    : Path -> Command -> Command
+Cmd.withRunAs      : String -> Command -> Command
+Cmd.mergeStderr    : Command -> Command
+Cmd.withoutDash    : Command -> Command
+Cmd.andThen        : Command -> Command -> Command   // 构造 Seq
+Cmd.orElse         : Command -> Command -> Command   // 构造 OrElse
+Cmd.timeout        : Duration -> Command -> Command
+Cmd.retry          : Int -> Duration -> Command -> Command
+```
+
+> **`withStdin` 重命名消歧**：旧设计中 `Cmd.withStdin` 有两个同名签名（`String` vs `Stream Bytes`），HM 不支持 ad-hoc overloading。新设计拆分为 `Cmd.withStdinStr`（String 输入）与 `Cmd.withStdinBytes`（Stream Bytes 输入），调用点显式消歧，无 HM 重载歧义。
+>
+> **关于 `Equal.equal` 等同名多签名 API**：`List.equal`/`Map.equal`/`Set.equal` 等通过**模块限定名**消歧（`List.equal eq xs ys`/`Map.equal ek ev m1 m2`），调用方写模块前缀即可，HM 推断无需特殊处理。这与 `withStdin` 不同——后者参数类型相同（都接受 `Command -> Command`），第一参数类型不同（`String` vs `Stream Bytes`），无法通过模块限定消歧，因此必须重命名。
+
+### `Cmd.withStdin*` 死锁预防策略
+
+父进程同时向子进程 stdin 写入并读取 stdout/stderr 时，存在管道缓冲区满死锁风险。Kun 采用单线程非阻塞 poll 策略：
+
+1. stdout 与 stdin 与 stderr 共享同一 `poll` 事件循环
+2. **优先读 stdout 与 stderr**（清空缓冲给子进程空间，再尝试推送 stdin）
+3. stdin 非阻塞写入，`EAGAIN` 时转向读 stdout/stderr
+4. stdin 写尽后 `close(fd)` 关闭写端（注：管道 fd 应使用 `close(2)`，**不**使用 `shutdown(2)`——`shutdown` 仅适用于 socket，对 pipe 行为未定义）
 5. 不引入额外线程（保持单线程语义）
-6. 输入超过 1MB 时推荐用 `Stream Bytes` 模式
+6. 输入超过 1MB 时推荐用 `Cmd.withStdinBytes`（Stream Bytes）模式
 
-此策略确保长时间运行的管道不会因缓冲区满而死锁。
+> **stderr 死锁预防**：当 `mergeStderr = false` 时（合理默认），stderr 是独立管道。Kun **始终读取 stderr**（独立 pipe + poll），避免子进程向 stderr 写入超过 64KB（Linux pipe 缓冲区）而父进程不读取导致的死锁。任何产生大量 stderr 的命令（`gcc` 编译警告、`find /` 权限错误）在 `mergeStderr = false` 下都不会挂起。
+>
+> **`mergeStderr = true` 时的行为**：stderr 重定向到 stdout 管道（子进程端 `dup2(stderr_fd, stdout_fd)`），父进程只读单一管道，stderr 内容混入 stdout 流。`Cmd.execSafe` 的 `CommandError.stderr` 字段为空字符串（已合并入 stdout）；`Cmd.streamLines` 的 Stream 包含 stderr 行。
+
+> **SIGPIPE 处理**：SIGPIPE 在启动阶段设置为 `SIG_IGN`（详见 [系统基线](../architecture/system-baseline.md) SIGPIPE 处理）。父进程向子进程 stdin 写入时，若子进程已退出（如 `head -n 1` 读取大输入后退出），`write(2)` 返回 `EPIPE` 错误而非触发 SIGPIPE。Kun 端将 `EPIPE` 转换为常规 I/O 错误（`CommandError` 的 `Err` 分支），不导致父进程崩溃。这是管道场景中最常见的崩溃源之一，Kun 默认安全。
 
 ### 工作目录
 
@@ -499,35 +551,36 @@ do
 
 ### 超时与重试：`Cmd.timeout` / `Cmd.retry`
 
-`Cmd.timeout` 与 `Cmd.retry` 是**修饰函数**（纯操作），返回带 `timeout`/`retry` 字段的 `Command`。执行需配合 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream`：
+`Cmd.timeout` 与 `Cmd.retry` 是**修饰函数**（纯操作），构造 `Modified` 变体。执行需配合 `Cmd.exec`/`Cmd.execSafe`（**不**支持 `Cmd.streamLines`/`Cmd.streamBytes`，详见上文 retry 与 lazy Stream 不兼容说明）：
 
 ```kun
 // Cmd.timeout : Duration -> Command -> Command
 // Cmd.retry   : Int -> Duration -> Command -> Command
 
-do
+let
   result =
     cmd curl {} [ "https://example.com" ]
       |> Cmd.timeout 5s
       |> Cmd.execSafe
-
+in
   case result of
-    Ok stream -> Stream.iter IO.println stream
+    Ok output -> IO.println output         // output : String（eager 缓冲）
     Err err   -> IO.println "request timed out"
 
+let
   result2 =
     cmd curl {} [ "https://example.com" ]
       |> Cmd.retry 3 1s
       |> Cmd.execSafe
-
+in
   case result2 of
-    Ok stream -> Stream.iter IO.println stream
+    Ok output -> IO.println output
     Err err   -> IO.println "request failed after 3 retries"
 ```
 
 `Cmd.retry` 内部调用 `Cmd.timeout`，每次重试独立 fork 子进程。失败时重试 `n` 次，全部失败后返回最后一次 `Err`。
 
-`Cmd.timeout` 超时时：向子进程发送 `SIGTERM` → 等待 2 秒 → 若进程未退出则发送 `SIGKILL` → `waitpid` 回收。子进程在超时前的部分 stdout 输出不保留（`Result` 的 `Err` 分支不含部分输出）。超时错误通过 `CommandError.Timeout` 变体返回。
+`Cmd.timeout` 超时时：向子进程发送 `SIGTERM` → 等待 2 秒 → 若进程未退出则发送 `SIGKILL` → `waitpid` 回收。子进程在超时前的部分 stdout 输出不保留（`Result` 的 `Err` 分支的 `stdout` 字段为空字符串）。超时错误通过 `CommandError.Timeout` 变体返回。
 
 `n = 0` 时等同于调用 `Cmd.timeout duration command`（仅执行一次，不重试）。`n < 0` 时编译期报错。
 
@@ -541,7 +594,7 @@ do
 
 #### 修饰函数链式组合顺序
 
-修饰函数通过 `|>` 链式应用时按从左到右的顺序累积属性，最终由 `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` 触发 fork：
+修饰函数通过 `|>` 链式应用时按从左到右的顺序累积属性（构造嵌套的 `Modified` 变体），最终由 `Cmd.exec`/`Cmd.execSafe`/`Cmd.streamLines`/`Cmd.streamBytes` 触发 fork：
 
 ```kun
 do
@@ -591,13 +644,14 @@ in
 
 ```kun
 // <runtime>/lib/kun/Cmd.kun
-export (Cmd, pipe, cmd, withEnv, withStdin, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
+export (Cmd, pipe, cmd, withEnv, withStdinStr, withStdinBytes, withStdinFile, mergeStderr, withWorkDir, withRunAs, withoutDash, andThen, orElse, timeout, retry)
 
 effect Cmd =
-  { exec     : Command -> Unit
-  , execSafe : Command -> Result (Stream String) CommandError
-  , stream   : Command -> Stream String
-  , which    : String -> ?Path
+  { exec        : Command -> Unit
+  , execSafe    : Command -> Result String CommandError
+  , streamLines : Command -> Stream String
+  , streamBytes : Command -> Stream Bytes
+  , which       : String -> ?Path
   }
 ```
 
@@ -629,43 +683,45 @@ pipe : List Command -> Command
 
 // 修饰函数（均为纯函数，Command -> Command 或类似）
 // [PureKun]
-withEnv       : Map String String -> Command -> Command
-// [PureKun]
-withStdin     : String -> Command -> Command
-// [PureKun]
-withStdin     : Stream Bytes -> Command -> Command
+withEnv        : Map String String -> Command -> Command
+// [PureKun] 字符串 stdin（小输入）
+withStdinStr   : String -> Command -> Command
+// [PureKun] Stream Bytes stdin（大输入）
+withStdinBytes : Stream Bytes -> Command -> Command
 // [PureKun] 从文件路径注入 stdin
-withStdinFile : Path -> Command -> Command
+withStdinFile  : Path -> Command -> Command
+// [PureKun] stderr 合并入 stdout
+mergeStderr    : Command -> Command
 // [PureKun]
-mergeStderr   : Command -> Command
-// [PureKun]
-withWorkDir   : Path -> Command -> Command
+withWorkDir    : Path -> Command -> Command
 // [PureKun] 指定子进程执行用户
-withRunAs     : String -> Command -> Command
+withRunAs      : String -> Command -> Command
 // [PureKun] 关闭 -- 分隔符自动插入
-withoutDash   : Command -> Command
+withoutDash    : Command -> Command
 
-// 短路条件组合
+// 短路条件组合（构造 Seq / OrElse 变体）
 // [PureKun]
-andThen       : Command -> Command -> Command
+andThen        : Command -> Command -> Command
 // [PureKun]
-orElse        : Command -> Command -> Command
+orElse         : Command -> Command -> Command
 
-// 超时与重试（修饰函数）
+// 超时与重试（修饰函数，构造 Modified 变体）
 // [PureKun]
-timeout       : Duration -> Command -> Command
+timeout        : Duration -> Command -> Command
 // [PureKun]
-retry         : Int -> Duration -> Command -> Command
+retry          : Int -> Duration -> Command -> Command
 
 // Cmd 效应操作（立即执行，需显式调用）
-// [Primitive] 执行 Command——fork-exec 阻塞等待，失败 panic，stdout 丢弃
-exec          : Command -> Unit ! {Cmd}
-// [Primitive] 执行 Command 的安全变体——失败返回 Err，stdout 通过 Stream String 消费
-execSafe      : Command -> Result (Stream String) CommandError ! {Cmd}
-// [Primitive] 执行 Command，返回 Stream——失败 panic
-stream        : Command -> Stream String ! {Cmd}
+// [Primitive] 执行 Command——fork-exec 阻塞等待，失败 panic，stdout/stderr 丢弃
+exec           : Command -> Unit ! {Cmd}
+// [Primitive] 执行 Command 的安全变体——eager 缓冲全部 stdout 为 String，返回退出码 + stdout + stderr
+execSafe       : Command -> Result String CommandError ! {Cmd}
+// [Primitive] 执行 Command，返回 Stream String（逐行 stdout，lazy，不报告退出码）
+streamLines    : Command -> Stream String ! {Cmd}
+// [Primitive] 执行 Command，返回 Stream Bytes（逐字节 stdout，lazy，不报告退出码）
+streamBytes    : Command -> Stream Bytes ! {Cmd}
 // [Primitive] PATH 查找命令位置，不可执行/未找到返回 Nil
-which         : String -> ?Path ! {Cmd}
+which          : String -> ?Path ! {Cmd}
 ```
 
 ## 废弃的 API
@@ -681,7 +737,9 @@ which         : String -> ?Path ! {Cmd}
 | `Cmd.pipe!` | `pipe` + `Cmd.exec` |
 | `?` 后缀（`c?`） | `Cmd.execSafe c` |
 | `!` 后缀（`c!`） | `Cmd.exec c` |
-| `\|>` 隐式触发 | 显式 `Cmd.stream`/`Cmd.exec`/`Cmd.execSafe` |
+| `\|>` 隐式触发 | 显式 `Cmd.streamLines`/`Cmd.exec`/`Cmd.execSafe` |
+| `Cmd.stream` | `Cmd.streamLines`（或 `Cmd.streamBytes` 处理二进制） |
+| `Cmd.withStdin`（双签名重载） | `Cmd.withStdinStr` / `Cmd.withStdinBytes`（拆分消歧） |
 | `do in`（返回值形式） | `let <body> in <expr>`（`do <body>` 保留为返回 `Unit` 的语法糖，≈ `let <body> in ()`） |
 
 ### 迁移示例
@@ -705,26 +763,25 @@ do
     |> Stream.lines                  // |> 隐式触发执行
 
 // ✅ 新设计写法
-do
+let
   result =
     cmd cat {} [ p"/etc/maybe_missing" ]
       |> Cmd.execSafe
-
+in
   case result of
-    Ok stream -> ...
-    Err err -> ...
+    Ok output -> ...                    // output : String
+    Err err   -> ...
 
-  cmd mkdir { p = true } [ "/tmp/build" ]
-    |> Cmd.exec
+cmd mkdir { p = true } [ "/tmp/build" ]
+  |> Cmd.exec
 
-  cmd "g++" { o = "a.out", "-Wall" = true, "-O2" = true } [ "main.cpp" ]
-    |> Cmd.exec
+cmd "g++" { o = "a.out", "-Wall" = true, "-O2" = true } [ "main.cpp" ]
+  |> Cmd.exec
 
-  lines =
-    cmd ls { long = true } [ "/tmp" ]
-      |> Cmd.stream
-      |> Stream.lines
-      |> Stream.toList
+lines =
+  cmd ls { long = true } [ "/tmp" ]
+    |> Cmd.streamLines
+    |> Stream.toList
 ```
 
 ## 与标准库的关系
