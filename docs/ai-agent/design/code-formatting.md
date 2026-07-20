@@ -54,7 +54,7 @@ main = \_ -> do
 
 使用 2 空格缩进，不使用 Tab。
 
-> **注**：Kun 的解析器**不依赖缩进**来解析结构——所有代码块由显式关键字界定（`do`、`let...in`、`case...of`、`do...with`、`let...in...with`）。分支体内多语句的边界识别通过 `pattern ->` / `else if` / `else` **关键字定界** + `case...of` 配对跟踪实现，不依赖缩进。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
+> **注**：Kun 的解析器**不依赖缩进量，依赖换行与行首 token**来解析结构——所有代码块由显式关键字界定（`do`、`let...in`、`case...of`、`do...with`、`let...in...with`）。分支体内多语句的边界识别通过 `pattern ->` / `else if` / `else` **关键字定界** + `case...of` 配对跟踪实现，不依赖缩进量。缩进规则仅约束代码**格式**（可读性），不约束代码**语义**。`kun fmt` 工具据此规则自动格式化代码；`kun lint` 据此规则检查格式合规性。
 
 各语境的缩进量（相对于父级上下文）：
 
@@ -957,9 +957,11 @@ result =
   case File.read path of
     Ok text ->
       text
-    Err e -> do
-      IO.println (toString e)
-      fallbackText
+    Err e ->
+      let
+        IO.println (toString e)
+      in
+        fallbackText
 
 // 纯上下文 — 多语句返回非 Unit 用 let in
 processed =
@@ -973,7 +975,7 @@ processed =
       List.sum squared |> List.singleton
 ```
 
-分支边界通过关键字定界——`case` 分支结束于下一个 `pattern ->`，`if` 分支结束于 `else if` / `else`。解析器不依赖缩进识别分支边界——`case...of` 嵌套通过配对跟踪，嵌套 `case` 的 `pattern ->` 不触发外层分支终止。
+分支边界通过关键字定界——`case` 分支结束于下一个 `pattern ->`，`if` 分支结束于 `else if` / `else`。解析器不依赖缩进量识别分支边界，依赖换行与行首 token——`case...of` 嵌套通过配对跟踪，嵌套 `case` 的 `pattern ->` 不触发外层分支终止。
 
 ## 注释
 

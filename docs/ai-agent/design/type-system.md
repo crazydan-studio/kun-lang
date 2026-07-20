@@ -800,19 +800,24 @@ cfg = { defaultConfig | port = 9090 }   // host="localhost", port=9090, debug=fa
 
 ### 内置效应
 
-7 个内置效应（含 `FFI`）：
+10 个内置/标准库效应（含 `FFI`）：
 
-| 效应 | 含义 | 触发来源 |
-|---|---|---|
-| `IO` | 控制台 IO | `IO.println`/`IO.readln` |
-| `File` | 文件系统 | `File.read`/`File.write` |
-| `Cmd` | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
-| `Random` | CSPRNG | `Random.int`/`Random.bytes` |
-| `DateTime` | 系统时间 | `DateTime.now` |
-| `Signal` | 信号处理 | `Signal.on` |
-| `FFI` | 外部 C 库调用 | `FFI.call`（由 `extern` 块默认 handler 委托） |
+| 效应 | 类别 | 含义 | 触发来源 |
+|---|---|---|---|
+| `IO` | 内置 | 控制台 IO | `IO.println`/`IO.readln` |
+| `File` | 内置 | 文件系统 | `File.read`/`File.write` |
+| `Cmd` | 内置 | 子进程执行 | `Cmd.exec`/`Cmd.execSafe`/`Cmd.stream` |
+| `Random` | 内置 | CSPRNG | `Random.int`/`Random.bytes` |
+| `DateTime` | 内置 | 系统时间 | `DateTime.now` |
+| `Signal` | 内置 | 信号处理 | `Signal.on` |
+| `FFI` | 内置 | 外部 C 库调用 | `FFI.call`（由 `extern` 块默认 handler 委托） |
+| `Env` | 标准库 | 环境变量 | `Env.getenv`/`Env.list`/`Env.contains` |
+| `Process` | 标准库 | 进程控制 | `Process.exit`/`Process.pid` |
+| `Test` | 标准库 | 测试断言 | `assert`/`fail`/`skip` |
 
-**保留名**：以上 7 个效应名为编译器保留名，用户不可定义同名 `effect`。防伪造机制见 [FFI 防欺骗](#ffi-防欺骗机制)。
+**保留名**：上述全部 10 个效应名（`IO`/`File`/`Cmd`/`Random`/`DateTime`/`Signal`/`FFI`/`Env`/`Process`/`Test`）为编译器保留名，用户不可定义同名 `effect`。其中 7 个为内置效应（编译器内置 handler，handler 实现于 `kun` 二进制），3 个为标准库效应（handler 由用户在 `main`/`TestCase.body` 内提供或由运行器内置如 `testHandler`）。防伪造机制见 [FFI 防欺骗](#ffi-防欺骗机制)。
+
+> **`Env`/`Process`/`Test` 的 shadowing 语义**：三者均为编译器保留名——用户不可定义同名 `effect`（编译错误 `ReservedEffectName`）。但 `Env`/`Process`/`Test` 作为**模块名**可以被用户的项目模块覆盖（与 `Cmd`/`Log` 等用户效应模块同构），用户模块提供同名效应操作的实现。这与"非保留名"不同——保留名限制仅作用于 `effect` 声明位置，模块名仍可被用户定义（标准库模块通过 `import` 路径区分）。
 
 > **效应名与模块名同名**：7 个内置效应名与对应标准库模块同名（如 `IO` 效应与 `IO` 模块、`Cmd` 效应与 `Cmd` 模块）。效应名属类型命名空间（出现在 `! {E}`、`Handler {E}` 等类型位置），模块名属值命名空间（出现在 `import`、`Module.func` 等值位置），二者语法位置不重叠，同名合法。效应操作（如 `Cmd.exec`）必须全名调用且不可裸名导入，模块纯函数（如 `Cmd.withEnv`）可选择性导入裸名；详见 [语法设计 - 效应与模块同名](syntax.md#效应与模块同名)。
 
@@ -1333,6 +1338,8 @@ composedHandler =
 - 单效应 handler：操作名**可不限定**（`query` 即可）
 - 多效应 handler：操作名**必须限定**（`DB.query`），避免同名操作歧义
 
+> **handler 操作穷尽性**：`handler` 声明必须覆盖效应的所有操作。若效应声明新增操作而已有 handler 未覆盖，编译错误（`UnhandledOperation`）。这防止效应扩展后 handler 静默漏处理。穷尽性检查在编译期静态完成——编译器比较 `effect <Name> = { ... }` 声明中的操作集与 `handler <Name> of ...` 子句集，缺失即报错并指明未处理的操作名。
+
 ### 强制性保证
 
 1. **编译期效应集追踪**：每个函数效应集由编译器推导
@@ -1629,6 +1636,7 @@ in
 3. 不可赋值给外层 `let in` 块的绑定
 4. 可作为参数传递给同块内的函数（但函数不可返回它）
 5. 可通过 `Ffi.toBytes`/`Ffi.toString` 拷贝为普通类型后逃逸
+6. `FfiBuffer` 不可被闭包捕获——若闭包体内引用 `FfiBuffer` 值，且闭包的生命周期超出 `FfiBuffer` 所在 `let in` 块，编译错误。这防止 use-after-free（`FfiBuffer` 在块退出时释放，闭包延迟执行引用已释放内存）
 
 ```kun
 // ✅ 合法：拷贝后逃逸
@@ -1653,6 +1661,13 @@ let
       inner                         // 错误：FfiBuffer 不可逃逸到外层
 in
   ...
+
+// ❌ 编译错误：FfiBuffer 不可被闭包捕获（闭包逃逸出 buf 所在块）
+let
+  buf = Ffi.alloc 1024
+  callback = \_ -> Ffi.toBytes buf 1024   // 闭包捕获 buf
+in
+  defer callback                          // defer 注册的回调延迟执行，buf 已释放 → use-after-free
 ```
 
 **实现**：编译器类型检查阶段识别 `FfiBuffer` 类型（内置类型表），追踪其作用域，违反则编译错误。无需用户标注，规则硬编码在编译器中。

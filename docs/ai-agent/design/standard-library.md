@@ -2105,14 +2105,14 @@ zip : Stream a -> Stream b -> Stream (a, b)
 // [PureKun] 带状态的折叠（emit 中间状态；回调可产生效应）
 scan : (a -> b -> b ! e) -> b -> Stream a -> Stream b ! e
 
-// [PureKun] 查找第一个匹配元素
-find : (a -> Bool) -> Stream a -> ?a
+// [Primitive] 查找第一个匹配元素（终端操作，消费 Stream；效应多态——非纯 Stream 触发来源效应）
+find : (a -> Bool) -> Stream a -> ?a ! e
 
-// [PureKun] 所有元素是否满足谓词
-all : (a -> Bool) -> Stream a -> Bool
+// [Primitive] 所有元素是否满足谓词（终端操作；效应多态）
+all : (a -> Bool) -> Stream a -> Bool ! e
 
-// [PureKun] 是否存在满足谓词的元素
-any : (a -> Bool) -> Stream a -> Bool
+// [Primitive] 是否存在满足谓词的元素（终端操作；效应多态）
+any : (a -> Bool) -> Stream a -> Bool ! e
 
 // [PureKun] 排序（需完全物化，仅对有限 Stream）
 sort : Stream a -> Stream a
@@ -2120,8 +2120,8 @@ sort : Stream a -> Stream a
 // [PureKun] 连续分组
 group : (a -> a -> Bool) -> Stream a -> Stream (List a)
 
-// [PureKun] 取第 n 个元素
-nth : Int -> Stream a -> ?a
+// [Primitive] 取第 n 个元素（终端操作；效应多态）
+nth : Int -> Stream a -> ?a ! e
 
 // [Primitive] 创建无限迭代的 Stream（步进函数可产生效应）
 iterate : (a -> a ! e) -> a -> Stream a ! e
@@ -2177,8 +2177,8 @@ parseMapKeep : (a -> Result b e) -> Stream a -> Stream (Result b e)
 #### 消费（终端）
 
 ```kun
-// [Primitive] 收集为 List
-toList : Stream a -> List a
+// [Primitive] 收集为 List（终端操作；效应多态——纯 Stream 时 e 实例化为 ! {}）
+toList : Stream a -> List a ! e
 
 // [Primitive] 遍历每个元素
 iter : (a -> Unit ! e) -> Stream a -> Unit ! e
@@ -2186,14 +2186,14 @@ iter : (a -> Unit ! e) -> Stream a -> Unit ! e
 // [Primitive] 折叠（回调可产生效应）
 fold : (b -> a -> b ! e) -> b -> Stream a -> b ! e
 
-// [Primitive] 全文收集为 String
-string : Stream String -> String
+// [Primitive] 全文收集为 String（终端操作；效应多态）
+string : Stream String -> String ! e
 
-// [Primitive] 二进制读取
-bytes : Stream a -> Bytes
+// [Primitive] 二进制读取（终端操作；效应多态）
+bytes : Stream a -> Bytes ! e
 ```
 
-终端操作驱动求值，逐一拉取元素。
+终端操作驱动求值，逐一拉取元素。所有终端操作均效应多态——Stream 来源的效应（如 `Cmd.stream` 的 `Cmd` 效应、`File.readBytes` 的 `File` 效应）在终端消费时触发并传播。纯 Stream（`Stream.range`/`Stream.fromList`）的终端操作 `e` 实例化为 `! {}`（纯），可在纯上下文使用。
 
 #### 错误处理辅助
 
@@ -2207,19 +2207,20 @@ filterMap : (a -> ?b ! e) -> Stream a -> Stream b ! e
 
 | 操作 | 类别 | 说明 |
 |------|------|------|
-| `Stream.filter` / `Stream.take` / `Stream.drop` / `Stream.takeWhile` / `Stream.dropWhile` / `Stream.append` / `Stream.zip` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.sort` / `Stream.group` / `Stream.nth` | **纯**（纯回调） | 惰性变换，回调为谓词（`Bool`），不触发 IO |
+| `Stream.filter` / `Stream.take` / `Stream.drop` / `Stream.takeWhile` / `Stream.dropWhile` / `Stream.append` / `Stream.zip` / `Stream.sort` / `Stream.group` | **纯**（纯回调） | 惰性变换，回调为谓词（`Bool`），不触发 IO |
 | `Stream.map` / `Stream.flatMap` / `Stream.scan` / `Stream.iterate` / `Stream.filterMap` | **效应多态**（回调可为效应函数） | 惰性变换，回调效应经 `e` 传播；Stream 本身仍惰性，效应在终端消费时触发 |
 | `Stream.parseMap` / `Stream.parseMapKeep` | **纯**（纯回调） | 解析变换，回调返回 `Result`，不掺杂副作用 |
 | `Stream.lines` | **纯** | 仅标记换行边界，不触发读取 |
-| `Stream.toList` / `Stream.iter` / `Stream.fold` | **终端** | 驱动求值；`Stream.iter`/`Stream.fold` 声明了效应多态回调，自身效应集为 `e`（可在 `do`/`let in` 块中调用）；纯 Stream（`range`/`fromList`）的 `Stream.toList`/`Stream.fold` 可在纯上下文使用 |
-| `Stream.string` / `Stream.bytes` | **终端**（非纯流为效应） | 消费 Stream 并收集为 `String`/`Bytes`；纯 Stream（`fromList`/`range`）可在纯上下文使用；命令输出 Stream 须在 `do`/`let in` 块内调用（驱动 pipe 读取为效应操作） |
+| `Stream.toList` / `Stream.string` / `Stream.bytes` / `Stream.find` / `Stream.all` / `Stream.any` / `Stream.nth` / `Stream.iter` / `Stream.fold` | **终端（效应多态）** | 终端操作消费 Stream，签名含 `! e`——Stream 来源的效应（如 `Cmd.stream` 的 `Cmd` 效应）在终端消费时触发并传播；纯 Stream（`range`/`fromList`）的终端操作 `e` 实例化为 `! {}`，可在纯上下文使用；命令输出 Stream 须在 `do`/`let in` 块内调用 |
 | `Stream.fromList` | **纯** | 从纯 List 构造，无 IO 绑定 |
 
 > **回调效应性约束**：`Stream` 模块的高阶函数分两类：
 > - **效应多态**（回调可为效应函数，效应经 `e` 传播）：`map`、`flatMap`、`scan`、`iterate`、`filterMap`、`iter`、`fold`
-> - **纯回调**（回调必须为纯函数 `! {}`，即谓词/解析）：`filter`、`find`、`all`、`any`、`group`、`takeWhile`、`dropWhile`、`parseMap`、`parseMapKeep`
+> - **纯回调**（回调必须为纯函数 `! {}`，即谓词/解析）：`filter`、`group`、`takeWhile`、`dropWhile`、`parseMap`、`parseMapKeep`
 >
 > 谓词类操作的语义是「判断」，不应掺杂副作用；变换类操作的回调可为效应函数。
+>
+> **Stream 终端操作的效应传播**：消费 Stream 的终端操作（`toList`/`string`/`bytes`/`find`/`all`/`any`/`nth`/`iter`/`fold`）签名含 `! e`——Stream 来源的效应（如 `Cmd.stream` 的 `Cmd` 效应）在终端消费时触发并传播。纯 Stream（`Stream.range`/`Stream.fromList`）的终端操作 `e` 实例化为 `! {}`（纯），可在纯上下文使用。这确保类型系统阻止"纯函数消费效应 Stream"的健全性漏洞——若 `pureFunc : Stream Bytes -> Bytes` 调用 `Hash.sha256Stream s`，则 `e` 必须实例化为来源效应，纯上下文拒绝此类调用。
 
 ### 示例
 
@@ -2438,6 +2439,33 @@ with
 - `Log.info`/`warn`/`error` 是用户效应，handler 决定输出目的地（stderr/journald/文件/网络/丢弃）与格式（JSON 结构化日志/纯文本），并可附加时间戳、级别过滤、采样等策略
 
 业务代码使用 `Log.*`（声明意图），入口处用 handler 决定具体行为；测试时用 mock handler 捕获日志断言。
+
+### `Log.Mock` — 测试用 Mock handler
+
+`Log.Mock` 是 `Log` 模块的子模块，提供测试场景下使用的 mock handler——丢弃所有日志输出，使测试免受日志副作用干扰。需通过 `import Log.Mock (mockLogHandler)` 显式导入。
+
+```kun
+mockLogHandler : Handler {Log} a
+mockLogHandler =
+  handler Log of
+    info _ -> ()
+    warn _ -> ()
+    error _ -> ()
+```
+
+- `mockLogHandler` 的返回类型为 `a`（类型变量），可适配任意 `Log` 效应上下文——`Log` 操作返回 `Unit`，mock handler 直接返回 `()` 即可消解
+- 测试中通常与 `mockDbHandler` 等其他 mock handler 经 `>>` 组合后注入 `Test.with`：
+  ```kun
+  import DB.Mock (mockDbHandler)
+  import Log.Mock (mockLogHandler)
+
+  testExample : TestCase =
+    test "example" (\ -> do
+      ...
+    )
+      |> Test.with (mockDbHandler >> mockLogHandler)
+  ```
+- 项目内可定义更复杂的 mock handler（如捕获日志消息供断言）：在 `lib/Log/Mock.kun` 中覆盖标准库 `Log.Mock` 模块的同名 handler 实现
 
 ## `Env` — 环境变量
 
@@ -3367,8 +3395,8 @@ sha256 : Bytes -> Bytes
 // [Primitive] SHA-256 哈希，返回十六进制字符串
 sha256Hex : Bytes -> String
 
-// [Primitive] SHA-256 流式哈希——逐块处理 Stream，避免大文件全部加载到内存
-sha256Stream : Stream Bytes -> Bytes
+// [Primitive] SHA-256 流式哈希——逐块处理 Stream，避免大文件全部加载到内存（终端操作；效应多态——消费来源 Stream 的效应触发并传播）
+sha256Stream : Stream Bytes -> Bytes ! e
 
 // [Primitive] MD5 哈希
 md5 : Bytes -> Bytes
@@ -3665,7 +3693,7 @@ opaque type TestCase
 //   , with        : ?(Handler {e} TestResult ! {r})
 //   }
 
-// Test 效应（标准库效应，非保留名——与 DB/Log 等用户效应同构）
+// Test 效应（标准库效应，编译器保留名——用户不可定义同名 effect，但模块名可被项目模块覆盖）
 // assert/fail/skip 通过 abort 终止当前测试（不使用 panic）
 effect Test =
   { assert : Bool -> Unit        // assert cond；cond=false → abort (Fail "assertion failed")
@@ -3696,7 +3724,7 @@ Test.describe : String -> TestCase -> TestCase                        // 设置 
 **关键语义**：
 
 - `assert`/`fail`/`skip` 是 `Test` 效应的操作，可在**任何效应集含 `Test` 的函数**中使用（不限 `TestCase.body`）；通过 `abort` 终止当前测试——**没有 panic 黑魔法**，与普通 handler 的 `abort` 语义完全一致
-- `Test` 是**标准库效应**（非保留名）；`testHandler` 是 `kun` 二进制内置 handler（运行器提供）
+- `Test` 是**标准库效应**（编译器保留名）；`testHandler` 是 `kun` 二进制内置 handler（运行器提供）
 - `TestCase` 是**不透明类型**（编译器内置，类似 `Command`），其 `body` 字段的效应变量 `e` 被存在性量化——不同测试的 `e` 不同，但都可存入 `List TestCase`。`test` 构造器（Primitive）在构造时捕获 `e`，运行器在执行时通过 handler 消解。这不要求用户可见的类型系统支持 rank-2 多态或存在类型——`TestCase` 对用户是不可见的内部类型
 - `TestCase.with` 字段：声明式效应隔离——可选 handler 消解 `body` 的用户效应 `e` 并产出 `TestResult`；多个用户效应通过 `>>` 组合为单一 handler；`Nil` 表示 `e` 必须为空或仅含内置效应（由运行时沙箱消解）
 - `TestResult` 仅由 `testHandler` 产出：`Pass` 对应 `body` 正常返回，`Fail`/`Skip` 对应 `Test` 效应的 `abort`

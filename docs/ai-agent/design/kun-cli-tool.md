@@ -15,12 +15,15 @@ kun [全局选项] <子命令> [子命令参数] <脚本.kun> [脚本参数...]
 | 子命令 | 用途 | 示例 |
 |--------|------|------|
 | *(默认)* | 解释执行 `.kun` 脚本 | `kun script.kun` |
+| `run` | 解释执行 `.kun` 脚本（与默认形式等价的显式别名，便于与 `test`/`fmt` 等子命令对仗） | `kun run script.kun` ≡ `kun script.kun` |
 | `fmt` | 格式化 `.kun` 文件 | `kun fmt script.kun` |
 | `lint` | lint 检查 `.kun` 文件 | `kun lint script.kun` |
 | `check` | 仅类型检查，不执行 | `kun check script.kun` |
 | `doc` | 为模块及函数生成 Markdown 文档 | `kun doc lib/` |
 | `cmd init` | 从 man/--help 生成类型化命令模块骨架 | `kun cmd init ls` |
 | `test` | `<module>_test.kun` 测试文件、`TestCase` 类型值、`--filter`/`--timeout`/`--parallel`/`--fail-fast`/`--report` |
+
+> **执行形式统一**：脚本执行统一为 `kun script.kun`（默认形式，无子命令）或 `kun run script.kun`（显式 `run` 子命令，等价别名）。不再支持 `kun --run script.kun`（旧形式，已废弃）。`--allow-ffi`/`--allow-path`/`--allow-net` 等安全参数在两种形式下均可使用：`kun --allow-ffi script.kun` 或 `kun run --allow-ffi script.kun`。
 
 ## 执行模式
 
@@ -224,8 +227,8 @@ main = \raw -> do
 | `--no-sandbox` | 完全关闭沙箱隔离 |
 | `--force` | 跳过安全确认——当脚本的路径/网络使用声明与实际情况不一致时，不提示用户而直接运行。仅用于受信任脚本的自动化运行 |
 | `--env=<strategy>` | 环境变量继承策略（见下方） |
-| `--cpu-limit <duration>` | CPU 时间限制，覆盖主进程及全部子进程（默认 60s） |
-| `--mem-limit <size>` | 内存限制，覆盖主进程及全部子进程（默认 512MB） |
+| `--cpu-limit <duration>` | CPU 时间限制（CPU 秒，非 wall-clock 时间，对应 `RLIMIT_CPU`），覆盖主进程及全部子进程（默认 60s） |
+| `--mem-limit <size>` | 内存限制（虚拟地址空间限制，非 RSS，对应 `RLIMIT_AS`），覆盖主进程及全部子进程（默认 512MB） |
 | `--audit=<path>` | 输出 JSON 审计记录到指定文件（可选，用于 CI/合规场景追溯）。记录含脚本路径、安全参数、沙箱配置、退出码、脚本内容哈希、时间戳 |
 
 #### `--audit` 审计记录
@@ -266,7 +269,7 @@ main = \raw -> do
 - `sandbox_layers`：实际安装的沙箱层（反映内核能力与配置，如 Landlock 在内核 < 5.13 时为 `false`，此时启用 ns 兑底模式包含 `mount`/`net`/`ipc` 三个 namespace）
 - `exit_code`：脚本退出码（0 成功，1 失败，126 安全拒绝，详见退出码章节）
 
-审计记录在脚本退出后写入，写入失败不阻塞退出。`--no-sandbox` 模式下 `sandbox` 为 `false`，`sandbox_layers` 仍记录实际状态。
+审计记录在脚本退出后写入，写入失败时通过 stderr 告警（`audit write failed: <path>`），退出码不变。沙箱模式下审计路径自动加入 `--allow-path` 白名单。`--no-sandbox` 模式下 `sandbox` 为 `false`，`sandbox_layers` 仍记录实际状态。
 
 #### `--allow-ffi` 与 FFI 安全检查
 

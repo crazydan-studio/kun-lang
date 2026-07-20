@@ -17,7 +17,7 @@
 | 和类型 | ✅ 设计定型 | Result、自定义和类型，穷举检查 |
 | Nilable 类型 `?T` | ✅ 设计定型 | `Nilable T` 的语法糖；`Nil`/`Some` 为构造器；**禁止嵌套** `??T` → 编译错误（Nested Nilable） |
 | 模式匹配 | ✅ 设计定型 | 和类型、列表、映射、守卫子句、or 模式，穷举性规则 |
-| 类型推断 | ✅ 设计定型 | Hindley-Milner 算法 W，Let-多态（**值限制**，OCaml 风格） |
+| 类型推断 | ✅ 设计定型 | 约束式 HM 推断（约束生成 + 合一求解），Let-多态（**值限制**，OCaml 风格） |
 | 泛型 | ✅ 设计定型 | 无约束参数化多态；**不支持行多态**，效应集为闭集 + 单效应变量 `e` |
 | 函数类型 | ✅ 设计定型 | `<param> -> <result> ! <effectSet>`；无 `!` ≡ `! {}`（纯） |
 | 效应集 | ✅ 设计定型 | `! {}`/`! {IO}`/`! {IO, File}`/`! e`/`! {IO, e}`；无序集合，合一按排序后比较 |
@@ -155,7 +155,7 @@
 | 立即求值 | ✅ 设计定型 | 所有表达式立即求值；`let in` 绑定立即；call-by-value |
 | 单表达式 | ✅ 设计定型 | 多语句返回值用 `let in`，返回 `Unit` 用 `do`（≈ `let <body> in ()`） |
 | `let in` 三种语句 | ✅ 设计定型 | 绑定（`name = expr`）/效应调用（无绑定，立即执行）/纯表达式（无绑定，告警） |
-| `do` 语法糖 | ✅ 设计定型 | 返回 `Unit` 的多语句用 `do <body>`（≡ `let <body> in ()`）；关键字定界，不依赖缩进 |
+| `do` 语法糖 | ✅ 设计定型 | 返回 `Unit` 的多语句用 `do <body>`（≡ `let <body> in ()`）；关键字定界，不依赖缩进量，依赖换行与行首 token |
 | `let in` 嵌套 | ✅ 设计定型 | 嵌套 `let in` 各层独立；内层绑定可在外层使用 |
 | `let in` 效应集推导 | ✅ 设计定型 | 体内所有效应语句的并集 |
 | `Lazy` 显式惰性 | ✅ 设计定型 | `Lazy.lazy` 构造 thunk；`Lazy.force` 强制求值（memoize） |
@@ -209,7 +209,7 @@
 | 泛型语法 | ✅ 设计定型 | Elm 风格空格分隔 |
 | 函数类型 | ✅ 设计定型 | `<param> -> <result> ! <effectSet>`，无 `!` ≡ `! {}` |
 | 函数应用 | ✅ 设计定型 | 空格分隔参数，无逗号 |
-| `let in` / `do` 单表达式 | ✅ 设计定型 | 三种语句；返回 `Unit` 用 `do`；关键字定界（不依赖缩进）；多语句返回值用 `let in` |
+| `let in` / `do` 单表达式 | ✅ 设计定型 | 三种语句；返回 `Unit` 用 `do`；关键字定界（不依赖缩进量，依赖换行与行首 token）；多语句返回值用 `let in` |
 | `defer` | ✅ 设计定型 | 绑定最近 `let in` 块，LIFO，panic 时执行 |
 | `effect` 声明 | ✅ 设计定型 | Record 风格 `effect <Name> = { op : sig, ... }` |
 | `handler` 声明 | ✅ 设计定型 | case of 风格 `<name> = handler <Effect> of <op> <args> -> <impl>` |
@@ -227,7 +227,7 @@
 | `alias` 别名 | ✅ 设计定型 | 结构等价，编译期展开，无构造器 |
 | `type` ADT | ✅ 设计定型 | 名义等价，单变体/多变体一致，有 tag 不擦除 |
 | `Int` 位运算 | ✅ 设计定型 | `&`/`\|`/`^`/`not`/`shl`/`shr`/`ushr`/`popCount`/`leadingZeros`/`trailingZeros`；优先级 `shl`/`shr` > `&` > `^` > `\|` |
-| 可执行脚本 | ✅ 设计定型 | `main : List String -> Unit ! {IO, File, Cmd, ...}`（类型标注可选），`kun --run <file.kun>` |
+| 可执行脚本 | ✅ 设计定型 | `main : List String -> Unit ! {IO, File, Cmd, ...}`（类型标注可选），`kun <file.kun>`（默认形式）或 `kun run <file.kun>`（显式 `run` 子命令，等价别名） |
 | `kun doc` | ✅ 设计定型 | 为模块及函数生成 Markdown 文档（类型签名、变体、示例、交叉引用） |
 | `--trace` | ✅ 设计定型 | 可选函数调用追踪（文件名:行号:列号 + 参数 + 调用深度），缺省关闭 |
 
