@@ -1,5 +1,7 @@
 # Kun 语言示例
 
+> **注**：示例展示设计愿景，部分特性（如 `Cli.parse`、`Task.spawn`、`Cmd.timeout`、`Signal.on`、`Parser.JSON.toString`、`Random`）非 MVP 可运行形态——详见各示例 `.kun` 文件头部注释与 [MVP 定义](../docs/ai-agent/requirements/mvp.md)。示例旨在演示语言设计的最终形态与典型用法，待对应模块/Primitive 实现后即可运行。
+
 两个真实运维场景脚本，系统性地展示 Kun 语言特性。
 
 ## 场景

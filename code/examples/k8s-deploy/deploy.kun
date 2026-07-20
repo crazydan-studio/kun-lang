@@ -6,6 +6,8 @@
 //                  --manifest=./k8s/deployment.yaml
 //                  --canary-percent=10 --timeout=300
 //                  --webhook=https://hooks.slack.com/xxx
+//
+// 注：示例展示设计愿景，部分特性（如 Cli.parse）非 MVP 可运行形态
 // ============================================================
 
 import Cli

@@ -38,6 +38,8 @@
 > | `Path.fromString` | `Path`（非 Result） | 任意合法 UTF-8 字符串均可作为路径（Linux 内核视路径为以 NUL 结尾的字节序列），无需文件系统校验，构造始终成功 |
 >
 > 即 `Bytes.fromString` 与 `Path.fromString` 是**安全构造但无失败路径**的特例——它们的"安全性"体现在"不抛 panic"（与 `Xxx.of` 区分），但因构造不可能失败，故不返回 `Result`。这与 `Bytes.fromHex`/`Path.fromBytes`/`Path.component` 等返回 `Result` 的函数形成对比（后者涉及 hex 解码或字节级验证，存在失败路径）。
+>
+> **命名一致性提醒**：`Bytes.fromString` **不返回 `Result`**（任何字符串都是合法 `Bytes`——UTF-8 编码始终成功）；`Regex.fromString` **返回 `Result`**（正则可能编译失败，如未闭合的括号 `r"("`）。两者名称后缀同为 `fromString` 但返回类型不同——这是因为 `Bytes` 是字节序列的"无损容器"，`Regex` 是需要语法解析的"有损容器"。
 
 ### 文档注释规范
 
@@ -495,6 +497,18 @@ replace : String -> String -> String -> String
 
 // [PureKun] 替换所有匹配
 replaceAll : String -> String -> String -> String
+
+// [PureKun] 查找子串首次出现的索引（Unicode 标量值位置），未找到返回 Nil
+indexOf : String -> String -> ?Int
+
+// [PureKun] 反转字符串（按 Unicode 标量值逆序，非字节逆序）
+reverse : String -> String
+
+// [PureKun] 按行切分（按 `\n` 切分；行尾 `\r\n` 自动剥离 `\r`）
+lines : String -> List String
+
+// [PureKun] 按空白字符切分为单词列表（连续空白合并为单个分隔符）
+words : String -> List String
 ```
 
 #### `toString` — 编译器级泛型
@@ -848,6 +862,15 @@ effect Signal =
 - `Signal.on` 仅可在可执行脚本（无 `export` 声明的 `.kun` 文件）中使用，**库模块禁止调用**
 
 信号处理采用 **signalfd** 机制（Linux 3.8+），并非在 OS 信号上下文中直接执行 Kun 代码。
+
+> **`Signal.on` 的异步语义**：`Signal.on` 注册回调后立即返回（非阻塞），**回调不在注册时执行**——回调在 `main` 入口处的 **signalfd 事件循环**中执行。求值器在每次 AST 节点求值后**轮询** signalfd 是否有可读信号；若有，取出信号值并调用对应回调。回调产生的效应（`! e`）由 `main` 的 handler 链消解（`Signal` 效应本身在注册时即被 `main` 的 `Signal` handler 消解，回调效应 `e` 冒泡到 `main`）。这意味着：
+>
+> - 回调执行时机不确定（取决于求值器何时检查 signalfd），但**仅在 AST 节点求值间隙执行**，不会打断单个原子求值步骤
+> - 长时间运行的纯计算（无 AST 节点求值间隙，如深度递归）可能延迟回调执行
+> - 回调中调用 `Signal.on` 重新注册（替换前一个处理器）是合法的，新回调在下一次 signalfd 可读时生效
+> - 回调中调用 `abort`/`continue` 等控制流原语**编译错误**（这些原语仅在 handler 分支体内直接出现，不可在异步回调中捕获）
+>
+> **MVP 排除 `Signal.on`**：signalfd 事件循环与求值器集成的工程量较大，且 `Signal` 主要用于长运行进程（CLI 工具较少需要），见 [MVP 定义](../requirements/mvp.md) 中推迟到 v0.2+ 的模块列表。
 
 #### 示例
 
@@ -1203,6 +1226,12 @@ isAbsolute : Path -> Bool
 isRelative : Path -> Bool
 // [PureKun] 计算 from → to 的相对路径
 relative : Path -> Path -> Path
+
+// [PureKun] 替换路径的文件扩展名（含 `.`）——若原路径无扩展名则追加，有则替换；扩展名参数须以 `.` 开头（如 ".txt"），否则视为无扩展名前缀追加
+withExtension : String -> Path -> Path
+
+// [PureKun] 拆分路径为组件列表——绝对路径首个元素为 "/"（根标记），相对路径无根标记；如 p"/a/b/c" → ["/", "a", "b", "c"]，p"a/b/c" → ["a", "b", "c"]
+components : Path -> List String
 ```
 
 #### 示例
@@ -1219,6 +1248,14 @@ ext  = Path.extension p"/tmp/foo.txt" // → ".txt"
 Path.isAbsolute p"/usr/bin"          // → true
 Path.isRelative p"docs/file.md"      // → true
 Path.normalize p"/a/b/../c"          // → p"/a/c"
+
+// withExtension：替换/追加文件扩展名
+Path.withExtension ".bak" p"/tmp/foo.txt"  // → p"/tmp/foo.bak"（替换）
+Path.withExtension ".log" p"/tmp/foo"      // → p"/tmp/foo.log"（追加）
+
+// components：拆分路径为组件列表
+Path.components p"/home/user/logs"   // → ["/", "home", "user", "logs"]
+Path.components p"docs/file.md"      // → ["docs", "file.md"]
 
 // fromBytes：覆盖非 UTF-8 文件系统场景（Linux ext4/xfs 合法）
 // 受限 Landlock `--allow-path` 范围，仅 NUL 被拒绝
@@ -1559,6 +1596,18 @@ max : (a -> a -> Int) -> List a -> ?a
 
 // [PureKun] 按 key 函数分组
 groupBy : (a -> k) -> List a -> Map k (List a)
+
+// [PureKun] 从头部开始保留满足谓词的元素，遇到第一个不满足即停止
+takeWhile : (a -> Bool) -> List a -> List a
+
+// [PureKun] 从头部开始丢弃满足谓词的元素，遇到第一个不满足即停止
+dropWhile : (a -> Bool) -> List a -> List a
+
+// [PureKun] 将二元组列表拆分为两个列表
+unzip : List (a, b) -> (List a, List b)
+
+// [PureKun] 将列表按固定大小切分为子列表，最后一个可能不足 n 个；n <= 0 → 空列表
+chunk : Int -> List a -> List (List a)
 ```
 
 - `filterMap` 应用函数到每个元素，丢弃返回 `Nil` 的元素
@@ -1652,8 +1701,8 @@ update   : (v -> v ! e) -> k -> Map k v -> Map k v ! e      // 更新已有值
 fromList : List (k, v) -> Map k v                   // 从列表构造
 // [PureKun] 转为列表
 toList   : Map k v -> List (k, v)                   // 转为列表
-// [PureKun] 并集合并，右侧覆盖左侧
-unionWith    : Map k v -> Map k v -> Map k v            // 并集合并，右侧覆盖左侧
+// [PureKun] 并集合并，键冲突时由 combining 函数决定保留值（左参数为左 Map 的值，右参数为右 Map 的值）
+unionWith    : (v -> v -> v) -> Map k v -> Map k v -> Map k v
 
 // [PureKun] 键是否存在
 containsKey : k -> Map k v -> Bool
@@ -1664,10 +1713,13 @@ filter : (v -> Bool) -> Map k v -> Map k v
 // [PureKun] 变换值（回调可产生效应）
 map : (v -> w ! e) -> Map k v -> Map k w ! e
 
-// [PureKun] 左优先合并两 Map
+// [PureKun] 变换键（返回类型 k' 须可哈希；冲突时后者覆盖前者）
+mapKeys : (k -> k') -> Map k v -> Map k' v
+
+// [PureKun] 左优先合并两 Map（左 Map 的键保留，右 Map 仅补充左 Map 缺失的键）
 union : Map k v -> Map k v -> Map k v
 
-// [PureKun] 交集（仅在两 Map 共有的键上保留值）
+// [PureKun] 交集（仅在两 Map 共有的键上保留左 Map 的值）
 intersect : Map k v -> Map k v -> Map k v
 
 // [PureKun] 差集（在左 Map 中移除右 Map 含有的键）
@@ -1676,8 +1728,10 @@ difference : Map k v -> Map k v -> Map k v
 
 - `insert` 覆写已有键的值
 - `update` 对已有值应用变换函数，键不存在时不操作。变换函数可为效应函数（效应经单变量 `e` 传播到调用方）；若需逐个元素执行副作用，也可遍历 `List (k, v)` 并在 `let in` 块中使用 `List.iter`
-- `unionWith` 并集合并，右侧覆盖左侧的相同键（命名遵循 Haskell/OCaml 惯例：`unionWith` 表示"用显式策略合并"，这里策略是"右侧优先"）
-- `union` 左优先合并（左 Map 的键保留，右 Map 仅补充左 Map 缺失的键），与 `unionWith` 语义互补
+- `unionWith` 并集合并的通用形式——键冲突时由调用方提供的 combining 函数 `v -> v -> v` 决定保留值（左参数来自左 Map，右参数来自右 Map）。命名遵循 Haskell/OCaml 惯例（`Data.Map.Strict.unionWith`）。常见用法：`Map.unionWith (\_ r -> r) m1 m2`（右侧覆盖左侧）、`Map.unionWith (+) m1 m2`（计数累加）、`Map.unionWith (++) m1 m2`（列表拼接）
+- `union` 左优先合并的快捷形式——等价于 `unionWith (\l _ -> l)`，左 Map 的键保留，右 Map 仅补充左 Map 缺失的键；与 `unionWith` 语义互补
+- `mapKeys` 变换键——`k'` 须为内置可哈希类型（`Int`/`String`/`Bool`/`Char`/`Path`/`Duration`）；多个原键映射到同一新键时，后者覆盖前者（按 `Map.toList` 的迭代顺序）
+- `intersect` 交集——仅在两 Map 共有的键上保留**左 Map 的值**（与 `unionWith` 不同，`intersect` 不提供 combining 函数；若需合并交集值，用 `Map.unionWith` 配合 `filter` 实现）
 - `difference` 差集（移除左 Map 中右 Map 含有的键）
 
 ### 示例
@@ -1695,6 +1749,18 @@ Map.get "host" data                   // → "localhost"
 Map.get "missing" data                // → Nil
 Map.keys data                         // → ["host", "port"]
 Map.size data                         // → 2
+
+// Map.unionWith：键冲突时由 combining 函数决定保留值
+left  = Map.fromList [("a", 1), ("b", 2)]
+right = Map.fromList [("b", 3), ("c", 4)]
+Map.unionWith (+) left right          // → #{ "a" = 1, "b" = 5, "c" = 4 }（累加）
+Map.unionWith (\_ r -> r) left right  // → #{ "a" = 1, "b" = 3, "c" = 4 }（右侧覆盖）
+Map.union left right                  // → #{ "a" = 1, "b" = 2, "c" = 4 }（左优先）
+Map.difference left right             // → #{ "a" = 1 }（移除 right 含有的键）
+
+// Map.mapKeys：变换键
+nums = Map.fromList [("one", 1), ("two", 2)]
+Map.mapKeys (\k -> String.length k) nums  // → #{ 3 = 1, 3 = 2 } → 冲突，后者覆盖 → #{ 3 = 2 }
 ```
 
 ## `Set` — 集合操作
@@ -1766,6 +1832,8 @@ Set.size s                              // → 3
 Set.contains 2 s                        // → true
 Set.insert 3 s                          // → #[1, 2, 3]（幂等）
 Set.union s #[3, 4, 5]                  // → #[1, 2, 3, 4, 5]
+Set.diff s #[2, 4]                      // → #[1, 3]（差集，移除 #[2, 4] 中含有的元素）
+Set.intersect s #[2, 3, 4]              // → #[2, 3]（交集）
 Set.toList (Set.fromList [1, 2, 2, 3])  // → [1, 2, 3]（去重）
 ```
 
@@ -3527,7 +3595,9 @@ all : Stream (Result a e) -> List (Result a e) ! {Cmd}
 
 `Task.spawn` 通过主线程的 **epoll/poll 事件循环**管理多个子进程的 stdout/stderr pipe——不引入额外线程。子进程 fork 后各自独立，彼此无共享内存。文件冲突由内核文件系统锁定处理（多进程写同一文件的行为由 OS 定义），Kun 不做额外管理。
 
-> **MVP 不包含**：`Task` 模块（`spawn`/`all`）（见 [MVP 定义](../requirements/mvp.md)）。
+> **`Task.all` 的交替消费防死锁**：`Task.all` **不**逐个完整消费每个子进程的 stdout——而是**交替消费（round-robin poll）**各子进程的 stdout/stderr pipe。若顺序消费（先读完 A 再读 B），A 的 stdout pipe 缓冲区（默认 64KB）写满后 A 阻塞 `write`，而 B 也在持续输出但未被读取——B 的 pipe 也写满阻塞——所有子进程死锁挂起。round-robin poll 在每次 epoll 唤醒时轮流读取每个就绪 pipe 的一块数据（如 4KB），确保所有子进程的 pipe 都被及时消费，不会因某个子进程输出过多而阻塞其他子进程。这与 `Cmd.execSafe` 单命令的 eager 缓冲（一次性读完单个子进程）不同——`Task.all` 必须交错读取以避免多进程 pipe 互相阻塞。
+>
+> **MVP 排除 `Task`**：epoll/poll 事件循环与子进程 pipe 管理的工程量较大，且 `Task` 主要用于批量命令并行（CLI 工具可用 `pipe` 或 `List.iter` 串行替代），见 [MVP 定义](../requirements/mvp.md) 中推迟到 v0.2+ 的模块列表。
 
 ### 示例
 
@@ -3906,6 +3976,8 @@ testReplay : TestCase =
 - **Stream 录制**：`Cmd.streamLines`/`Cmd.streamBytes` 返回的 `Stream String`/`Stream Bytes` 在录制时被强制消费（`Stream.toList`），完整内容记入 JSONL 的 `result` 字段。**部分消费的 Stream 不支持录制**——录制模式下 Stream 必须完整消费，否则录制报错 `ReplayStreamPartiallyConsumed`。这避免回放时 Stream 状态不一致（生产侧懒消费 N 个元素、回放侧却消费了全部）。`Cmd.execSafe`（eager，返回 `Result String CommandError`）的录制直接将完整 stdout 记入 `result` 字段。
 - **回放类型检查**：回放时，`replayHandler` 从 JSONL 读取 `result` 并反序列化为业务函数期望类型。**类型不匹配**（业务函数返回类型变更，如 `Result String IOError` 改为 `Result Bytes IOError`）时，回放报错（`ReplayTypeMismatch`），不静默继续。这防止录制文件与代码漂移导致的隐性错误。
 - **回放副作用隔离**：`replayHandler` 仅消解录制时指定的效应（`effectNames`）。若业务代码产生**未录制的效应**（如 `Cmd`/`Signal`/`FFI`），这些效应冒泡到 `main`，运行器在回放模式下拒绝执行（报错 `ReplaySideEffectLeak`），确保回放完全确定。这一机制保证回放不依赖任何外部状态，仅以录制文件作为唯一真值源。
+- **无限 Stream 不可录制**：`Cmd.streamLines`/`Cmd.streamBytes` 若来自无限输出命令（如 `cmd yes {} []`、`cmd tail { f = "-f" } [ path ]`），录制时强制 `Stream.toList` 会**挂起或 OOM**——录制模式必须将 Stream 完整消费以记入 `result` 字段，无限 Stream 永远无法完成消费。录制仅适用于 `Cmd.execSafe`（eager 缓冲，自然有限）或输出有限的 Stream（如 `cmd head {} [ n ]` 截断后）。**用户需确保录制目标输出有限**——若不确定，应在录制前用 `Stream.take` 截断或在生产代码中用 `Cmd.execSafe` 替代 `Cmd.streamLines`。
+- **`FfiValue` 中 `OpaqueVal`/`BufferVal` 不可录制**：`FfiValue` 的 `OpaqueVal` 是 C 侧 `void*` 指针，指向 C 堆内存——Kun 运行时无法序列化裸指针（指针值跨进程无意义，且 C 内部状态不可访问）。`BufferVal`（`FfiBuffer`）虽为字节序列但作用域受限（编译器内置规则，超出声明块即编译错误），录制时已超出作用域→悬挂引用。录制 `FFI.call` 时遇到 `OpaqueVal`/`BufferVal` 参数或返回值 → **`ReplaySerializationError`**。仅支持可序列化的 `FfiValue` 变体：`IntVal`/`FloatVal`/`BoolVal`/`StringVal`/`BytesVal`/`PathVal`/`UnitVal`。含 `Opaque`/`FfiBuffer` 的 FFI 调用不可录制，需用 `Cmd.execSafe` 包装或避免在录制覆盖范围内调用。
 
 ### 匹配规则与限制
 

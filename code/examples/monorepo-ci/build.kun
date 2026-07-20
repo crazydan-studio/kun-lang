@@ -4,6 +4,8 @@
 // 用法：
 //   kun build.kun --root-path=./repo --registry=docker.io/myorg
 //                  --parallel=4 --skip-tests --report-dir=./reports
+//
+// 注：示例展示设计愿景，部分特性（如 Cli.parse）非 MVP 可运行形态
 // ============================================================
 
 import Cli

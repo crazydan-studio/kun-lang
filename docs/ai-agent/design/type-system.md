@@ -1231,6 +1231,8 @@ rewritingDb =
 
 `abort value` 提前终止 handler，返回 `value`（类型须与 handler 产出类型 `a` 一致）。不调用 `continue`，剩余计算不执行。`abort` 是**短路模式**——handler 内的 `defer` 注册的回调在 unwind 时按 LIFO 执行（详见 [syntax.md defer 章节](./syntax.md#defer-资源清理)）。
 
+> **`abort value` 的类型约束**：`abort value` 的 `value` 类型确定 handler 的产出类型 `a`。例如 `abort (Ok [])` 将 `a` 约束为 `Result (List _) _`。handler 定义中 `a` 的具体类型由 handler 体内 `abort` 值的类型或 `continue` 委托的默认 handler 的产出类型确定——二者必须一致，否则编译错误。
+
 **编译器检查**：每条 handler 分支路径必须有且仅有一次 `continue` 或 `abort`。
 
 ```kun

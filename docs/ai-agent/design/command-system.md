@@ -151,6 +151,13 @@ cmd java { "-Xmx" = "1024m", "-verbose" } []   // -verbose 等同 "-verbose" = t
 | 简写（任何键） | `a`, `"-2"`, `"--readOnly"` | ≡ `= true` |
 
 > **camelCase → kebab-case 规则**：大写字母触发断词（`maxCount` → `--max-count`），全小写多字符键不做连字符拆分（`verbose` → `--verbose`，`readonly` → `--readonly`）。
+>
+> **camelCase → kebab-case 边界情况**：
+> - 连续大写（缩写词）：`parseURL` → `--parse-url`（连续大写视为一个词，整体小写化后断词）
+> - 数字：`max2Tokens` → `--max2-tokens`（数字不触发断词，与前词合并；与后词大写触发的断词分离）
+> - 尾部大写：`configY` → `--config-y`（尾部大写触发断词，单独成词）
+>
+> 通用规则：以"小写/数字 → 大写"或"大写 → 小写"的边界为断词点，连续大写内部不断词（视为缩写词整体）。
 
 ### 值类型映射
 
@@ -410,6 +417,8 @@ pipe [c1, c2, ..., c17]   // 超过 16 层
 // ✅ 合法
 pipe [c1, ..., c16]
 ```
+
+> **动态 `List Command` 的深度检查**：对动态构建的 `List Command`（如 `List.map (\f -> cmd gcc {} [f]) files |> pipe`），编译器无法在编译期知道长度——深度 >16 时为**运行时 panic**（非编译错误）。字面量空列表 `[]` → 编译错误；变量空列表 → 运行时 panic。即"字面量可静态检查"与"变量动态检查"的分工：编译器对字面量做静态检查（深度上限、空列表），对变量表达式退化为运行时检查（运行时 panic）。
 
 ### 管道执行示例
 
